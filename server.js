@@ -328,29 +328,17 @@ function formatSize(bytes) {
 }
 
 async function loadConfig() {
-  try {
-    const res = await fetch(API + '/api/config', { headers: { 'x-auth-token': TOKEN } });
-    config = await res.json();
-    document.getElementById('downloadDir').value = config.downloadDir || '';
-  } catch (e) {}
+  // 从 localStorage 加载客户端配置
+  const localDownloadDir = localStorage.getItem('shareTool_downloadDir') || '';
+  document.getElementById('downloadDir').value = localDownloadDir;
+  config.downloadDir = localDownloadDir;
 }
 
 async function saveDownloadDir() {
   const dir = document.getElementById('downloadDir').value.trim();
-  try {
-    const res = await fetch(API + '/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': TOKEN },
-      body: JSON.stringify({ downloadDir: dir })
-    });
-    const data = await res.json();
-    if (data.success) {
-      config.downloadDir = dir;
-      showAlert('listAlert', '下载目录已保存', 'success');
-    }
-  } catch (e) {
-    showAlert('listAlert', '保存失败', 'error');
-  }
+  localStorage.setItem('shareTool_downloadDir', dir);
+  config.downloadDir = dir;
+  showAlert('listAlert', '下载目录已保存（仅本机有效）', 'success');
 }
 
 async function loadFiles() {
