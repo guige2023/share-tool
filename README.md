@@ -194,3 +194,13 @@ curl -X DELETE \
 - 默认 Token: `35e7438f1e72356ebc6d4e839881cc35233ee01ec81d5af6`
 - 生产环境请修改 `AUTH_TOKEN` 或通过环境变量 `SHARE_TOKEN` 设置
 - 建议修改默认 Token 以确保安全
+
+## 联系方式
+
+### 免费 OpenClaw 和 AI 交流群
+
+![微信群二维码](微信群二维码.jpg)
+
+### 微信公众号
+
+![微信公众号](微信公众号.jpg)
