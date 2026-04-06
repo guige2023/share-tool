@@ -371,7 +371,7 @@ async function loadFiles() {
         '<div class="file-content">' +
           '<div class="file-name">' + escapeHtml(f.name) + '</div>' +
           '<div class="file-meta">' + formatSize(f.size) + ' | ' + new Date(f.time).toLocaleString() + '</div>' +
-          (isText ? '<div class="file-preview" id="preview-' + btoa(f.name).substring(0,20) + '"></div>' : '') +
+          (isText ? '<div class="file-preview" id="preview-' + btoaSafe(f.name).substring(0,20) + '"></div>' : '') +
         '</div>' +
         '<div class="file-actions">' +
           '<button class="btn btn-sm" onclick="copyContent(\\'' + encodeURIComponent(f.name) + '\\')">复制</button>' +
@@ -396,6 +396,12 @@ function isTextFile(name) {
   return textExts.some(ext => name.endsWith(ext)) || !name.includes('.');
 }
 
+function btoaSafe(str) {
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+    return String.fromCharCode(parseInt(p1, 16));
+  }));
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -408,7 +414,7 @@ async function loadPreview(filename) {
       headers: { 'x-auth-token': TOKEN }
     });
     const data = await res.json();
-    const el = document.getElementById('preview-' + btoa(filename).substring(0,20));
+    const el = document.getElementById('preview-' + btoaSafe(filename).substring(0,20));
     if (el && data.content) {
       el.textContent = data.content.substring(0, 300) + (data.content.length > 300 ? '...' : '');
     }
