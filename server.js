@@ -434,11 +434,21 @@ async function copyContent(filename) {
     });
     const data = await res.json();
     if (data.content) {
-      navigator.clipboard.writeText(data.content).then(() => {
+      // 使用兼容方式复制（支持 HTTP）
+      const textarea = document.createElement('textarea');
+      textarea.value = data.content;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
         showAlert('listAlert', '内容已复制', 'success');
-      }).catch(() => {
+      } catch (e) {
+        // 降级方案：使用 prompt
         prompt('复制内容:', data.content);
-      });
+      }
+      document.body.removeChild(textarea);
     }
   } catch (e) {
     showAlert('listAlert', '复制失败: ' + e.message, 'error');
