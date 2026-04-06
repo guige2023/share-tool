@@ -474,7 +474,7 @@ async function uploadFiles(files) {
 
 async function copyContent(filename) {
   try {
-    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), {
+    const res = await fetch(API + '/api/content/' + filename, {
       headers: { 'x-auth-token': TOKEN }
     });
     const data = await res.json();
@@ -501,13 +501,13 @@ async function copyContent(filename) {
 }
 
 function downloadFile(filename) {
-  window.open(API + '/download/' + encodeURIComponent(filename), '_blank');
+  window.open(API + '/download/' + filename, '_blank');
 }
 
 async function deleteFile(filename) {
   if (!confirm('确定删除?')) return;
   try {
-    const res = await fetch(API + '/api/file/' + encodeURIComponent(filename), {
+    const res = await fetch(API + '/api/file/' + filename, {
       method: 'DELETE',
       headers: { 'x-auth-token': TOKEN }
     });
