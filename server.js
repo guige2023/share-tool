@@ -689,7 +689,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (cleanPath.startsWith('/api/content/')) {
-    const filename = cleanPath.replace('/api/content/', '');
+    const filename = decodeURIComponent(cleanPath.replace('/api/content/', ''));
     const filepath = path.join(SHARE_DIR, filename);
     if (!fs.existsSync(filepath)) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -828,7 +828,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (req.method === 'DELETE' && cleanPath.startsWith('/api/file/')) {
-    const filename = cleanPath.replace('/api/file/', '');
+    const filename = decodeURIComponent(cleanPath.replace('/api/file/', ''));
     const filepath = path.join(SHARE_DIR, filename);
     if (fs.existsSync(filepath)) {
       fs.unlinkSync(filepath);
@@ -842,7 +842,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (cleanPath.startsWith('/download/')) {
-    const filename = cleanPath.replace('/download/', '');
+    const filename = decodeURIComponent(cleanPath.replace('/download/', ''));
     const filepath = path.join(SHARE_DIR, filename);
     if (!fs.existsSync(filepath)) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
