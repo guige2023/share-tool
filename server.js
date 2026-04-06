@@ -70,6 +70,19 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 header { text-align: center; margin-bottom: 32px; }
 h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
 .subtitle { color: #64748b; font-size: 14px; }
+.hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid #334155; }
+.hero-content { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.hero-text { flex: 1; min-width: 200px; }
+.hero-title { font-size: 18px; font-weight: 600; color: #e2e8f0; margin-bottom: 12px; }
+.hero-desc { font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 8px; }
+.hero-features { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.hero-feature { background: rgba(102, 126, 234, 0.15); padding: 4px 10px; border-radius: 20px; font-size: 11px; color: #667eea; }
+.hero-qr { flex-shrink: 0; text-align: center; }
+.hero-qr img { width: 120px; height: 120px; border-radius: 8px; border: 2px solid #334155; background: white; }
+.hero-qr-tip { font-size: 11px; color: #64748b; margin-top: 8px; }
+.hero-url { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.hero-url input { flex: 1; padding: 8px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #667eea; font-size: 12px; }
+.hero-url .btn-copy { padding: 8px 12px; background: #334155; border: none; border-radius: 8px; color: #e2e8f0; cursor: pointer; font-size: 12px; }
 .card { background: #1e293b; border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 1px solid #334155; }
 .section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #94a3b8; display: flex; align-items: center; gap: 8px; }
 .section-title::before { content: ''; width: 4px; height: 16px; background: linear-gradient(180deg, #667eea, #764ba2); border-radius: 2px; }
@@ -120,6 +133,9 @@ input:focus { outline: none; border-color: #667eea; }
   .file-actions { justify-content: flex-start; }
   .setting-row { flex-direction: column; align-items: stretch; }
   .setting-row label { min-width: auto; }
+  .hero-content { flex-direction: column; }
+  .hero-qr { order: -1; }
+  .hero-url { flex-direction: column; }
 }
 </style>
 </head>
@@ -129,6 +145,29 @@ input:focus { outline: none; border-color: #667eea; }
     <h1>ShareTool</h1>
     <p class="subtitle" id="serverInfo">加载中...</p>
   </header>
+
+  <div class="hero">
+    <div class="hero-content">
+      <div class="hero-text">
+        <div class="hero-title">📡 局域网文件/文字分享</div>
+        <div class="hero-desc">在同一 WiFi 网络下，扫码即可用手机访问本页面，分享文字或文件。</div>
+        <div class="hero-features">
+          <span class="hero-feature">📝 文字分享</span>
+          <span class="hero-feature">📁 文件上传</span>
+          <span class="hero-feature">⬇️ 一键下载</span>
+          <span class="hero-feature">📱 扫码访问</span>
+        </div>
+        <div class="hero-url">
+          <input type="text" id="shareUrl" readonly value="">
+          <button class="btn-copy" onclick="copyUrl()">复制</button>
+        </div>
+      </div>
+      <div class="hero-qr">
+        <img id="qrCode" src="" alt="QR Code">
+        <div class="hero-qr-tip">手机扫码访问</div>
+      </div>
+    </div>
+  </div>
 
   <div class="card">
     <div class="section-title">分享文字</div>
@@ -550,8 +589,21 @@ async function downloadAll() {
   setTimeout(() => { progressDiv.style.display = 'none'; }, 3000);
 }
 
+function copyUrl() {
+  const url = document.getElementById('shareUrl').value;
+  const textarea = document.createElement('textarea');
+  textarea.value = url;
+  document.body.appendChild(textarea);
+  textarea.select();
+  try { document.execCommand('copy'); alert('链接已复制'); } catch (e) {}
+  document.body.removeChild(textarea);
+}
+
 // 初始化
-document.getElementById('serverInfo').textContent = '局域网访问 http://' + window.location.hostname + ':${PORT}';
+const shareUrl = 'http://' + window.location.hostname + ':${PORT}';
+document.getElementById('serverInfo').textContent = '局域网访问 ' + shareUrl;
+document.getElementById('shareUrl').value = shareUrl;
+document.getElementById('qrCode').src = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(shareUrl);
 document.getElementById('shareTextBtn').addEventListener('click', shareText);
 document.getElementById('clearTextBtn').addEventListener('click', () => {
   document.getElementById('textContent').value = '';
