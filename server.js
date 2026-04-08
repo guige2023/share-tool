@@ -2944,6 +2944,17 @@ function flushOfflineQueue() {
 
 // 增量同步：定期从服务器拉取变更
 let syncIntervalId = null;
+
+// 手动触发一次增量同步
+function doIncrementalSync(sinceTs = 0) {
+  if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
+    console.log('[Sync] Cannot sync: not connected');
+    return;
+  }
+  ws.send(JSON.stringify({ type: 'sync_request', payload: { since: sinceTs || lastSyncTs, deviceId: DEVICE_ID } }));
+  console.log('[Sync] Manual sync_request sent, since:', sinceTs || lastSyncTs);
+}
+
 function startPeriodicSync(intervalMs = 30000) {
   if (syncIntervalId) clearInterval(syncIntervalId);
   syncIntervalId = setInterval(() => {
