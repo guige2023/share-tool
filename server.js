@@ -1897,6 +1897,12 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
 .upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
 .upload-progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.3s; }
+.file-star { cursor: pointer; font-size: 16px; color: var(--text-muted); transition: color 0.2s; user-select: none; }
+.file-star:hover { color: #f5a623; }
+.file-star.starred { color: #f5a623; }
+.notif-badge { position: fixed; top: 12px; right: 12px; background: #e53935; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; z-index: 400; font-weight: bold; }
+.notif-badge.show { display: flex; }
+.paste-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 .recent-searches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .recent-search-tag { padding: 3px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
 .recent-search-tag:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
@@ -1963,6 +1969,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div class="section-title">分享文字</div>
     <div id="textAlert" class="alert"></div>
     <textarea id="textContent" placeholder="输入文字、代码或粘贴内容..."></textarea>
+    <div class="paste-hint" id="pasteHint">📋 可直接 Ctrl+V 粘贴图片或文件</div>
     <div class="actions">
       <button class="btn" id="shareTextBtn">分享</button>
       <button class="btn btn-secondary" id="clearTextBtn">清空</button>
@@ -2075,6 +2082,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   </div>
 </div>
 
+<div class="notif-badge" id="notifBadge"></div>
 <div id="toast" class="toast"></div>
 
 <script>
@@ -2367,6 +2375,7 @@ function renderFiles() {
         (isText ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') +
         '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">复制</button>' +
         '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">下载</button>' +
+        '<span class="file-star" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">☆</span>' +
         '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">删除</button>' +
       '</div>' +
     '</div>';
@@ -2383,6 +2392,7 @@ function renderFiles() {
   const allFiles = applySort(currentFilter !== 'all' ? currentFiles.filter(f => f.type === currentFilter) : [...currentFiles]);
   const totalPages = Math.ceil(allFiles.length / PAGE_SIZE) || 1;
   renderPagination(currentPage, totalPages);
+  updateFavoritesInView();
 }
 
 async function loadPreview(filename, previewId) {
@@ -2829,6 +2839,93 @@ async function batchAddTag() {
   clearBatch();
   loadFiles();
 }
+
+// Favorites (localStorage)
+function getFavorites() {
+  try { return JSON.parse(localStorage.getItem('sharetool_favorites') || '[]'); }
+  catch (e) { return []; }
+}
+
+function toggleFavorite(filename) {
+  let favs = getFavorites();
+  const decoded = decodeURIComponent(filename);
+  if (favs.includes(decoded)) {
+    favs = favs.filter(f => f !== decoded);
+  } else {
+    favs.unshift(decoded);
+    favs = favs.slice(0, 20);
+  }
+  try { localStorage.setItem('sharetool_favorites', JSON.stringify(favs)); } catch (e) {}
+  // Update star UI
+  const isFav = getFavorites().includes(decoded);
+  const starEl = document.querySelector('[data-starfile="' + filename + '"]');
+  if (starEl) {
+    starEl.classList.toggle('starred', isFav);
+    starEl.textContent = isFav ? '★' : '☆';
+  }
+}
+
+function updateFavoritesInView() {
+  const favs = getFavorites();
+  document.querySelectorAll('[data-starfile]').forEach(el => {
+    const filename = decodeURIComponent(el.getAttribute('data-starfile'));
+    const isFav = favs.includes(filename);
+    el.classList.toggle('starred', isFav);
+    el.textContent = isFav ? '★' : '☆';
+  });
+}
+
+// Notification badge for WS changes
+let notifCount = 0;
+function incrementBadge() {
+  notifCount++;
+  const badge = document.getElementById('notifBadge');
+  if (badge) {
+    badge.textContent = notifCount > 9 ? '9+' : notifCount;
+    badge.classList.add('show');
+  }
+}
+
+function clearBadge() {
+  notifCount = 0;
+  const badge = document.getElementById('notifBadge');
+  if (badge) badge.classList.remove('show');
+}
+
+document.addEventListener('click', () => clearBadge());
+
+// Paste from clipboard (for images)
+document.addEventListener('paste', async (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  const textArea = document.getElementById('textContent');
+  if (!textArea || document.activeElement !== textArea) return;
+  
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1];
+          const filename = 'paste_' + Date.now() + '.' + (file.type.split('/')[1] || 'png');
+          fetch(API + '/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+            body: JSON.stringify({ filename, content: base64, type: 'file' })
+          }).then(r => r.json()).then(data => {
+            if (data.success) {
+              showToast('✓ 图片已粘贴上传: ' + filename);
+              loadFiles();
+            }
+          });
+        };
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  }
+});
 
 // 批量选择处理
 document.addEventListener('change', (e) => {
