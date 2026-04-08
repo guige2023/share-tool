@@ -1824,6 +1824,7 @@ function handleWsMessage(ws, msg) {
       const changes = db.getUnsyncedLogs(lastSyncTs);
       const { files } = db.listFiles(100, 0);
 
+      const syncStatus = db.getSyncStatus();
       ws.send(JSON.stringify({
         type: 'registered',
         payload: {
@@ -1831,6 +1832,7 @@ function handleWsMessage(ws, msg) {
           deviceName: DEVICE_NAME,
           files: files.map(f => ({ id: f.id, name: f.filename, size: f.size, time: f.created_at * 1000, type: f.type, hash: f.hash, tags: f.tags })),
           devices: db.listDevices().map(d => ({ deviceId: d.device_id, deviceName: d.device_name, ip: d.ip, isOnline: d.is_online === 1 })),
+          syncStatus,  // 当前未同步状态
           // 增量同步数据
           sync: {
             changes,
@@ -2827,6 +2829,14 @@ function handleWsMessage(msg) {
         lastSyncTs = payload.sync.serverTs;
         localStorage.setItem('sharetool_last_sync', lastSyncTs);
         console.log('[Sync] Saved lastSyncTs:', lastSyncTs);
+      }
+      // 显示未同步状态
+      if (payload.syncStatus) {
+        const { unsynced, unsyncedSize } = payload.syncStatus;
+        if (unsynced > 0) {
+          const sizeStr = formatSize(unsyncedSize || 0);
+          document.getElementById('syncStatus').textContent = '同步在线 · ' + unsynced + ' 项待同步 (' + sizeStr + ')';
+        }
       }
       // 应用增量同步变更（差异更新，避免全量刷新）
       if (payload.sync && payload.sync.changes && payload.sync.changes.length > 0) {
