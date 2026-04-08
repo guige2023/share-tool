@@ -1949,8 +1949,14 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-upload-area .text { color: var(--text-muted); font-size: 14px; }
 .file-upload-area .hint { color: var(--text-muted); font-size: 12px; margin-top: 8px; }
 .file-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
-.file-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: var(--bg-tertiary); border-radius: 10px; border: 1px solid var(--border-color); gap: 12px; }
+.file-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: var(--bg-tertiary); border-radius: 10px; border: 1px solid var(--border-color); gap: 12px; touch-action: pan-y; user-select: none; position: relative; overflow: hidden; }
 .file-item:hover { border-color: var(--text-muted); }
+.file-item .swipe-actions { position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 0; transform: translateX(100%); transition: transform 0.2s ease; }
+.file-item .swipe-actions.show { transform: translateX(0); }
+.file-item .swipe-btn { height: 100%; padding: 0 20px; border: none; color: white; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px; min-width: 60px; }
+.file-item .swipe-btn.delete { background: #dc2626; }
+.file-item .swipe-btn.tag { background: #d97706; }
+.file-item .swipe-btn .icon { font-size: 16px; }
 .file-content { flex: 1; min-width: 0; }
 .file-preview { background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-top: 8px; max-height: 150px; overflow: auto; white-space: pre-wrap; font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border-color); word-break: break-all; display: none; }
 .file-preview.show { display: block; }
@@ -2571,8 +2577,12 @@ function renderFiles() {
     
     // Search highlight applied by applySearchHighlight() after render
     
-    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '">' +
-      '<div style="margin-right: 12px;">' +
+    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)">' +
+      '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
+        '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>标签</span></button>' +
+        '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>删除</span></button>' +
+      '</div>' +
+      '<div style="margin-right: 12px; display:flex; align-items:center;">' +
         '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" style="width: 18px; height: 18px; cursor: pointer;">' +
       '</div>' +
       '<div class="file-content">' +
@@ -2605,6 +2615,53 @@ function renderFiles() {
   const totalPages = Math.ceil(allFiles.length / PAGE_SIZE) || 1;
   renderPagination(currentPage, totalPages);
   updateFavoritesInView();
+}
+
+// Mobile swipe gesture handling
+let swipeState = {};
+const SWIPE_THRESHOLD = 60;
+
+function handleSwipeStart(e, el) {
+  swipeState.el = el;
+  swipeState.startX = e.touches[0].clientX;
+  swipeState.currentX = swipeState.startX;
+}
+
+function handleSwipeMove(e, el) {
+  if (!swipeState.el || swipeState.el !== el) return;
+  const dx = e.touches[0].clientX - swipeState.startX;
+  swipeState.currentX = e.touches[0].clientX;
+  const actions = el.querySelector('.swipe-actions');
+  if (!actions) return;
+  if (dx < 0) {
+    el.style.transform = 'translateX(' + Math.max(dx, -140) + 'px)';
+    el.style.transition = 'none';
+  }
+}
+
+function handleSwipeEnd(e, el) {
+  if (!swipeState.el || swipeState.el !== el) return;
+  const dx = swipeState.currentX - swipeState.startX;
+  const actions = el.querySelector('.swipe-actions');
+  if (!actions) return;
+  el.style.transition = 'transform 0.2s ease';
+  if (dx < -SWIPE_THRESHOLD) {
+    el.style.transform = 'translateX(-140px)';
+    actions.classList.add('show');
+  } else {
+    el.style.transform = 'translateX(0)';
+    actions.classList.remove('show');
+  }
+  swipeState = {};
+}
+
+function resetSwipe(btn) {
+  const item = btn.closest('.file-item');
+  if (!item) return;
+  item.style.transition = 'transform 0.2s ease';
+  item.style.transform = 'translateX(0)';
+  const actions = item.querySelector('.swipe-actions');
+  if (actions) actions.classList.remove('show');
 }
 
 async function loadPreview(filename, previewId) {
