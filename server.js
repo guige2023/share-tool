@@ -679,8 +679,8 @@ function validateShareCode(code) {
   const shareData = db.getShareLink(code);
   if (!shareData) return null;
   
-  // 检查过期（null = 永不过期）
-  if (shareData.expiresAt && Date.now() > shareData.expiresAt) {
+  // 检查过期（MAX_TS = 永不过期）
+  if (shareData.expiresAt && shareData.expiresAt !== MAX_TS && Date.now() > shareData.expiresAt) {
     db.deleteShareLink(code);
     return null;
   }
@@ -3371,8 +3371,8 @@ function showShareLinksModal() {
       } else {
         el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' + links.map(l => {
           const url = location.origin + '/s/' + l.code;
-          const isExpired = l.expiresAt && l.expiresAt < Date.now();
-          const expires = !l.expiresAt ? '永不过期' : (isExpired ? '已过期' : '剩余 ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' 天');
+          const isExpired = l.expiresAt && l.expiresAt !== MAX_TS && l.expiresAt < Date.now();
+          const expires = (l.expiresAt === MAX_TS || !l.expiresAt) ? '永不过期' : (isExpired ? '已过期' : '剩余 ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' 天');
           return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<span style="font-weight:600;">' + escapeHtml(l.filename) + '</span>' +
