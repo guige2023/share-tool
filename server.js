@@ -234,7 +234,7 @@ function escapeHtml(str) {
 // ============================================================
 // 初始化
 // ============================================================
-function init() {
+async function init() {
   // 确保目录存在
   if (!fs.existsSync(SHARE_DIR)) {
     fs.mkdirSync(SHARE_DIR, { recursive: true });
@@ -255,7 +255,7 @@ function init() {
   }
   
   // 启动 HTTP 服务器
-  startHttpServer();
+  await startHttpServer();
   
   // 启动 WebSocket 服务器
   startWsServer();
@@ -276,22 +276,135 @@ function init() {
 }
 
 // ============================================================
+// HTTPS 证书管理
+// ============================================================
+const selfsigned = require('selfsigned');
+
+async function ensureSslCertificates() {
+  const certPath = path.join(SSL_DIR, 'cert.pem');
+  const keyPath = path.join(SSL_DIR, 'key.pem');
+  
+  // 证书已存在
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    const stats = fs.statSync(certPath);
+    const age = (Date.now() - stats.mtimeMs) / 1000 / 86400; // 天
+    if (age < 365) {
+      console.log(`[HTTPS] Using existing certificate (age: ${age.toFixed(1)} days)`);
+      return true;
+    }
+    console.log(`[HTTPS] Certificate expired (age: ${age.toFixed(1)} days), regenerating...`);
+  }
+  
+  // 生成新证书
+  try {
+    if (!fs.existsSync(SSL_DIR)) {
+      fs.mkdirSync(SSL_DIR, { recursive: true });
+    }
+    
+    const { key, cert } = await generateSelfSignedCert();
+    
+    fs.writeFileSync(keyPath, key);
+    fs.writeFileSync(certPath, cert);
+    
+    console.log('[HTTPS] Self-signed certificate generated');
+    console.log(`[HTTPS] Certificate: ${certPath}`);
+    console.log('[HTTPS] NOTE: Add cert to system trust store for full HTTPS support');
+    return true;
+  } catch (e) {
+    console.error('[HTTPS] Certificate generation failed:', e.message);
+    return false;
+  }
+}
+
+async function generateSelfSignedCert() {
+  const interfaces = os.networkInterfaces();
+  const ips = [];
+  
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        ips.push(net.address);
+      }
+    }
+  }
+  
+  const altNames = [
+    { type: 2, value: 'localhost' },  // DNS
+    { type: 7, value: '127.0.0.1' }    // IP
+  ];
+  for (const ip of ips) {
+    if (ip !== '127.0.0.1') {
+      altNames.push({ type: 7, value: ip });
+    }
+  }
+  
+  const attrs = [{ name: 'commonName', value: 'ShareTool' }];
+  const pems = await selfsigned.generate(attrs, {
+    algorithm: 'sha256',
+    days: 365,
+    keySize: 2048,
+    extensions: [{ name: 'subjectAltName', altNames }]
+  });
+  
+  console.log(`[HTTPS] SANs: localhost, 127.0.0.1, ${ips.filter(ip => ip !== '127.0.0.1').join(', ')}`);
+  
+  return { key: pems.private, cert: pems.cert };
+}
+
+function getCertInfo() {
+  const certPath = path.join(SSL_DIR, 'cert.pem');
+  if (!fs.existsSync(certPath)) return null;
+  
+  try {
+    const certPem = fs.readFileSync(certPath, 'utf8');
+    const cert = new crypto.X509Certificate(certPem);
+    return {
+      issuer: cert.issuer.CN || cert.issuer.O || 'ShareTool',
+      subject: cert.subject.CN || cert.subject.O || 'ShareTool',
+      validFrom: cert.validFrom,
+      validTo: cert.validTo,
+      fingerprint: cert.fingerprint256.replace(/:/g, '').toLowerCase().substring(0, 16) + '...',
+      isExpired: new Date(cert.validTo) < new Date(),
+      daysRemaining: Math.ceil((new Date(cert.validTo) - new Date()) / 86400000)
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+// ============================================================
 // HTTP/HTTPS 服务器
 // ============================================================
-function startHttpServer() {
+async function startHttpServer() {
   const serverOptions = {
     key: null,
     cert: null,
     https: false
   };
 
-  // 尝试加载 SSL 证书
+  // 自动生成或加载 SSL 证书
   const certPath = path.join(SSL_DIR, 'cert.pem');
   const keyPath = path.join(SSL_DIR, 'key.pem');
   if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
-    serverOptions.key = fs.readFileSync(keyPath);
-    serverOptions.cert = fs.readFileSync(certPath);
-    serverOptions.https = true;
+    try {
+      serverOptions.key = fs.readFileSync(keyPath);
+      serverOptions.cert = fs.readFileSync(certPath);
+      serverOptions.https = true;
+      const info = getCertInfo();
+      if (info) {
+        console.log(`[HTTPS] Certificate valid for ${info.daysRemaining} days (expires: ${info.validTo})`);
+      }
+    } catch (e) {
+      console.error('[HTTPS] Failed to load certificate:', e.message);
+    }
+  } else {
+    // 自动生成自签名证书
+    const generated = await ensureSslCertificates();
+    if (generated) {
+      serverOptions.key = fs.readFileSync(keyPath);
+      serverOptions.cert = fs.readFileSync(certPath);
+      serverOptions.https = true;
+    }
   }
 
   const requestHandler = async (req, res) => {
@@ -768,6 +881,36 @@ function startHttpServer() {
         sendJson(res, { success: true, logs, stats });
         return;
       }
+      
+      // HTTPS 证书 API
+      if (pathname === '/api/https/cert') {
+        const certInfo = getCertInfo();
+        if (certInfo) {
+          sendJson(res, { success: true, https: true, ...certInfo });
+        } else {
+          sendJson(res, { success: true, https: false });
+        }
+        return;
+      }
+      
+      if (pathname === '/api/https/regenerate' && req.method === 'POST') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        try {
+          const result = ensureSslCertificates();
+          if (result) {
+            const info = getCertInfo();
+            sendJson(res, { success: true, message: 'Certificate regenerated', ...info });
+          } else {
+            sendJson(res, { success: false, error: 'Failed to regenerate certificate' }, 500);
+          }
+        } catch (e) {
+          sendJson(res, { success: false, error: e.message }, 500);
+        }
+        return;
+      }
+      
+      // 未知路由
       
       // 静态文件下载（需要认证）
       if (pathname.startsWith('/download/')) {
