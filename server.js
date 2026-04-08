@@ -923,6 +923,24 @@ self.addEventListener('push', (event) => {
         return;
       }
 
+      if (pathname === '/api/db/stats' && req.method === 'GET') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const stats = db.getDbStats();
+        const integrity = db.checkDbIntegrity();
+        sendJson(res, { ...stats, integrity });
+        return;
+      }
+
+      if (pathname === '/api/db/vacuum' && req.method === 'POST') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        db.runVacuum();
+        db.addAuditLog('db_vacuum', 'Manual VACUUM executed', getClientIp(req), authData.token);
+        sendJson(res, { success: true, message: 'VACUUM completed' });
+        return;
+      }
+
       if (pathname === '/api/delete-all' && req.method === 'DELETE') {
         const authData = authRequired(req, res);
         if (!authData) return;
@@ -1934,10 +1952,20 @@ function startSyncScheduler() {
     }
   }, 60000);
   
-  // 每小时清理一次过期 Token 和分享链接
+  // 每小时清理一次过期 Token、分享链接、sync_log
   setInterval(() => {
     db.cleanupExpiredTokens();
     db.cleanupExpiredShareLinks();
+    db.cleanupSyncLog(7);  // 保留7天已同步的 sync_log
+  }, 3600000);
+
+  // 每天凌晨3点执行 VACUUM（DB碎片整理）
+  setInterval(() => {
+    const h = new Date().getHours();
+    if (h === 3) {
+      console.log('[DB] Running daily VACUUM...');
+      db.runVacuum();
+    }
   }, 3600000);
 }
 

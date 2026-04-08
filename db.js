@@ -691,6 +691,64 @@ function cleanupExpiredShareLinks() {
 }
 
 // ============================================================
+// 同步日志清理 + DB 健康检查
+// ============================================================
+function cleanupSyncLog(daysToKeep = 7) {
+  const db = getDb();
+  const cutoff = Math.floor(Date.now() / 1000) - daysToKeep * 86400;
+  // 只删除已同步且超过保留期的日志
+  const result = db.prepare('DELETE FROM sync_log WHERE synced = 1 AND timestamp < ?').run(cutoff);
+  if (result.changes > 0) {
+    console.log(`[DB] Cleaned up ${result.changes} old sync_log entries`);
+  }
+  return result.changes;
+}
+
+function getDbStats() {
+  const db = getDb();
+  const fileCount = db.prepare('SELECT COUNT(*) as c FROM files').get().c;
+  const deviceCount = db.prepare('SELECT COUNT(*) as c FROM devices').get().c;
+  const syncLogCount = db.prepare('SELECT COUNT(*) as c FROM sync_log').get().c;
+  const unsyncedCount = db.prepare('SELECT COUNT(*) as c FROM sync_log WHERE synced = 0').get().c;
+  const tokenCount = db.prepare('SELECT COUNT(*) as c FROM tokens').get().c;
+  const auditCount = db.prepare('SELECT COUNT(*) as c FROM audit_log').get().c;
+  const shareLinkCount = db.prepare('SELECT COUNT(*) as c FROM share_links').get().c;
+  const totalSize = db.prepare('SELECT COALESCE(SUM(size), 0) as s FROM files').get().s;
+
+  // DB file size
+  let dbSize = 0;
+  try {
+    const fs = require('fs');
+    const stats = fs.statSync(DB_PATH);
+    dbSize = stats.size;
+  } catch (e) {}
+
+  return {
+    files: fileCount,
+    devices: deviceCount,
+    syncLog: syncLogCount,
+    unsynced: unsyncedCount,
+    tokens: tokenCount,
+    auditLog: auditCount,
+    shareLinks: shareLinkCount,
+    totalSize,
+    dbSize
+  };
+}
+
+function runVacuum() {
+  const db = getDb();
+  db.exec('VACUUM');
+  console.log('[DB] VACUUM completed');
+}
+
+function checkDbIntegrity() {
+  const db = getDb();
+  const result = db.prepare('PRAGMA integrity_check').get();
+  return result.integrity_check;
+}
+
+// ============================================================
 // 迁移旧文件（从文件系统迁移到数据库）
 // ============================================================
 function migrateFromFileSystem(shareDir) {
@@ -749,5 +807,7 @@ module.exports = {
   // 迁移
   migrateFromFileSystem,
   // 清理
-  cleanupExpiredTokens
+  cleanupExpiredTokens,
+  // DB 健康
+  cleanupSyncLog, getDbStats, runVacuum, checkDbIntegrity
 };
