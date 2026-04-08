@@ -1951,6 +1951,12 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   <div class="card">
     <div class="section-title">上传文件</div>
     <div id="uploadAlert" class="alert"></div>
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-zone-icon">📂</div>
+      <div>拖拽文件到此处上传</div>
+      <div style="font-size:12px;margin-top:4px;">或继续使用下方按钮</div>
+    </div>
+
     <label class="file-upload-area">
       <input type="file" id="fileInput" multiple webkitdirectory>
       <div class="icon">📁</div>
@@ -1973,6 +1979,13 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <span class="filter-tab" data-filter="text">文字</span>
       <span class="filter-tab" data-filter="file">文件</span>
     </div>
+    <div class="batch-bar" id="batchBar">
+      <span class="batch-count" id="batchCount">已选择 0 个文件</span>
+      <button onclick="batchDelete()">批量删除</button>
+      <button onclick="batchAddTag()">批量标签</button>
+      <button class="danger" onclick="clearBatch()">取消</button>
+    </div>
+
     <div class="filter-tabs" id="tagFilterBar" style="margin-top:4px;">
       <!-- Dynamic tags will be injected here -->
     </div>
@@ -2315,7 +2328,7 @@ function renderFiles() {
         '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" style="width: 18px; height: 18px; cursor: pointer;">' +
       '</div>' +
       '<div class="file-content">' +
-        '<div class="file-name search-target">' + escapeHtml(f.name) + '</div>' +
+        '<div class="file-name"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(f.name) + '</span></div>' +
         (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
         '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' +
         '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' +
@@ -2691,23 +2704,64 @@ async function deleteAll() {
   } catch (e) { showAlert('listAlert', '删除失败: ' + e.message, 'error'); }
 }
 
+function updateBatchBar() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  const bar = document.getElementById('batchBar');
+  const count = document.getElementById('batchCount');
+  if (bar) bar.classList.toggle('show', checked.length > 0);
+  if (count) count.textContent = '已选择 ' + checked.length + ' 个文件';
+}
+
+function clearBatch() {
+  document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = false);
+  updateBatchBar();
+}
+
+async function batchDelete() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  if (!confirm('确定删除选中的 ' + checked.length + ' 个文件?')) return;
+  let deleted = 0;
+  for (const cb of checked) {
+    const filename = cb.value;
+    try {
+      await fetch(API + '/api/file/' + filename + '?filename=' + encodeURIComponent(filename), { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+      deleted++;
+    } catch (e) {}
+  }
+  showToast('已删除 ' + deleted + ' 个文件');
+  clearBatch();
+  loadFiles();
+}
+
+async function batchAddTag() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  const tag = prompt('请输入标签名称:');
+  if (!tag || !tag.trim()) return;
+  let tagged = 0;
+  for (const cb of checked) {
+    const filename = cb.value;
+    try {
+      const res = await fetch(API + '/api/file-tags/' + filename, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ tags: tag.trim() })
+      });
+      if (res.ok) tagged++;
+    } catch (e) {}
+  }
+  showToast('已为 ' + tagged + ' 个文件添加标签');
+  clearBatch();
+  loadFiles();
+}
+
 // 批量选择处理
 document.addEventListener('change', (e) => {
   if (e.target.classList.contains('batch-checkbox')) {
-    updateBatchDownloadButton();
+    updateBatchBar();
   }
 });
-
-function updateBatchDownloadButton() {
-  const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
-  const count = checkboxes.length;
-  const btn = document.getElementById('batchDownloadBtn');
-  const countSpan = document.getElementById('batchCount');
-  if (btn) {
-    btn.style.display = count > 0 ? 'inline-block' : 'none';
-    if (countSpan) countSpan.textContent = count;
-  }
-}
 
 async function batchDownload() {
   const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
