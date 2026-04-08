@@ -261,6 +261,28 @@ function deleteFileByName(filename) {
   return true;
 }
 
+function renameFile(oldFilename, newFilename) {
+  const db = getDb();
+  const existing = getFileByName(oldFilename);
+  if (!existing) return { success: false, error: '文件不存在' };
+  
+  // 检查新文件名是否已存在
+  const conflict = getFileByName(newFilename);
+  if (conflict) return { success: false, error: '文件名已存在' };
+  
+  // 重命名
+  const oldId = existing.id;
+  db.prepare('UPDATE files SET filename = ?, updated_at = unixepoch() WHERE filename = ?').run(newFilename, oldFilename);
+  
+  // 记录同步日志
+  const updated = getFileByName(newFilename);
+  if (updated) {
+    addSyncLog(updated.id, newFilename, 'rename', updated.hash);
+  }
+  
+  return { success: true, oldFilename, newFilename, hash: updated ? updated.hash : null };
+}
+
 function deleteFile(id) {
   const db = getDb();
   const existing = getFile(id);
@@ -647,7 +669,7 @@ module.exports = {
   getDb,
   // 文件
   addFile, getFile, getFileByName, listFiles, updateFile, updateFileByName,
-  deleteFile, deleteFileByName, deleteOldFiles, deleteAllFiles,
+  deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
   searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,

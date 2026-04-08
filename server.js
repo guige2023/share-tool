@@ -1040,6 +1040,36 @@ async function startHttpServer() {
         return;
       }
       
+      // 文件重命名 API
+      if (pathname.startsWith('/api/file-rename/') && req.method === 'POST') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const oldFilename = decodeURIComponent(pathname.slice('/api/file-rename/'.length));
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { newFilename } = JSON.parse(body);
+            if (!newFilename || !newFilename.trim()) {
+              sendJson(res, { success: false, error: '新文件名不能为空' }, 400);
+              return;
+            }
+            const newName = newFilename.trim();
+            const result = db.renameFile(oldFilename, newName);
+            if (result.success) {
+              broadcastChange({ type: 'rename', oldFilename, newFilename: newName, hash: result.hash });
+              db.addAuditLog('rename', `${oldFilename} → ${newName}`, getClientIp(req), authData.token);
+              sendJson(res, { success: true, oldFilename, newFilename: newName });
+            } else {
+              sendJson(res, { success: false, error: result.error }, 400);
+            }
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 400);
+          }
+        });
+        return;
+      }
+      
       if (pathname === '/api/sync/status') {
         const authData = authRequired(req, res);
         if (!authData) return;
@@ -1586,6 +1616,13 @@ function handleWsMessage(ws, msg) {
       const { filename } = payload;
       db.deleteFileByName(filename);
       broadcastChange({ type: 'delete', filename }, ws.deviceId);
+      break;
+    }
+    
+    case 'file_rename': {
+      const { oldFilename, newFilename } = payload;
+      db.renameFile(oldFilename, newFilename);
+      broadcastChange({ type: 'rename', oldFilename, newFilename }, ws.deviceId);
       break;
     }
     
@@ -2297,7 +2334,9 @@ function handleWsMessage(msg) {
       if (type === 'file_create') incrementBadge();
       showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
       else if (type === 'file_delete') showToast('🗑 远程删除了文件');
+      else if (type === 'file_rename') showToast('✏️ 远程重命名: ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
       else if (type === 'change' && payload.type === 'create') showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
+      else if (type === 'change' && payload.type === 'rename') showToast('✏️ 远程重命名: ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
       break;
     }
     case 'device_list': {
@@ -2423,6 +2462,7 @@ function renderFiles() {
       '<div class="file-actions">' +
         (isText ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') +
         '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">复制</button>' +
+        '<button class="btn btn-sm" onclick="renameFile(\'' + encodeURIComponent(f.name) + '\')">重命名</button>' +
         '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">下载</button>' +
         '<span class="file-star" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">☆</span>' +
         '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">删除</button>' +
@@ -2829,6 +2869,26 @@ async function deleteFile(filename) {
       showAlert('listAlert', '删除失败', 'error');
     }
   } catch (e) { showAlert('listAlert', '删除失败: ' + e.message, 'error'); }
+}
+
+async function renameFile(oldFilename) {
+  const newFilename = prompt('输入新文件名:', decodeURIComponent(oldFilename));
+  if (!newFilename || newFilename === decodeURIComponent(oldFilename)) return;
+  try {
+    const res = await fetch(API + '/api/file-rename/' + oldFilename, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ newFilename: newFilename.trim() })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('已重命名: ' + data.newFilename);
+      loadFiles();
+      broadcastWs({ type: 'file_rename', payload: { oldFilename: data.oldFilename, newFilename: data.newFilename } });
+    } else {
+      showAlert('listAlert', '重命名失败: ' + (data.error || '未知错误'), 'error');
+    }
+  } catch (e) { showAlert('listAlert', '重命名失败: ' + e.message, 'error'); }
 }
 
 async function deleteOld(days) {
