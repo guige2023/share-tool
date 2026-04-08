@@ -1878,6 +1878,17 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
 .pagination button.active { background: rgba(102,126,234,0.2); border-color: var(--accent-primary); color: #667eea; }
 .pagination .page-info { font-size: 12px; color: var(--text-muted); padding: 0 8px; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 300; display: none; align-items: center; justify-content: center; }
+.modal-overlay.show { display: flex; }
+.modal-content { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; max-width: 700px; width: 90%; max-height: 80vh; overflow: auto; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.modal-title { font-size: 16px; font-weight: 600; color: var(--text-primary); word-break: break-all; }
+.modal-close { background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; }
+.modal-close:hover { color: var(--text-primary); }
+.modal-body { font-size: 14px; color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; word-break: break-all; max-height: 60vh; overflow: auto; }
+.modal-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+.kbd-hint { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 8px; }
+.kbd { display: inline-block; padding: 2px 6px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; }
 }
 </style>
 </head>
@@ -1994,6 +2005,18 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div class="device-list" id="deviceList">
       <div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">正在发现设备...</div></div>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="fileModal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" onclick="closeModal()">x</button>
+    </div>
+    <div class="modal-meta" id="modalMeta"></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="kbd-hint"><span class="kbd">Esc</span> close</div>
   </div>
 </div>
 
@@ -2270,7 +2293,7 @@ function renderFiles() {
         (isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
       '</div>' +
       '<div class="file-actions">' +
-        (isText ? '<button class="btn btn-sm" onclick="togglePreview(\'' + encodeURIComponent(f.name) + '\', \'' + previewId + '\')">预览</button>' : '') +
+        (isText ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') +
         '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">复制</button>' +
         '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">下载</button>' +
         '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">删除</button>' +
@@ -2311,6 +2334,25 @@ function togglePreview(filename, previewId) {
     }
   }
 }
+
+async function openFileModal(filename) {
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('modalMeta').textContent = 'Size: ' + formatSize(data.size || 0) + ' | Modified: ' + formatTime(data.time || 0);
+    document.getElementById('modalBody').textContent = data.content || '';
+    document.getElementById('fileModal').classList.add('show');
+  } catch (e) { showToast('Failed to open file'); }
+}
+
+function closeModal() {
+  document.getElementById('fileModal').classList.remove('show');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
 
 function applySearchHighlight(q) {
   if (!q || !q.trim()) return;
