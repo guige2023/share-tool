@@ -1798,10 +1798,15 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-preview.show { display: block; }
 .file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .file-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-.file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: #667eea; border-radius: 4px; }
+.file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: #667eea; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+.file-tag:hover { background: rgba(102,126,234,0.35); }
+.file-tag .remove-tag { margin-left: 4px; opacity: 0.6; }
+.file-tag .remove-tag:hover { opacity: 1; }
 .file-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 .file-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 .empty { text-align: center; padding: 30px; color: var(--text-muted); }
+.empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
+.empty-text { font-size: 14px; }
 .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; display: none; }
 .alert-success { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; }
 .alert-error { background: rgba(220, 38, 38, 0.15); border: 1px solid #dc2626; color: #f87171; }
@@ -1839,6 +1844,14 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .fab-menu { display: none; position: fixed; bottom: 90px; right: 24px; flex-direction: column; gap: 8px; z-index: 99; }
 .fab-menu.show { display: flex; }
 .fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; }
+.search-highlight { background: rgba(102,126,234,0.4); color: #a5b4fc; border-radius: 2px; padding: 0 2px; }
+.tag-filter-btn { cursor: pointer; transition: all 0.2s; }
+.loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--text-muted); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.file-item { animation: fadeIn 0.2s ease-out; }
+.toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 10px; font-size: 14px; z-index: 200; box-shadow: 0 4px 20px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s; }
+.toast.show { opacity: 1; }
 @media (max-width: 500px) {
   .container { padding: 16px; padding-bottom: 100px; }
   .actions { flex-direction: column; }
@@ -1943,17 +1956,23 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <div id="progressText" style="font-size:12px;color:#64748b;margin-top:4px;"></div>
     </div>
     <div id="filesContainer">
-      <div class="empty">暂无分享内容</div>
+      <div class="empty" id="emptyState">
+        <div class="empty-icon">📭</div>
+        <div class="empty-text">暂无分享内容</div>
+        <div class="empty-text" style="font-size:12px;margin-top:8px;">上传文件或分享文字开始使用</div>
+      </div>
     </div>
   </div>
 
   <div class="card">
     <div class="section-title">同步设备</div>
     <div class="device-list" id="deviceList">
-      <div class="empty">正在发现设备...</div>
+      <div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">正在发现设备...</div></div>
     </div>
   </div>
 </div>
+
+<div id="toast" class="toast"></div>
 
 <script>
 const API = '';
@@ -1969,6 +1988,14 @@ let currentFilter = 'all';
 let reconnectTimer = null;
 let reconnectDelay = 1000;
 let isConnected = false;
+let searchTimeout = null;
+
+function showToast(msg, duration = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration);
+}
 
 function authHeaders() {
   const headers = { 'Content-Type': 'application/json' };
@@ -2108,7 +2135,7 @@ function renderDevices(devices) {
   document.getElementById('deviceCount').textContent = '设备: ' + devices.length;
   
   if (!devices.length) {
-    container.innerHTML = '<div class="empty">暂无在线设备</div>';
+    container.innerHTML = '<div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">暂无在线设备</div></div>';
     return;
   }
   
@@ -2134,6 +2161,7 @@ async function loadFiles() {
 
 function renderFiles() {
   const container = document.getElementById('filesContainer');
+  const emptyState = document.getElementById('emptyState');
   
   let files = currentFiles;
   if (currentFilter !== 'all') {
@@ -2141,7 +2169,11 @@ function renderFiles() {
   }
   
   if (!files.length) {
-    container.innerHTML = '<div class="empty">暂无分享内容</div>';
+    container.innerHTML = '<div class="empty" id="emptyState">' +
+      '<div class="empty-icon">📭</div>' +
+      '<div class="empty-text">暂无分享内容</div>' +
+      '<div class="empty-text" style="font-size:12px;margin-top:8px;">上传文件或分享文字开始使用</div>' +
+      '</div>';
     return;
   }
 
@@ -2149,14 +2181,17 @@ function renderFiles() {
     const isText = f.type === 'text';
     const previewId = 'preview-' + btoaSafe(f.name).substring(0, 20);
     const tags = f.tags ? f.tags.split(',').filter(t => t.trim()) : [];
+    const searchQ = (window.currentSearchQ || '').trim();
+    
+    // Search highlight applied by applySearchHighlight() after render
     
     return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '">' +
       '<div style="margin-right: 12px;">' +
         '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" style="width: 18px; height: 18px; cursor: pointer;">' +
       '</div>' +
       '<div class="file-content">' +
-        '<div class="file-name">' + escapeHtml(f.name) + '</div>' +
-        (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag">' + escapeHtml(t) + '</span>').join('') + '</div>' : '') +
+        '<div class="file-name search-target">' + escapeHtml(f.name) + '</div>' +
+        (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
         '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' +
         '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' +
         (isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
@@ -2199,8 +2234,58 @@ function togglePreview(filename, previewId) {
   }
 }
 
+function applySearchHighlight(q) {
+  if (!q || !q.trim()) return;
+  const targets = document.querySelectorAll('.search-target');
+  const escaped = q.trim().replace(/[.*+?^\${}()|[\\]\\]/g, '\\$&');
+  try {
+    const regex = new RegExp('(' + escaped + ')', 'gi');
+    targets.forEach(el => {
+      el.innerHTML = el.textContent.replace(regex, '<span class="search-highlight">$1</span>');
+    });
+  } catch (e) {}
+}
+
+function doSearchDebounced() {
+  if (searchTimeout) clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    const q = document.getElementById('searchInput').value.trim();
+    window.currentSearchQ = q;
+    doSearch();
+  }, 300);
+}
+
+async function removeTag(filename, tag) {
+  const decodedName = decodeURIComponent(filename);
+  const decodedTag = tag;
+  // Get current tags, remove the tag, update
+  const file = currentFiles.find(f => f.name === decodedName);
+  if (!file) return;
+  const currentTags = file.tags ? file.tags.split(',').map(t => t.trim()).filter(t => t) : [];
+  const newTags = currentTags.filter(t => t !== decodedTag).join(',');
+  try {
+    const res = await fetch(API + '/api/file-tags/' + filename, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ tags: newTags })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('已移除标签');
+      loadFiles();
+    }
+  } catch (e) {}
+}
+
+function filterByTag(tag) {
+  document.getElementById('searchInput').value = 'tag:' + tag;
+  window.currentSearchQ = 'tag:' + tag;
+  doSearch();
+}
+
 function doSearch() {
   const q = document.getElementById('searchInput').value.trim();
+  window.currentSearchQ = q;
   if (!q) {
     loadFiles();
     return;
@@ -2211,6 +2296,7 @@ function doSearch() {
     .then(data => {
       currentFiles = data.files || [];
       renderFiles();
+      if (q) applySearchHighlight(q);
     })
     .catch(e => showAlert('listAlert', '搜索失败', 'error'));
 }
@@ -2264,31 +2350,43 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
 });
 
 async function uploadFiles(files) {
+  let successCount = 0;
+  let failCount = 0;
   for (const file of files) {
     const filename = file.webkitRelativePath || file.name;
     showAlert('uploadAlert', '上传中: ' + filename, 'info');
     const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result.split(',')[1];
-      try {
-        const res = await fetch(API + '/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-          body: JSON.stringify({ filename: filename, content: base64, type: 'file' })
-        });
-        const data = await res.json();
-        if (data.success) {
-          showAlert('uploadAlert', '上传成功: ' + filename, 'success');
-          loadFiles();
-          broadcastWs({ type: 'file_create', payload: { filename: filename, hash: data.hash } });
-        } else {
-          showAlert('uploadAlert', '失败: ' + data.error, 'error');
+    await new Promise((resolve) => {
+      reader.onload = async () => {
+        const base64 = reader.result.split(',')[1];
+        try {
+          const res = await fetch(API + '/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+            body: JSON.stringify({ filename: filename, content: base64, type: 'file' })
+          });
+          const data = await res.json();
+          if (data.success) {
+            successCount++;
+            showToast('✓ ' + filename);
+            loadFiles();
+            broadcastWs({ type: 'file_create', payload: { filename: filename, hash: data.hash } });
+          } else {
+            failCount++;
+            showAlert('uploadAlert', '失败: ' + data.error, 'error');
+          }
+        } catch (e) {
+          failCount++;
+          showAlert('uploadAlert', '失败: ' + e.message, 'error');
         }
-      } catch (e) {
-        showAlert('uploadAlert', '失败: ' + e.message, 'error');
-      }
-    };
-    reader.readAsDataURL(file);
+        resolve();
+      };
+      reader.onerror = () => { failCount++; resolve(); };
+      reader.readAsDataURL(file);
+    });
+  }
+  if (successCount > 0) {
+    showAlert('uploadAlert', '已上传 ' + successCount + ' 个文件' + (failCount > 0 ? '，失败 ' + failCount : ''), failCount > 0 ? 'error' : 'success');
   }
 }
 
@@ -2303,11 +2401,11 @@ async function copyContent(filename) {
       textarea.style.opacity = '0';
       document.body.appendChild(textarea);
       textarea.select();
-      try { document.execCommand('copy'); showAlert('listAlert', '内容已复制', 'success'); }
+      try { document.execCommand('copy'); showToast('内容已复制'); }
       catch (e) { prompt('复制内容:', data.content); }
       document.body.removeChild(textarea);
     }
-  } catch (e) { showAlert('listAlert', '复制失败: ' + e.message, 'error'); }
+  } catch (e) { showToast('复制失败'); }
 }
 
 function downloadFile(filename) {
@@ -2446,9 +2544,15 @@ function saveDownloadDir() {
   showAlert('listAlert', '下载目录已保存（仅本机有效）', 'success');
 }
 
-// 搜索回车
+// 搜索回车/实时搜索
 document.getElementById('searchInput').addEventListener('keypress', (e) => {
   if (e.key === 'Enter') doSearch();
+});
+// 实时搜索（输入时自动搜索）
+let searchDebounce = null;
+document.getElementById('searchInput').addEventListener('input', () => {
+  if (searchDebounce) clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(doSearch, 400);
 });
 
 function broadcastWs(msg) {
