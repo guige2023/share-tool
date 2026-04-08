@@ -414,14 +414,9 @@ function authRequired(req, res) {
   const clientIp = getClientIp(req);
   
   // 检查速率限制
-  const rateLimit = checkRateLimit(clientIp);
-  if (!rateLimit.allowed) {
-    const retryAfter = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);
-    res.writeHead(429, {
-      'Content-Type': 'application/json',
-      'Retry-After': retryAfter
-    });
-    res.end(JSON.stringify({ success: false, error: 'Too Many Requests', retryAfter }));
+  if (!checkRateLimit(clientIp)) {
+    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+    res.end(JSON.stringify({ success: false, error: 'Too Many Requests', retryAfter: 60 }));
     return null;
   }
   
