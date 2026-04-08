@@ -2025,6 +2025,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <span class="filter-tab" data-filter="file">文件</span>
     </div>
     <div class="batch-bar" id="batchBar">
+      <input type="checkbox" id="selectAllBatch" onchange="toggleSelectAll(this.checked)" style="width:18px;height:18px;cursor:pointer;">
       <span class="batch-count" id="batchCount">已选择 0 个文件</span>
       <button onclick="batchDelete()">批量删除</button>
       <button onclick="batchAddTag()">批量标签</button>
@@ -2293,7 +2294,8 @@ function handleWsMessage(msg) {
         loadFiles();
       }
       // Toast notification for remote changes
-      if (type === 'file_create') showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
+      if (type === 'file_create') incrementBadge();
+      showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
       else if (type === 'file_delete') showToast('🗑 远程删除了文件');
       else if (type === 'change' && payload.type === 'create') showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
       break;
@@ -2857,12 +2859,19 @@ async function deleteAll() {
   } catch (e) { showAlert('listAlert', '删除失败: ' + e.message, 'error'); }
 }
 
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = checked);
+  updateBatchBar();
+}
+
 function updateBatchBar() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   const bar = document.getElementById('batchBar');
   const count = document.getElementById('batchCount');
   if (bar) bar.classList.toggle('show', checked.length > 0);
   if (count) count.textContent = '已选择 ' + checked.length + ' 个文件';
+  const selectAll = document.getElementById('selectAllBatch');
+  if (selectAll) selectAll.checked = checked.length > 0 && checked.length === document.querySelectorAll('.batch-checkbox').length;
 }
 
 function clearBatch() {
