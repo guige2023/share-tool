@@ -1648,35 +1648,51 @@ function handleWsMessage(ws, msg) {
   switch (type) {
     case 'register': {
       // 设备注册
-      const { deviceId, deviceName } = payload;
+      const { deviceId, deviceName, lastSyncTs = 0 } = payload;
       ws.deviceId = deviceId;
       wsClients.set(deviceId, ws);
       syncClients.add(ws);
       db.registerDevice(deviceId, deviceName || deviceId, LOCAL_IP, PORT);
       db.setDeviceOnline(deviceId);
-      
-      // 发送当前状态
+
+      // 增量同步：只返回 lastSyncTs 之后的变更
+      const changes = db.getUnsyncedLogs(lastSyncTs);
       const { files } = db.listFiles(100, 0);
+
       ws.send(JSON.stringify({
         type: 'registered',
         payload: {
           deviceId: DEVICE_ID,
           deviceName: DEVICE_NAME,
           files: files.map(f => ({ id: f.id, name: f.filename, size: f.size, time: f.created_at * 1000, type: f.type, hash: f.hash, tags: f.tags })),
-          devices: db.listDevices().map(d => ({ deviceId: d.device_id, deviceName: d.device_name, ip: d.ip, isOnline: d.is_online === 1 }))
+          devices: db.listDevices().map(d => ({ deviceId: d.device_id, deviceName: d.device_name, ip: d.ip, isOnline: d.is_online === 1 })),
+          // 增量同步数据
+          sync: {
+            changes,
+            serverTs: Math.floor(Date.now() / 1000),  // 本次同步时间戳，客户端下次请求时传回
+            totalChanges: changes.length
+          }
         }
       }));
-      
+
       broadcastDeviceList();
-      console.log(`[WS] Device registered: ${deviceId} (${deviceName})`);
+      console.log(`[WS] Device registered: ${deviceId} (${deviceName}), incremental sync: ${changes.length} changes since ${lastSyncTs}`);
       break;
     }
-    
+
     case 'sync_request': {
-      // 同步请求 - 获取未同步的变更
-      const { since = 0 } = payload;
+      // 增量同步请求
+      const { since = 0, deviceId } = payload;
       const changes = db.getUnsyncedLogs(since);
-      ws.send(JSON.stringify({ type: 'sync_response', payload: { changes } }));
+      ws.send(JSON.stringify({
+        type: 'sync_response',
+        payload: {
+          changes,
+          serverTs: Math.floor(Date.now() / 1000),
+          totalChanges: changes.length
+        }
+      }));
+      console.log(`[WS] sync_request from ${ws.deviceId}: ${changes.length} changes since ${since}`);
       break;
     }
     
@@ -2330,6 +2346,8 @@ let currentSort = 'time_desc';
 let currentPage = 1;
 const PAGE_SIZE = 20;
 let showFavoritesOnly = false;
+let lastSyncTs = parseInt(localStorage.getItem('sharetool_last_sync') || '0');
+let offlineQueue = JSON.parse(localStorage.getItem('sharetool_offline_queue') || '[]');
 
 // PWA: Register Service Worker
 if ('serviceWorker' in navigator) {
@@ -2424,20 +2442,22 @@ function connectWS() {
       isConnected = true;
       reconnectDelay = 1000;
       updateWsStatus(true);
+      startPeriodicSync(30000);
+      flushOfflineQueue();
       
       ws.send(JSON.stringify({
         type: 'register',
-        payload: { deviceId: DEVICE_ID, deviceName: DEVICE_NAME }
+        payload: { deviceId: DEVICE_ID, deviceName: DEVICE_NAME, lastSyncTs }
       }));
     };
-    
+
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         handleWsMessage(msg);
       } catch (e) {}
     };
-    
+
     ws.onclose = () => {
     isConnected = false;
     const dot = document.getElementById('connDot');
@@ -2450,6 +2470,7 @@ function connectWS() {
       console.log('[WS] Disconnected');
       isConnected = false;
       updateWsStatus(false);
+      flushOfflineQueue();
       scheduleReconnect();
     };
     
@@ -2492,6 +2513,16 @@ function handleWsMessage(msg) {
       renderDevices(payload.devices || []);
       document.getElementById('syncStatus').textContent = '同步在线';
       updateTagFilterBar();
+      // 保存增量同步时间戳
+      if (payload.sync && payload.sync.serverTs) {
+        lastSyncTs = payload.sync.serverTs;
+        localStorage.setItem('sharetool_last_sync', lastSyncTs);
+        console.log('[Sync] Saved lastSyncTs:', lastSyncTs);
+      }
+      // 应用增量同步变更（差异更新，避免全量刷新）
+      if (payload.sync && payload.sync.changes && payload.sync.changes.length > 0) {
+        applyIncrementalChanges(payload.sync.changes);
+      }
       break;
     }
     case 'change':
@@ -2514,6 +2545,19 @@ function handleWsMessage(msg) {
       else if (type === 'change' && payload.type === 'rename') showToast('✏️ 远程重命名: ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
       break;
     }
+    case 'sync_response': {
+      // 处理定时增量同步响应
+      if (payload.sync && payload.sync.serverTs) {
+        lastSyncTs = payload.sync.serverTs;
+        localStorage.setItem('sharetool_last_sync', lastSyncTs);
+      }
+      if (payload.changes && payload.changes.length > 0) {
+        applyIncrementalChanges(payload.changes);
+        showToast('📥 增量同步 ' + payload.changes.length + ' 项');
+      }
+      console.log('[Sync] sync_response:', payload.changes ? payload.changes.length : 0, 'changes');
+      break;
+    }
     case 'device_list': {
       renderDevices(payload.devices || []);
       break;
@@ -2521,6 +2565,92 @@ function handleWsMessage(msg) {
     case 'pong': {
       break;
     }
+  }
+}
+
+// 离线队列：操作符发送失败时缓存
+function addToOfflineQueue(action, payload) {
+  offlineQueue.push({ action, payload, ts: Math.floor(Date.now() / 1000) });
+  localStorage.setItem('sharetool_offline_queue', JSON.stringify(offlineQueue));
+  console.log('[OfflineQueue] Added:', action, 'Queue size:', offlineQueue.length);
+}
+
+// 重连时批量发送离线操作
+function flushOfflineQueue() {
+  if (!isConnected || offlineQueue.length === 0) return;
+  console.log('[OfflineQueue] Flushing', offlineQueue.length, 'items');
+  const queue = [...offlineQueue];
+  offlineQueue = [];
+  localStorage.setItem('sharetool_offline_queue', '[]');
+
+  for (const item of queue) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: item.action, payload: item.payload }));
+    } else {
+      // 仍未连接，放回队列
+      offlineQueue.push(item);
+    }
+  }
+  if (offlineQueue.length > 0) {
+    localStorage.setItem('sharetool_offline_queue', JSON.stringify(offlineQueue));
+  }
+  console.log('[OfflineQueue] Flush complete, remaining:', offlineQueue.length);
+}
+
+// 增量同步：定期从服务器拉取变更
+let syncIntervalId = null;
+function startPeriodicSync(intervalMs = 30000) {
+  if (syncIntervalId) clearInterval(syncIntervalId);
+  syncIntervalId = setInterval(() => {
+    if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'sync_request', payload: { since: lastSyncTs, deviceId: DEVICE_ID } }));
+      console.log('[Sync] Periodic sync_request sent, since:', lastSyncTs);
+    }
+  }, intervalMs);
+  console.log('[Sync] Periodic sync started, interval:', intervalMs, 'ms');
+}
+
+// 应用增量同步变更（差异更新）
+function applyIncrementalChanges(changes) {
+  if (!changes || !changes.length) return;
+  console.log('[Sync] Applying', changes.length, 'incremental changes');
+  let updated = false;
+  for (const change of changes) {
+    const action = change.action;
+    const filename = change.filename;
+    if (action === 'create' || action === 'update') {
+      // 文件创建或更新：检查是否存在
+      const idx = currentFiles.findIndex(f => f.name === filename);
+      const fileData = { name: filename, size: change.size, time: (change.timestamp || 0) * 1000, type: change.type, hash: change.current_hash || change.hash, tags: [] };
+      if (idx >= 0) {
+        currentFiles[idx] = { ...currentFiles[idx], ...fileData };
+      } else {
+        currentFiles.unshift(fileData);
+      }
+      updated = true;
+    } else if (action === 'delete') {
+      currentFiles = currentFiles.filter(f => f.name !== filename);
+      updated = true;
+    } else if (action === 'rename') {
+      const idx = currentFiles.findIndex(f => f.name === change.oldFilename);
+      if (idx >= 0) {
+        currentFiles[idx].name = change.newFilename;
+        updated = true;
+      }
+    }
+  }
+  if (updated) {
+    renderFiles();
+    updateTagFilterBar();
+  }
+}
+
+// 发送 WS 消息（带离线队列）
+function wsSend(type, payload) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type, payload }));
+  } else {
+    addToOfflineQueue(type, payload);
   }
 }
 
