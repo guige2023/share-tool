@@ -1721,30 +1721,91 @@ function handleWsMessage(ws, msg) {
     }
     
     case 'file_create': {
-      const { filename, content, type, hash } = payload;
-      db.addFile(filename, content, type || 'file', hash);
-      broadcastChange({ type: 'create', filename, hash }, ws.deviceId);
+      const { filename, content, type, hash, clientTs } = payload;
+      const existing = db.getFileByName(filename);
+      if (existing) {
+        // 文件已存在：hash 相同则幂等忽略，hash 不同则冲突
+        if (existing.hash === hash) {
+          ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_create', filename, status: 'duplicate', hash } }));
+        } else {
+          // 冲突：通知双方
+          const conflictInfo = { type: 'conflict', payload: { action: 'file_create', filename, localHash: existing.hash, remoteHash: hash, localTs: existing.updated_at, remoteTs: clientTs || 0, serverTs: Math.floor(Date.now() / 1000) } };
+          ws.send(JSON.stringify(conflictInfo));
+          broadcastChange({ type: 'conflict', action: 'file_create', filename, hash: existing.hash, newHash: hash }, null);
+          console.log(`[Conflict] file_create: ${filename} - local=${existing.hash} remote=${hash}`);
+        }
+      } else {
+        db.addFile(filename, content, type || 'file', hash);
+        broadcastChange({ type: 'create', filename, hash }, ws.deviceId);
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_create', filename, status: 'ok', hash } }));
+      }
       break;
     }
-    
+
     case 'file_update': {
-      const { filename, content, type, hash } = payload;
-      db.updateFileByName(filename, { content, type, hash });
-      broadcastChange({ type: 'update', filename, hash }, ws.deviceId);
+      const { filename, content, type, hash, clientTs } = payload;
+      const existing = db.getFileByName(filename);
+      if (!existing) {
+        // 文件不存在，直接创建
+        db.addFile(filename, content, type || 'file', hash);
+        broadcastChange({ type: 'create', filename, hash }, ws.deviceId);
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_update', filename, status: 'created', hash } }));
+      } else if (existing.hash === hash) {
+        // hash 相同，幂等忽略
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_update', filename, status: 'duplicate', hash } }));
+      } else {
+        // 冲突
+        const conflictInfo = { type: 'conflict', payload: { action: 'file_update', filename, localHash: existing.hash, remoteHash: hash, localTs: existing.updated_at, remoteTs: clientTs || 0, serverTs: Math.floor(Date.now() / 1000) } };
+        ws.send(JSON.stringify(conflictInfo));
+        broadcastChange({ type: 'conflict', action: 'file_update', filename, hash: existing.hash, newHash: hash }, null);
+        console.log(`[Conflict] file_update: ${filename} - local=${existing.hash} remote=${hash}`);
+      }
       break;
     }
-    
+
     case 'file_delete': {
       const { filename } = payload;
       db.deleteFileByName(filename);
       broadcastChange({ type: 'delete', filename }, ws.deviceId);
       break;
     }
-    
+
     case 'file_rename': {
       const { oldFilename, newFilename } = payload;
       db.renameFile(oldFilename, newFilename);
       broadcastChange({ type: 'rename', oldFilename, newFilename }, ws.deviceId);
+      break;
+    }
+
+    case 'conflict_resolve': {
+      // 冲突解决：force_remote 接受远程版本覆盖本地，force_local 保留本地版本
+      const { filename, resolution, hash, content, type } = payload;
+      if (resolution === 'force_remote') {
+        if (content !== undefined) {
+          const existing = db.getFileByName(filename);
+          if (existing) {
+            db.updateFileByName(filename, { content, type: type || existing.type, hash });
+          } else {
+            db.addFile(filename, content, type || 'file', hash);
+          }
+        }
+        broadcastChange({ type: 'update', filename, hash }, ws.deviceId);
+        console.log(`[Conflict] Resolved force_remote: ${filename}`);
+      } else if (resolution === 'force_local') {
+        // 通知其他设备以本地为准（不需要做什么，因为本地没变）
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'conflict_resolve', filename, status: 'kept_local' } }));
+        console.log(`[Conflict] Resolved force_local: ${filename}`);
+      } else if (resolution === 'rename_both') {
+        // 重命名远程版本：filename → filename_timestamp
+        const ts = Date.now();
+        const newName = `${filename}.conflict_${ts}`;
+        db.renameFile(filename, newName);
+        db.addFile(filename, content, type || 'file', hash);
+        broadcastChange({ type: 'rename', oldFilename: filename, newFilename: newName }, ws.deviceId);
+        broadcastChange({ type: 'create', filename, hash }, ws.deviceId);
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'conflict_resolve', filename, status: 'renamed', newFilename: filename } }));
+        console.log(`[Conflict] Resolved rename_both: ${filename} → ${newName}`);
+      }
       break;
     }
     
@@ -2385,6 +2446,56 @@ function showToast(msg, duration = 2500) {
   setTimeout(() => el.classList.remove('show'), duration);
 }
 
+// 冲突解决弹窗
+function showConflictDialog(conflict) {
+  const { action, filename, localHash, remoteHash, localTs, remoteTs } = conflict;
+  const localTime = localTs ? new Date(localTs * 1000).toLocaleString('zh-CN') : '未知';
+  const remoteTime = remoteTs ? new Date(remoteTs * 1000).toLocaleString('zh-CN') : '未知';
+  const escapedName = escapeHtml(filename);
+  const localHashDisplay = localHash ? localHash.substring(0, 12) + '...' : 'N/A';
+  const remoteHashDisplay = remoteHash ? remoteHash.substring(0, 12) + '...' : 'N/A';
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = '<div style="background:var(--card-bg);border-radius:16px;padding:28px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);border:1px solid var(--border-color);">' +
+    '<div style="font-size:20px;font-weight:600;margin-bottom:8px;">' + '⚠️ 文件冲突' + '</div>' +
+    '<div style="color:var(--text-muted);margin-bottom:16px;font-size:13px;">文件 <b>' + escapedName + '</b> 在两台设备上被同时修改</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">' +
+      '<div style="background:var(--bg-secondary);border-radius:8px;padding:12px;">' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">本地版本</div>' +
+        '<div style="font-size:12px;font-family:monospace;word-break:break-all;">' + localHashDisplay + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + localTime + '</div>' +
+      '</div>' +
+      '<div style="background:var(--bg-secondary);border-radius:8px;padding:12px;">' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">远程版本</div>' +
+        '<div style="font-size:12px;font-family:monospace;word-break:break-all;">' + remoteHashDisplay + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + remoteTime + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px;">' +
+      '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--primary-color);color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">保留本地版本</button>' +
+      '<button id="conflict_keep_remote" style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-color);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:14px;">接受远程版本</button>' +
+      '<button id="conflict_cancel" style="padding:10px 16px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-size:13px;">稍后处理</button>' +
+    '</div>' +
+  '</div>';
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#conflict_keep_local').onclick = function() {
+    wsSend('conflict_resolve', { filename: filename, resolution: 'force_local' });
+    document.body.removeChild(overlay);
+    showToast('已保留本地版本');
+  };
+  overlay.querySelector('#conflict_keep_remote').onclick = function() {
+    wsSend('conflict_resolve', { filename: filename, resolution: 'force_remote', hash: remoteHash });
+    document.body.removeChild(overlay);
+    showToast('已接受远程版本');
+  };
+  overlay.querySelector('#conflict_cancel').onclick = function() {
+    document.body.removeChild(overlay);
+  };
+  overlay.onclick = function(e) { if (e.target === overlay) document.body.removeChild(overlay); };
+}
+
 function authHeaders() {
   const headers = { 'Content-Type': 'application/json' };
   if (AUTH_TOKEN) headers['x-auth-token'] = AUTH_TOKEN;
@@ -2556,6 +2667,21 @@ function handleWsMessage(msg) {
         showToast('📥 增量同步 ' + payload.changes.length + ' 项');
       }
       console.log('[Sync] sync_response:', payload.changes ? payload.changes.length : 0, 'changes');
+      break;
+    }
+    case 'conflict': {
+      // 显示冲突弹窗
+      showConflictDialog(payload);
+      break;
+    }
+    case 'sync_ack': {
+      if (payload.status === 'duplicate' || payload.status === 'kept_local') {
+        console.log('[Sync] Ack:', payload.status, payload.filename);
+      } else if (payload.status === 'ok' || payload.status === 'created') {
+        showToast('✅ 同步成功: ' + (payload.filename || ''));
+      } else if (payload.status === 'renamed') {
+        showToast('🔄 冲突解决: 已重命名文件保留双方版本');
+      }
       break;
     }
     case 'device_list': {
