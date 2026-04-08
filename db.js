@@ -602,7 +602,8 @@ function getSyncStatus() {
   const db = getDb();
   const unsynced = db.prepare('SELECT COUNT(*) as count FROM sync_log WHERE synced = 0').get().count;
   const total = db.prepare('SELECT COUNT(*) as count FROM sync_log').get().count;
-  return { unsynced, total };
+  const unsyncedSize = db.prepare('SELECT COALESCE(SUM(size_bytes), 0) as size FROM sync_log WHERE synced = 0').get().size;
+  return { unsynced, total, unsyncedSize };
 }
 
 // ============================================================
@@ -874,6 +875,7 @@ function getDbStats() {
   const auditCount = db.prepare('SELECT COUNT(*) as c FROM audit_log').get().c;
   const shareLinkCount = db.prepare('SELECT COUNT(*) as c FROM share_links').get().c;
   const totalSize = db.prepare('SELECT COALESCE(SUM(size), 0) as s FROM files').get().s;
+  const unsyncedSize = db.prepare('SELECT COALESCE(SUM(size_bytes), 0) as s FROM sync_log WHERE synced = 0').get().s;
 
   // DB file size
   let dbSize = 0;
@@ -888,6 +890,7 @@ function getDbStats() {
     devices: deviceCount,
     syncLog: syncLogCount,
     unsynced: unsyncedCount,
+    unsyncedSize,
     tokens: tokenCount,
     auditLog: auditCount,
     shareLinks: shareLinkCount,
