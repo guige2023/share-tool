@@ -2092,10 +2092,12 @@ function startSyncScheduler() {
   // 每分钟检查一次同步状态
   setInterval(() => {
     const onlineDevices = db.getOnlineDevices().filter(d => d.device_id !== DEVICE_ID);
-    const { unsynced } = db.getSyncStatus();
-    
+    const { unsynced, unsyncedSize } = db.getSyncStatus();
+
     if (onlineDevices.length > 0 && unsynced > 0) {
-      console.log(`[Sync] ${unsynced} unsynced changes, ${onlineDevices.length} online devices`);
+      console.log(`[Sync] ${unsynced} unsynced changes (${formatSize(unsyncedSize)}), ${onlineDevices.length} online devices - nudging`);
+      // 主动通知在线设备拉取待同步变更
+      broadcastChange({ type: 'sync_nudge', pending: unsynced, size: unsyncedSize }, null);
     }
   }, 60000);
   
@@ -2877,6 +2879,15 @@ function handleWsMessage(msg) {
         showToast('✅ 同步成功: ' + (payload.filename || ''));
       } else if (payload.status === 'renamed') {
         showToast('🔄 冲突解决: 已重命名文件保留双方版本');
+      }
+      break;
+    }
+    case 'sync_nudge': {
+      // 服务器主动通知有未同步数据，立即拉取
+      console.log('[Sync] Nudge received: pending=' + payload.pending + ', size=' + formatSize(payload.size || 0));
+      if (payload.pending > 0) {
+        showToast('📡 发现 ' + payload.pending + ' 项待同步变更，开始拉取...');
+        doIncrementalSync(lastSyncTs);
       }
       break;
     }
