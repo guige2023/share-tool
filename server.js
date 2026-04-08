@@ -704,7 +704,112 @@ async function startHttpServer() {
         sendHtml(res);
         return;
       }
-      
+
+      // PWA Manifest
+      if (pathname === '/manifest.json') {
+        const manifest = {
+          name: 'ShareTool - 局域网文件分享',
+          short_name: 'ShareTool',
+          description: '局域网文件/文字分享服务，支持多设备同步',
+          start_url: '/',
+          display: 'standalone',
+          background_color: '#0f172a',
+          theme_color: '#667eea',
+          icons: [
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+          ],
+          categories: ['productivity', 'utilities'],
+          lang: 'zh-CN'
+        };
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+        res.end(JSON.stringify(manifest, null, 2));
+        return;
+      }
+
+      // PWA Service Worker
+      if (pathname === '/sw.js') {
+        const sw = `// ShareTool Service Worker v1.0
+const CACHE_NAME = 'sharetool-v1';
+const STATIC_ASSETS = ['/', '/index.html'];
+const API_BASE = '';
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  const url = new URL(request.url);
+
+  // Skip non-GET and cross-origin
+  if (request.method !== 'GET') return;
+  if (url.origin !== location.origin) return;
+
+  // API: network-first
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(request).catch(() => new Response(JSON.stringify({success:false, error:'offline'}), {
+        headers: {'Content-Type': 'application/json'}
+      }))
+    );
+    return;
+  }
+
+  // Static: cache-first
+  event.respondWith(
+    caches.match(request).then(cached => cached || fetch(request).then(resp => {
+      if (resp.ok) {
+        const clone = resp.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+      }
+      return resp;
+    }))
+  );
+});
+
+// Push notification support (future)
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  const data = event.data.json();
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'ShareTool', {
+      body: data.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'sharetool'
+    })
+  );
+});
+`;
+        res.writeHead(200, { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' });
+        res.end(sw);
+        return;
+      }
+
+      // PWA Icons
+      const iconMatch = pathname.match(/^\/(icon-(\d+)\.png)$/);
+      if (iconMatch) {
+        const iconPath = path.join(__dirname, iconMatch[1]);
+        if (fs.existsSync(iconPath)) {
+          res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=2592000' });
+          fs.createReadStream(iconPath).pipe(res);
+          return;
+        }
+      }
+
       if (pathname === '/api/list') {
         const authData = authRequired(req, res);
         if (!authData) return;
@@ -1773,6 +1878,12 @@ function getHtml() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ShareTool</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#667eea">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ShareTool">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -2166,6 +2277,17 @@ let currentSort = 'time_desc';
 let currentPage = 1;
 const PAGE_SIZE = 20;
 let showFavoritesOnly = false;
+
+// PWA: Register Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('[SW] registered', reg.scope);
+    }).catch(err => {
+      console.log('[SW] registration failed:', err);
+    });
+  });
+}
 
 function toggleFavFilter() {
   showFavoritesOnly = !showFavoritesOnly;
