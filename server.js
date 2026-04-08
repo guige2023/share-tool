@@ -661,9 +661,10 @@ function createShareLink(filename, options = {}) {
     password: options.password || null, // 可选密码保护
     maxDownloads: options.maxDownloads || null,
     downloadCount: 0,
-    isText: options.isText || false
+    isText: options.isText || false,
+    description: options.description || ''
   };
-  
+
   db.saveShareLink(shareData);
   return shareData;
 }
@@ -1491,7 +1492,7 @@ self.addEventListener('push', (event) => {
         req.on('data', d => body += d);
         req.on('end', () => {
           try {
-            const { filename, expiryHours, maxDownloads, password } = JSON.parse(body);
+            const { filename, expiryHours, maxDownloads, password, description } = JSON.parse(body);
             if (!filename) {
               sendJson(res, { success: false, error: '需要提供 filename' }, 400);
               return;
@@ -1505,11 +1506,12 @@ self.addEventListener('push', (event) => {
               expiryHours: expiryHours || 168,
               maxDownloads: maxDownloads || null,
               password: password || null,
-              isText: file.type === 'text'
+              isText: file.type === 'text',
+              description: description || ''
             });
             const shareUrl = `http://${LOCAL_IP}:${PORT}/s/${shareData.code}`;
             db.addAuditLog('share_create', `code=${shareData.code}, filename=${filename}`, getClientIp(req));
-            sendJson(res, { success: true, code: shareData.code, url: shareUrl, expiresAt: shareData.expiresAt });
+            sendJson(res, { success: true, code: shareData.code, url: shareUrl, expiresAt: shareData.expiresAt, description: shareData.description });
           } catch (e) {
             sendJson(res, { success: false, error: e.message }, 400);
           }

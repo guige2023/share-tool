@@ -782,8 +782,8 @@ function exportAuditLogsCSV(filters = {}) {
 function saveShareLink(shareData) {
   const db = getDb();
   const stmt = db.prepare(`
-    INSERT INTO share_links (code, filename, is_text, password, expires_at, max_downloads, download_count, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO share_links (code, filename, is_text, password, expires_at, max_downloads, download_count, description, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   stmt.run(
     shareData.code,
@@ -793,6 +793,7 @@ function saveShareLink(shareData) {
     Math.floor(shareData.expiresAt / 1000),
     shareData.maxDownloads,
     0,
+    shareData.description || '',
     shareData.createdBy || null
   );
   return shareData;
@@ -810,6 +811,7 @@ function getShareLink(code) {
     expiresAt: row.expires_at * 1000,
     maxDownloads: row.max_downloads,
     downloadCount: row.download_count,
+    description: row.description || '',
     createdAt: row.created_at * 1000,
     createdBy: row.created_by
   };
@@ -836,6 +838,7 @@ function listShareLinks() {
     expiresAt: row.expires_at * 1000,
     maxDownloads: row.max_downloads,
     downloadCount: row.download_count,
+    description: row.description || '',
     createdAt: row.created_at * 1000,
     createdBy: row.created_by
   }));
