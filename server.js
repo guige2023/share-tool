@@ -487,32 +487,87 @@ async function init() {
 // ============================================================
 const selfsigned = require('selfsigned');
 
+function getCertExpiryInfo(certPath) {
+  if (!fs.existsSync(certPath)) return null;
+  try {
+    // 尝试用 openssl 解析证书日期
+    const { execSync } = require('child_process');
+    try {
+      const out = execSync(`openssl x509 -in "${certPath}" -noout -dates`, { encoding: 'utf8' });
+      const notAfterMatch = out.match(/notAfter=(.*)/i);
+      if (notAfterMatch && notAfterMatch[1]) {
+        const expiresAt = new Date(notAfterMatch[1].trim()).getTime() / 1000;
+        const now = Math.floor(Date.now() / 1000);
+        const daysRemaining = Math.floor((expiresAt - now) / 86400);
+        return { valid: expiresAt > now, daysRemaining, expiresAt, note: null };
+      }
+    } catch (e) {
+      // openssl 不可用，使用 mtime fallback
+    }
+    // Fallback: 使用文件修改时间估算
+    const stats = fs.statSync(certPath);
+    const age = (Date.now() - stats.mtimeMs) / 1000 / 86400;
+    return { valid: age < 365, daysRemaining: Math.floor(365 - age), expiresAt: null, note: 'Using file age (openssl unavailable)' };
+  } catch (e) {
+    return { valid: false, daysRemaining: 0, expiresAt: null, note: e.message };
+  }
+}
+
+function getCertInfo() {
+  const certPath = path.join(SSL_DIR, 'cert.pem');
+  const keyPath = path.join(SSL_DIR, 'key.pem');
+  if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) return null;
+
+  try {
+    const stats = fs.statSync(certPath);
+    const keyStats = fs.statSync(keyPath);
+    const expiryInfo = getCertExpiryInfo(certPath);
+
+    return {
+      exists: true,
+      certPath,
+      keyPath,
+      createdAt: stats.ctimeMs,
+      expiresAt: expiryInfo?.expiresAt || null,
+      daysRemaining: expiryInfo?.daysRemaining || null,
+      valid: expiryInfo?.valid !== false,
+      note: expiryInfo?.note || null
+    };
+  } catch (e) {
+    return { exists: false, error: e.message };
+  }
+}
+
 async function ensureSslCertificates() {
   const certPath = path.join(SSL_DIR, 'cert.pem');
   const keyPath = path.join(SSL_DIR, 'key.pem');
-  
-  // 证书已存在
-  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
-    const stats = fs.statSync(certPath);
-    const age = (Date.now() - stats.mtimeMs) / 1000 / 86400; // 天
-    if (age < 365) {
-      console.log(`[HTTPS] Using existing certificate (age: ${age.toFixed(1)} days)`);
-      return true;
-    }
-    console.log(`[HTTPS] Certificate expired (age: ${age.toFixed(1)} days), regenerating...`);
+
+  // 检查证书有效期
+  const info = getCertExpiryInfo(certPath);
+  if (info && info.valid && info.daysRemaining !== null && info.daysRemaining > 7) {
+    console.log(`[HTTPS] Using existing certificate (expires in ${info.daysRemaining} days)`);
+    return true;
   }
-  
-  // 生成新证书
+
+  // 证书不存在、已过期或即将过期（<=7天）
+  if (info && !info.valid) {
+    console.log(`[HTTPS] Certificate expired, regenerating...`);
+  } else if (info && info.daysRemaining !== null) {
+    console.log(`[HTTPS] Certificate expires in ${info.daysRemaining} days, regenerating...`);
+  } else {
+    console.log(`[HTTPS] No certificate found, generating...`);
+  }
+
   try {
     if (!fs.existsSync(SSL_DIR)) {
       fs.mkdirSync(SSL_DIR, { recursive: true });
     }
-    
+
     const { key, cert } = await generateSelfSignedCert();
-    
+
     fs.writeFileSync(keyPath, key);
     fs.writeFileSync(certPath, cert);
-    
+
     console.log('[HTTPS] Self-signed certificate generated');
     console.log(`[HTTPS] Certificate: ${certPath}`);
     console.log('[HTTPS] NOTE: Add cert to system trust store for full HTTPS support');
@@ -1331,11 +1386,14 @@ self.addEventListener('push', (event) => {
           const result = await ensureSslCertificates();
           if (result) {
             const info = getCertInfo();
+            db.addAuditLog('https_regenerate', `Certificate regenerated, daysRemaining: ${info?.daysRemaining}`, getClientIp(req), authData.token);
             sendJson(res, { success: true, message: 'Certificate regenerated', ...info });
           } else {
+            db.addAuditLog('https_regenerate_fail', 'Certificate regeneration failed', getClientIp(req), authData.token);
             sendJson(res, { success: false, error: 'Failed to regenerate certificate' }, 500);
           }
         } catch (e) {
+          db.addAuditLog('https_regenerate_error', e.message, getClientIp(req), authData.token);
           sendJson(res, { success: false, error: e.message }, 500);
         }
         return;
