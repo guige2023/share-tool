@@ -610,11 +610,33 @@ function addAuditLog(action, details = null, ip = null, token = null) {
   `).run(action, details, ip, token);
 }
 
-function listAuditLogs(limit = 100, offset = 0) {
+function listAuditLogs(limit = 100, offset = 0, filters = {}) {
   const db = getDb();
-  return db.prepare(`
-    SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT ? OFFSET ?
-  `).all(limit, offset);
+  const conditions = [];
+  const params = [];
+
+  if (filters.action) {
+    conditions.push('action = ?');
+    params.push(filters.action);
+  }
+  if (filters.ip) {
+    conditions.push('ip LIKE ?');
+    params.push('%' + filters.ip + '%');
+  }
+  if (filters.since) {
+    conditions.push('timestamp >= ?');
+    params.push(filters.since);
+  }
+  if (filters.until) {
+    conditions.push('timestamp <= ?');
+    params.push(filters.until);
+  }
+
+  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+  const total = db.prepare('SELECT COUNT(*) as count FROM audit_log ' + where).get(...params).count;
+  const rows = db.prepare(`SELECT * FROM audit_log ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
+
+  return { rows, total, limit, offset };
 }
 
 function getAuditStats() {
@@ -622,7 +644,43 @@ function getAuditStats() {
   const total = db.prepare('SELECT COUNT(*) as count FROM audit_log').get().count;
   const today = Math.floor(new Date().setHours(0,0,0,0) / 1000);
   const todayCount = db.prepare('SELECT COUNT(*) as count FROM audit_log WHERE timestamp >= ?').get(today).count;
-  return { total, todayCount };
+  // 按 action 类型统计
+  const byAction = db.prepare('SELECT action, COUNT(*) as count FROM audit_log GROUP BY action ORDER BY count DESC').all();
+  return { total, todayCount, byAction };
+}
+
+function exportAuditLogsCSV(filters = {}) {
+  const db = getDb();
+  const conditions = [];
+  const params = [];
+
+  if (filters.action) {
+    conditions.push('action = ?');
+    params.push(filters.action);
+  }
+  if (filters.ip) {
+    conditions.push('ip LIKE ?');
+    params.push('%' + filters.ip + '%');
+  }
+  if (filters.since) {
+    conditions.push('timestamp >= ?');
+    params.push(filters.since);
+  }
+  if (filters.until) {
+    conditions.push('timestamp <= ?');
+    params.push(filters.until);
+  }
+
+  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+  const rows = db.prepare(`SELECT * FROM audit_log ${where} ORDER BY timestamp DESC`).all(...params);
+
+  const header = 'ID,Action,Details,IP,Token,Timestamp\n';
+  const csvRows = rows.map(r => {
+    const ts = new Date(r.timestamp * 1000).toISOString();
+    return `${r.id},"${(r.action||'').replace(/"/g,'""')}","${(r.details||'').replace(/"/g,'""')}","${r.ip||''}","${(r.token||'').replace(/"/g,'""')}",${ts}`;
+  }).join('\n');
+
+  return header + csvRows;
 }
 
 // ============================================================

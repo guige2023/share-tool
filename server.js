@@ -1362,9 +1362,37 @@ self.addEventListener('push', (event) => {
       if (pathname === '/api/audit/logs') {
         const authData = authRequired(req, res);
         if (!authData) return;
-        const logs = db.listAuditLogs(100, 0);
+        const limit = parseInt(parsed.query.limit) || 100;
+        const offset = parseInt(parsed.query.offset) || 0;
+        const filters = {
+          action: parsed.query.action || null,
+          ip: parsed.query.ip || null,
+          since: parsed.query.since ? parseInt(parsed.query.since) : null,
+          until: parsed.query.until ? parseInt(parsed.query.until) : null
+        };
+        const result = db.listAuditLogs(limit, offset, filters);
         const stats = db.getAuditStats();
-        sendJson(res, { success: true, logs, stats });
+        sendJson(res, { success: true, ...result, stats });
+        db.addAuditLog('audit_query', `limit=${limit}, offset=${offset}, action=${filters.action || 'all'}`, getClientIp(req), authData.token);
+        return;
+      }
+
+      if (pathname === '/api/audit/export') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const filters = {
+          action: parsed.query.action || null,
+          ip: parsed.query.ip || null,
+          since: parsed.query.since ? parseInt(parsed.query.since) : null,
+          until: parsed.query.until ? parseInt(parsed.query.until) : null
+        };
+        const csv = db.exportAuditLogsCSV(filters);
+        res.writeHead(200, {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': `attachment; filename="audit_log_${Date.now()}.csv"`
+        });
+        res.end(csv);
+        db.addAuditLog('audit_export', `CSV export, action=${filters.action || 'all'}`, getClientIp(req), authData.token);
         return;
       }
       
