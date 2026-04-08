@@ -10,6 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = path.join(os.homedir(), '.share-tool', 'share-tool.db');
+const SCHEMA_VERSION = 2; // 当前 Schema 版本
 
 let db = null;
 
@@ -28,11 +29,49 @@ function getDb() {
 }
 
 // ============================================================
-// 初始化数据库
+// Schema 版本管理
 // ============================================================
 function initDatabase() {
   const db = getDb();
 
+  // 元数据表（KV 表，用于 Schema 版本等配置）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS meta (
+      key   TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `);
+
+  // 获取当前 Schema 版本
+  const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version');
+  let currentVersion = row ? parseInt(row.value, 10) : 1;
+
+  console.log(`[DB] Schema version: ${currentVersion} → ${SCHEMA_VERSION}`);
+
+  // 执行迁移
+  if (currentVersion < SCHEMA_VERSION) {
+    runMigrations(db, currentVersion);
+    db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
+    currentVersion = SCHEMA_VERSION;
+  }
+
+  // 如果是全新数据库（version=1 且无任何表），初始化 v1 基础结构
+  const tableCount = db.prepare("SELECT COUNT(*) as c FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").get().c;
+  if (tableCount <= 1) {
+    initSchemaV1(db);
+    initSchemaV2(db);
+    db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
+  } else if (currentVersion === 1) {
+    // 已有旧数据但未迁移，补齐 v2 字段
+    initSchemaV2(db);
+    db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', 2);
+  }
+
+  console.log('[DB] Database ready at', DB_PATH);
+  return db;
+}
+
+function initSchemaV1(db) {
   // 文件表
   db.exec(`
     CREATE TABLE IF NOT EXISTS files (
@@ -49,7 +88,7 @@ function initDatabase() {
     )
   `);
 
-  // 设备表（用于多设备同步）
+  // 设备表
   db.exec(`
     CREATE TABLE IF NOT EXISTS devices (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +101,7 @@ function initDatabase() {
     )
   `);
 
-  // 同步日志表（增量同步用）
+  // 同步日志表
   db.exec(`
     CREATE TABLE IF NOT EXISTS sync_log (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -77,7 +116,7 @@ function initDatabase() {
     )
   `);
 
-  // Token 表（动态 Token + 刷新机制）
+  // Token 表
   db.exec(`
     CREATE TABLE IF NOT EXISTS tokens (
       id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -118,6 +157,15 @@ function initDatabase() {
     )
   `);
 
+  // 标签颜色表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tag_colors (
+      tag        TEXT PRIMARY KEY,
+      color      TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `);
+
   // 索引
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_files_hash ON files(hash);
@@ -129,17 +177,51 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_share_links_code ON share_links(code);
   `);
 
-  // 标签颜色表
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS tag_colors (
-      tag        TEXT PRIMARY KEY,
-      color      TEXT NOT NULL,
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-    )
-  `);
+  console.log('[DB] Schema v1 initialized');
+}
 
-  console.log('[DB] Database initialized at', DB_PATH);
-  return db;
+function initSchemaV2(db) {
+  // v2 新增：sync_log.size_bytes（同步文件大小）
+  try {
+    db.exec("ALTER TABLE sync_log ADD COLUMN size_bytes INTEGER DEFAULT 0");
+    console.log('[DB] Migrated: sync_log.size_bytes');
+  } catch (e) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
+
+  // v2 新增：share_links.description（链接描述）
+  try {
+    db.exec("ALTER TABLE share_links ADD COLUMN description TEXT DEFAULT ''");
+    console.log('[DB] Migrated: share_links.description');
+  } catch (e) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
+
+  // v2 新增：devices.preferred_sync_strategy
+  try {
+    db.exec("ALTER TABLE devices ADD COLUMN preferred_sync_strategy TEXT DEFAULT 'incremental'");
+    console.log('[DB] Migrated: devices.preferred_sync_strategy');
+  } catch (e) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
+
+  // v2 新增：files.content_type（MIME 类型）
+  try {
+    db.exec("ALTER TABLE files ADD COLUMN content_type TEXT DEFAULT 'application/octet-stream'");
+    console.log('[DB] Migrated: files.content_type');
+  } catch (e) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
+}
+
+function runMigrations(db, fromVersion) {
+  console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
+  for (let v = fromVersion + 1; v <= SCHEMA_VERSION; v++) {
+    if (v === 2) {
+      initSchemaV2(db);
+    }
+    console.log(`[DB] Migration to v${v} complete`);
+  }
 }
 
 // ============================================================
