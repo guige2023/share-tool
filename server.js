@@ -19,6 +19,8 @@ const db = require('./db');
 const { WebSocketServer } = require('ws');
 // UDP 设备发现
 const dgram = require('dgram');
+// 批量打包
+const archiver = require('archiver');
 
 // ============================================================
 // 常量配置
@@ -33,8 +35,27 @@ const SHARE_DIR = path.join(os.homedir(), '.share-tool', 'files');
 const CONFIG_FILE = path.join(os.homedir(), '.share-tool', 'config.json');
 const SSL_DIR = path.join(os.homedir(), '.share-tool', 'ssl');
 
-// Token 配置
-const STATIC_TOKEN = process.env.SHARE_TOKEN || '35e7438f1e72356ebc6d4e839881cc35233ee01ec81d5af6';
+// ============================================================
+// Token 配置（从环境变量或配置文件读取，无硬编码）
+// ============================================================
+function getShareToken() {
+  // 优先从环境变量读取
+  if (process.env.SHARE_TOKEN) {
+    return process.env.SHARE_TOKEN;
+  }
+  // 从配置文件读取
+  if (config.shareToken) {
+    return config.shareToken;
+  }
+  // 首次启动：生成随机 token 并保存
+  const newToken = crypto.randomBytes(32).toString('hex');
+  config.shareToken = newToken;
+  saveConfig();
+  console.log('[ShareTool] 首次启动，已生成新 Token:', newToken.substring(0, 8) + '***');
+  return newToken;
+}
+
+let SHARE_TOKEN = ''; // 延迟初始化
 const TOKEN_EXPIRES_IN = 7 * 86400; // 7天
 
 // 本机信息
@@ -62,6 +83,48 @@ let udpServer = null;
 let broadcastTimer = null;
 
 // ============================================================
+// 速率限制（时间窗口桶）
+// ============================================================
+const rateLimitWindow = 60 * 1000; // 60秒窗口
+const rateLimitMax = 60; // 最多60次请求
+const rateLimitMap = new Map(); // ip -> [{timestamp}]
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const windowStart = now - rateLimitWindow;
+
+  if (!rateLimitMap.has(ip)) {
+    rateLimitMap.set(ip, []);
+  }
+
+  const requests = rateLimitMap.get(ip);
+  // 清理过期记录
+  while (requests.length > 0 && requests[0] < windowStart) {
+    requests.shift();
+  }
+
+  if (requests.length >= rateLimitMax) {
+    return false; // 超限
+  }
+
+  requests.push(now);
+  return true;
+}
+
+// ============================================================
+// 上传大小限制
+// ============================================================
+function getUploadMaxSize() {
+  // 优先从环境变量读取
+  if (process.env.UPLOAD_MAX_SIZE_MB) {
+    return parseInt(process.env.UPLOAD_MAX_SIZE_MB) * 1024 * 1024;
+  }
+  // 从配置文件读取
+  const maxMB = config.uploadMaxSizeMB || 100;
+  return maxMB * 1024 * 1024;
+}
+
+// ============================================================
 // 工具函数
 // ============================================================
 function loadConfig() {
@@ -73,14 +136,27 @@ function loadConfig() {
       if (!path.isAbsolute(downloadDir)) {
         downloadDir = path.join(os.homedir(), downloadDir);
       }
-      config = { ...{ downloadDir: path.join(os.homedir(), 'Downloads', 'ShareTool'), lastSync: null, deviceId: DEVICE_ID }, downloadDir, ...loaded };
+      // 默认上传大小限制
+      const uploadMaxSizeMB = loaded.uploadMaxSizeMB || 100;
+      config = { ...{ downloadDir: path.join(os.homedir(), 'Downloads', 'ShareTool'), lastSync: null, deviceId: DEVICE_ID, uploadMaxSizeMB }, downloadDir, ...loaded };
     } else {
-      config = { downloadDir: path.join(os.homedir(), 'Downloads', 'ShareTool'), lastSync: null, deviceId: DEVICE_ID };
+      config = { downloadDir: path.join(os.homedir(), 'Downloads', 'ShareTool'), lastSync: null, deviceId: DEVICE_ID, uploadMaxSizeMB: 100 };
     }
   } catch (e) {
-    config = { downloadDir: path.join(os.homedir(), 'Downloads', 'ShareTool'), lastSync: null, deviceId: DEVICE_ID };
+    config = { downloadDir: path.join(os.homedir(), 'Downloads', 'ShareTool'), lastSync: null, deviceId: DEVICE_ID, uploadMaxSizeMB: 100 };
   }
   if (!config.deviceId) config.deviceId = DEVICE_ID;
+  if (!config.uploadMaxSizeMB) config.uploadMaxSizeMB = 100;
+  
+  // 从环境变量或配置文件读取 token
+  SHARE_TOKEN = process.env.SHARE_TOKEN || config.shareToken;
+  if (!SHARE_TOKEN) {
+    // 首次启动，生成新 token
+    SHARE_TOKEN = crypto.randomBytes(32).toString('hex');
+    config.shareToken = SHARE_TOKEN;
+    saveConfig();
+    console.log('[ShareTool] 首次启动，已生成 Token 并保存到 ' + CONFIG_FILE);
+  }
 }
 
 function saveConfig() {
@@ -113,16 +189,31 @@ function auth(req) {
   const token = req.headers['x-auth-token'] || req.headers['authorization']?.replace('Bearer ', '');
   if (!token) return null;
   
-  // 优先验证动态 Token
+  // 验证动态 Token
   const dynamicToken = db.validateToken(token);
   if (dynamicToken) return dynamicToken;
   
-  // 降级验证静态 Token
-  if (token === STATIC_TOKEN) return { token: STATIC_TOKEN, isStatic: true };
+  // 验证配置的共享 Token
+  if (!SHARE_TOKEN) SHARE_TOKEN = getShareToken();
+  if (token === SHARE_TOKEN) return { token: SHARE_TOKEN, isStatic: true };
   return null;
 }
 
 function authRequired(req, res) {
+  const clientIp = getClientIp(req);
+  
+  // 检查速率限制
+  const rateLimit = checkRateLimit(clientIp);
+  if (!rateLimit.allowed) {
+    const retryAfter = Math.ceil((rateLimit.resetTime - Date.now()) / 1000);
+    res.writeHead(429, {
+      'Content-Type': 'application/json',
+      'Retry-After': retryAfter
+    });
+    res.end(JSON.stringify({ success: false, error: 'Too Many Requests', retryAfter }));
+    return null;
+  }
+  
   const authData = auth(req);
   if (!authData) {
     sendJson(res, { success: false, error: 'Unauthorized' }, 401);
@@ -205,15 +296,25 @@ function startHttpServer() {
 
   const requestHandler = async (req, res) => {
     setCors(res);
-    
+
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
       res.end();
       return;
     }
 
+    // 速率限制检查（跳过静态资源和根路径）
     const parsed = url.parse(req.url, true);
     const pathname = parsed.pathname;
+    if (!pathname.startsWith('/index') && !pathname.startsWith('/favicon')) {
+      const clientIp = getClientIp(req);
+      if (!checkRateLimit(clientIp)) {
+        res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+        res.end(JSON.stringify({ success: false, error: '请求过于频繁，请 60 秒后重试' }));
+        return;
+      }
+    }
+
     const query = parsed.query;
 
     // 记录审计日志
@@ -241,11 +342,28 @@ function startHttpServer() {
       if (pathname === '/api/upload' && req.method === 'POST') {
         const authData = authRequired(req, res);
         if (!authData) return;
+
+        // 大小限制检查（基于 Content-Length header）
+        const contentLength = parseInt(req.headers['content-length']) || 0;
+        const maxSize = getUploadMaxSize();
+        if (contentLength > maxSize) {
+          sendJson(res, { success: false, error: `文件大小超过限制（最大 ${config.uploadMaxSizeMB || 100}MB）` }, 413);
+          return;
+        }
+
         let body = '';
         req.on('data', d => body += d);
         req.on('end', () => {
           try {
             const { filename, content, type, tags } = JSON.parse(body);
+            // Base64 内容实际大小检查
+            if (content) {
+              const actualSize = Buffer.byteLength(content, 'base64');
+              if (actualSize > maxSize) {
+                sendJson(res, { success: false, error: `文件大小超过限制（最大 ${config.uploadMaxSizeMB || 100}MB）` }, 413);
+                return;
+              }
+            }
             const result = db.addFile(filename, content, type || 'file');
             if (result) {
               broadcastChange({ type: 'create', filename, hash: result.hash });
@@ -371,6 +489,61 @@ function startHttpServer() {
         });
         return;
       }
+
+      // 批量打包下载
+      if (pathname === '/api/batch-download' && req.method === 'POST') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { filenames } = JSON.parse(body);
+            if (!filenames || !Array.isArray(filenames) || filenames.length === 0) {
+              sendJson(res, { success: false, error: '请提供文件名列表' }, 400);
+              return;
+            }
+            if (filenames.length > 100) {
+              sendJson(res, { success: false, error: '最多同时下载 100 个文件' }, 400);
+              return;
+            }
+
+            // 创建 zip 归档
+            const zip = archiver('zip', { zlib: { level: 9 } });
+            const chunks = [];
+
+            zip.on('data', (chunk) => chunks.push(chunk));
+            zip.on('error', (err) => {
+              sendJson(res, { success: false, error: err.message }, 500);
+            });
+
+            // 添加文件到 zip
+            for (const filename of filenames) {
+              const file = db.getFileByName(filename);
+              if (file && file.content) {
+                zip.append(file.content || '', { name: filename });
+              }
+            }
+
+            zip.finalize();
+
+            // 等待 zip 完成
+            zip.on('end', () => {
+              const buffer = Buffer.concat(chunks);
+              db.addAuditLog('batch_download', `${filenames.length} files`, getClientIp(req), authData.token);
+              res.writeHead(200, {
+                'Content-Type': 'application/zip',
+                'Content-Disposition': `attachment; filename="share-tool-${Date.now()}.zip"`,
+                'Content-Length': buffer.length
+              });
+              res.end(buffer);
+            });
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 400);
+          }
+        });
+        return;
+      }
       
       if (pathname === '/api/search') {
         const authData = authRequired(req, res);
@@ -387,6 +560,38 @@ function startHttpServer() {
       }
       
       // Token API
+      if (pathname === '/api/token/current') {
+        // 返回当前有效的共享 token
+        if (!SHARE_TOKEN) SHARE_TOKEN = getShareToken();
+        sendJson(res, { success: true, token: SHARE_TOKEN });
+        return;
+      }
+
+      if (pathname === '/api/token/set' && req.method === 'POST') {
+        // 设置自定义 token（需验证当前 token）
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { token } = JSON.parse(body);
+            if (!token || token.length < 16) {
+              sendJson(res, { success: false, error: 'Token 长度至少 16 字符' }, 400);
+              return;
+            }
+            SHARE_TOKEN = token;
+            config.shareToken = token;
+            saveConfig();
+            db.addAuditLog('set_token', 'Token 已更新', getClientIp(req), authData.token);
+            sendJson(res, { success: true });
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 400);
+          }
+        });
+        return;
+      }
+
       if (pathname === '/api/token/generate' && req.method === 'POST') {
         const deviceId = req.headers['x-device-id'] || DEVICE_ID;
         const { token, refreshToken, expiresAt } = db.generateToken(deviceId, TOKEN_EXPIRES_IN);
@@ -473,6 +678,87 @@ function startHttpServer() {
         return;
       }
       
+
+      // 批量下载 API
+      if (pathname === '/api/batch-download' && req.method === 'POST') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { filenames } = JSON.parse(body);
+            if (!Array.isArray(filenames) || filenames.length === 0) {
+              sendJson(res, { success: false, error: '需要提供文件名数组' }, 400);
+              return;
+            }
+            
+            // 获取所有文件
+            const files = [];
+            for (const fn of filenames) {
+              const file = db.getFileByName(fn);
+              if (file) {
+                files.push({ filename: fn, content: file.content || '' });
+              }
+            }
+            
+            if (files.length === 0) {
+              sendJson(res, { success: false, error: '没有找到任何文件' }, 404);
+              return;
+            }
+            
+            // 尝试使用 archiver 打包
+            let zipBuffer = null;
+            try {
+              const archiver = require('archiver');
+              const archive = archiver('zip', { zlib: { level: 9 } });
+              const chunks = [];
+              archive.on('data', chunk => chunks.push(chunk));
+              for (const f of files) {
+                archive.append(f.content, { name: f.filename });
+              }
+              archive.finalize();
+              zipBuffer = Buffer.concat(chunks);
+            } catch (archiverErr) {
+              // archiver 不可用，尝试 adm-zip
+              try {
+                const AdmZip = require('adm-zip');
+                const zip = new AdmZip();
+                for (const f of files) {
+                  zip.addFile(f.filename, Buffer.from(f.content, 'utf8'));
+                }
+                zipBuffer = zip.toBuffer();
+              } catch (admZipErr) {
+                // 两者都不可用，返回文件列表
+                sendJson(res, { 
+                  success: true, 
+                  mode: 'multiple',
+                  files: files.map(f => ({ 
+                    name: f.filename, 
+                    size: f.content ? Buffer.byteLength(f.content, 'utf8') : 0 
+                  })),
+                  message: '批量打包不可用，请使用多标签页下载'
+                });
+                return;
+              }
+            }
+            
+            if (zipBuffer) {
+              res.writeHead(200, {
+                'Content-Type': 'application/zip',
+                'Content-Disposition': 'attachment; filename="sharetool_batch.zip"',
+                'Content-Length': zipBuffer.length
+              });
+              res.end(zipBuffer);
+              db.addAuditLog('batch_download', `${files.length} files`, getClientIp(req), authData.token);
+              return;
+            }
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 400);
+          }
+        });
+        return;
+      }
       // 审计 API
       if (pathname === '/api/audit/logs') {
         const authData = authRequired(req, res);
@@ -483,11 +769,14 @@ function startHttpServer() {
         return;
       }
       
-      // 静态文件下载
+      // 静态文件下载（需要认证）
       if (pathname.startsWith('/download/')) {
+        const authData = authRequired(req, res);
+        if (!authData) return;
         const filename = decodeURIComponent(pathname.slice('/download/'.length));
         const file = db.getFileByName(filename);
         if (file) {
+          db.addAuditLog('download', filename, getClientIp(req), authData.token);
           res.writeHead(200, {
             'Content-Type': 'application/octet-stream',
             'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
@@ -513,6 +802,11 @@ function startHttpServer() {
     httpServer = https.createServer(serverOptions, requestHandler);
     httpServer.listen(HTTPS_PORT, '0.0.0.0', () => {
       console.log(`[HTTPS] Server listening on https://${LOCAL_IP}:${HTTPS_PORT}`);
+    });
+    // 同时在 HTTP 端口运行 HTTP（重定向到 HTTPS）
+    const plainServer = http.createServer(requestHandler);
+    plainServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`[HTTP] Server listening on http://${LOCAL_IP}:${PORT} (plain)`);
     });
   } else {
     httpServer = http.createServer(requestHandler);
@@ -814,102 +1108,147 @@ function getHtml() {
 <title>ShareTool</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+:root {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #0f172a;
+  --border-color: var(--border-color);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent-primary: #667eea;
+  --accent-secondary: #764ba2;
+  --success: #22c55e;
+  --danger: #dc2626;
+  --warning: #d97706;
+}
+[data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --border-color: var(--text-primary);
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+}
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
 .container { max-width: 900px; margin: 0 auto; padding: 24px; }
 header { text-align: center; margin-bottom: 32px; }
 h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
-.subtitle { color: #64748b; font-size: 14px; }
+.subtitle { color: var(--text-muted); font-size: 14px; }
 .status-bar { display: flex; gap: 16px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
-.status-item { font-size: 12px; padding: 4px 12px; background: #1e293b; border-radius: 20px; border: 1px solid #334155; }
-.status-item.connected { border-color: #22c55e; color: #4ade80; }
-.status-item.disconnected { border-color: #64748b; color: #64748b; }
-.hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid #334155; }
+.status-item { font-size: 12px; padding: 4px 12px; background: var(--bg-secondary); border-radius: 20px; border: 1px solid var(--border-color); }
+.status-item.connected { border-color: var(--success); color: #4ade80; }
+.status-item.disconnected { border-color: var(--text-muted); color: var(--text-muted); }
+.hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-color); }
 .hero-content { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .hero-text { flex: 1; min-width: 200px; }
-.hero-title { font-size: 18px; font-weight: 600; color: #e2e8f0; margin-bottom: 12px; }
-.hero-desc { font-size: 13px; color: #94a3b8; line-height: 1.6; margin-bottom: 8px; }
+.hero-title { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
+.hero-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 8px; }
 .hero-features { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .hero-feature { background: rgba(102, 126, 234, 0.15); padding: 4px 10px; border-radius: 20px; font-size: 11px; color: #667eea; }
-.card { background: #1e293b; border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 1px solid #334155; }
-.section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #94a3b8; display: flex; align-items: center; gap: 8px; }
+.card { background: var(--bg-secondary); border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 1px solid var(--border-color); }
+.section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
 .section-title::before { content: ''; width: 4px; height: 16px; background: linear-gradient(180deg, #667eea, #764ba2); border-radius: 2px; }
-textarea { width: 100%; padding: 14px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; font-size: 14px; margin-bottom: 12px; resize: vertical; min-height: 100px; font-family: inherit; }
-textarea:focus { outline: none; border-color: #667eea; }
-input[type="text"], input[type="search"] { width: 100%; padding: 12px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; color: #e2e8f0; font-size: 14px; margin-bottom: 12px; }
-input:focus { outline: none; border-color: #667eea; }
+textarea { width: 100%; padding: 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px; margin-bottom: 12px; resize: vertical; min-height: 100px; font-family: inherit; }
+textarea:focus { outline: none; border-color: var(--accent-primary); }
+input[type="text"], input[type="search"] { width: 100%; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px; margin-bottom: 12px; }
+input:focus { outline: none; border-color: var(--accent-primary); }
 .btn { padding: 12px 20px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
 .btn:hover { opacity: 0.9; transform: translateY(-1px); }
 .btn:active { transform: translateY(0); }
-.btn-secondary { background: #334155; }
+.btn-secondary { background: var(--bg-secondary); }
 .btn-danger { background: #dc2626; }
 .btn-warning { background: #d97706; }
 .btn-sm { padding: 8px 14px; font-size: 13px; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-.file-upload-area { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; background: #0f172a; border: 2px dashed #334155; border-radius: 12px; cursor: pointer; transition: all 0.2s; text-align: center; }
-.file-upload-area:hover { border-color: #667eea; background: #1a2744; }
+.file-upload-area { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; background: var(--bg-tertiary); border: 2px dashed var(--border-color); border-radius: 12px; cursor: pointer; transition: all 0.2s; text-align: center; }
+.file-upload-area:hover { border-color: var(--accent-primary); background: #1a2744; }
 .file-upload-area input { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .file-upload-area .icon { font-size: 40px; margin-bottom: 12px; }
-.file-upload-area .text { color: #64748b; font-size: 14px; }
-.file-upload-area .hint { color: #475569; font-size: 12px; margin-top: 8px; }
+.file-upload-area .text { color: var(--text-muted); font-size: 14px; }
+.file-upload-area .hint { color: var(--text-muted); font-size: 12px; margin-top: 8px; }
 .file-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
-.file-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: #0f172a; border-radius: 10px; border: 1px solid #334155; gap: 12px; }
-.file-item:hover { border-color: #475569; }
+.file-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: var(--bg-tertiary); border-radius: 10px; border: 1px solid var(--border-color); gap: 12px; }
+.file-item:hover { border-color: var(--text-muted); }
 .file-content { flex: 1; min-width: 0; }
-.file-preview { background: #1e293b; border-radius: 8px; padding: 12px; margin-top: 8px; max-height: 150px; overflow: auto; white-space: pre-wrap; font-size: 12px; color: #94a3b8; border: 1px solid #334155; word-break: break-all; display: none; }
+.file-preview { background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-top: 8px; max-height: 150px; overflow: auto; white-space: pre-wrap; font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border-color); word-break: break-all; display: none; }
 .file-preview.show { display: block; }
-.file-name { font-weight: 500; color: #e2e8f0; word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .file-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 .file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: #667eea; border-radius: 4px; }
-.file-meta { font-size: 12px; color: #64748b; margin-top: 4px; }
+.file-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 .file-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
-.empty { text-align: center; padding: 30px; color: #64748b; }
+.empty { text-align: center; padding: 30px; color: var(--text-muted); }
 .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; display: none; }
 .alert-success { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; }
 .alert-error { background: rgba(220, 38, 38, 0.15); border: 1px solid #dc2626; color: #f87171; }
 .alert-info { background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #60a5fa; }
 .alert.show { display: block; }
-.code-box { background: #0f172a; padding: 14px; border-radius: 10px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: #4ade80; margin: 8px 0; overflow-x: auto; border: 1px solid #334155; white-space: pre-wrap; word-break: break-all; }
-.progress-bar { width: 100%; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+.code-box { background: var(--bg-tertiary); padding: 14px; border-radius: 10px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: #4ade80; margin: 8px 0; overflow-x: auto; border: 1px solid var(--border-color); white-space: pre-wrap; word-break: break-all; }
+.progress-bar { width: 100%; height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden; margin-top: 8px; }
 .progress-bar .fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.3s; }
 .batch-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .setting-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.setting-row label { color: #94a3b8; font-size: 14px; min-width: 80px; }
+.setting-row label { color: var(--text-secondary); font-size: 14px; min-width: 80px; }
 .setting-row input { flex: 1; margin-bottom: 0; }
 .device-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-.device-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; font-size: 13px; }
+.device-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; }
 .device-item .indicator { width: 8px; height: 8px; border-radius: 50%; background: #64748b; }
 .device-item .indicator.online { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
-.device-item .name { flex: 1; color: #e2e8f0; }
-.device-item .ip { color: #64748b; font-family: monospace; }
+.device-item .name { flex: 1; color: var(--text-primary); }
+.device-item .ip { color: var(--text-muted); font-family: monospace; }
 .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
 .search-bar input { flex: 1; margin-bottom: 0; }
 .filter-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.filter-tab { padding: 6px 14px; background: #0f172a; border: 1px solid #334155; border-radius: 20px; font-size: 12px; color: #64748b; cursor: pointer; transition: all 0.2s; }
-.filter-tab:hover { border-color: #667eea; }
-.filter-tab.active { background: rgba(102,126,234,0.2); border-color: #667eea; color: #667eea; }
-.tab-bar { display: flex; gap: 4px; margin-bottom: 16px; background: #0f172a; padding: 4px; border-radius: 10px; }
-.tab-item { flex: 1; padding: 10px; text-align: center; font-size: 14px; color: #64748b; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
-.tab-item:hover { color: #e2e8f0; }
-.tab-item.active { background: #1e293b; color: #667eea; font-weight: 500; }
+.filter-tab { padding: 6px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 20px; font-size: 12px; color: var(--text-muted); cursor: pointer; transition: all 0.2s; }
+.filter-tab:hover { border-color: var(--accent-primary); }
+.filter-tab.active { background: rgba(102,126,234,0.2); border-color: var(--accent-primary); color: #667eea; }
+.tab-bar { display: flex; gap: 4px; margin-bottom: 16px; background: var(--bg-tertiary); padding: 4px; border-radius: 10px; }
+.tab-item { flex: 1; padding: 10px; text-align: center; font-size: 14px; color: var(--text-muted); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+.tab-item:hover { color: var(--text-primary); }
+.tab-item.active { background: var(--bg-secondary); color: #667eea; font-weight: 500; }
+.qr-section { display: none; text-align: center; padding: 16px; background: var(--bg-tertiary); border-radius: 12px; margin-bottom: 16px; }
+.qr-section.show { display: block; }
+.qr-section canvas { border-radius: 8px; margin: 0 auto 8px; }
+.qr-url { font-size: 12px; color: var(--text-muted); word-break: break-all; font-family: monospace; }
+.fab { display: none; position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 20px rgba(102,126,234,0.4); z-index: 100; transition: transform 0.2s; }
+.fab:hover { transform: scale(1.1); }
+.fab-menu { display: none; position: fixed; bottom: 90px; right: 24px; flex-direction: column; gap: 8px; z-index: 99; }
+.fab-menu.show { display: flex; }
+.fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; }
 @media (max-width: 500px) {
-  .container { padding: 16px; }
+  .container { padding: 16px; padding-bottom: 100px; }
   .actions { flex-direction: column; }
   .btn { width: 100%; text-align: center; }
-  .file-actions { justify-content: flex-start; }
+  .file-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .file-item { flex-direction: column; }
+  .file-actions .btn { width: auto; flex: 1; min-width: 60px; text-align: center; font-size: 12px; padding: 8px 10px; }
   .setting-row { flex-direction: column; align-items: stretch; }
   .setting-row label { min-width: auto; }
   .hero-content { flex-direction: column; }
   .hero-url { flex-direction: column; }
   .status-bar { flex-direction: column; align-items: center; }
+  .search-bar { flex-direction: column; }
+  .search-bar .btn { width: 100%; }
+  .qr-section.show { display: block; }
+  .fab { display: flex; align-items: center; justify-content: center; }
+  .tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
+  .hide-mobile { display: none; }
 }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1>ShareTool</h1>
-    <p class="subtitle">局域网文件/文字分享</p>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h1>ShareTool</h1>
+        <p class="subtitle">局域网文件/文字分享</p>
+      </div>
+      <button id="themeToggle" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px;" title="切换主题">🌙</button>
+    </div>
     <div class="status-bar">
       <span class="status-item disconnected" id="wsStatus">WS 未连接</span>
       <span class="status-item disconnected" id="syncStatus">同步离线</span>
@@ -947,10 +1286,10 @@ input:focus { outline: none; border-color: #667eea; }
     <div class="section-title">上传文件</div>
     <div id="uploadAlert" class="alert"></div>
     <label class="file-upload-area">
-      <input type="file" id="fileInput" multiple>
+      <input type="file" id="fileInput" multiple webkitdirectory>
       <div class="icon">📁</div>
       <div class="text">点击或拖拽文件到此处</div>
-      <div class="hint">保持原文件名上传</div>
+      <div class="hint">支持文件和文件夹上传</div>
     </label>
     <div id="uploadList" class="file-list"></div>
   </div>
@@ -971,6 +1310,7 @@ input:focus { outline: none; border-color: #667eea; }
       <button class="btn btn-sm btn-warning" onclick="deleteOld(7)">删除1周前</button>
       <button class="btn btn-sm btn-warning" onclick="deleteOld(30)">删除1月前</button>
       <button class="btn btn-sm btn-danger" onclick="deleteAll()">删除所有</button>
+      <button class="btn btn-sm" onclick="batchDownload()" id="batchDownloadBtn" style="display:none;">📦 批量下载 (<span id="batchCount">0</span>)</button>
     </div>
     <div class="setting-row">
       <label>下载目录:</label>
@@ -996,7 +1336,7 @@ input:focus { outline: none; border-color: #667eea; }
 
 <script>
 const API = '';
-const STATIC_TOKEN = '${STATIC_TOKEN.substring(0, 8)}***';
+let AUTH_TOKEN = '';
 const WS_URL = 'ws://' + location.hostname + ':${WS_PORT}';
 const DEVICE_ID = '${DEVICE_ID}';
 const DEVICE_NAME = navigator.platform || 'Unknown';
@@ -1008,6 +1348,16 @@ let currentFilter = 'all';
 let reconnectTimer = null;
 let reconnectDelay = 1000;
 let isConnected = false;
+
+function authHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  if (AUTH_TOKEN) headers['x-auth-token'] = AUTH_TOKEN;
+  return headers;
+}
+
+function getApiHeaders(method) {
+  return { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' };
+}
 
 function showAlert(id, msg, type, show = true) {
   const el = document.getElementById(id);
@@ -1152,7 +1502,7 @@ function renderDevices(devices) {
 
 async function loadFiles() {
   try {
-    const res = await fetch(API + '/api/list');
+    const res = await fetch(API + '/api/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     currentFiles = data.files || [];
     renderFiles();
@@ -1179,7 +1529,10 @@ function renderFiles() {
     const previewId = 'preview-' + btoaSafe(f.name).substring(0, 20);
     const tags = f.tags ? f.tags.split(',').filter(t => t.trim()) : [];
     
-    return '<div class="file-item">' +
+    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '">' +
+      '<div style="margin-right: 12px;">' +
+        '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" style="width: 18px; height: 18px; cursor: pointer;">' +
+      '</div>' +
       '<div class="file-content">' +
         '<div class="file-name">' + escapeHtml(f.name) + '</div>' +
         (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag">' + escapeHtml(t) + '</span>').join('') + '</div>' : '') +
@@ -1206,7 +1559,7 @@ function renderFiles() {
 
 async function loadPreview(filename, previewId) {
   try {
-    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename));
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     const el = document.getElementById(previewId);
     if (el && data.content) {
@@ -1232,7 +1585,7 @@ function doSearch() {
     return;
   }
   
-  fetch(API + '/api/search?q=' + encodeURIComponent(q))
+  fetch(API + '/api/search?q=' + encodeURIComponent(q), { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
     .then(r => r.json())
     .then(data => {
       currentFiles = data.files || [];
@@ -1267,7 +1620,7 @@ async function shareText() {
   try {
     const res = await fetch(API + '/api/upload', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
       body: JSON.stringify({ filename, content, type: 'text' })
     });
     const data = await res.json();
@@ -1291,21 +1644,22 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
 
 async function uploadFiles(files) {
   for (const file of files) {
-    showAlert('uploadAlert', '上传中: ' + file.name, 'info');
+    const filename = file.webkitRelativePath || file.name;
+    showAlert('uploadAlert', '上传中: ' + filename, 'info');
     const reader = new FileReader();
     reader.onload = async () => {
       const base64 = reader.result.split(',')[1];
       try {
         const res = await fetch(API + '/api/upload', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: file.name, content: base64, type: 'file' })
+          headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+          body: JSON.stringify({ filename: filename, content: base64, type: 'file' })
         });
         const data = await res.json();
         if (data.success) {
-          showAlert('uploadAlert', '上传成功: ' + file.name, 'success');
+          showAlert('uploadAlert', '上传成功: ' + filename, 'success');
           loadFiles();
-          broadcastWs({ type: 'file_create', payload: { filename: file.name, hash: data.hash } });
+          broadcastWs({ type: 'file_create', payload: { filename: filename, hash: data.hash } });
         } else {
           showAlert('uploadAlert', '失败: ' + data.error, 'error');
         }
@@ -1319,7 +1673,7 @@ async function uploadFiles(files) {
 
 async function copyContent(filename) {
   try {
-    const res = await fetch(API + '/api/content/' + filename);
+    const res = await fetch(API + '/api/content/' + filename, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.content) {
       const textarea = document.createElement('textarea');
@@ -1347,7 +1701,7 @@ async function addTag(filename, existingTags) {
   try {
     const res = await fetch(API + '/api/file-tags/' + filename, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
       body: JSON.stringify({ tags })
     });
     const data = await res.json();
@@ -1363,7 +1717,7 @@ async function addTag(filename, existingTags) {
 async function deleteFile(filename) {
   if (!confirm('确定删除?')) return;
   try {
-    const res = await fetch(API + '/api/file/' + filename + '?filename=' + encodeURIComponent(filename), { method: 'DELETE' });
+    const res = await fetch(API + '/api/file/' + filename + '?filename=' + encodeURIComponent(filename), { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.success) {
       showAlert('listAlert', '已删除', 'success');
@@ -1378,7 +1732,7 @@ async function deleteFile(filename) {
 async function deleteOld(days) {
   if (!confirm('删除 ' + days + ' 天前的文件?')) return;
   try {
-    const res = await fetch(API + '/api/delete-old?days=' + days, { method: 'DELETE' });
+    const res = await fetch(API + '/api/delete-old?days=' + days, { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.success) {
       showAlert('listAlert', '已删除 ' + data.deleted + ' 个文件', 'success');
@@ -1392,7 +1746,7 @@ async function deleteOld(days) {
 async function deleteAll() {
   if (!confirm('确定删除所有文件?')) return;
   try {
-    const res = await fetch(API + '/api/delete-all', { method: 'DELETE' });
+    const res = await fetch(API + '/api/delete-all', { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.success) {
       showAlert('listAlert', '已删除 ' + data.deleted + ' 个文件', 'success');
@@ -1401,6 +1755,67 @@ async function deleteAll() {
       showAlert('listAlert', '删除失败', 'error');
     }
   } catch (e) { showAlert('listAlert', '删除失败: ' + e.message, 'error'); }
+}
+
+// 批量选择处理
+document.addEventListener('change', (e) => {
+  if (e.target.classList.contains('batch-checkbox')) {
+    updateBatchDownloadButton();
+  }
+});
+
+function updateBatchDownloadButton() {
+  const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
+  const count = checkboxes.length;
+  const btn = document.getElementById('batchDownloadBtn');
+  const countSpan = document.getElementById('batchCount');
+  if (btn) {
+    btn.style.display = count > 0 ? 'inline-block' : 'none';
+    if (countSpan) countSpan.textContent = count;
+  }
+}
+
+async function batchDownload() {
+  const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
+  if (checkboxes.length === 0) {
+    showAlert('listAlert', '请先选择文件', 'error');
+    return;
+  }
+  
+  const filenames = Array.from(checkboxes).map(cb => decodeURIComponent(cb.value));
+  
+  try {
+    const res = await fetch(API + '/api/batch-download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ filenames })
+    });
+    
+    const contentType = res.headers.get('Content-Type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      const data = await res.json();
+      if (data.mode === 'multiple') {
+        showAlert('listAlert', '批量打包不可用，正在逐个打开下载...', 'info');
+        for (const f of data.files) {
+          window.open(API + '/download/' + encodeURIComponent(f.name), '_blank');
+        }
+      } else {
+        showAlert('listAlert', '下载失败: ' + data.error, 'error');
+      }
+    } else if (contentType && contentType.includes('zip')) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sharetool_batch.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+      showAlert('listAlert', '批量下载成功', 'success');
+    }
+  } catch (e) {
+    showAlert('listAlert', '批量下载失败: ' + e.message, 'error');
+  }
 }
 
 function saveDownloadDir() {
@@ -1421,9 +1836,36 @@ function broadcastWs(msg) {
   }
 }
 
+// 主题切换
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme');
+  const next = current === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('shareTool_theme', next);
+  document.getElementById('themeToggle').textContent = next === 'light' ? '🌙' : '☀️';
+}
+
+function initTheme() {
+  const saved = localStorage.getItem('shareTool_theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
+  }
+}
+
 // 初始化
 async function init() {
-  // 加载配置
+  // 加载 Token
+  try {
+    const res = await fetch(API + '/api/token/current');
+    const data = await res.json();
+    if (data.token) AUTH_TOKEN = data.token;
+  } catch (e) {}
+
+  initTheme();
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
   const localDownloadDir = localStorage.getItem('shareTool_downloadDir') || '';
   document.getElementById('downloadDir').value = localDownloadDir;
   

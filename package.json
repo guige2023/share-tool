@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/guige2023/share-tool#readme",
   "dependencies": {
+    "archiver": "^7.0.1",
     "better-sqlite3": "^12.8.0",
     "uuid": "^13.0.0",
     "ws": "^8.20.0"
