@@ -43,6 +43,7 @@ function initDatabase() {
       size         INTEGER NOT NULL DEFAULT 0,
       hash         TEXT,
       tags         TEXT    DEFAULT '',
+      encrypted    INTEGER NOT NULL DEFAULT 0,
       created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at   INTEGER NOT NULL DEFAULT (unixepoch())
     )
@@ -134,9 +135,9 @@ function initDatabase() {
 // ============================================================
 // 文件操作
 // ============================================================
-const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, created_at, updated_at';
+const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, created_at, updated_at';
 
-function addFile(filename, content, type = 'file', hash = null) {
+function addFile(filename, content, type = 'file', hash = null, encrypted = false) {
   const db = getDb();
   const size = content ? Buffer.byteLength(content, 'utf8') : 0;
   if (!hash) {
@@ -144,19 +145,19 @@ function addFile(filename, content, type = 'file', hash = null) {
   }
   try {
     const stmt = db.prepare(`
-      INSERT INTO files (filename, content, type, size, hash, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, unixepoch(), unixepoch())
+      INSERT INTO files (filename, content, type, size, hash, encrypted, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())
     `);
-    const result = stmt.run(filename, content || null, type, size, hash);
+    const result = stmt.run(filename, content || null, type, size, hash, encrypted ? 1 : 0);
     
     // 记录同步日志
     addSyncLog(null, filename, 'create', hash);
     
-    return { id: result.lastInsertRowid, filename, hash, size };
+    return { id: result.lastInsertRowid, filename, hash, size, encrypted };
   } catch (e) {
     if (e.message.includes('UNIQUE constraint failed')) {
       // 文件已存在，更新
-      return updateFileByName(filename, { content, type, hash });
+      return updateFileByName(filename, { content, type, hash, encrypted });
     }
     throw e;
   }
@@ -192,7 +193,7 @@ function updateFileByName(filename, updates) {
 
   const fields = [];
   const values = [];
-  
+
   if (updates.content !== undefined) {
     fields.push('content = ?');
     values.push(updates.content);
@@ -203,7 +204,8 @@ function updateFileByName(filename, updates) {
   }
   if (updates.type !== undefined) { fields.push('type = ?'); values.push(updates.type); }
   if (updates.tags !== undefined) { fields.push('tags = ?'); values.push(updates.tags); }
-  
+  if (updates.encrypted !== undefined) { fields.push('encrypted = ?'); values.push(updates.encrypted ? 1 : 0); }
+
   fields.push('updated_at = unixepoch()');
   values.push(filename);
 
@@ -222,7 +224,7 @@ function updateFile(id, updates) {
 
   const fields = [];
   const values = [];
-  
+
   if (updates.content !== undefined) {
     fields.push('content = ?');
     values.push(updates.content);
@@ -234,7 +236,8 @@ function updateFile(id, updates) {
   if (updates.type !== undefined) { fields.push('type = ?'); values.push(updates.type); }
   if (updates.tags !== undefined) { fields.push('tags = ?'); values.push(updates.tags); }
   if (updates.filename !== undefined) { fields.push('filename = ?'); values.push(updates.filename); }
-  
+  if (updates.encrypted !== undefined) { fields.push('encrypted = ?'); values.push(updates.encrypted ? 1 : 0); }
+
   fields.push('updated_at = unixepoch()');
   values.push(id);
 
@@ -616,7 +619,7 @@ function migrateFromFileSystem(shareDir) {
       try {
         const content = fs.readFileSync(filePath, 'utf8');
         const type = isTextFile(filename) ? 'text' : 'file';
-        addFile(filename, content, type);
+        addFile(filename, content, type, null, false);
         migrated++;
       } catch (e) {
         // 二进制文件或其他问题，跳过

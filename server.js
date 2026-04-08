@@ -11,6 +11,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const url = require('url');
+const cryptoModule = require('./crypto');
 
 // 内部模块
 const db = require('./db');
@@ -1028,6 +1029,11 @@ async function startHttpServer() {
         }
         db.incrementShareLinkDownload(code);
         db.addAuditLog('share_access', `code=${code}, filename=${shareData.filename}`, getClientIp(req));
+        // 加密文件不支持无密码分享
+        if (file.encrypted) {
+          sendJson(res, { success: false, error: '加密文件无法通过分享链接访问，请在 App 中打开' }, 403);
+          return;
+        }
         // 如果是文字内容，直接返回
         if (file.type === 'text') {
           sendJson(res, { success: true, type: 'text', filename: file.filename, content: file.content });
@@ -1040,6 +1046,133 @@ async function startHttpServer() {
           });
           res.end(file.content || '');
         }
+        return;
+      }
+      
+      // 加密/解密 API（服务端不存储密码，仅做加密运算）
+      if (pathname === '/api/encrypt' && req.method === 'POST') {
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { content, password } = JSON.parse(body);
+            if (!content || !password) {
+              sendJson(res, { success: false, error: '需要 content 和 password' }, 400);
+              return;
+            }
+            const encrypted = cryptoModule.encrypt(content, password);
+            sendJson(res, { success: true, encrypted: encrypted.toString('base64') });
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 500);
+          }
+        });
+        return;
+      }
+      
+      if (pathname === '/api/decrypt' && req.method === 'POST') {
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { encrypted, password } = JSON.parse(body);
+            if (!encrypted || !password) {
+              sendJson(res, { success: false, error: '需要 encrypted 和 password' }, 400);
+              return;
+            }
+            const encryptedBuffer = Buffer.from(encrypted, 'base64');
+            const decrypted = cryptoModule.decrypt(encryptedBuffer, password);
+            if (!decrypted) {
+              sendJson(res, { success: false, error: '密码错误或数据损坏' }, 401);
+              return;
+            }
+            sendJson(res, { success: true, content: decrypted.toString('utf8') });
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 500);
+          }
+        });
+        return;
+      }
+      
+      // 获取文件列表时标记加密状态
+      if (pathname === '/api/files') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const { files, total } = db.listFiles(100, 0);
+        sendJson(res, { success: true, files, total });
+        return;
+      }
+      
+      if (pathname === '/api/files/list') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const limit = parseInt(query.limit) || 100;
+        const offset = parseInt(query.offset) || 0;
+        const { files, total } = db.listFiles(limit, offset);
+        sendJson(res, { success: true, files, total });
+        return;
+      }
+      
+      // 上传加密文件（客户端已加密，直接存储）
+      if (pathname === '/api/files/upload-encrypted' && req.method === 'POST') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { filename, encryptedContent, size } = JSON.parse(body);
+            if (!filename || !encryptedContent) {
+              sendJson(res, { success: false, error: '需要 filename 和 encryptedContent' }, 400);
+              return;
+            }
+            const content = Buffer.from(encryptedContent, 'base64').toString('utf8');
+            const hash = crypto.createHash('md5').update(content).digest('hex');
+            const result = db.addFile(filename, content, 'file', hash, true);
+            db.addAuditLog('file_upload_encrypted', `filename=${filename}`, getClientIp(req), authData.token);
+            sendJson(res, { success: true, ...result });
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 500);
+          }
+        });
+        return;
+      }
+      
+      // 获取单个文件（包含加密标记）
+      if (pathname.match(/^\/api\/files\/[^\/]+$/) && req.method === 'GET') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const filename = decodeURIComponent(pathname.slice('/api/files/'.length));
+        const file = db.getFileByName(filename);
+        if (!file) {
+          sendJson(res, { success: false, error: '文件不存在' }, 404);
+          return;
+        }
+        sendJson(res, { success: true, file });
+        return;
+      }
+      
+      // 标记/取消标记文件加密状态（用于手动标记已客户端加密的文件）
+      if (pathname.match(/^\/api\/files\/[^\/]+\/encrypt$/) && req.method === 'POST') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const parts = pathname.split('/');
+        const filename = decodeURIComponent(parts[parts.length - 2]);
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { encrypted } = JSON.parse(body);
+            const file = db.updateFileByName(filename, { encrypted: !!encrypted });
+            if (!file) {
+              sendJson(res, { success: false, error: '文件不存在' }, 404);
+              return;
+            }
+            db.addAuditLog('file_encrypt', `filename=${filename}, encrypted=${encrypted}`, getClientIp(req), authData.token);
+            sendJson(res, { success: true, file });
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 500);
+          }
+        });
         return;
       }
       
