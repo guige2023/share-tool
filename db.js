@@ -236,14 +236,15 @@ function addFile(filename, content, type = 'file', hash = null, encrypted = fals
     hash = content ? crypto.createHash('md5').update(content).digest('hex') : null;
   }
   try {
+    const contentType = type === 'text' ? 'text/plain' : 'application/octet-stream';
     const stmt = db.prepare(`
-      INSERT INTO files (filename, content, type, size, hash, encrypted, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())
+      INSERT INTO files (filename, content, type, size, hash, encrypted, content_type, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())
     `);
-    const result = stmt.run(filename, content || null, type, size, hash, encrypted ? 1 : 0);
+    const result = stmt.run(filename, content || null, type, size, hash, encrypted ? 1 : 0, contentType);
     
     // 记录同步日志
-    addSyncLog(null, filename, 'create', hash);
+    addSyncLog(null, filename, 'create', hash, null, size);
     
     return { id: result.lastInsertRowid, filename, hash, size, encrypted };
   } catch (e) {
@@ -305,7 +306,7 @@ function updateFileByName(filename, updates) {
   stmt.run(...values);
 
   const updated = getFileByName(filename);
-  addSyncLog(updated.id, filename, 'update', updated.hash);
+  addSyncLog(updated.id, filename, 'update', updated.hash, null, updated.size);
   return updated;
 }
 
@@ -338,7 +339,7 @@ function updateFile(id, updates) {
 
   const updated = getFile(id);
   if (updated) {
-    addSyncLog(updated.id, updated.filename, 'update', updated.hash);
+    addSyncLog(updated.id, updated.filename, 'update', updated.hash, null, updated.size);
   }
   return updated;
 }
@@ -347,8 +348,8 @@ function deleteFileByName(filename) {
   const db = getDb();
   const existing = getFileByName(filename);
   if (!existing) return false;
-  
-  addSyncLog(existing.id, filename, 'delete', existing.hash);
+
+  addSyncLog(existing.id, filename, 'delete', existing.hash, null, existing.size);
   db.prepare('DELETE FROM files WHERE filename = ?').run(filename);
   return true;
 }
@@ -369,7 +370,7 @@ function renameFile(oldFilename, newFilename) {
   // 记录同步日志
   const updated = getFileByName(newFilename);
   if (updated) {
-    addSyncLog(updated.id, newFilename, 'rename', updated.hash);
+    addSyncLog(updated.id, newFilename, 'rename', updated.hash, null, updated.size);
   }
   
   return { success: true, oldFilename, newFilename, hash: updated ? updated.hash : null };
@@ -380,7 +381,7 @@ function deleteFile(id) {
   const existing = getFile(id);
   if (!existing) return false;
   
-  addSyncLog(existing.id, existing.filename, 'delete', existing.hash);
+  addSyncLog(existing.id, existing.filename, 'delete', existing.hash, null, existing.size);
   db.prepare('DELETE FROM files WHERE id = ?').run(id);
   return true;
 }
@@ -388,10 +389,10 @@ function deleteFile(id) {
 function deleteOldFiles(days) {
   const db = getDb();
   const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
-  
+
   const oldFiles = db.prepare('SELECT * FROM files WHERE created_at < ?').all(cutoff);
   for (const f of oldFiles) {
-    addSyncLog(f.id, f.filename, 'delete', f.hash);
+    addSyncLog(f.id, f.filename, 'delete', f.hash, null, f.size);
   }
   
   const result = db.prepare('DELETE FROM files WHERE created_at < ?').run(cutoff);
@@ -402,7 +403,7 @@ function deleteAllFiles() {
   const db = getDb();
   const allFiles = db.prepare('SELECT * FROM files').all();
   for (const f of allFiles) {
-    addSyncLog(f.id, f.filename, 'delete', f.hash);
+    addSyncLog(f.id, f.filename, 'delete', f.hash, null, f.size);
   }
   db.prepare('DELETE FROM files').run();
   return { deleted: allFiles.length };
@@ -570,13 +571,13 @@ function cleanupStaleDevices(minutesOffline = 5) {
 // ============================================================
 // 同步日志
 // ============================================================
-function addSyncLog(fileId, filename, action, hash, deviceId = null) {
+function addSyncLog(fileId, filename, action, hash, deviceId = null, sizeBytes = 0) {
   const db = getDb();
   const stmt = db.prepare(`
-    INSERT INTO sync_log (file_id, filename, action, hash, timestamp, device_id, synced)
-    VALUES (?, ?, ?, ?, unixepoch(), ?, 0)
+    INSERT INTO sync_log (file_id, filename, action, hash, timestamp, device_id, synced, size_bytes)
+    VALUES (?, ?, ?, ?, unixepoch(), ?, 0, ?)
   `);
-  stmt.run(fileId, filename, action, hash, deviceId);
+  stmt.run(fileId, filename, action, hash, deviceId, sizeBytes);
 }
 
 function getUnsyncedLogs(since = 0) {
