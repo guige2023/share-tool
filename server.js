@@ -653,13 +653,18 @@ function generateShareCode() {
 
 function createShareLink(filename, options = {}) {
   const code = generateShareCode();
-  const expiresAt = Date.now() + (options.expiryHours || 168) * 60 * 60 * 1000;
+  const expiresHours = options.expiryHours;
+  // expiryHours = 0 表示永不过期（用 MAX_INT 代替 NULL 避免 SQLite schema 迁移）
+  const MAX_TS = 32503680000000; // 3000-01-01
+  const expiresAt = (!expiresHours && expiresHours !== 0)
+    ? Date.now() + 168 * 60 * 60 * 1000  // 默认7天
+    : (expiresHours === 0 ? MAX_TS : Date.now() + expiresHours * 60 * 60 * 1000);
   const shareData = {
     code,
     filename,
     createdAt: Date.now(),
     expiresAt,
-    password: options.password || null, // 可选密码保护
+    password: options.password || null,
     maxDownloads: options.maxDownloads || null,
     downloadCount: 0,
     isText: options.isText || false,
@@ -674,8 +679,8 @@ function validateShareCode(code) {
   const shareData = db.getShareLink(code);
   if (!shareData) return null;
   
-  // 检查过期
-  if (Date.now() > shareData.expiresAt) {
+  // 检查过期（null = 永不过期）
+  if (shareData.expiresAt && Date.now() > shareData.expiresAt) {
     db.deleteShareLink(code);
     return null;
   }
@@ -2604,6 +2609,41 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   </div>
 </div>
 
+<div class="modal-overlay" id="shareOptionsModal" onclick="if(event.target===this)closeShareOptionsModal()">
+  <div class="modal-content" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">🔗 创建分享链接</div>
+      <button class="modal-close" onclick="closeShareOptionsModal()">x</button>
+    </div>
+    <div style="padding:8px 0;">
+      <input type="hidden" id="shareOptionsFilename">
+      <div id="shareOptionsFileName" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;padding:8px;background:var(--bg-tertiary);border-radius:8px;word-break:break-all;"></div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">过期时间</div>
+        <select id="shareExpiryHours" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;">
+          <option value="24">24小时</option>
+          <option value="72">3天</option>
+          <option value="168" selected>7天（默认）</option>
+          <option value="720">30天</option>
+          <option value="0">永不过期</option>
+        </select>
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">下载次数限制（可选）</div>
+        <input type="number" id="shareMaxDownloads" placeholder="不限制" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;">
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">密码保护（可选）</div>
+        <input type="password" id="sharePassword" placeholder="不设置密码" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="doCreateShareLink()" style="flex:1;">创建链接</button>
+        <button class="btn btn-secondary" onclick="closeShareOptionsModal()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="shareLinksModal" onclick="if(event.target===this)closeShareLinksModal()">
   <div class="modal-content" style="max-width:600px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
@@ -3688,17 +3728,31 @@ function copyShareLink() {
 }
 
 async function shareFile(filename) {
+  // Open share options modal
+  document.getElementById('shareOptionsFilename').value = filename;
+  document.getElementById('shareOptionsFileName').textContent = filename;
+  document.getElementById('shareExpiryHours').value = '168';
+  document.getElementById('shareMaxDownloads').value = '';
+  document.getElementById('sharePassword').value = '';
+  document.getElementById('shareOptionsModal').classList.add('show');
+}
+
+async function doCreateShareLink() {
+  const filename = document.getElementById('shareOptionsFilename').value;
+  if (!filename) { showToast('文件名无效'); return; }
+  const expiryHours = parseInt(document.getElementById('shareExpiryHours').value) || 168;
+  const maxDownloads = parseInt(document.getElementById('shareMaxDownloads').value) || null;
+  const password = document.getElementById('sharePassword').value || null;
+  closeShareOptionsModal();
   try {
     const res = await fetch(API + '/api/share/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ filename })
+      body: JSON.stringify({ filename, expiryHours: expiryHours || null, maxDownloads, password })
     });
     const data = await res.json();
     if (data.success) {
       const shareUrl = data.url;
-      const code = data.code;
-      // Show share link in the box
       const linkBox = document.getElementById('shareLinkBox');
       const linkInput = document.getElementById('shareLinkInput');
       if (linkBox && linkInput) {
@@ -3712,6 +3766,10 @@ async function shareFile(filename) {
   } catch (e) {
     showToast('分享失败: ' + e.message);
   }
+}
+
+function closeShareOptionsModal() {
+  document.getElementById('shareOptionsModal').classList.remove('show');
 }
 
 function showShareQRModal() {
