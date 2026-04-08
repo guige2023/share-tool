@@ -466,6 +466,19 @@ function revokeAllTokens() {
 }
 
 // ============================================================
+// Token 清理（删除过期 Token）
+// ============================================================
+function cleanupExpiredTokens() {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const result = db.prepare('DELETE FROM tokens WHERE expires_at < ?').run(now);
+  if (result.changes > 0) {
+    console.log(`[DB] Cleaned up ${result.changes} expired tokens`);
+  }
+  return result.changes;
+}
+
+// ============================================================
 // 审计日志
 // ============================================================
 function addAuditLog(action, details = null, ip = null, token = null) {
@@ -545,5 +558,7 @@ module.exports = {
   // 审计
   addAuditLog, listAuditLogs, getAuditStats,
   // 迁移
-  migrateFromFileSystem
+  migrateFromFileSystem,
+  // 清理
+  cleanupExpiredTokens
 };

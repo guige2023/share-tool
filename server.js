@@ -5,6 +5,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -23,12 +24,14 @@ const dgram = require('dgram');
 // 常量配置
 // ============================================================
 const PORT = 18790;
+const HTTPS_PORT = 18793; // HTTPS 端口
 const WS_PORT = 18791;  // WebSocket 专用端口
 const DISCOVERY_PORT = 18792; // UDP 广播发现端口
 const BROADCAST_INTERVAL = 5000; // 5秒广播一次
 
 const SHARE_DIR = path.join(os.homedir(), '.share-tool', 'files');
 const CONFIG_FILE = path.join(os.homedir(), '.share-tool', 'config.json');
+const SSL_DIR = path.join(os.homedir(), '.share-tool', 'ssl');
 
 // Token 配置
 const STATIC_TOKEN = process.env.SHARE_TOKEN || '35e7438f1e72356ebc6d4e839881cc35233ee01ec81d5af6';
@@ -165,17 +168,32 @@ function init() {
   // 定时同步检查
   startSyncScheduler();
   
-  console.log(`[ShareTool] Started on http://${LOCAL_IP}:${PORT}`);
   console.log(`[ShareTool] Device ID: ${DEVICE_ID}`);
+  console.log(`[ShareTool] HTTP: http://${LOCAL_IP}:${PORT}`);
   console.log(`[ShareTool] WebSocket: ws://${LOCAL_IP}:${WS_PORT}`);
   console.log(`[ShareTool] Discovery: udp://${LOCAL_IP}:${DISCOVERY_PORT}`);
 }
 
 // ============================================================
-// HTTP 服务器
+// HTTP/HTTPS 服务器
 // ============================================================
 function startHttpServer() {
-  httpServer = http.createServer(async (req, res) => {
+  const serverOptions = {
+    key: null,
+    cert: null,
+    https: false
+  };
+
+  // 尝试加载 SSL 证书
+  const certPath = path.join(SSL_DIR, 'cert.pem');
+  const keyPath = path.join(SSL_DIR, 'key.pem');
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    serverOptions.key = fs.readFileSync(keyPath);
+    serverOptions.cert = fs.readFileSync(certPath);
+    serverOptions.https = true;
+  }
+
+  const requestHandler = async (req, res) => {
     setCors(res);
     
     if (req.method === 'OPTIONS') {
@@ -454,11 +472,21 @@ function startHttpServer() {
       console.error('[HTTP] Error:', e);
       sendJson(res, { success: false, error: e.message }, 500);
     }
-  });
+  };
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`[HTTP] Server listening on port ${PORT}`);
-  });
+  if (serverOptions.https) {
+    httpServer = https.createServer(serverOptions, requestHandler);
+    httpServer.listen(HTTPS_PORT, '0.0.0.0', () => {
+      console.log(`[HTTPS] Server listening on https://${LOCAL_IP}:${HTTPS_PORT}`);
+    });
+  } else {
+    httpServer = http.createServer(requestHandler);
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`[HTTP] Server listening on http://${LOCAL_IP}:${PORT}`);
+      console.log('[HTTPS] SSL certificates not found, HTTPS disabled');
+      console.log('[HTTPS] Run with SSL_DIR set to enable HTTPS');
+    });
+  }
 }
 
 // ============================================================
@@ -727,6 +755,11 @@ function startSyncScheduler() {
       console.log(`[Sync] ${unsynced} unsynced changes, ${onlineDevices.length} online devices`);
     }
   }, 60000);
+  
+  // 每小时清理一次过期 Token
+  setInterval(() => {
+    db.cleanupExpiredTokens();
+  }, 3600000);
 }
 
 // ============================================================
