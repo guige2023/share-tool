@@ -373,6 +373,59 @@ function getCertInfo() {
 }
 
 // ============================================================
+// 分享码管理
+// ============================================================
+const SHARE_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'; // 排除易混淆字符
+const SHARE_CODE_LENGTH = 6;
+const SHARE_CODE_EXPIRY_DEFAULT = 7 * 24 * 60 * 60 * 1000; // 7天
+
+function generateShareCode() {
+  let code = '';
+  const bytes = crypto.randomBytes(SHARE_CODE_LENGTH);
+  for (let i = 0; i < SHARE_CODE_LENGTH; i++) {
+    code += SHARE_CODE_CHARS[bytes[i] % SHARE_CODE_CHARS.length];
+  }
+  return code;
+}
+
+function createShareLink(filename, options = {}) {
+  const code = generateShareCode();
+  const expiresAt = Date.now() + (options.expiryHours || 168) * 60 * 60 * 1000;
+  const shareData = {
+    code,
+    filename,
+    createdAt: Date.now(),
+    expiresAt,
+    password: options.password || null, // 可选密码保护
+    maxDownloads: options.maxDownloads || null,
+    downloadCount: 0,
+    isText: options.isText || false
+  };
+  
+  db.saveShareLink(shareData);
+  return shareData;
+}
+
+function validateShareCode(code) {
+  const shareData = db.getShareLink(code);
+  if (!shareData) return null;
+  
+  // 检查过期
+  if (Date.now() > shareData.expiresAt) {
+    db.deleteShareLink(code);
+    return null;
+  }
+  
+  // 检查下载次数
+  if (shareData.maxDownloads && shareData.downloadCount >= shareData.maxDownloads) {
+    db.deleteShareLink(code);
+    return null;
+  }
+  
+  return shareData;
+}
+
+// ============================================================
 // HTTP/HTTPS 服务器
 // ============================================================
 async function startHttpServer() {
@@ -897,7 +950,7 @@ async function startHttpServer() {
         const authData = authRequired(req, res);
         if (!authData) return;
         try {
-          const result = ensureSslCertificates();
+          const result = await ensureSslCertificates();
           if (result) {
             const info = getCertInfo();
             sendJson(res, { success: true, message: 'Certificate regenerated', ...info });
@@ -906,6 +959,86 @@ async function startHttpServer() {
           }
         } catch (e) {
           sendJson(res, { success: false, error: e.message }, 500);
+        }
+        return;
+      }
+      
+      // 分享链接 API（无需认证）
+      if (pathname === '/api/share/create' && req.method === 'POST') {
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { filename, expiryHours, maxDownloads, password } = JSON.parse(body);
+            if (!filename) {
+              sendJson(res, { success: false, error: '需要提供 filename' }, 400);
+              return;
+            }
+            const file = db.getFileByName(filename);
+            if (!file) {
+              sendJson(res, { success: false, error: '文件不存在' }, 404);
+              return;
+            }
+            const shareData = createShareLink(filename, {
+              expiryHours: expiryHours || 168,
+              maxDownloads: maxDownloads || null,
+              password: password || null,
+              isText: file.type === 'text'
+            });
+            const shareUrl = `http://${LOCAL_IP}:${PORT}/s/${shareData.code}`;
+            db.addAuditLog('share_create', `code=${shareData.code}, filename=${filename}`, getClientIp(req));
+            sendJson(res, { success: true, code: shareData.code, url: shareUrl, expiresAt: shareData.expiresAt });
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 400);
+          }
+        });
+        return;
+      }
+      
+      if (pathname === '/api/share/list') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const links = db.listShareLinks();
+        sendJson(res, { success: true, links });
+        return;
+      }
+      
+      if (pathname.startsWith('/api/share/delete/') && req.method === 'DELETE') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const code = pathname.slice('/api/share/delete/'.length);
+        db.deleteShareLink(code);
+        db.addAuditLog('share_delete', `code=${code}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true });
+        return;
+      }
+      
+      // 通过分享码访问（无需认证）
+      if (pathname.startsWith('/s/')) {
+        const code = pathname.slice(3);
+        const shareData = validateShareCode(code);
+        if (!shareData) {
+          sendJson(res, { success: false, error: '分享链接已过期或不存在' }, 404);
+          return;
+        }
+        const file = db.getFileByName(shareData.filename);
+        if (!file) {
+          sendJson(res, { success: false, error: '文件已被删除' }, 404);
+          return;
+        }
+        db.incrementShareLinkDownload(code);
+        db.addAuditLog('share_access', `code=${code}, filename=${shareData.filename}`, getClientIp(req));
+        // 如果是文字内容，直接返回
+        if (file.type === 'text') {
+          sendJson(res, { success: true, type: 'text', filename: file.filename, content: file.content });
+        } else {
+          // 文件返回下载
+          res.writeHead(200, {
+            'Content-Type': 'application/octet-stream',
+            'Content-Disposition': `attachment; filename="${encodeURIComponent(file.filename)}"`,
+            'Content-Length': file.size
+          });
+          res.end(file.content || '');
         }
         return;
       }
@@ -1228,9 +1361,10 @@ function startSyncScheduler() {
     }
   }, 60000);
   
-  // 每小时清理一次过期 Token
+  // 每小时清理一次过期 Token 和分享链接
   setInterval(() => {
     db.cleanupExpiredTokens();
+    db.cleanupExpiredShareLinks();
   }, 3600000);
 }
 

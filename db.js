@@ -100,6 +100,22 @@ function initDatabase() {
     )
   `);
 
+  // 分享链接表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS share_links (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      code          TEXT    NOT NULL UNIQUE,
+      filename      TEXT    NOT NULL,
+      is_text       INTEGER NOT NULL DEFAULT 0,
+      password      TEXT,
+      expires_at    INTEGER NOT NULL,
+      max_downloads INTEGER,
+      download_count INTEGER NOT NULL DEFAULT 0,
+      created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
+      created_by    TEXT
+    )
+  `);
+
   // 索引
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_files_hash ON files(hash);
@@ -108,6 +124,7 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_sync_log_synced ON sync_log(synced);
     CREATE INDEX IF NOT EXISTS idx_tokens_token ON tokens(token);
     CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_share_links_code ON share_links(code);
   `);
 
   console.log('[DB] Database initialized at', DB_PATH);
@@ -505,12 +522,87 @@ function getAuditStats() {
 }
 
 // ============================================================
+// 分享链接
+// ============================================================
+function saveShareLink(shareData) {
+  const db = getDb();
+  const stmt = db.prepare(`
+    INSERT INTO share_links (code, filename, is_text, password, expires_at, max_downloads, download_count, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    shareData.code,
+    shareData.filename,
+    shareData.isText ? 1 : 0,
+    shareData.password,
+    Math.floor(shareData.expiresAt / 1000),
+    shareData.maxDownloads,
+    0,
+    shareData.createdBy || null
+  );
+  return shareData;
+}
+
+function getShareLink(code) {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM share_links WHERE code = ?').get(code);
+  if (!row) return null;
+  return {
+    code: row.code,
+    filename: row.filename,
+    isText: row.is_text === 1,
+    password: row.password,
+    expiresAt: row.expires_at * 1000,
+    maxDownloads: row.max_downloads,
+    downloadCount: row.download_count,
+    createdAt: row.created_at * 1000,
+    createdBy: row.created_by
+  };
+}
+
+function deleteShareLink(code) {
+  const db = getDb();
+  db.prepare('DELETE FROM share_links WHERE code = ?').run(code);
+}
+
+function incrementShareLinkDownload(code) {
+  const db = getDb();
+  db.prepare('UPDATE share_links SET download_count = download_count + 1 WHERE code = ?').run(code);
+}
+
+function listShareLinks() {
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM share_links ORDER BY created_at DESC LIMIT 100').all();
+  return rows.map(row => ({
+    code: row.code,
+    filename: row.filename,
+    isText: row.is_text === 1,
+    password: !!row.password,
+    expiresAt: row.expires_at * 1000,
+    maxDownloads: row.max_downloads,
+    downloadCount: row.download_count,
+    createdAt: row.created_at * 1000,
+    createdBy: row.created_by
+  }));
+}
+
+function cleanupExpiredShareLinks() {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const result = db.prepare('DELETE FROM share_links WHERE expires_at < ?').run(now);
+  if (result.changes > 0) {
+    console.log(`[DB] Cleaned up ${result.changes} expired share links`);
+  }
+  return result.changes;
+}
+
+// ============================================================
 // 迁移旧文件（从文件系统迁移到数据库）
 // ============================================================
 function migrateFromFileSystem(shareDir) {
   const fs = require('fs');
   const db = getDb();
-  
+
   if (!fs.existsSync(shareDir)) return { migrated: 0 };
 
   const files = fs.readdirSync(shareDir);
@@ -519,7 +611,7 @@ function migrateFromFileSystem(shareDir) {
   for (const filename of files) {
     const filePath = path.join(shareDir, filename);
     const stat = fs.statSync(filePath);
-    
+
     if (stat.isFile()) {
       try {
         const content = fs.readFileSync(filePath, 'utf8');
@@ -557,6 +649,9 @@ module.exports = {
   generateToken, validateToken, refreshToken, revokeToken, revokeAllTokens,
   // 审计
   addAuditLog, listAuditLogs, getAuditStats,
+  // 分享链接
+  saveShareLink, getShareLink, deleteShareLink, incrementShareLinkDownload,
+  listShareLinks, cleanupExpiredShareLinks,
   // 迁移
   migrateFromFileSystem,
   // 清理
