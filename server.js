@@ -2547,6 +2547,10 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">📊 操作日志</div>
       <button class="btn btn-sm" onclick="showAuditModal()">查看审计日志</button>
     </div>
+    <div style="margin-top:12px;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔗 分享链接</div>
+      <button class="btn btn-sm" onclick="showShareLinksModal()">管理分享链接</button>
+    </div>
   </div>
 
   <div class="card">
@@ -2597,6 +2601,16 @@ input:focus { outline: none; border-color: var(--accent-primary); }
         <button class="btn btn-secondary" onclick="closeTokenModal()">取消</button>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="shareLinksModal" onclick="if(event.target===this)closeShareLinksModal()">
+  <div class="modal-content" style="max-width:600px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">🔗 分享链接管理</div>
+      <button class="modal-close" onclick="closeShareLinksModal()">x</button>
+    </div>
+    <div id="shareLinksList" style="padding:8px 0;"></div>
   </div>
 </div>
 
@@ -3298,6 +3312,88 @@ function closeAuditModal() {
 
 function closeTokenModal() {
   document.getElementById('tokenModal').classList.remove('show');
+}
+
+function closeShareLinksModal() {
+  document.getElementById('shareLinksModal').classList.remove('show');
+}
+
+function showShareLinksModal() {
+  fetch(API + '/api/share/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) { showToast('获取分享链接失败'); return; }
+      const links = data.links || [];
+      const el = document.getElementById('shareLinksList');
+      if (!el) return;
+      if (!links.length) {
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无分享链接</div>';
+      } else {
+        el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' + links.map(l => {
+          const url = location.origin + '/s/' + l.code;
+          const isExpired = l.expiresAt && l.expiresAt < Date.now();
+          const expires = !l.expiresAt ? '永不过期' : (isExpired ? '已过期' : '剩余 ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' 天');
+          return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+              '<span style="font-weight:600;">' + escapeHtml(l.filename) + '</span>' +
+              '<span style="font-size:11px;color:' + (isExpired ? '#dc2626' : 'var(--text-muted)') + ';">' + (isExpired ? '已过期' : expires) + '</span>' +
+            '</div>' +
+            '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + url + '</div>' +
+            '<div style="display:flex;gap:8px;margin-top:4px;">' +
+              '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code + '\', \'' + escapeHtml(url) + '\')">复制链接</button>' +
+              '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code + '\')">二维码</button>' +
+              '<button class="btn btn-sm btn-danger" onclick="deleteShareLink(\'' + l.code + '\')">删除</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+      document.getElementById('shareLinksModal').classList.add('show');
+    }).catch(() => showToast('获取分享链接失败'));
+}
+
+function copyShareLinkOf(code, url) {
+  navigator.clipboard.writeText(url).then(() => showToast('✓ 链接已复制')).catch(() => showToast('复制失败'));
+}
+
+function showShareLinkQR(code) {
+  // Reuse the QR modal
+  showShareQRModalForCode(code);
+}
+
+function showShareQRModalForCode(code) {
+  const url = location.origin + '/s/' + code;
+  const modal = document.getElementById('qrModal');
+  const content = document.getElementById('qrModalContent');
+  const urlEl = document.getElementById('qrModalUrl');
+  if (modal && content && urlEl) {
+    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div>';
+    urlEl.textContent = url;
+    modal.style.display = 'flex';
+    fetch(API + '/api/share/qr/' + code, { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+      .then(r => r.json())
+      .then(qrData => {
+        if (qrData.success && qrData.dataUrl) {
+          content.innerHTML = '<img src="' + qrData.dataUrl + '" style="border-radius:8px;max-width:256px;width:100%;" />';
+        } else {
+          content.innerHTML = '<div style="color:#dc2626;">生成失败</div>';
+        }
+      })
+      .catch(e => { content.innerHTML = '<div style="color:#dc2626;">请求失败</div>'; });
+  }
+}
+
+function deleteShareLink(code) {
+  if (!confirm('确定删除此分享链接？')) return;
+  fetch(API + '/api/share/delete/' + code, { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showToast('✓ 已删除');
+        showShareLinksModal(); // Refresh
+      } else {
+        showToast('删除失败');
+      }
+    }).catch(() => showToast('删除失败'));
 }
 
 function showAuditModal() {
