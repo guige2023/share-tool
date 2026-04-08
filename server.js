@@ -1866,10 +1866,18 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .status-bar { flex-direction: column; align-items: center; }
   .search-bar { flex-direction: column; }
   .search-bar .btn { width: 100%; }
-  .qr-section.show { display: block; }
-  .fab { display: flex; align-items: center; justify-content: center; }
-  .tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
-  .hide-mobile { display: none; }
+.qr-section.show { display: block; }
+.fab { display: flex; align-items: center; justify-content: center; }
+.tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
+.hide-mobile { display: none; }
+.sort-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); }
+.sort-bar select { padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 12px; }
+.sort-bar select:focus { outline: none; border-color: var(--accent-primary); }
+.pagination { display: flex; gap: 4px; align-items: center; justify-content: center; margin-top: 16px; }
+.pagination button { padding: 6px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: 12px; }
+.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.pagination button.active { background: rgba(102,126,234,0.2); border-color: var(--accent-primary); color: #667eea; }
+.pagination .page-info { font-size: 12px; color: var(--text-muted); padding: 0 8px; }
 }
 </style>
 </head>
@@ -1944,6 +1952,18 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div class="filter-tabs" id="tagFilterBar" style="margin-top:4px;">
       <!-- Dynamic tags will be injected here -->
     </div>
+    <div class="sort-bar">
+      <span>排序:</span>
+      <select id="sortSelect" onchange="setSort(this.value)">
+        <option value="time_desc">最新优先</option>
+        <option value="time_asc">最旧优先</option>
+        <option value="name_asc">名称 A-Z</option>
+        <option value="name_desc">名称 Z-A</option>
+        <option value="size_desc">最大优先</option>
+        <option value="size_asc">最小优先</option>
+      </select>
+      <span id="fileCount" style="margin-left:auto;"></span>
+    </div>
     <div class="batch-actions">
       <button class="btn btn-sm btn-warning" onclick="deleteOld(7)">删除1周前</button>
       <button class="btn btn-sm btn-warning" onclick="deleteOld(30)">删除1月前</button>
@@ -1966,6 +1986,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
         <div class="empty-text" style="font-size:12px;margin-top:8px;">上传文件或分享文字开始使用</div>
       </div>
     </div>
+    <div class="pagination" id="pagination"></div>
   </div>
 
   <div class="card">
@@ -1992,7 +2013,9 @@ let currentFilter = 'all';
 let reconnectTimer = null;
 let reconnectDelay = 1000;
 let isConnected = false;
-let searchTimeout = null;
+let currentSort = 'time_desc';
+let currentPage = 1;
+const PAGE_SIZE = 20;
 
 function showToast(msg, duration = 2500) {
   const el = document.getElementById('toast');
@@ -2198,16 +2221,36 @@ function renderFiles() {
     files = files.filter(f => f.type === currentFilter);
   }
   
-  if (!files.length) {
+  // Apply sorting
+  files = applySort(files);
+  
+  // Update count
+  const countEl = document.getElementById('fileCount');
+  if (countEl) countEl.textContent = files.length + ' 个文件';
+  
+  // Pagination
+  const totalPages = Math.ceil(files.length / PAGE_SIZE) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pagedFiles = files.slice(start, start + PAGE_SIZE);
+  
+  if (pagedFiles.length === 0 && files.length > 0) {
+    currentPage = 1;
+    renderFiles();
+    return;
+  }
+  
+  if (files.length === 0) {
     container.innerHTML = '<div class="empty" id="emptyState">' +
       '<div class="empty-icon">📭</div>' +
       '<div class="empty-text">暂无分享内容</div>' +
       '<div class="empty-text" style="font-size:12px;margin-top:8px;">上传文件或分享文字开始使用</div>' +
       '</div>';
+    renderPagination(0, 1);
     return;
   }
 
-  container.innerHTML = '<div class="file-list">' + files.map(f => {
+  container.innerHTML = '<div class="file-list">' + pagedFiles.map(f => {
     const isText = f.type === 'text';
     const previewId = 'preview-' + btoaSafe(f.name).substring(0, 20);
     const tags = f.tags ? f.tags.split(',').filter(t => t.trim()) : [];
@@ -2236,11 +2279,16 @@ function renderFiles() {
   }).join('') + '</div>';
 
   // 加载文本预览
-  for (const f of files) {
+  for (const f of pagedFiles) {
     if (f.type === 'text' && f.size < 50000) {
       loadPreview(f.name, 'preview-' + btoaSafe(f.name).substring(0, 20));
     }
   }
+
+  // Render pagination
+  const allFiles = applySort(currentFilter !== 'all' ? currentFiles.filter(f => f.type === currentFilter) : [...currentFiles]);
+  const totalPages = Math.ceil(allFiles.length / PAGE_SIZE) || 1;
+  renderPagination(currentPage, totalPages);
 }
 
 async function loadPreview(filename, previewId) {
@@ -2276,15 +2324,6 @@ function applySearchHighlight(q) {
   } catch (e) {}
 }
 
-function doSearchDebounced() {
-  if (searchTimeout) clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    const q = document.getElementById('searchInput').value.trim();
-    window.currentSearchQ = q;
-    doSearch();
-  }, 300);
-}
-
 async function removeTag(filename, tag) {
   const decodedName = decodeURIComponent(filename);
   const decodedTag = tag;
@@ -2311,6 +2350,73 @@ function filterByTag(tag) {
   document.getElementById('searchInput').value = 'tag:' + tag;
   window.currentSearchQ = 'tag:' + tag;
   doSearch();
+}
+
+function applySort(files) {
+  const [field, dir] = currentSort.split('_');
+  const sorted = [...files];
+  sorted.sort((a, b) => {
+    let va, vb;
+    if (field === 'time') {
+      va = a.time || 0;
+      vb = b.time || 0;
+    } else if (field === 'name') {
+      va = (a.name || '').toLowerCase();
+      vb = (b.name || '').toLowerCase();
+    } else if (field === 'size') {
+      va = a.size || 0;
+      vb = b.size || 0;
+    }
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+function setSort(value) {
+  currentSort = value;
+  currentPage = 1;
+  renderFiles();
+  if (window.currentSearchQ) applySearchHighlight(window.currentSearchQ);
+}
+
+function renderPagination(current, total) {
+  const container = document.getElementById('pagination');
+  if (!container) return;
+  if (total <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+  let html = '';
+  html += '<button onclick="goPage(' + (current - 1) + ')" ' + (current === 1 ? 'disabled' : '') + '>‹</button>';
+  const maxVisible = 5;
+  let startPage = Math.max(1, current - Math.floor(maxVisible / 2));
+  let endPage = Math.min(total, startPage + maxVisible - 1);
+  if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+  if (startPage > 1) {
+    html += '<button onclick="goPage(1)">1</button>';
+    if (startPage > 2) html += '<span style="color:var(--text-muted)">...</span>';
+  }
+  for (let i = startPage; i <= endPage; i++) {
+    html += '<button class="' + (i === current ? 'active' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
+  }
+  if (endPage < total) {
+    if (endPage < total - 1) html += '<span style="color:var(--text-muted)">...</span>';
+    html += '<button onclick="goPage(' + total + ')">' + total + '</button>';
+  }
+  html += '<button onclick="goPage(' + (current + 1) + ')" ' + (current === total ? 'disabled' : '') + '>›</button>';
+  html += '<span class="page-info">' + current + '/' + total + '</span>';
+  container.innerHTML = html;
+}
+
+function goPage(p) {
+  const files = applySort(currentFilter !== 'all' ? currentFiles.filter(f => f.type === currentFilter) : [...currentFiles]);
+  const total = Math.ceil(files.length / PAGE_SIZE) || 1;
+  if (p < 1 || p > total) return;
+  currentPage = p;
+  renderFiles();
+  if (window.currentSearchQ) applySearchHighlight(window.currentSearchQ);
 }
 
 function doSearch() {
