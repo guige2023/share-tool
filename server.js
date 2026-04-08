@@ -1221,7 +1221,42 @@ self.addEventListener('push', (event) => {
         });
         return;
       }
-      
+
+      // 标签颜色 API
+      if (pathname === '/api/tags/colors' && req.method === 'GET') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const allColors = db.getAllTagColors();
+        sendJson(res, { success: true, colors: allColors });
+        return;
+      }
+
+      if (pathname === '/api/tags/color' && req.method === 'PUT') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { tag, color } = JSON.parse(body);
+            if (!tag || !color) { sendJson(res, { success: false, error: 'tag and color required' }, 400); return; }
+            const result = db.setTagColor(tag, color);
+            sendJson(res, { success: true, ...result });
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 400);
+          }
+        });
+        return;
+      }
+
+      if (pathname === '/api/tags/suggest-color' && req.method === 'GET') {
+        const tag = parsed.query.tag;
+        if (!tag) { sendJson(res, { success: false, error: 'tag required' }, 400); return; }
+        const color = db.getSuggestedColor(tag);
+        sendJson(res, { success: true, color });
+        return;
+      }
+
       // 文件重命名 API
       if (pathname.startsWith('/api/file-rename/') && req.method === 'POST') {
         const authData = authRequired(req, res);
@@ -2157,7 +2192,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .file-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 .file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: #667eea; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
-.file-tag:hover { background: rgba(102,126,234,0.35); }
+.file-tag:hover { opacity: 0.85; }
 .file-tag .remove-tag { margin-left: 4px; opacity: 0.6; }
 .file-tag .remove-tag:hover { opacity: 1; }
 .file-meta { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
@@ -2188,7 +2223,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .filter-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .filter-tab { padding: 6px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 20px; font-size: 12px; color: var(--text-muted); cursor: pointer; transition: all 0.2s; }
 .filter-tab:hover { border-color: var(--accent-primary); }
-.filter-tab.active { background: rgba(102,126,234,0.2); border-color: var(--accent-primary); color: #667eea; }
+.filter-tab.active { background: rgba(102,126,234,0.2); border-color: var(--accent-primary); }
 .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; background: var(--bg-tertiary); padding: 4px; border-radius: 10px; }
 .tab-item { flex: 1; padding: 10px; text-align: center; font-size: 14px; color: var(--text-muted); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
 .tab-item:hover { color: var(--text-primary); }
@@ -2524,8 +2559,10 @@ let currentSort = 'time_desc';
 let currentPage = 1;
 const PAGE_SIZE = 20;
 let showFavoritesOnly = false;
-let lastSyncTs = parseInt(localStorage.getItem('sharetool_last_sync') || '0');
-let offlineQueue = JSON.parse(localStorage.getItem('sharetool_offline_queue') || '[]');
+const lastSyncTs = parseInt(localStorage.getItem('sharetool_last_sync') || '0');
+const offlineQueue = JSON.parse(localStorage.getItem('sharetool_offline_queue') || '[]');
+const TAG_COLOR_PRESETS = ['#667eea','#f59e0b','#10b981','#ef4444','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316'];
+let tagColors = {};  // { tagName: color } from server
 
 // PWA: Register Service Worker
 if ('serviceWorker' in navigator) {
@@ -2741,6 +2778,8 @@ function handleWsMessage(msg) {
       renderDevices(payload.devices || []);
       document.getElementById('syncStatus').textContent = '同步在线';
       updateTagFilterBar();
+      // 加载标签颜色
+      loadTagColors();
       // 保存增量同步时间戳
       if (payload.sync && payload.sync.serverTs) {
         lastSyncTs = payload.sync.serverTs;
@@ -2915,6 +2954,31 @@ function renderDevices(devices) {
   ).join('');
 }
 
+async function loadTagColors() {
+  try {
+    const res = await fetch(API + '/api/tags/colors', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (data.success && data.colors) {
+      tagColors = {};
+      data.colors.forEach(c => { tagColors[c.tag] = c.color; });
+      renderFiles();
+    }
+  } catch (e) {
+    console.error('[TagColor] load failed:', e);
+  }
+}
+
+function getTagStyle(tagName) {
+  const color = tagColors[tagName];
+  if (color) {
+    const r = parseInt(color.slice(1,3), 16);
+    const g = parseInt(color.slice(3,5), 16);
+    const b = parseInt(color.slice(5,7), 16);
+    return 'background:rgba(' + r + ',' + g + ',' + b + ',0.2);color:' + color + ';';
+  }
+  return '';
+}
+
 async function loadFiles() {
   try {
     const res = await fetch(API + '/api/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
@@ -2943,7 +3007,8 @@ function updateTagFilterBar() {
   const sorted = Array.from(allTags).sort();
   bar.innerHTML = sorted.map(t => {
     const active = (window.currentSearchQ || '').includes('tag:' + t) ? 'active' : '';
-    return '<span class="filter-tab ' + active + '" onclick="filterByTag(\'' + t.replace(/'/g, "\\'") + '\')" style="font-size:11px;">🏷 ' + escapeHtml(t) + '</span>';
+    const style = getTagStyle(t) || '';
+    return '<span class="filter-tab ' + active + '" onclick="filterByTag(\'' + t.replace(/'/g, "\\'") + '\')" style="font-size:11px;' + style + '">🏷 ' + escapeHtml(t) + '</span>';
   }).join('');
 }
 
@@ -3006,7 +3071,7 @@ function renderFiles() {
       '</div>' +
       '<div class="file-content">' +
         '<div class="file-name"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(f.name) + '</span></div>' +
-        (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
+        (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
         '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' +
         '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' +
         (isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
@@ -3513,7 +3578,28 @@ async function addTag(filename, existingTags) {
   const current = existingTags ? existingTags.split(',').filter(t => t.trim()).join(', ') : '';
   const input = prompt('输入标签（多个标签用逗号分隔）:', current);
   if (input === null) return;
-  const tags = input.split(',').map(t => t.trim()).filter(t => t).join(',');
+  const newTags = input.split(',').map(t => t.trim()).filter(t => t);
+  if (newTags.length === 0) return;
+
+  // 为新标签请求颜色
+  for (const tag of newTags) {
+    if (!tagColors[tag]) {
+      try {
+        const res = await fetch(API + '/api/tags/suggest-color?tag=' + encodeURIComponent(tag), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+        const data = await res.json();
+        if (data.success) {
+          tagColors[tag] = data.color;
+          await fetch(API + '/api/tags/color', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+            body: JSON.stringify({ tag, color: data.color })
+          });
+        }
+      } catch (e) {}
+    }
+  }
+
+  const tags = newTags.join(',');
   try {
     const res = await fetch(API + '/api/file-tags/' + filename, {
       method: 'PUT',

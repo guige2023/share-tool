@@ -129,6 +129,15 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_share_links_code ON share_links(code);
   `);
 
+  // 标签颜色表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tag_colors (
+      tag        TEXT PRIMARY KEY,
+      color      TEXT NOT NULL,
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `);
+
   console.log('[DB] Database initialized at', DB_PATH);
   return db;
 }
@@ -817,6 +826,45 @@ function checkDbIntegrity() {
 }
 
 // ============================================================
+// 标签颜色
+// ============================================================
+const TAG_COLOR_PRESETS = [
+  '#667eea', '#f59e0b', '#10b981', '#ef4444', '#3b82f6',
+  '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316'
+];
+
+function getTagColor(tag) {
+  const db = getDb();
+  const row = db.prepare('SELECT color FROM tag_colors WHERE tag = ?').get(tag);
+  return row ? row.color : null;
+}
+
+function setTagColor(tag, color) {
+  const db = getDb();
+  db.prepare(`INSERT OR REPLACE INTO tag_colors (tag, color, updated_at) VALUES (?, ?, unixepoch())`).run(tag, color);
+  return { tag, color };
+}
+
+function getAllTagColors() {
+  const db = getDb();
+  return db.prepare('SELECT tag, color FROM tag_colors ORDER BY updated_at DESC').all();
+}
+
+function getSuggestedColor(tag) {
+  // 根据 tag 名称生成一致性颜色（不依赖已有颜色表）
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return TAG_COLOR_PRESETS[Math.abs(hash) % TAG_COLOR_PRESETS.length];
+}
+
+function deleteTagColor(tag) {
+  const db = getDb();
+  db.prepare('DELETE FROM tag_colors WHERE tag = ?').run(tag);
+}
+
+// ============================================================
 // 迁移旧文件（从文件系统迁移到数据库）
 // ============================================================
 function migrateFromFileSystem(shareDir) {
@@ -877,5 +925,7 @@ module.exports = {
   // 清理
   cleanupExpiredTokens,
   // DB 健康
-  cleanupSyncLog, getDbStats, runVacuum, checkDbIntegrity
+  cleanupSyncLog, getDbStats, runVacuum, checkDbIntegrity,
+  // 标签颜色
+  getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor
 };
