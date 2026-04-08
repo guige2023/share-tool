@@ -2284,13 +2284,19 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-item { animation: fadeIn 0.2s ease-out; }
 .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 10px; font-size: 14px; z-index: 200; box-shadow: 0 4px 20px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s; }
 .toast.show { opacity: 1; }
+@media (max-width: 768px) {
+  .container { max-width: 100%; }
+  .modal-content { max-width: 95%; }
+  .search-suggestions { max-height: 300px; }
+}
+
 @media (max-width: 500px) {
-  .container { padding: 16px; padding-bottom: 100px; }
+  .container { padding: 12px; padding-bottom: 100px; }
   .actions { flex-direction: column; }
-  .btn { width: 100%; text-align: center; }
+  .btn { width: 100%; text-align: center; min-height: 44px; /* touch target */ }
   .file-actions { justify-content: flex-start; flex-wrap: wrap; }
-  .file-item { flex-direction: column; }
-  .file-actions .btn { width: auto; flex: 1; min-width: 60px; text-align: center; font-size: 12px; padding: 8px 10px; }
+  .file-item { flex-direction: column; min-height: 60px; }
+  .file-actions .btn { width: auto; flex: 1; min-width: 60px; text-align: center; font-size: 12px; padding: 10px 10px; min-height: 44px; /* touch target */ }
   .setting-row { flex-direction: column; align-items: stretch; }
   .setting-row label { min-width: auto; }
   .hero-content { flex-direction: column; }
@@ -2298,24 +2304,26 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .status-bar { flex-direction: column; align-items: center; }
   .search-bar { flex-direction: column; }
   .search-bar .btn { width: 100%; }
-.qr-section.show { display: block; }
-.conn-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-left: 8px; }
-.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
-.conn-dot.connected { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
-.storage-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
-.storage-bar progress { width: 80px; height: 6px; accent-color: var(--accent-primary); }
-.storage-text { font-size: 11px; color: var(--text-muted); }
-.share-link-box { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-.share-link-box input { flex: 1; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; font-family: monospace; }
-.share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
-.upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
-.upload-progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.3s; }
-.file-star { cursor: pointer; font-size: 16px; color: var(--text-muted); transition: color 0.2s; user-select: none; }
-.file-star:hover { color: #f5a623; }
-.file-star.starred { color: #f5a623; }
-.notif-badge { position: fixed; top: 12px; right: 12px; background: #e53935; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; z-index: 400; font-weight: bold; }
-.notif-badge.show { display: flex; }
-.filter-tab .kbd-hint { font-size: 9px; opacity: 0.6; }
+  .search-bar input { min-height: 44px; /* touch target */ font-size: 16px; /* prevent iOS zoom */ }
+  .search-suggestions { max-height: 250px; }
+  .qr-section.show { display: block; }
+  .conn-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-left: 8px; }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+  .conn-dot.connected { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
+  .storage-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
+  .storage-bar progress { width: 80px; height: 6px; accent-color: var(--accent-primary); }
+  .storage-text { font-size: 11px; color: var(--text-muted); }
+  .share-link-box { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .share-link-box input { flex: 1; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; font-family: monospace; }
+  .share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
+  .upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
+  .upload-progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.3s; }
+  .file-star { cursor: pointer; font-size: 16px; color: var(--text-muted); transition: color 0.2s; user-select: none; }
+  .file-star:hover { color: #f5a623; }
+  .file-star.starred { color: #f5a623; }
+  .notif-badge { position: fixed; top: 12px; right: 12px; background: #e53935; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; z-index: 400; font-weight: bold; }
+  .notif-badge.show { display: flex; }
+  .filter-tab .kbd-hint { font-size: 9px; opacity: 0.6; }
 .fav-filter-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 14px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .fav-filter-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 .fav-filter-btn.active { background: rgba(245,166,35,0.15); border-color: #f5a623; color: #f5a623; }
