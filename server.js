@@ -1902,6 +1902,13 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-star.starred { color: #f5a623; }
 .notif-badge { position: fixed; top: 12px; right: 12px; background: #e53935; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; z-index: 400; font-weight: bold; }
 .notif-badge.show { display: flex; }
+.filter-tab .kbd-hint { font-size: 9px; opacity: 0.6; }
+.fav-filter-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 14px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
+.fav-filter-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+.fav-filter-btn.active { background: rgba(245,166,35,0.15); border-color: #f5a623; color: #f5a623; }
+.shortcut-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; }
+.shortcut-key { font-family: monospace; background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border-color); }
+.shortcut-desc { color: var(--text-secondary); align-self: center; }
 .paste-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 .recent-searches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .recent-search-tag { padding: 3px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
@@ -2004,6 +2011,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   <div class="card">
     <div class="section-title">最近分享</div>
     <div id="listAlert" class="alert"></div>
+    <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ 收藏</button>
+
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-bar">
       <input type="search" id="searchInput" placeholder="搜索文件名或内容...">
@@ -2085,6 +2094,22 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 <div class="notif-badge" id="notifBadge"></div>
 <div id="toast" class="toast"></div>
 
+<div class="modal-overlay" id="shortcutModal" onclick="if(event.target===this)closeShortcutModal()">
+  <div class="modal-content" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">键盘快捷键</div>
+      <button class="modal-close" onclick="closeShortcutModal()">x</button>
+    </div>
+    <div class="shortcut-list">
+      <span class="shortcut-key">f</span><span class="shortcut-desc">切换收藏筛选</span>
+      <span class="shortcut-key">r</span><span class="shortcut-desc">刷新文件列表</span>
+      <span class="shortcut-key">/</span><span class="shortcut-desc">聚焦搜索框</span>
+      <span class="shortcut-key">Esc</span><span class="shortcut-desc">关闭弹窗/取消搜索</span>
+      <span class="shortcut-key">?</span><span class="shortcut-desc">显示此帮助</span>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = '';
 let AUTH_TOKEN = '';
@@ -2102,6 +2127,25 @@ let isConnected = false;
 let currentSort = 'time_desc';
 let currentPage = 1;
 const PAGE_SIZE = 20;
+let showFavoritesOnly = false;
+
+function toggleFavFilter() {
+  showFavoritesOnly = !showFavoritesOnly;
+  const btn = document.getElementById('favFilterBtn');
+  if (btn) {
+    btn.classList.toggle('active', showFavoritesOnly);
+    btn.innerHTML = showFavoritesOnly ? '★ 收藏' : '☆ 收藏';
+  }
+  currentPage = 1;
+  renderFiles();
+  if (window.currentSearchQ) applySearchHighlight(window.currentSearchQ);
+}
+
+function applyFavoritesFilter(files) {
+  if (!showFavoritesOnly) return files;
+  const favs = getFavorites();
+  return files.filter(f => favs.includes(f.name));
+}
 
 function showToast(msg, duration = 2500) {
   const el = document.getElementById('toast');
@@ -2323,9 +2367,12 @@ function renderFiles() {
     files = files.filter(f => f.type === currentFilter);
   }
   
+  // Apply favorites filter
+  files = applyFavoritesFilter(files);
+
   // Apply sorting
   files = applySort(files);
-  
+
   // Update count
   const countEl = document.getElementById('fileCount');
   if (countEl) countEl.textContent = files.length + ' 个文件';
@@ -2431,8 +2478,30 @@ function closeModal() {
   document.getElementById('fileModal').classList.remove('show');
 }
 
+function closeShortcutModal() {
+  document.getElementById('shortcutModal').classList.remove('show');
+}
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Escape') {
+    closeModal();
+    closeShortcutModal();
+  }
+  // Don't interfere with typing in inputs
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  
+  if (e.key === 'f' || e.key === 'F') {
+    e.preventDefault();
+    toggleFavFilter();
+  } else if (e.key === 'r' || e.key === 'R') {
+    e.preventDefault();
+    loadFiles();
+    showToast('已刷新');
+  } else if (e.key === '?') {
+    e.preventDefault();
+    document.getElementById('shortcutModal').classList.add('show');
+  }
 });
 
 function applySearchHighlight(q) {
