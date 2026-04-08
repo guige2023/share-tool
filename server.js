@@ -486,6 +486,7 @@ async function init() {
 // HTTPS 证书管理
 // ============================================================
 const selfsigned = require('selfsigned');
+const QRCode = require('qrcode');
 
 function getCertExpiryInfo(certPath) {
   if (!fs.existsSync(certPath)) return null;
@@ -1518,7 +1519,26 @@ self.addEventListener('push', (event) => {
         });
         return;
       }
-      
+
+      // QR码生成 API
+      if (pathname.startsWith('/api/share/qr/') && req.method === 'GET') {
+        const code = pathname.slice('/api/share/qr/'.length);
+        const shareData = db.getShareLink(code);
+        if (!shareData) {
+          res.writeHead(400);
+          res.end('Share link not found');
+          return;
+        }
+        const shareUrl = `http://${LOCAL_IP}:${PORT}/s/${code}`;
+        try {
+          const dataUrl = await QRCode.toDataURL(shareUrl, { margin: 2, width: 256, errorCorrectionLevel: 'M' });
+          sendJson(res, { success: true, dataUrl });
+        } catch (e) {
+          sendJson(res, { success: false, error: e.message }, 500);
+        }
+        return;
+      }
+
       if (pathname === '/api/share/list') {
         const authData = authRequired(req, res);
         if (!authData) return;
@@ -2414,6 +2434,15 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div class="share-link-box" id="shareLinkBox" style="display:none;">
       <input type="text" id="shareLinkInput" readonly>
       <button onclick="copyShareLink()">复制链接</button>
+      <button onclick="showShareQRModal()">📷 二维码</button>
+    </div>
+    <div class="qr-modal-overlay" id="qrModal" onclick="if(event.target===this)closeShareQRModal()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+      <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:360px;width:90%;text-align:center;">
+        <div style="font-size:18px;font-weight:600;margin-bottom:16px;">分享二维码</div>
+        <div id="qrModalContent" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
+        <div id="qrModalUrl" style="font-size:11px;color:var(--text-muted);word-break:break-all;margin-bottom:16px;font-family:monospace;"></div>
+        <button class="btn" onclick="closeShareQRModal()" style="width:100%;">关闭</button>
+      </div>
     </div>
   </div>
 
@@ -3155,6 +3184,7 @@ function renderFiles() {
         '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">复制</button>' +
         '<button class="btn btn-sm" onclick="renameFile(\'' + encodeURIComponent(f.name) + '\')">重命名</button>' +
         '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">下载</button>' +
+        '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">分享</button>' +
         '<span class="file-star" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">☆</span>' +
         '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">删除</button>' +
       '</div>' +
@@ -3526,12 +3556,17 @@ async function shareText() {
     if (data.success) {
       showToast('✓ 文字分享成功');
       document.getElementById('textContent').value = '';
-      // Show share link
-      const link = location.origin + '/api/files/' + encodeURIComponent(filename) + '?auth=' + (AUTH_TOKEN || '');
+      // Create share link for the file
+      const shareRes = await fetch(API + '/api/share/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ filename })
+      });
+      const shareData = await shareRes.json();
       const linkBox = document.getElementById('shareLinkBox');
       const linkInput = document.getElementById('shareLinkInput');
       if (linkBox && linkInput) {
-        linkInput.value = link;
+        linkInput.value = shareData.success ? shareData.url : (location.origin + '/api/files/' + encodeURIComponent(filename) + '?auth=' + (AUTH_TOKEN || ''));
         linkBox.style.display = 'flex';
       }
       loadFiles();
@@ -3554,6 +3589,65 @@ function copyShareLink() {
     document.execCommand('copy');
     showToast('✓ 链接已复制');
   });
+}
+
+async function shareFile(filename) {
+  try {
+    const res = await fetch(API + '/api/share/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ filename })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const shareUrl = data.url;
+      const code = data.code;
+      // Show share link in the box
+      const linkBox = document.getElementById('shareLinkBox');
+      const linkInput = document.getElementById('shareLinkInput');
+      if (linkBox && linkInput) {
+        linkInput.value = shareUrl;
+        linkBox.style.display = 'flex';
+      }
+      showToast('✓ 分享链接已创建');
+    } else {
+      showToast('分享失败: ' + data.error);
+    }
+  } catch (e) {
+    showToast('分享失败: ' + e.message);
+  }
+}
+
+function showShareQRModal() {
+  const linkInput = document.getElementById('shareLinkInput');
+  if (!linkInput || !linkInput.value) { showToast('请先生成分享链接'); return; }
+  const url = linkInput.value;
+  const modal = document.getElementById('qrModal');
+  const content = document.getElementById('qrModalContent');
+  const urlEl = document.getElementById('qrModalUrl');
+  if (modal && content && urlEl) {
+    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div>';
+    urlEl.textContent = url;
+    modal.style.display = 'flex';
+    // Generate QR from URL (share code is embedded)
+    // Extract code from URL like http://IP:PORT/s/XXXX
+    const code = url.split('/s/')[1] || '';
+    fetch(API + '/api/share/qr/' + code, { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+      .then(r => r.json())
+      .then(qrData => {
+        if (qrData.success && qrData.dataUrl) {
+          content.innerHTML = '<img src="' + qrData.dataUrl + '" style="border-radius:8px;max-width:256px;width:100%;" />';
+        } else {
+          content.innerHTML = '<div style="color:#dc2626;">生成失败: ' + (qrData.error || '未知错误') + '</div>';
+        }
+      })
+      .catch(e => { content.innerHTML = '<div style="color:#dc2626;">请求失败: ' + e.message + '</div>'; });
+  }
+}
+
+function closeShareQRModal() {
+  const modal = document.getElementById('qrModal');
+  if (modal) modal.style.display = 'none';
 }
 
 // 文件上传
