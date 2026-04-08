@@ -1564,11 +1564,21 @@ self.addEventListener('push', (event) => {
       
       // 通过分享码访问（无需认证）
       if (pathname.startsWith('/s/')) {
-        const code = pathname.slice(3);
+        const pathPart = pathname.slice(3);
+        const [code, queryStr] = pathPart.split('?');
+        const params = new URLSearchParams(queryStr || '');
+        const inputPwd = params.get('pwd') || '';
         const shareData = validateShareCode(code);
         if (!shareData) {
           sendJson(res, { success: false, error: '分享链接已过期或不存在' }, 404);
           return;
+        }
+        // 密码验证
+        if (shareData.password) {
+          if (!inputPwd || inputPwd !== shareData.password) {
+            sendJson(res, { success: false, error: '此链接需要密码访问', requiresPassword: true }, 401);
+            return;
+          }
         }
         const file = db.getFileByName(shareData.filename);
         if (!file) {
@@ -3370,12 +3380,12 @@ function showShareLinksModal() {
         el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无分享链接</div>';
       } else {
         el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' + links.map(l => {
-          const url = location.origin + '/s/' + l.code;
+          const url = l.password ? (location.origin + '/s/' + l.code + '?pwd=' + encodeURIComponent(l.password)) : (location.origin + '/s/' + l.code);
           const isExpired = l.expiresAt && l.expiresAt !== MAX_TS && l.expiresAt < Date.now();
           const expires = (l.expiresAt === MAX_TS || !l.expiresAt) ? '永不过期' : (isExpired ? '已过期' : '剩余 ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' 天');
           return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-              '<span style="font-weight:600;">' + escapeHtml(l.filename) + '</span>' +
+              '<span style="font-weight:600;">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
               '<span style="font-size:11px;color:' + (isExpired ? '#dc2626' : 'var(--text-muted)') + ';">' + (isExpired ? '已过期' : expires) + '</span>' +
             '</div>' +
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + url + '</div>' +
