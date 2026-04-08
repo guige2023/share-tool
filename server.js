@@ -1839,6 +1839,16 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .qr-section.show { display: block; }
 .qr-section canvas { border-radius: 8px; margin: 0 auto 8px; }
 .qr-url { font-size: 12px; color: var(--text-muted); word-break: break-all; font-family: monospace; }
+.file-checkbox { width: 18px; height: 18px; accent-color: var(--accent-primary); cursor: pointer; flex-shrink: 0; }
+.batch-bar { display: none; gap: 8px; align-items: center; padding: 8px 12px; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
+.batch-bar.show { display: flex; }
+.batch-bar .batch-count { color: var(--text-muted); flex: 1; }
+.batch-bar button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
+.batch-bar button.danger { background: #e53935; }
+.drop-zone { border: 2px dashed var(--border-color); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 16px; transition: all 0.2s; color: var(--text-muted); font-size: 13px; }
+.drop-zone.drag-over { border-color: var(--accent-primary); background: rgba(102,126,234,0.1); color: var(--accent-primary); }
+.drop-zone-icon { font-size: 24px; margin-bottom: 8px; }
+.file-type-icon { font-size: 16px; margin-right: 6px; }
 .fab { display: none; position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 20px rgba(102,126,234,0.4); z-index: 100; transition: transform 0.2s; }
 .fab:hover { transform: scale(1.1); }
 .fab-menu { display: none; position: fixed; bottom: 90px; right: 24px; flex-direction: column; gap: 8px; z-index: 99; }
@@ -1867,6 +1877,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .search-bar { flex-direction: column; }
   .search-bar .btn { width: 100%; }
 .qr-section.show { display: block; }
+.conn-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-left: 8px; }
+.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.conn-dot.connected { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
 .fab { display: flex; align-items: center; justify-content: center; }
 .tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
 .hide-mobile { display: none; }
@@ -1897,7 +1910,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   <header>
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <h1>ShareTool</h1>
+        <h1>ShareTool<span class="conn-status"><span class="conn-dot" id="connDot"></span><span id="connText">连接中</span></span></h1>
         <p class="subtitle">局域网文件/文字分享</p>
       </div>
       <button id="themeToggle" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px;" title="切换主题">🌙</button>
@@ -2092,6 +2105,14 @@ function connectWS() {
     ws = new WebSocket(WS_URL);
     
     ws.onopen = () => {
+    isConnected = true;
+    const dot = document.getElementById('connDot');
+    const txt = document.getElementById('connText');
+    if (dot) dot.classList.add('connected');
+    if (txt) txt.textContent = '已连接';
+    const statusEl = document.getElementById('wsStatus');
+    if (statusEl) { statusEl.className = 'status-item connected'; statusEl.textContent = 'WS 已连接'; }
+
       console.log('[WS] Connected');
       isConnected = true;
       reconnectDelay = 1000;
@@ -2111,6 +2132,14 @@ function connectWS() {
     };
     
     ws.onclose = () => {
+    isConnected = false;
+    const dot = document.getElementById('connDot');
+    const txt = document.getElementById('connText');
+    if (dot) dot.classList.remove('connected');
+    if (txt) txt.textContent = '未连接';
+    const statusEl = document.getElementById('wsStatus');
+    if (statusEl) { statusEl.className = 'status-item disconnected'; statusEl.textContent = 'WS 未连接'; }
+
       console.log('[WS] Disconnected');
       isConnected = false;
       updateWsStatus(false);
@@ -2785,6 +2814,40 @@ async function init() {
   
   // 连接 WebSocket
   connectWS();
+  
+  // Drag and drop
+  const dropZone = document.getElementById('dropZone');
+  if (dropZone) {
+    ['dragenter','dragover'].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    });
+    ['dragleave','drop'].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); });
+    });
+    dropZone.addEventListener('drop', (e) => {
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        document.getElementById('fileInput').files = files;
+        uploadFiles();
+      }
+    });
+  }
+}
+
+function getFileIcon(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  const icons = {
+    pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗',
+    ppt: '📙', pptx: '📙', txt: '📄', md: '📝', json: '📋',
+    jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️',
+    mp3: '🎵', wav: '🎵', flac: '🎵', aac: '🎵',
+    mp4: '🎬', mkv: '🎬', avi: '🎬', mov: '🎬', webm: '🎬',
+    zip: '📦', rar: '📦', '7z': '📦', tar: '📦', gz: '📦',
+    js: '💻', ts: '💻', py: '💻', java: '💻', c: '💻', cpp: '💻', h: '💻',
+    css: '🎨', html: '🌐', xml: '🌐', yml: '⚙️', yaml: '⚙️',
+    exe: '⚙️', dmg: '⚙️', deb: '⚙️', rpm: '⚙️',
+  };
+  return icons[ext] || '📄';
 }
 
 init();
