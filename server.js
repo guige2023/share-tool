@@ -422,6 +422,7 @@ function authRequired(req, res) {
   
   const authData = auth(req);
   if (!authData) {
+    db.addAuditLog('auth_failed', `IP: ${clientIp}`, clientIp);
     sendJson(res, { success: false, error: 'Unauthorized' }, 401);
     return null;
   }
@@ -1118,10 +1119,12 @@ self.addEventListener('push', (event) => {
           try {
             const { refreshToken } = JSON.parse(body);
             const result = db.refreshToken(refreshToken);
-            if (result) {
-              sendJson(res, { success: true, ...result });
+            if (result && result.success) {
+              db.addAuditLog('token_refresh', 'Token 刷新成功', getClientIp(req));
+              sendJson(res, { success: true, token: result.token, refreshToken: result.refreshToken, expiresAt: result.expiresAt });
             } else {
-              sendJson(res, { success: false, error: 'Invalid refresh token' }, 401);
+              db.addAuditLog('token_refresh_fail', result?.error || '刷新失败', getClientIp(req));
+              sendJson(res, { success: false, error: result?.error || 'Invalid refresh token' }, 401);
             }
           } catch (e) {
             sendJson(res, { success: false, error: e.message }, 400);

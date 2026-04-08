@@ -80,12 +80,13 @@ function initDatabase() {
   // Token 表（动态 Token + 刷新机制）
   db.exec(`
     CREATE TABLE IF NOT EXISTS tokens (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      token         TEXT    NOT NULL UNIQUE,
-      refresh_token TEXT,
-      device_id     TEXT,
-      expires_at    INTEGER NOT NULL,
-      created_at    INTEGER NOT NULL DEFAULT (unixepoch())
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      token                TEXT    NOT NULL UNIQUE,
+      refresh_token        TEXT,
+      refresh_token_expires_at INTEGER,
+      device_id            TEXT,
+      expires_at           INTEGER NOT NULL,
+      created_at           INTEGER NOT NULL DEFAULT (unixepoch())
     )
   `);
 
@@ -519,7 +520,9 @@ function generateToken(deviceId = null, expiresInSeconds = 86400) {
   const db = getDb();
   const token = crypto.randomBytes(32).toString('hex');
   const refreshToken = crypto.randomBytes(32).toString('hex');
-  const expiresAt = Math.floor(Date.now() / 1000) + expiresInSeconds;
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + expiresInSeconds;
+  const refreshExpiresAt = now + 86400 * 30;  // Refresh Token 30天
 
   // 删除旧 Token
   if (deviceId) {
@@ -527,10 +530,10 @@ function generateToken(deviceId = null, expiresInSeconds = 86400) {
   }
 
   const stmt = db.prepare(`
-    INSERT INTO tokens (token, refresh_token, device_id, expires_at)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO tokens (token, refresh_token, refresh_token_expires_at, device_id, expires_at)
+    VALUES (?, ?, ?, ?, ?)
   `);
-  stmt.run(token, refreshToken, deviceId, expiresAt);
+  stmt.run(token, refreshToken, refreshExpiresAt, deviceId, expiresAt);
 
   return { token, refreshToken, expiresAt };
 }
@@ -552,18 +555,25 @@ function validateToken(token) {
 function refreshToken(refreshToken) {
   const db = getDb();
   const row = db.prepare('SELECT * FROM tokens WHERE refresh_token = ?').get(refreshToken);
-  if (!row) return null;
+  if (!row) return { success: false, error: 'Invalid refresh token' };
+
+  const now = Math.floor(Date.now() / 1000);
+  // 检查 refresh token 本身是否过期（默认30天）
+  if (row.refresh_token_expires_at && row.refresh_token_expires_at < now) {
+    return { success: false, error: 'Refresh token expired' };
+  }
 
   const newToken = crypto.randomBytes(32).toString('hex');
   const newRefreshToken = crypto.randomBytes(32).toString('hex');
-  const expiresAt = Math.floor(Date.now() / 1000) + 86400 * 30; // 30 days
+  const expiresAt = now + 86400 * 7;  // 新 Access Token 7天
+  const refreshExpiresAt = now + 86400 * 30;  // 新 Refresh Token 30天
 
   db.prepare(`
-    UPDATE tokens SET token = ?, refresh_token = ?, expires_at = ?
+    UPDATE tokens SET token = ?, refresh_token = ?, expires_at = ?, refresh_token_expires_at = ?
     WHERE refresh_token = ?
-  `).run(newToken, newRefreshToken, expiresAt, refreshToken);
+  `).run(newToken, newRefreshToken, expiresAt, refreshExpiresAt, refreshToken);
 
-  return { token: newToken, refreshToken: newRefreshToken, expiresAt };
+  return { success: true, token: newToken, refreshToken: newRefreshToken, expiresAt };
 }
 
 function revokeToken(token) {
