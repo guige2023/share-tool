@@ -809,6 +809,15 @@ async function startHttpServer() {
         return;
       }
       
+      if (pathname === '/api/storage' && req.method === 'GET') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const count = db.getFileCount();
+        const totalSize = db.getTotalStorageSize();
+        sendJson(res, { count, totalSize, maxSize: 10 * 1024 * 1024 * 1024 }); // 10GB soft limit
+        return;
+      }
+
       if (pathname === '/api/delete-all' && req.method === 'DELETE') {
         const authData = authRequired(req, res);
         if (!authData) return;
@@ -1880,6 +1889,12 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .conn-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-left: 8px; }
 .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
 .conn-dot.connected { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
+.storage-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
+.storage-bar progress { width: 80px; height: 6px; accent-color: var(--accent-primary); }
+.storage-text { font-size: 11px; color: var(--text-muted); }
+.recent-searches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.recent-search-tag { padding: 3px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
+.recent-search-tag:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 .fab { display: flex; align-items: center; justify-content: center; }
 .tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
 .hide-mobile { display: none; }
@@ -1917,6 +1932,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     </div>
     <div class="status-bar">
       <span class="status-item disconnected" id="wsStatus">WS 未连接</span>
+      <span class="storage-text" id="storageText">加载中...</span>
       <span class="status-item disconnected" id="syncStatus">同步离线</span>
       <span class="status-item" id="deviceCount">设备: 0</span>
     </div>
@@ -1969,6 +1985,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   <div class="card">
     <div class="section-title">最近分享</div>
     <div id="listAlert" class="alert"></div>
+    <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-bar">
       <input type="search" id="searchInput" placeholder="搜索文件名或内容...">
       <button class="btn btn-sm" onclick="doSearch()">搜索</button>
@@ -2518,6 +2535,7 @@ function doSearch() {
       currentFiles = data.files || [];
       renderFiles();
       if (q) applySearchHighlight(q);
+      saveRecentSearch(q);
     })
     .catch(e => showAlert('listAlert', '搜索失败', 'error'));
 }
@@ -2886,6 +2904,53 @@ async function init() {
       }
     });
   }
+  
+  // Load storage info
+  fetchStorageInfo();
+  
+  // Load recent searches
+  renderRecentSearches();
+}
+
+async function fetchStorageInfo() {
+  try {
+    const res = await fetch(API + '/api/storage', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    const used = data.totalSize || 0;
+    const max = data.maxSize || 10 * 1024 * 1024 * 1024;
+    const pct = Math.round(used / max * 100);
+    const el = document.getElementById('storageText');
+    if (el) el.textContent = '存储: ' + formatSize(used) + ' / 10GB (' + pct + '%)';
+  } catch (e) {
+    const el = document.getElementById('storageText');
+    if (el) el.textContent = '存储: --';
+  }
+}
+
+function getRecentSearches() {
+  try {
+    return JSON.parse(localStorage.getItem('sharetool_recent_searches') || '[]');
+  } catch (e) { return []; }
+}
+
+function saveRecentSearch(q) {
+  if (!q || q.trim().length < 2) return;
+  let searches = getRecentSearches().filter(s => s !== q);
+  searches.unshift(q);
+  searches = searches.slice(0, 5);
+  try { localStorage.setItem('sharetool_recent_searches', JSON.stringify(searches)); } catch (e) {}
+  renderRecentSearches();
+}
+
+function renderRecentSearches() {
+  const container = document.getElementById('recentSearches');
+  if (!container) return;
+  const searches = getRecentSearches();
+  if (!searches.length) { container.style.display = 'none'; return; }
+  container.style.display = 'flex';
+  container.innerHTML = searches.map(s =>
+    '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + s.replace(/'/g, "\\'") + '\';doSearch()">' + s + '</span>'
+  ).join('');
 }
 
 function getFileIcon(filename) {

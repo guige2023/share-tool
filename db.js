@@ -329,6 +329,12 @@ function getFileCount() {
   return db.prepare('SELECT COUNT(*) as count FROM files').get().count;
 }
 
+function getTotalStorageSize() {
+  const db = getDb();
+  const row = db.prepare('SELECT COALESCE(SUM(size), 0) as total FROM files').get();
+  return row.total;
+}
+
 // ============================================================
 // 设备管理
 // ============================================================
@@ -642,7 +648,7 @@ module.exports = {
   // 文件
   addFile, getFile, getFileByName, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, deleteOldFiles, deleteAllFiles,
-  searchFiles, getFilesByHashSince, getFileCount,
+  searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
   touchDevice, getOnlineDevices, cleanupStaleDevices,
