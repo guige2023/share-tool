@@ -1125,6 +1125,29 @@ self.addEventListener('push', (event) => {
         }))});
         return;
       }
+
+      // 搜索自动补全 API
+      if (pathname === '/api/search/suggest' && req.method === 'GET') {
+        const q = (parsed.query.q || '').trim();
+        if (q.length < 1) { sendJson(res, { success: true, suggestions: [] }); return; }
+        const suggestions = [];
+        // 文件名联想（精确前缀优先）
+        const files = db.listFiles ? db.listFiles(10000, 0) : [];
+        const nameMatches = files.filter(f => f.filename.toLowerCase().includes(q.toLowerCase())).slice(0, 4);
+        nameMatches.forEach(f => {
+          suggestions.push({ type: 'file', text: f.filename, icon: getFileIcon(f.filename), tag: null });
+        });
+        // 标签联想
+        const allTags = new Set();
+        files.forEach(f => { if (f.tags) f.tags.split(',').forEach(t => allTags.add(t.trim())); });
+        const tagMatches = Array.from(allTags).filter(t => t.toLowerCase().includes(q.toLowerCase())).slice(0, 3);
+        tagMatches.forEach(t => {
+          const color = db.getTagColor ? db.getTagColor(t) : null;
+          suggestions.push({ type: 'tag', text: t, icon: '🏷', color });
+        });
+        sendJson(res, { success: true, suggestions });
+        return;
+      }
       
       // Token API
       if (pathname === '/api/token/current') {
@@ -2220,6 +2243,12 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .device-item .ip { color: var(--text-muted); font-family: monospace; }
 .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
 .search-bar input { flex: 1; margin-bottom: 0; }
+.search-wrapper { position: relative; }
+.search-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; margin-top: 4px; z-index: 1000; max-height: 240px; overflow-y: auto; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+.search-suggestion { padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+.search-suggestion:hover { background: var(--bg-tertiary); }
+.search-suggestion .suggestion-icon { color: var(--text-muted); font-size: 12px; }
+.search-suggestion .suggestion-tag { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: auto; }
 .filter-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .filter-tab { padding: 6px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 20px; font-size: 12px; color: var(--text-muted); cursor: pointer; transition: all 0.2s; }
 .filter-tab:hover { border-color: var(--accent-primary); }
@@ -2398,10 +2427,13 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ 收藏</button>
 
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
+    <div class="search-wrapper">
     <div class="search-bar">
-      <input type="search" id="searchInput" placeholder="搜索文件名或内容...">
+      <input type="search" id="searchInput" placeholder="搜索文件名或内容..." autocomplete="off">
       <button class="btn btn-sm" onclick="doSearch()">搜索</button>
       <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
+    </div>
+    <div class="search-suggestions" id="searchSuggestions" style="display:none;"></div>
     </div>
     <div class="filter-tabs">
       <span class="filter-tab active" data-filter="all">全部</span>
@@ -3888,9 +3920,63 @@ document.getElementById('searchInput').addEventListener('keypress', (e) => {
 });
 // 实时搜索（输入时自动搜索）
 let searchDebounce = null;
+let suggestDebounce = null;
 document.getElementById('searchInput').addEventListener('input', () => {
   if (searchDebounce) clearTimeout(searchDebounce);
   searchDebounce = setTimeout(doSearch, 400);
+  // 搜索自动补全
+  const q = document.getElementById('searchInput').value.trim();
+  if (suggestDebounce) clearTimeout(suggestDebounce);
+  if (q.length < 1) { hideSuggestions(); return; }
+  suggestDebounce = setTimeout(() => fetchSuggestions(q), 200);
+});
+
+async function fetchSuggestions(q) {
+  try {
+    const res = await fetch(API + '/api/search/suggest?q=' + encodeURIComponent(q), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (data.success && data.suggestions.length > 0) {
+      renderSuggestions(data.suggestions);
+    } else {
+      hideSuggestions();
+    }
+  } catch (e) { hideSuggestions(); }
+}
+
+function renderSuggestions(suggestions) {
+  const container = document.getElementById('searchSuggestions');
+  container.innerHTML = suggestions.map(s => {
+    const tagStyle = s.color ? 'background:rgba(' + hexToRgb(s.color) + ',0.2);color:' + s.color + ';' : 'background:rgba(102,126,234,0.2);color:#667eea;';
+    const tagLabel = s.type === 'tag' ? '<span class="suggestion-tag" style="' + tagStyle + '">tag</span>' : '';
+    return '<div class="search-suggestion" onclick="applySuggestion(\'' + s.text.replace(/'/g, "\\'") + '\', \'' + s.type + '\')">' +
+      '<span class="suggestion-icon">' + s.icon + '</span>' +
+      '<span>' + escapeHtml(s.text) + '</span>' +
+      tagLabel +
+      '</div>';
+  }).join('');
+  container.style.display = 'block';
+}
+
+function hideSuggestions() {
+  document.getElementById('searchSuggestions').style.display = 'none';
+}
+
+function applySuggestion(text, type) {
+  document.getElementById('searchInput').value = type === 'tag' ? 'tag:' + text : text;
+  hideSuggestions();
+  doSearch();
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return r + ',' + g + ',' + b;
+}
+
+// 点击其他区域关闭建议
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-wrapper')) hideSuggestions();
 });
 
 function broadcastWs(msg) {
