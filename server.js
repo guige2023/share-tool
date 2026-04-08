@@ -1892,6 +1892,11 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .storage-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
 .storage-bar progress { width: 80px; height: 6px; accent-color: var(--accent-primary); }
 .storage-text { font-size: 11px; color: var(--text-muted); }
+.share-link-box { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.share-link-box input { flex: 1; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; font-family: monospace; }
+.share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
+.upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
+.upload-progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.3s; }
 .recent-searches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .recent-search-tag { padding: 3px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
 .recent-search-tag:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
@@ -1961,6 +1966,13 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div class="actions">
       <button class="btn" id="shareTextBtn">分享</button>
       <button class="btn btn-secondary" id="clearTextBtn">清空</button>
+    </div>
+    <div class="upload-progress-bar" id="uploadProgressBar">
+      <div class="upload-progress-fill" id="uploadProgressFill" style="width:0%"></div>
+    </div>
+    <div class="share-link-box" id="shareLinkBox" style="display:none;">
+      <input type="text" id="shareLinkInput" readonly>
+      <button onclick="copyShareLink()">复制链接</button>
     </div>
   </div>
 
@@ -2580,6 +2592,14 @@ async function shareText() {
     if (data.success) {
       showToast('✓ 文字分享成功');
       document.getElementById('textContent').value = '';
+      // Show share link
+      const link = location.origin + '/api/files/' + encodeURIComponent(filename) + '?auth=' + (AUTH_TOKEN || '');
+      const linkBox = document.getElementById('shareLinkBox');
+      const linkInput = document.getElementById('shareLinkInput');
+      if (linkBox && linkInput) {
+        linkInput.value = link;
+        linkBox.style.display = 'flex';
+      }
       loadFiles();
       broadcastWs({ type: 'file_create', payload: { filename, content, type: 'text' } });
     } else {
@@ -2590,6 +2610,18 @@ async function shareText() {
   }
 }
 
+function copyShareLink() {
+  const input = document.getElementById('shareLinkInput');
+  if (!input || !input.value) return;
+  navigator.clipboard.writeText(input.value).then(() => {
+    showToast('✓ 链接已复制');
+  }).catch(() => {
+    input.select();
+    document.execCommand('copy');
+    showToast('✓ 链接已复制');
+  });
+}
+
 // 文件上传
 document.getElementById('fileInput').addEventListener('change', (e) => {
   uploadFiles(e.target.files);
@@ -2598,30 +2630,48 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
 async function uploadFiles(files) {
   let successCount = 0;
   let failCount = 0;
-  for (const file of files) {
+  const totalFiles = files.length;
+  const progressBar = document.getElementById('uploadProgressBar');
+  const progressFill = document.getElementById('uploadProgressFill');
+  if (progressBar) progressBar.style.display = 'block';
+  
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
     const filename = file.webkitRelativePath || file.name;
-    showAlert('uploadAlert', '上传中: ' + filename, 'info');
-    const reader = new FileReader();
+    
     await new Promise((resolve) => {
+      const reader = new FileReader();
       reader.onload = async () => {
         const base64 = reader.result.split(',')[1];
+        // Animate progress during upload
+        let animFrame = 0;
+        const animInterval = setInterval(() => {
+          animFrame++;
+          const basePct = Math.round((i / totalFiles) * 100);
+          const animPct = Math.min(basePct + Math.round(animFrame / 10), basePct + 20);
+          if (progressFill) progressFill.style.width = animPct + '%';
+        }, 50);
+        
         try {
           const res = await fetch(API + '/api/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-            body: JSON.stringify({ filename: filename, content: base64, type: 'file' })
+            body: JSON.stringify({ filename, content: base64, type: 'file' })
           });
+          clearInterval(animInterval);
           const data = await res.json();
+          if (progressFill) progressFill.style.width = Math.round(((i + 1) / totalFiles) * 100) + '%';
           if (data.success) {
             successCount++;
             showToast('✓ ' + filename);
             loadFiles();
-            broadcastWs({ type: 'file_create', payload: { filename: filename, hash: data.hash } });
+            broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
           } else {
             failCount++;
             showAlert('uploadAlert', '失败: ' + data.error, 'error');
           }
         } catch (e) {
+          clearInterval(animInterval);
           failCount++;
           showAlert('uploadAlert', '失败: ' + e.message, 'error');
         }
@@ -2631,6 +2681,12 @@ async function uploadFiles(files) {
       reader.readAsDataURL(file);
     });
   }
+  
+  setTimeout(() => {
+    if (progressBar) progressBar.style.display = 'none';
+    if (progressFill) progressFill.style.width = '0%';
+  }, 2000);
+  
   if (successCount > 0) {
     showAlert('uploadAlert', '已上传 ' + successCount + ' 个文件' + (failCount > 0 ? '，失败 ' + failCount : ''), failCount > 0 ? 'error' : 'success');
   }
