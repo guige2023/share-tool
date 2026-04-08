@@ -2228,6 +2228,24 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   </div>
 
   <div class="card">
+    <div class="section-title">⚙️ 设置</div>
+    <div style="margin-bottom: 12px;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔐 访问 Token</div>
+      <div class="code-box" id="currentTokenDisplay" style="font-size:12px;padding:8px 12px;"></div>
+      <button class="btn btn-sm" style="margin-top:8px;" onclick="showTokenModal()">更换Token</button>
+      <button class="btn btn-sm btn-secondary" style="margin-top:8px;margin-left:4px;" onclick="refreshToken()">刷新</button>
+    </div>
+    <div style="margin-bottom: 12px;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔒 HTTPS 状态</div>
+      <div id="httpsStatus" style="font-size:13px;color:var(--text-muted);">检测中...</div>
+    </div>
+    <div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">📊 操作日志</div>
+      <button class="btn btn-sm" onclick="showAuditModal()">查看审计日志</button>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="section-title">同步设备</div>
     <div class="device-list" id="deviceList">
       <div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">正在发现设备...</div></div>
@@ -2249,6 +2267,34 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 
 <div class="notif-badge" id="notifBadge"></div>
 <div id="toast" class="toast"></div>
+
+<div class="modal-overlay" id="auditModal" onclick="if(event.target===this)closeAuditModal()">
+  <div class="modal-content" style="max-width:700px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">📊 审计日志</div>
+      <button class="modal-close" onclick="closeAuditModal()">x</button>
+    </div>
+    <div id="auditStats" style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;"></div>
+    <div id="auditLogList" style="font-size:12px;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tokenModal" onclick="if(event.target===this)closeTokenModal()">
+  <div class="modal-content" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">🔐 更换访问 Token</div>
+      <button class="modal-close" onclick="closeTokenModal()">x</button>
+    </div>
+    <div style="padding:8px 0;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">新 Token (留空自动生成):</div>
+      <input type="text" id="newTokenInput" placeholder="可选，自定义Token" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;font-family:monospace;">
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="btn" onclick="doSetToken()" style="flex:1;">确认更换</button>
+        <button class="btn btn-secondary" onclick="closeTokenModal()">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="shortcutModal" onclick="if(event.target===this)closeShortcutModal()">
   <div class="modal-content" style="max-width:400px;">
@@ -2704,10 +2750,85 @@ function closeShortcutModal() {
   document.getElementById('shortcutModal').classList.remove('show');
 }
 
+function closeAuditModal() {
+  document.getElementById('auditModal').classList.remove('show');
+}
+
+function closeTokenModal() {
+  document.getElementById('tokenModal').classList.remove('show');
+}
+
+function showAuditModal() {
+  fetch(API + '/api/audit/logs', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) { showToast('获取日志失败'); return; }
+      const stats = data.stats || {};
+      document.getElementById('auditStats').innerHTML =
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">今日操作</div><div style="font-size:20px;font-weight:600;color:#667eea">' + (stats.todayCount || 0) + '</div></div>' +
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">总操作</div><div style="font-size:20px;font-weight:600;color:#667eea">' + (stats.totalCount || 0) + '</div></div>' +
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">最后操作</div><div style="font-size:12px;color:var(--text-secondary)">' + (stats.lastAction || '--') + '</div></div>';
+
+      const logs = data.logs || [];
+      document.getElementById('auditLogList').innerHTML = logs.length ? logs.map(l =>
+        '<div style="padding:8px 0;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;gap:12px;">' +
+          '<div><div style="color:var(--text-primary);">' + escapeHtml(l.action || '') + '</div><div style="color:var(--text-muted);font-size:11px;margin-top:2px;">' + escapeHtml(l.detail || '') + '</div></div>' +
+          '<div style="text-align:right;flex-shrink:0;"><div style="color:var(--text-muted);font-size:11px;">' + formatTime((l.created_at || 0) * 1000) + '</div>' +
+          (l.ip ? '<div style="color:var(--text-muted);font-size:10px;font-family:monospace;">' + l.ip + '</div>' : '') +
+          '</div></div>'
+      ).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无日志记录</div>';
+      document.getElementById('auditModal').classList.add('show');
+    }).catch(() => showToast('获取日志失败'));
+}
+
+function showTokenModal() {
+  document.getElementById('tokenModal').classList.add('show');
+  document.getElementById('newTokenInput').value = '';
+  document.getElementById('newTokenInput').focus();
+}
+
+async function refreshToken() {
+  try {
+    const res = await fetch(API + '/api/token/refresh', { method: 'POST', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (data.success) {
+      AUTH_TOKEN = data.token;
+      localStorage.setItem('sharetool_token', AUTH_TOKEN);
+      document.getElementById('currentTokenDisplay').textContent = AUTH_TOKEN;
+      showToast('Token 已刷新');
+    } else {
+      showToast('刷新失败: ' + (data.error || ''));
+    }
+  } catch (e) { showToast('刷新失败'); }
+}
+
+async function doSetToken() {
+  const newToken = document.getElementById('newTokenInput').value.trim();
+  try {
+    const res = await fetch(API + '/api/token/set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ token: newToken })
+    });
+    const data = await res.json();
+    if (data.success) {
+      AUTH_TOKEN = data.token;
+      localStorage.setItem('sharetool_token', AUTH_TOKEN);
+      document.getElementById('currentTokenDisplay').textContent = AUTH_TOKEN;
+      closeTokenModal();
+      showToast('Token 更新成功');
+    } else {
+      showToast('更新失败: ' + (data.error || ''));
+    }
+  } catch (e) { showToast('更新失败'); }
+}
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeModal();
     closeShortcutModal();
+    closeAuditModal();
+    closeTokenModal();
   }
   // Don't interfere with typing in inputs
   const tag = e.target.tagName;
@@ -3378,9 +3499,31 @@ async function init() {
   
   // Load storage info
   fetchStorageInfo();
-  
+
   // Load recent searches
   renderRecentSearches();
+
+  // Load HTTPS status + token display
+  if (document.getElementById('currentTokenDisplay')) {
+    document.getElementById('currentTokenDisplay').textContent = AUTH_TOKEN || '(无)';
+  }
+  if (document.getElementById('httpsStatus')) {
+    fetch(API + '/api/https/cert', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+      .then(r => r.json())
+      .then(data => {
+        const el = document.getElementById('httpsStatus');
+        if (el) {
+          if (data.https) {
+            el.innerHTML = '<span style="color:#4ade80">✅ HTTPS 已启用</span> <span style="color:var(--text-muted)">到期: ' + (data.expires || '未知') + '</span>';
+          } else {
+            el.innerHTML = '<span style="color:#f59e0b">⚠️ HTTPS 未启用</span> <span style="color:var(--text-muted)">局域网可跳过</span>';
+          }
+        }
+      }).catch(() => {
+        const el = document.getElementById('httpsStatus');
+        if (el) el.textContent = '检测失败';
+      });
+  }
 }
 
 async function fetchStorageInfo() {
