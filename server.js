@@ -1934,11 +1934,15 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div class="search-bar">
       <input type="search" id="searchInput" placeholder="搜索文件名或内容...">
       <button class="btn btn-sm" onclick="doSearch()">搜索</button>
+      <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
     </div>
     <div class="filter-tabs">
       <span class="filter-tab active" data-filter="all">全部</span>
       <span class="filter-tab" data-filter="text">文字</span>
       <span class="filter-tab" data-filter="file">文件</span>
+    </div>
+    <div class="filter-tabs" id="tagFilterBar" style="margin-top:4px;">
+      <!-- Dynamic tags will be injected here -->
     </div>
     <div class="batch-actions">
       <button class="btn btn-sm btn-warning" onclick="deleteOld(7)">删除1周前</button>
@@ -2105,6 +2109,7 @@ function handleWsMessage(msg) {
       renderFiles();
       renderDevices(payload.devices || []);
       document.getElementById('syncStatus').textContent = '同步在线';
+      updateTagFilterBar();
       break;
     }
     case 'change':
@@ -2118,6 +2123,10 @@ function handleWsMessage(msg) {
       } else {
         loadFiles();
       }
+      // Toast notification for remote changes
+      if (type === 'file_create') showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
+      else if (type === 'file_delete') showToast('🗑 远程删除了文件');
+      else if (type === 'change' && payload.type === 'create') showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
       break;
     }
     case 'device_list': {
@@ -2154,9 +2163,30 @@ async function loadFiles() {
     const data = await res.json();
     currentFiles = data.files || [];
     renderFiles();
+    updateTagFilterBar();
   } catch (e) {
     console.error('Load files failed:', e);
   }
+}
+
+function updateTagFilterBar() {
+  const bar = document.getElementById('tagFilterBar');
+  if (!bar) return;
+  const allTags = new Set();
+  currentFiles.forEach(f => {
+    if (f.tags) {
+      f.tags.split(',').map(t => t.trim()).filter(t => t).forEach(t => allTags.add(t));
+    }
+  });
+  if (allTags.size === 0) {
+    bar.innerHTML = '';
+    return;
+  }
+  const sorted = Array.from(allTags).sort();
+  bar.innerHTML = sorted.map(t => {
+    const active = (window.currentSearchQ || '').includes('tag:' + t) ? 'active' : '';
+    return '<span class="filter-tab ' + active + '" onclick="filterByTag(\'' + t.replace(/'/g, "\\'") + '\')" style="font-size:11px;">🏷 ' + escapeHtml(t) + '</span>';
+  }).join('');
 }
 
 function renderFiles() {
@@ -2286,6 +2316,7 @@ function filterByTag(tag) {
 function doSearch() {
   const q = document.getElementById('searchInput').value.trim();
   window.currentSearchQ = q;
+  document.getElementById('clearSearchBtn').style.display = q ? 'inline-block' : 'none';
   if (!q) {
     loadFiles();
     return;
@@ -2299,6 +2330,13 @@ function doSearch() {
       if (q) applySearchHighlight(q);
     })
     .catch(e => showAlert('listAlert', '搜索失败', 'error'));
+}
+
+function clearSearch() {
+  document.getElementById('searchInput').value = '';
+  window.currentSearchQ = '';
+  document.getElementById('clearSearchBtn').style.display = 'none';
+  loadFiles();
 }
 
 // Filter tabs
@@ -2320,7 +2358,7 @@ document.getElementById('clearTextBtn').addEventListener('click', () => {
 async function shareText() {
   const content = document.getElementById('textContent').value;
   if (!content.trim()) {
-    showAlert('textAlert', '请输入内容', 'error');
+    showToast('请输入内容');
     return;
   }
   const filename = 'share_' + Date.now() + '.txt';
@@ -2332,15 +2370,15 @@ async function shareText() {
     });
     const data = await res.json();
     if (data.success) {
-      showAlert('textAlert', '分享成功！', 'success');
+      showToast('✓ 文字分享成功');
       document.getElementById('textContent').value = '';
       loadFiles();
       broadcastWs({ type: 'file_create', payload: { filename, content, type: 'text' } });
     } else {
-      showAlert('textAlert', '失败: ' + data.error, 'error');
+      showToast('失败: ' + data.error);
     }
   } catch (e) {
-    showAlert('textAlert', '失败: ' + e.message, 'error');
+    showToast('失败: ' + e.message);
   }
 }
 
