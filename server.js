@@ -126,6 +126,216 @@ function getUploadMaxSize() {
 }
 
 // ============================================================
+// WebDAV 服务器
+// ============================================================
+const WEBDAV_PREFIX = '/webdav';
+const DAV_NS = 'DAV:';
+
+function isWebDAVRequest(pathname) {
+  return pathname.startsWith(WEBDAV_PREFIX + '/') || pathname === WEBDAV_PREFIX;
+}
+
+function parseWebDAVDepth(header) {
+  if (header === 'infinity') return 'infinity';
+  if (header === '0') return 0;
+  if (header === '1') return 1;
+  return 1; // 默认 depth=1
+}
+
+function webdavPropfind(files, prefix = '') {
+  const responses = files.map(f => {
+    const href = prefix + '/' + encodeURIPath(f.filename);
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<d:response xmlns:d="DAV:">
+  <d:href>${href}</d:href>
+  <d:propstat>
+    <d:prop>
+      <d:displayname>${escapeXml(f.filename)}</d:displayname>
+      <d:getcontentlength>${f.size}</d:getcontentlength>
+      <d:getcontenttype>${f.type === 'text' ? 'text/plain' : 'application/octet-stream'}</d:getcontenttype>
+      <d:resourcetype>${f.type === 'folder' ? '<d:collection/>' : '<d:file/>'}</d:resourcetype>
+      <d:creationdate>${new Date(f.created_at * 1000).toISOString()}</d:creationdate>
+      <d:getlastmodified>${new Date(f.updated_at * 1000).toGMTString()}</d:getlastmodified>
+      <d:getetag>"${f.hash || ''}"</d:getetag>
+      <d:supportedlock/>
+    </d:prop>
+    <d:status>HTTP/1.1 200 OK</d:status>
+  </d:propstat>
+</d:response>`;
+  }).join('\n');
+  
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<d:multistatus xmlns:d="DAV:">
+${responses}
+</d:multistatus>`;
+}
+
+function escapeXml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function encodeURIPath(path) {
+  return path.split('/').map(p => encodeURIComponent(p)).join('/');
+}
+
+function handleWebDAV(req, res, pathname, query) {
+  const path = pathname.slice(WEBDAV_PREFIX.length);
+  const depth = parseWebDAVDepth(req.headers.depth || '1');
+  
+  // OPTIONS - Return DAV support
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200, {
+      'DAV': '1, 2',
+      'Allow': 'OPTIONS, GET, PUT, DELETE, MKCOL, MOVE, COPY, PROPFIND, PROPPATCH',
+      'Content-Length': 0
+    });
+    res.end();
+    return true;
+  }
+  
+  // PROPFIND - List directory contents
+  if (req.method === 'PROPFIND') {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      const allFiles = db.listFiles(1000, 0).files;
+      // 根目录
+      const rootResponse = `<?xml version="1.0" encoding="UTF-8"?>
+<d:multistatus xmlns:d="DAV:">
+  <d:response xmlns:d="DAV:">
+    <d:href>${WEBDAV_PREFIX}/</d:href>
+    <d:propstat>
+      <d:prop>
+        <d:displayname>ShareTool</d:displayname>
+        <d:resourcetype><d:collection/></d:resourcetype>
+        <d:creationdate>${new Date().toISOString()}</d:creationdate>
+        <d:getlastmodified>${new Date().toGMTString()}</d:getlastmodified>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>
+${allFiles.map(f => `  <d:response xmlns:d="DAV:">
+    <d:href>${WEBDAV_PREFIX}/${encodeURIPath(f.filename)}</d:href>
+    <d:propstat>
+      <d:prop>
+        <d:displayname>${escapeXml(f.filename)}</d:displayname>
+        <d:getcontentlength>${f.size}</d:getcontentlength>
+        <d:getcontenttype>${f.type === 'text' ? 'text/plain' : 'application/octet-stream'}</d:getcontenttype>
+        <d:resourcetype>${f.type === 'folder' ? '<d:collection/>' : '<d:file/>'}</d:resourcetype>
+        <d:creationdate>${new Date(f.created_at * 1000).toISOString()}</d:creationdate>
+        <d:getlastmodified>${new Date(f.updated_at * 1000).toGMTString()}</d:getlastmodified>
+        <d:getetag>"${f.hash || ''}"</d:getetag>
+      </d:prop>
+      <d:status>HTTP/1.1 200 OK</d:status>
+    </d:propstat>
+  </d:response>`).join('\n')}
+</d:multistatus>`;
+      
+      res.writeHead(207, {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Content-Length': Buffer.byteLength(rootResponse)
+      });
+      res.end(rootResponse);
+    });
+    return true;
+  }
+  
+  // GET - Download file
+  if (req.method === 'GET') {
+    const filename = decodeURIComponent(path.slice(1));
+    const file = db.getFileByName(filename);
+    if (!file) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+      return true;
+    }
+    if (file.encrypted) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Encrypted files not accessible via WebDAV');
+      return true;
+    }
+    res.writeHead(200, {
+      'Content-Type': file.type === 'text' ? 'text/plain; charset=utf-8' : 'application/octet-stream',
+      'Content-Length': file.size,
+      'ETag': `"${file.hash || ''}"`
+    });
+    res.end(file.content || '');
+    db.addAuditLog('webdav_get', `filename=${filename}`, getClientIp(req));
+    return true;
+  }
+  
+  // PUT - Upload/update file
+  if (req.method === 'PUT') {
+    const filename = decodeURIComponent(path.slice(1));
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const existing = db.getFileByName(filename);
+        const type = isTextContent(req.headers['content-type']) ? 'text' : 'file';
+        const hash = crypto.createHash('md5').update(body).digest('hex');
+        const result = db.addFile(filename, body, type, hash, false);
+        db.addAuditLog('webdav_put', `filename=${filename}`, getClientIp(req));
+        res.writeHead(existing ? 204 : 201, { 'Location': WEBDAV_PREFIX + '/' + encodeURIPath(filename) });
+        res.end();
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(e.message);
+      }
+    });
+    return true;
+  }
+  
+  // DELETE - Delete file
+  if (req.method === 'DELETE') {
+    const filename = decodeURIComponent(path.slice(1));
+    if (db.deleteFileByName(filename)) {
+      db.addAuditLog('webdav_delete', `filename=${filename}`, getClientIp(req));
+      res.writeHead(204);
+      res.end();
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+    return true;
+  }
+  
+  // MKCOL - Create folder (not supported for flat storage)
+  if (req.method === 'MKCOL') {
+    res.writeHead(405, { 'Allow': 'DELETE, GET, HEAD, OPTIONS, POST, PROPFIND, PUT' });
+    res.end('Method Not Allowed - ShareTool uses flat storage');
+    return true;
+  }
+  
+  // MOVE - Not implemented
+  if (req.method === 'MOVE') {
+    res.writeHead(502);
+    res.end('MOVE not implemented');
+    return true;
+  }
+  
+  // COPY - Not implemented
+  if (req.method === 'COPY') {
+    res.writeHead(502);
+    res.end('COPY not implemented');
+    return true;
+  }
+  
+  return false; // Not a WebDAV handler
+}
+
+function isTextContent(contentType) {
+  if (!contentType) return false;
+  const textTypes = ['text/', 'application/json', 'application/javascript', 'application/xml'];
+  return textTypes.some(t => contentType.includes(t));
+}
+
+// ============================================================
 // 工具函数
 // ============================================================
 function loadConfig() {
@@ -484,9 +694,15 @@ async function startHttpServer() {
 
     const query = parsed.query;
 
+    // WebDAV 处理（优先于其他路由）
+    if (pathname.startsWith(WEBDAV_PREFIX) || pathname === WEBDAV_PREFIX) {
+      const handled = handleWebDAV(req, res, pathname, query);
+      if (handled) return;
+    }
+
     // 记录审计日志
     const auditAction = `${req.method} ${pathname}`;
-    
+
     try {
       // 路由处理
       if (pathname === '/' || pathname === '/index.html') {
