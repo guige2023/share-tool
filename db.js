@@ -316,25 +316,88 @@ function deleteAllFiles() {
   return { deleted: allFiles.length };
 }
 
-function searchFiles(query, tags = null) {
+/**
+ * 智能分词 - 分离中英文混合查询词
+ * 中文按字符切分，英文按空格/特殊字符切分
+ */
+function tokenizeQuery(query) {
+  if (!query || !query.trim()) return [];
+  const tokens = [];
+  // Chinese characters (Unicode range 4E00-9FFF)
+  const chinese = query.match(/[\u4e00-\u9fff]/g) || [];
+  tokens.push(...chinese);
+  // English words (alphanumeric + underscore)
+  const english = query.match(/[a-zA-Z0-9_]{2,}/g) || [];
+  tokens.push(...english.map(w => w.toLowerCase()));
+  return tokens.filter(t => t.length > 0);
+}
+
+/**
+ * 模糊评分搜索 - 基于 tokens 的加权匹配
+ * 优先级: 文件名开头匹配 > 文件名包含 > tags包含 > 分数降序
+ */
+function searchFiles(query, tags = null, opts = {}) {
   const db = getDb();
-  let sql = `SELECT ${FILE_FIELDS} FROM files WHERE 1=1`;
-  const params = [];
-  
-  if (query) {
-    sql += ` AND (filename LIKE ? OR content LIKE ?)`;
-    params.push(`%${query}%`, `%${query}%`);
+  const { limit = 100, fuzzy = true } = opts;
+
+  if (!query && !tags) {
+    return db.prepare(`SELECT ${FILE_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
   }
-  if (tags) {
-    const tagList = tags.split(',').map(t => t.trim());
-    for (const tag of tagList) {
-      sql += ` AND tags LIKE ?`;
-      params.push(`%${tag}%`);
+
+  const queryTokens = tokenizeQuery(query);
+  const allFiles = db.prepare(`SELECT ${FILE_FIELDS} FROM files`).all();
+
+  if (queryTokens.length === 0 && !tags) {
+    return allFiles.slice(0, limit);
+  }
+
+  // Score each file
+  const scored = allFiles.map(f => {
+    let score = 0;
+    const filename = (f.filename || '').toLowerCase();
+    const fileTags = (f.tags || '').toLowerCase();
+
+    for (const token of queryTokens) {
+      // Exact filename prefix match (highest)
+      if (filename.startsWith(token)) {
+        score += 100;
+      }
+      // Filename exact match
+      else if (filename === token) {
+        score += 90;
+      }
+      // Filename contains (fuzzy)
+      else if (fuzzy && filename.includes(token)) {
+        score += 60;
+      }
+      // Tag exact match
+      else if (fileTags.includes(token)) {
+        score += 40;
+      }
+      // Char-by-char fuzzy for Chinese
+      else if (fuzzy && token.length === 1 && filename.includes(token)) {
+        score += 10;
+      }
     }
-  }
-  
-  sql += ` ORDER BY created_at DESC LIMIT 100`;
-  return db.prepare(sql).all(...params);
+
+    // Tag filter
+    if (tags) {
+      const tagList = tags.split(',').map(t => t.trim().toLowerCase());
+      const hasAllTags = tagList.every(t => fileTags.includes(t));
+      if (!hasAllTags) return null;
+      score += 30; // tag filter bonus
+    }
+
+    return score > 0 ? { ...f, _score: score } : null;
+  }).filter(Boolean);
+
+  // Sort: score desc, then time desc
+  scored.sort((a, b) => {
+    if (b._score !== a._score) return b._score - a._score;
+    return b.created_at - a.created_at;
+  });
+
+  return scored.slice(0, limit);
 }
 
 function getFilesByHashSince(hash, timestamp) {

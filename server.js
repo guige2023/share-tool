@@ -1042,11 +1042,12 @@ self.addEventListener('push', (event) => {
         if (!authData) return;
         const q = query.q || '';
         const tags = query.tags || null;
-        const results = db.searchFiles(q, tags);
+        const results = db.searchFiles(q, tags, { fuzzy: true });
         db.addAuditLog('search', `q=${q}, tags=${tags}`, getClientIp(req), authData.token);
         sendJson(res, { success: true, files: results.map(f => ({
           id: f.id, name: f.filename, size: f.size, time: f.created_at * 1000,
-          type: f.type, hash: f.hash, tags: f.tags
+          type: f.type, hash: f.hash, tags: f.tags,
+          relevance: f._score || 0
         }))});
         return;
       }
@@ -2790,7 +2791,7 @@ function doSearch() {
       currentFiles = data.files || [];
       renderFiles();
       if (q) applySearchHighlight(q);
-      saveRecentSearch(q);
+      if (data.files && data.files.length > 0) saveRecentSearch(q);
     })
     .catch(e => showAlert('listAlert', '搜索失败', 'error'));
 }
@@ -3363,7 +3364,12 @@ function renderRecentSearches() {
   container.style.display = 'flex';
   container.innerHTML = searches.map(s =>
     '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + s.replace(/'/g, "\\'") + '\';doSearch()">' + s + '</span>'
-  ).join('');
+  ).join('') + '<span class="recent-search-tag" style="color:#dc2626" onclick="clearRecentSearches()">✕清除</span>';
+}
+
+function clearRecentSearches() {
+  try { localStorage.setItem('sharetool_recent_searches', '[]'); } catch (e) {}
+  renderRecentSearches();
 }
 
 function getFileIcon(filename) {
