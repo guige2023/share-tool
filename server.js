@@ -1743,7 +1743,7 @@ function handleWsMessage(ws, msg) {
 function broadcastChange(change, excludeDeviceId = null) {
   const msg = JSON.stringify({ type: 'change', payload: change });
   syncClients.forEach((ws) => {
-    if (ws !== excludeDeviceId && ws.readyState === 1) {
+    if (ws.deviceId !== excludeDeviceId && ws.readyState === 1) {
       ws.send(msg);
     }
   });
