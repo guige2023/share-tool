@@ -2242,6 +2242,16 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-upload-area .text { color: var(--text-muted); font-size: 14px; }
 .file-upload-area .hint { color: var(--text-muted); font-size: 12px; margin-top: 8px; }
 .file-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+.file-grid .file-item { flex-direction: column; align-items: stretch; padding: 16px; min-height: 140px; }
+.file-grid .file-content { flex: 1; }
+.file-grid .file-name { font-size: 13px; }
+.file-grid .file-meta { font-size: 11px; }
+.file-grid .file-actions { flex-wrap: wrap; justify-content: flex-start; margin-top: 8px; }
+.file-grid .file-actions .btn { font-size: 11px; padding: 6px 8px; min-height: 32px; }
+.file-grid .file-tags { margin-top: 6px; }
+.file-grid .file-tag { font-size: 10px; padding: 2px 6px; }
+.file-grid .file-star { position: absolute; top: 8px; right: 8px; }
 .file-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: var(--bg-tertiary); border-radius: 10px; border: 1px solid var(--border-color); gap: 12px; touch-action: pan-y; user-select: none; position: relative; overflow: hidden; }
 .file-item:hover { border-color: var(--text-muted); }
 .file-item .swipe-actions { position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 0; transform: translateX(100%); transition: transform 0.2s ease; }
@@ -2378,9 +2388,13 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .fab { display: flex; align-items: center; justify-content: center; }
 .tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
 .hide-mobile { display: none; }
-.sort-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); }
+.sort-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
 .sort-bar select { padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 12px; }
 .sort-bar select:focus { outline: none; border-color: var(--accent-primary); }
+.view-toggle { display: flex; gap: 2px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 2px; margin-left: auto; }
+.view-toggle button { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-size: 13px; line-height: 1; transition: all 0.15s; }
+.view-toggle button:hover { color: var(--text-primary); }
+.view-toggle button.active { background: var(--accent-primary); color: #fff; }
 .pagination { display: flex; gap: 4px; align-items: center; justify-content: center; margin-top: 16px; }
 .pagination button { padding: 6px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: 12px; }
 .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -2520,6 +2534,10 @@ input:focus { outline: none; border-color: var(--accent-primary); }
         <option value="size_asc">最小优先</option>
       </select>
       <span id="fileCount" style="margin-left:auto;"></span>
+      <div class="view-toggle">
+        <button class="active" id="listViewBtn" onclick="setView('list')" title="列表视图">☰</button>
+        <button id="gridViewBtn" onclick="setView('grid')" title="网格视图">▦</button>
+      </div>
     </div>
     <div class="batch-actions">
       <button class="btn btn-sm btn-warning" onclick="deleteOld(7)">删除1周前</button>
@@ -2696,6 +2714,7 @@ let reconnectDelay = 1000;
 let isConnected = false;
 let currentSort = 'time_desc';
 let currentPage = 1;
+let currentView = localStorage.getItem('sharetool_view') || 'list';
 const PAGE_SIZE = 20;
 let showFavoritesOnly = false;
 const lastSyncTs = parseInt(localStorage.getItem('sharetool_last_sync') || '0');
@@ -3216,6 +3235,8 @@ function renderFiles() {
       '<div class="empty-text">暂无分享内容</div>' +
       '<div class="empty-text" style="font-size:12px;margin-top:8px;">上传文件或分享文字开始使用</div>' +
       '</div>';
+    container.classList.remove('file-list', 'file-grid');
+    container.classList.add(currentView === 'grid' ? 'file-grid' : 'file-list');
     renderPagination(0, 1);
     return;
   }
@@ -3602,6 +3623,26 @@ function setSort(value) {
   currentPage = 1;
   renderFiles();
   if (window.currentSearchQ) applySearchHighlight(window.currentSearchQ);
+}
+
+function setView(mode) {
+  currentView = mode;
+  localStorage.setItem('sharetool_view', mode);
+  applyView(mode);
+  renderFiles();
+}
+
+function applyView(mode) {
+  const listBtn = document.getElementById('listViewBtn');
+  const gridBtn = document.getElementById('gridViewBtn');
+  if (listBtn) listBtn.classList.toggle('active', mode === 'list');
+  if (gridBtn) gridBtn.classList.toggle('active', mode === 'grid');
+  const container = document.getElementById('filesContainer');
+  if (!container) return;
+  // Remove both classes first
+  container.classList.remove('file-list', 'file-grid');
+  // Add the appropriate class
+  container.classList.add(mode === 'grid' ? 'file-grid' : 'file-list');
 }
 
 function renderPagination(current, total) {
@@ -4317,6 +4358,9 @@ async function init() {
 
   const localDownloadDir = localStorage.getItem('shareTool_downloadDir') || '';
   document.getElementById('downloadDir').value = localDownloadDir;
+
+  // 恢复视图模式
+  applyView(currentView);
   
   // 加载文件列表
   await loadFiles();
