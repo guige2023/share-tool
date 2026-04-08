@@ -1,0 +1,19 @@
+# Logs
+*.log
+share-tool.err.log
+share-tool.log
+
+# Dependencies
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# macOS
+.DS_Store
+
+# SSL certificates
+*.pem
+*.key

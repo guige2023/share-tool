@@ -68,7 +68,12 @@ function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const loaded = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-      config = { ...{ downloadDir: path.join(os.homedir(), 'Downloads', 'ShareTool'), lastSync: null, deviceId: DEVICE_ID }, ...loaded };
+      // 确保 downloadDir 是绝对路径
+      let downloadDir = loaded.downloadDir || path.join(os.homedir(), 'Downloads', 'ShareTool');
+      if (!path.isAbsolute(downloadDir)) {
+        downloadDir = path.join(os.homedir(), downloadDir);
+      }
+      config = { ...{ downloadDir: path.join(os.homedir(), 'Downloads', 'ShareTool'), lastSync: null, deviceId: DEVICE_ID }, downloadDir, ...loaded };
     } else {
       config = { downloadDir: path.join(os.homedir(), 'Downloads', 'ShareTool'), lastSync: null, deviceId: DEVICE_ID };
     }
@@ -82,7 +87,12 @@ function saveConfig() {
   try {
     const cfgDir = path.dirname(CONFIG_FILE);
     if (!fs.existsSync(cfgDir)) fs.mkdirSync(cfgDir, { recursive: true });
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+    // 确保保存时 downloadDir 是绝对路径
+    const saveConfig = { ...config };
+    if (saveConfig.downloadDir && !path.isAbsolute(saveConfig.downloadDir)) {
+      saveConfig.downloadDir = path.join(os.homedir(), saveConfig.downloadDir);
+    }
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(saveConfig, null, 2));
   } catch (e) {
     console.error('[Config] Save failed:', e.message);
   }
@@ -410,6 +420,31 @@ function startHttpServer() {
         if (!authData) return;
         const devices = db.listDevices();
         sendJson(res, { success: true, devices });
+        return;
+      }
+      
+      // 文件标签 API
+      if (pathname.startsWith('/api/file-tags/') && req.method === 'PUT') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { tags } = JSON.parse(body);
+            const updated = db.updateFileByName(filename, { tags });
+            if (updated) {
+              broadcastChange({ type: 'update', filename, tags });
+              db.addAuditLog('update_tags', `${filename}: ${tags}`, getClientIp(req), authData.token);
+              sendJson(res, { success: true, tags });
+            } else {
+              sendJson(res, { success: false, error: 'File not found' }, 404);
+            }
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 400);
+          }
+        });
         return;
       }
       
@@ -1148,6 +1183,7 @@ function renderFiles() {
       '<div class="file-content">' +
         '<div class="file-name">' + escapeHtml(f.name) + '</div>' +
         (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag">' + escapeHtml(t) + '</span>').join('') + '</div>' : '') +
+        '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' +
         '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' +
         (isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
       '</div>' +
@@ -1301,6 +1337,27 @@ async function copyContent(filename) {
 
 function downloadFile(filename) {
   window.open(API + '/download/' + filename, '_blank');
+}
+
+async function addTag(filename, existingTags) {
+  const current = existingTags ? existingTags.split(',').filter(t => t.trim()).join(', ') : '';
+  const input = prompt('输入标签（多个标签用逗号分隔）:', current);
+  if (input === null) return;
+  const tags = input.split(',').map(t => t.trim()).filter(t => t).join(',');
+  try {
+    const res = await fetch(API + '/api/file-tags/' + filename, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showAlert('listAlert', '标签已更新', 'success');
+      loadFiles();
+    } else {
+      showAlert('listAlert', '更新失败: ' + data.error, 'error');
+    }
+  } catch (e) { showAlert('listAlert', '更新失败: ' + e.message, 'error'); }
 }
 
 async function deleteFile(filename) {
