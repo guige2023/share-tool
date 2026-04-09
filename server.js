@@ -297,6 +297,9 @@ const I18N = {
     'fav.favorites': '收藏管理',
     'fav.addFav': '添加收藏',
     'fav.removeFav': '取消收藏',
+    'fav.noFavorites': '暂无收藏',
+    'fav.goTo': '跳到',
+    'fav.removed': '已移除收藏',
 
     // 错误
     'err.unknown': '未知错误',
@@ -663,8 +666,12 @@ const I18N = {
 
     // 收藏
     'fav.favorite': 'Favorite',
+    'fav.favorites': 'Favorites Manager',
     'fav.addFav': 'Add favorite',
     'fav.removeFav': 'Remove favorite',
+    'fav.noFavorites': 'No favorites yet',
+    'fav.goTo': 'Go to',
+    'fav.removed': 'Removed from favorites',
 
     // 错误
     'err.unknown': 'Unknown error',
@@ -944,8 +951,12 @@ const I18N = {
 
     // 收藏
     'fav.favorite': 'Favorite',
+    'fav.favorites': 'Favorites Manager',
     'fav.addFav': 'Add favorite',
     'fav.removeFav': 'Remove favorite',
+    'fav.noFavorites': 'No favorites yet',
+    'fav.goTo': 'Go to',
+    'fav.removed': 'Removed from favorites',
 
     // 错误
     'err.unknown': 'Unknown error',
@@ -3168,6 +3179,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="section-title">' + T('ui.recentShares') + '</div>
     <div id="listAlert" class="alert"></div>
     <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ ' + T('fav.favorite') + '</button>
+    <button class="fav-filter-btn" onclick="showFavoritesManager()">☰ ' + T('fav.favorites') + '</button>
 
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-wrapper">
@@ -6148,6 +6160,65 @@ function updateFavoritesInView() {
     el.classList.toggle('starred', isFav);
     el.textContent = isFav ? '★' : '☆';
   });
+}
+
+function showFavoritesManager() {
+  const favs = getFavorites();
+  const list = document.getElementById('favoritesManagerList');
+  if (!favs.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('fav.noFavorites') + '</div>';
+  } else {
+    list.innerHTML = favs.map(f => {
+      const enc = encodeURIComponent(f);
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;">' +
+        '<span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(f) + '</span>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="navigateToFav(\'' + enc + '\')">' + T('fav.goTo') + '</button>' +
+        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="removeFav(\'' + enc + '\')">' + T('tag.delete') + '</button>' +
+      '</div>';
+    }).join('');
+  }
+  lockScroll();
+  document.getElementById('favoritesModal').classList.add('show');
+}
+
+function closeFavoritesManager() {
+  unlockScroll();
+  document.getElementById('favoritesModal').classList.remove('show');
+}
+
+function navigateToFav(encodedFilename) {
+  const filename = decodeURIComponent(encodedFilename);
+  closeFavoritesManager();
+  // Clear any tag/search filter
+  clearTagFilter();
+  // Navigate to the file's folder if in a virtual folder
+  const lastSlash = filename.lastIndexOf('/');
+  if (lastSlash > 0) {
+    const folder = filename.substring(0, lastSlash);
+    window.currentFolder = folder;
+    window.currentSearchQ = '';
+    document.getElementById('searchInput').value = '';
+    loadFiles();
+  }
+  // Highlight and scroll to the file
+  setTimeout(() => {
+    const el = document.querySelector('[data-starfile="' + encodeURIComponent(filename) + '"]');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('focused');
+      setTimeout(() => el.classList.remove('focused'), 2000);
+    }
+  }, 100);
+}
+
+function removeFav(encodedFilename) {
+  const filename = decodeURIComponent(encodedFilename);
+  let favs = getFavorites().filter(f => f !== filename);
+  try { localStorage.setItem('sharetool_favorites', JSON.stringify(favs)); } catch (e) {}
+  updateFavoritesInView();
+  // Re-render list
+  showFavoritesManager();
+  showToast(T('fav.removed'));
 }
 
 // Notification badge for WS changes
