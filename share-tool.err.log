@@ -98,3 +98,261 @@ SyntaxError: Unexpected identifier 'style'
 Node.js v22.22.2
 (node:224) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
 (Use `node --trace-deprecation ...` to show where the warning was created)
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:72:26)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:72:26)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:72:26)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:72:26)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:72:26)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:107:29)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:219:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:219:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:219:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:274:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:274:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:274:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:274:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:274:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:274:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+/Users/guige/share-tool/server.js:1088
+function T(key, params) { return I18N.t(key, null, params); }
+                          ^
+
+ReferenceError: Cannot access 'I18N' before initialization
+    at T (/Users/guige/share-tool/server.js:1088:27)
+    at Object.<anonymous> (/Users/guige/share-tool/server.js:364:22)
+    at Module._compile (node:internal/modules/cjs/loader:1829:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1969:10)
+    at Module.load (node:internal/modules/cjs/loader:1552:32)
+    at Module._load (node:internal/modules/cjs/loader:1354:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v25.9.0
+(node:17809) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)

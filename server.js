@@ -69,7 +69,7 @@ const I18N = {
     'msg.copied': '已复制',
     'ui.copy': '复制',
     'msg.copy.failed': '复制失败',
-    'msg.delete.failed': T('file.deleteFailed'),
+    'msg.delete.failed': '删除失败:',
     'msg.rename.failed': '重命名失败',
     'msg.update.failed': '更新失败',
     'msg.link.copied': '链接已复制',
@@ -104,7 +104,7 @@ const I18N = {
     'msg.downloadFailed': '下载失败:',
     'msg.batchDownloadSuccess': '批量下载成功',
     'msg.batchDownloadFailed': '批量下载失败:',
-    'msg.downloadDirSaved': T('msg.downloadDirSaved'),
+    'msg.downloadDirSaved': '下载目录已保存（仅本机有效）',
     'msg.noContent': '暂无分享内容',
     'msg.getFailed': '获取失败',
     'msg.tokenRefreshed': '已刷新',
@@ -216,8 +216,8 @@ const I18N = {
     'share.linkCopied': '✓ 链接已复制',
     'share.linkCopyFailed': '复制失败',
     'share.confirmDelete': '确定删除此分享链接？',
-    'share.deleted': T('file.deleted'),
-    'share.deleteFailed': T('file.deleteFailed'),
+    'share.deleted': '已删除',
+    'share.deleteFailed': '删除失败:',
     'share.neverExpire': '永不过期',
     'share.expired': '已过期',
     'share.daysLeft': '剩余',
@@ -271,7 +271,7 @@ const I18N = {
     'admin.renewed': '证书已续期',
     'admin.renewFailed': '续期失败:',
     'admin.renewReqFailed': '续期请求失败',
-    'admin.unknown': T('ui.unknownError'),
+    'admin.unknown': '未知错误',
     'admin.tokenRefreshed': 'Token 已刷新',
     'admin.expired': '已过期',
     'admin.refreshed': '已刷新',
@@ -298,7 +298,7 @@ const I18N = {
     'fav.removeFav': '取消收藏',
 
     // 错误
-    'err.unknown': T('ui.unknownError'),
+    'err.unknown': '未知错误',
     'err.failed': '失败',
     'err.genFailed': '生成失败',
     'err.reqFailed': '请求失败',
@@ -361,7 +361,7 @@ const I18N = {
     'search.noResults': '未找到结果',
     'search.found': '找到',
     'search.results': '个结果',
-    'search.failed': T('search.failed'),
+    'search.failed': '搜索失败',
     'search.inputContent': '请输入内容',
     'search.historyClear': '✕清除',
     'search.manage': '⚙管理',
@@ -2903,7 +2903,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .drop-zone-icon { font-size: 24px; margin-bottom: 8px; }
 .file-type-icon { font-size: 16px; margin-right: 6px; }
 .fab:hover { transform: scale(1.1); }
-.fab-menu { display: none; position: fixed; bottom: 90px; right: 24px; flex-direction: column; gap: 8px; z-index: 99; }
+.fab-menu { display: none; position: fixed; bottom: 90px; right: 24px; flex-direction: column; gap: 8px; z-index: 350; }
 .fab-menu.show { display: flex; }
 .fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; }
 
