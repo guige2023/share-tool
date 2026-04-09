@@ -58,6 +58,128 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/upload/init - 初始化分片上传
+  if (pathname === '/api/upload/init' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { filename, totalChunks, fileHash, size } = JSON.parse(body);
+        if (!filename || !totalChunks) {
+          sendJson(res, { success: false, error: 'filename and totalChunks required' }, 400);
+          return;
+        }
+        const uploadId = crypto.randomBytes(8).toString('hex');
+        db.initChunkUpload(uploadId, filename, totalChunks, fileHash || null, size || 0);
+        db.addAuditLog('upload_init', `${filename} (${totalChunks} chunks)`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, uploadId });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // POST /api/upload/chunk - 上传单个分片
+  if (pathname === '/api/upload/chunk' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { uploadId, chunkIndex, content } = JSON.parse(body);
+        if (!uploadId || chunkIndex === undefined || !content) {
+          sendJson(res, { success: false, error: 'uploadId, chunkIndex, content required' }, 400);
+          return;
+        }
+        const row = db.getChunkUpload(uploadId);
+        if (!row) {
+          sendJson(res, { success: false, error: 'Upload session not found' }, 404);
+          return;
+        }
+        // 保存分片到临时文件
+        const chunkDir = path.join(process.env.TMPDIR || '/tmp', 'sharetool-chunks', uploadId);
+        require('fs').mkdirSync(chunkDir, { recursive: true });
+        const chunkPath = path.join(chunkDir, `chunk_${chunkIndex}`);
+        const chunkData = Buffer.from(content, 'base64');
+        require('fs').writeFileSync(chunkPath, chunkData);
+        // 更新已接收分片列表
+        const received = db.addChunkReceived(uploadId, chunkIndex);
+        sendJson(res, { success: true, received: received.length, total: row.total_chunks });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // POST /api/upload/complete - 完成分片上传
+  if (pathname === '/api/upload/complete' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { uploadId } = JSON.parse(body);
+        if (!uploadId) {
+          sendJson(res, { success: false, error: 'uploadId required' }, 400);
+          return;
+        }
+        const row = db.getChunkUpload(uploadId);
+        if (!row) {
+          sendJson(res, { success: false, error: 'Upload session not found' }, 404);
+          return;
+        }
+        const status = db.getChunkUploadStatus(uploadId);
+        if (status.receivedChunks.length !== row.total_chunks) {
+          sendJson(res, { success: false, error: `Missing chunks: ${status.receivedChunks.length}/${row.total_chunks}` }, 400);
+          return;
+        }
+        // 合并所有分片
+        const chunkDir = path.join(process.env.TMPDIR || '/tmp', 'sharetool-chunks', uploadId);
+        let fullContent = '';
+        for (let i = 0; i < row.total_chunks; i++) {
+          const chunkPath = path.join(chunkDir, `chunk_${i}`);
+          fullContent += require('fs').readFileSync(chunkPath, 'utf8');
+        }
+        // 添加到数据库
+        const result = db.addFile(row.filename, fullContent, 'file');
+        if (result) {
+          broadcastChange({ type: 'create', filename: row.filename, hash: result.hash });
+          db.addAuditLog('upload_complete', `${row.filename} (${row.total_chunks} chunks)`, getClientIp(req), authData.token);
+        }
+        // 清理
+        for (let i = 0; i < row.total_chunks; i++) {
+          try { require('fs').unlinkSync(path.join(chunkDir, `chunk_${i}`)); } catch (e) {}
+        }
+        try { require('fs').rmSync(chunkDir, { recursive: true, force: true }); } catch (e) {}
+        db.deleteChunkUpload(uploadId);
+        sendJson(res, { success: true, filename: row.filename, hash: result ? result.hash : null });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 500);
+      }
+    });
+    return true;
+  }
+
+  // GET /api/upload/status/:uploadId - 查询分片上传状态
+  if (pathname.startsWith('/api/upload/status/') && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const uploadId = pathname.slice('/api/upload/status/'.length);
+    const status = db.getChunkUploadStatus(uploadId);
+    if (!status) {
+      sendJson(res, { success: false, error: 'Upload session not found' }, 404);
+      return true;
+    }
+    sendJson(res, { success: true, uploadId, filename: status.filename, totalChunks: status.totalChunks, receivedChunks: status.receivedChunks.length });
+    return true;
+  }
+
   // GET /api/content/:filename
   if (pathname.startsWith('/api/content/')) {
     const authData = authRequired(req, res);

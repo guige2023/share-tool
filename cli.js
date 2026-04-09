@@ -91,13 +91,13 @@ function uploadFile(filePath) {
     const token = getToken();
     const fileName = path.basename(filePath);
     const fileContent = fs.readFileSync(filePath);
+    const base64Content = fileContent.toString('base64');
 
-    const boundary = crypto.randomBytes(16).toString('hex');
-    let body = `--${boundary}\r\n`;
-    body += `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n`;
-    body += `Content-Type: application/octet-stream\r\n\r\n`;
-    body += fileContent;
-    body += `\r\n--${boundary}--`;
+    const body = JSON.stringify({
+      filename: fileName,
+      content: base64Content,
+      type: 'file'
+    });
 
     const reqOptions = {
       hostname: parsedUrl.hostname,
@@ -105,7 +105,7 @@ function uploadFile(filePath) {
       path: parsedUrl.pathname,
       method: 'POST',
       headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(body)
       }
     };

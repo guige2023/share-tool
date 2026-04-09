@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 3; // 当前 Schema 版本
+const SCHEMA_VERSION = 4; // 当前 Schema 版本
 
 let db = null;
 
@@ -283,6 +283,27 @@ function initSchemaV3(db) {
   }
 }
 
+function initSchemaV4(db) {
+  // v4 新增：分片上传临时表
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS upload_chunks (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        upload_id        TEXT    NOT NULL UNIQUE,
+        filename         TEXT    NOT NULL,
+        total_chunks     INTEGER NOT NULL,
+        file_hash        TEXT,
+        size             INTEGER,
+        received_chunks  TEXT    NOT NULL DEFAULT '[]',
+        created_at       INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `);
+    console.log('[DB] Migrated: upload_chunks table');
+  } catch (e) {
+    if (!e.message.includes('duplicate table')) throw e;
+  }
+}
+
 function runMigrations(db, fromVersion) {
   console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
   for (let v = fromVersion + 1; v <= SCHEMA_VERSION; v++) {
@@ -290,6 +311,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV2(db);
     } else if (v === 3) {
       initSchemaV3(db);
+    } else if (v === 4) {
+      initSchemaV4(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -1180,6 +1203,46 @@ function isTextFile(filename) {
   return textExts.some(ext => filename.endsWith(ext)) || !filename.includes('.');
 }
 
+// ============================================================
+// 分片上传管理
+// ============================================================
+function initChunkUpload(uploadId, filename, totalChunks, fileHash = null, size = 0) {
+  const db = getDb();
+  db.prepare(`INSERT OR REPLACE INTO upload_chunks (upload_id, filename, total_chunks, file_hash, size, received_chunks) VALUES (?, ?, ?, ?, ?, '[]')`)
+    .run(uploadId, filename, totalChunks, fileHash, size);
+}
+
+function getChunkUpload(uploadId) {
+  const db = getDb();
+  return db.prepare('SELECT * FROM upload_chunks WHERE upload_id = ?').get(uploadId);
+}
+
+function addChunkReceived(uploadId, chunkIndex) {
+  const db = getDb();
+  const row = db.prepare('SELECT received_chunks FROM upload_chunks WHERE upload_id = ?').get(uploadId);
+  if (!row) return null;
+  let received = JSON.parse(row.received_chunks || '[]');
+  if (!received.includes(chunkIndex)) {
+    received.push(chunkIndex);
+    received.sort((a, b) => a - b);
+    db.prepare('UPDATE upload_chunks SET received_chunks = ? WHERE upload_id = ?').run(JSON.stringify(received), uploadId);
+  }
+  return received;
+}
+
+function getChunkUploadStatus(uploadId) {
+  const db = getDb();
+  const row = db.prepare('SELECT filename, total_chunks, received_chunks FROM upload_chunks WHERE upload_id = ?').get(uploadId);
+  if (!row) return null;
+  const received = JSON.parse(row.received_chunks || '[]');
+  return { filename: row.filename, totalChunks: row.total_chunks, receivedChunks: received };
+}
+
+function deleteChunkUpload(uploadId) {
+  const db = getDb();
+  db.prepare('DELETE FROM upload_chunks WHERE upload_id = ?').run(uploadId);
+}
+
 module.exports = {
   initDatabase,
   getDb,
@@ -1210,5 +1273,7 @@ module.exports = {
   // DB 健康
   cleanupSyncLog, getDbStats, runVacuum, checkDbIntegrity,
   // 标签颜色
-  getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor
+  getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor,
+  // 分片上传
+  initChunkUpload, getChunkUpload, addChunkReceived, getChunkUploadStatus, deleteChunkUpload
 };
