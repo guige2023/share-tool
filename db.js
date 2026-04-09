@@ -546,8 +546,8 @@ function copyFilesByPrefix(sourcePrefix, destPrefix) {
   let copied = 0;
   for (const f of files) {
     const newFilename = destPrefix.endsWith('/') ? destPrefix + f.filename.slice(sourcePrefix.length) : destPrefix + '/' + f.filename.slice(sourcePrefix.endsWith('/') ? sourcePrefix.length : (sourcePrefix.length + 1));
-    db.prepare(`INSERT INTO files (filename, content, type, size, hash, created_at, updated_at, tags, starred, encrypted, share_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`)
-      .run(newFilename, f.content, f.type, f.size, f.hash, f.created_at, now, f.tags, f.starred || 0, f.encrypted || 0);
+    db.prepare(`INSERT INTO files (filename, content, type, size, hash, created_at, updated_at, tags, encrypted, content_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(newFilename, f.content, f.type, f.size, f.hash, f.created_at, now, f.tags, f.encrypted || 0, f.content_type || 'application/octet-stream');
     copied++;
   }
   return { copied };
