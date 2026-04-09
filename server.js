@@ -2842,11 +2842,29 @@ function updateTagFilterBar() {
     return;
   }
   const sorted = Array.from(allTags).sort();
+  const currentQ = window.currentSearchQ || '';
+  const activeTag = sorted.find(t => currentQ.includes('tag:' + t));
+  const clearBtn = activeTag
+    ? '<span class="filter-tab" onclick="clearTagFilter()" style="font-size:11px;color:var(--text-muted);">✕清除</span>'
+    : '';
+  const manageBtn = '<span class="filter-tab" onclick="showTagManager()" style="font-size:11px;color:var(--text-muted);">⚙管理</span>';
   bar.innerHTML = sorted.map(t => {
-    const active = (window.currentSearchQ || '').includes('tag:' + t) ? 'active' : '';
+    const active = currentQ.includes('tag:' + t) ? 'active' : '';
     const style = getTagStyle(t) || '';
     return '<span class="filter-tab ' + active + '" onclick="filterByTag(\'' + t.replace(/'/g, "\\'") + '\')" style="font-size:11px;' + style + '">🏷 ' + escapeHtml(t) + '</span>';
-  }).join('');
+  }).join('') + clearBtn + manageBtn;
+}
+
+function clearTagFilter() {
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    const val = searchInput.value || '';
+    // Remove tag:xxx from search
+    searchInput.value = val.replace(/tag:[^\s]*/g, '').trim();
+    window.currentSearchQ = searchInput.value;
+    doSearch();
+  }
+  updateTagFilterBar();
 }
 
 function renderFiles() {
