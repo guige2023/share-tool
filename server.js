@@ -1913,6 +1913,18 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .markdown-body hr { border: none; border-top: 1px solid var(--border-color); margin: 1.5em 0; }
 .markdown-body img { max-width: 100%; border-radius: 4px; }
 }
+/* Code syntax highlighting theme */
+.markdown-body pre { background: var(--bg-tertiary); border-radius: 8px; padding: 12px; overflow-x: auto; }
+.markdown-body code { background: var(--bg-tertiary); border-radius: 4px; padding: 2px 6px; font-size: 0.9em; }
+.markdown-body pre code { background: none; padding: 0; }
+/* Override hljs colors for light mode to use softer background */
+[data-theme="light"] .hljs { background: var(--bg-tertiary); color: #24292e; }
+[data-theme="light"] .hljs-comment,[data-theme="light"] .hljs-quote { color: #6a737d; }
+[data-theme="light"] .hljs-keyword,[data-theme="light"] .hljs-selector-tag { color: #d73a49; }
+[data-theme="light"] .hljs-string,[data-theme="light"] .hljs-attr { color: #032f62; }
+[data-theme="light"] .hljs-number,[data-theme="light"] .hljs-literal { color: #005cc5; }
+[data-theme="light"] .hljs-title,[data-theme="light"] .hljs-section { color: #6f42c1; }
+[data-theme="light"] .hljs-type,[data-theme="light"] .hljs-class { color: #22863a; }
 </style>
 </head>
 <body>
@@ -2860,7 +2872,8 @@ function renderFiles() {
     const isAudio = !isVirtualFolder && isAudioFile(f.name);
     const isVideo = !isVirtualFolder && isVideoFile(f.name);
     const isPdf = !isVirtualFolder && isPdfFile(f.name);
-    const isMarkdown = !isVirtualFolder && /\.(md|markdown|txt|text)$/i.test(f.name) && f.type === 'text';
+    const isMarkdown = !isVirtualFolder && /\.(md|markdown)$/i.test(f.name) && f.type === 'text';
+    const isCode = !isVirtualFolder && !isMarkdown && isCodeFile(f.name);
     const previewId = 'preview-' + btoaSafe(f.name).substring(0, 20);
     const thumbId = 'thumb-' + btoaSafe(f.name).substring(0, 20);
     const tags = f.tags ? f.tags.split(',').filter(t => t.trim()) : [];
@@ -2894,9 +2907,10 @@ function renderFiles() {
         (!isVirtualFolder && isVideo ? '<div class="file-video-wrapper" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
         (!isVirtualFolder && isPdf ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')">📕 预览PDF</button>' : '') +
         (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 预览MD</button>' : '') +
+        (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 预览</button>' : '') +
       '</div>' +
       '<div class="file-actions">' +
-        (!isVirtualFolder ? (isText ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') : '') +
+        (!isVirtualFolder ? (isText || isCode ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') : '') +
         (!isVirtualFolder && (isAudio || isVideo) ? '<button class="btn btn-sm" onclick="openMediaModal(\'' + encodeURIComponent(f.name) + '\')">▶ 播放</button>' : '') +
         (!isVirtualFolder && isImage ? '<button class="btn btn-sm" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')">🖼 查看</button>' : '') +
         (!isVirtualFolder ? '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">复制</button>' : '') +
@@ -3080,6 +3094,43 @@ async function openMarkdownModal(filename) {
   } catch (e) { showToast('Failed to render Markdown: ' + e.message); }
 }
 
+async function openCodeModal(filename) {
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.content) return;
+    const content = atob(data.content);
+    const ext = (filename.split('.').pop() || '').toLowerCase();
+    const langMap = {
+      js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript',
+      py: 'python', rb: 'ruby', go: 'go', rs: 'rust', java: 'java',
+      c: 'c', cpp: 'cpp', h: 'c', hpp: 'cpp', cs: 'csharp', php: 'php',
+      sh: 'bash', bash: 'bash', zsh: 'bash', sql: 'sql', xml: 'xml',
+      yaml: 'yaml', yml: 'yaml', toml: 'ini', ini: 'ini', cfg: 'ini', conf: 'ini',
+      json: 'json', html: 'html', css: 'css', scss: 'scss',
+      md: 'markdown', markdown: 'markdown', txt: 'plaintext', log: 'plaintext',
+      swift: 'swift', kt: 'kotlin', scala: 'scala', lua: 'lua', r: 'r', pl: 'perl', pm: 'perl'
+    };
+    const lang = langMap[ext] || 'plaintext';
+    let highlighted;
+    if (typeof hljs !== 'undefined') {
+      try {
+        const result = hljs.highlight(content, { language: lang, ignoreIllegals: true });
+        highlighted = result.value;
+      } catch (_) {
+        highlighted = escapeHtml(content);
+      }
+    } else {
+      highlighted = escapeHtml(content);
+    }
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('modalMeta').textContent = formatSize(data.size || 0) + ' | ' + lang;
+    document.getElementById('modalBody').innerHTML =
+      '<pre style="margin:0;overflow:auto;max-height:70vh;background:var(--bg-tertiary);border-radius:8px;padding:16px;font-size:13px;line-height:1.5;"><code class="hljs language-' + lang + '">' + highlighted + '</code></pre>';
+    document.getElementById('fileModal').classList.add('show');
+  } catch (e) { showToast('Failed to open code file: ' + e.message); }
+}
+
 function togglePreview(filename, previewId) {
   const el = document.getElementById(previewId);
   if (el) {
@@ -3106,6 +3157,7 @@ function handleFileItemClick(event, filename, isImage) {
   const tag = event.target.tagName;
   if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'SPAN' || event.target.closest('input') || event.target.closest('button')) return;
   if (isImage) return; // images already have their own click handler (thumbnail)
+  if (isCodeFile(filename)) { openCodeModal(filename); return; }
   openFileModal(filename);
 }
 
@@ -4729,6 +4781,8 @@ function getFileIcon(filename) {
 init();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 
 <!-- FAB: Mobile-friendly upload button -->
@@ -4809,6 +4863,7 @@ const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico']);
 const AUDIO_EXTS = new Set(['mp3','wav','ogg','aac','flac','m4a','wma','opus']);
 const VIDEO_EXTS = new Set(['mp4','webm','avi','mov','mkv','flv','wmv','m4v','mpeg','mpg']);
 const PDF_EXTS = new Set(['pdf']);
+const CODE_EXTS = new Set(['js','jsx','ts','tsx','json','html','css','scss','py','rb','go','rs','java','c','cpp','h','hpp','cs','php','sh','bash','zsh','sql','xml','yaml','yml','toml','ini','cfg','conf','md','markdown','txt','log','swift','kt','scala','lua','r','pl','pm','lua']);
 
 function isImageFile(filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
@@ -4825,6 +4880,10 @@ function isVideoFile(filename) {
 function isPdfFile(filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   return PDF_EXTS.has(ext);
+}
+function isCodeFile(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return CODE_EXTS.has(ext);
 }
 
 
