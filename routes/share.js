@@ -83,6 +83,53 @@ module.exports = function handleShareRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // PUT /api/share/update/:code
+  if (pathname.startsWith('/api/share/update/') && method === 'PUT') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const code = pathname.slice('/api/share/update/'.length);
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { expiryHours, maxDownloads, password } = JSON.parse(body);
+        // expiryHours: null=unchanged, 0=never expire, >0=hours
+        const MAX_TS_MS = 32503680000000;
+        const updates = {};
+        if (expiryHours !== undefined) {
+          updates.expiresAt = expiryHours === 0 ? MAX_TS_MS : (expiryHours ? Date.now() + expiryHours * 3600000 : MAX_TS_MS);
+        }
+        if (maxDownloads !== undefined) {
+          updates.maxDownloads = maxDownloads || null;
+        }
+        if (password !== undefined) {
+          updates.password = password || null;
+        }
+        const result = db.updateShareLink(code, updates);
+        if (!result.success) {
+          sendJson(res, { success: false, error: result.error }, 400);
+          return;
+        }
+        db.addAuditLog('share_update', `code=${code}`, getClientIp(req), authData.token);
+        const updated = db.getShareLink(code);
+        sendJson(res, {
+          success: true,
+          link: {
+            code: updated.code,
+            filename: updated.filename,
+            hasPassword: updated.hasPassword,
+            expiresAt: updated.expiresAt,
+            maxDownloads: updated.maxDownloads,
+            downloadCount: updated.downloadCount
+          }
+        });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   // GET /s/:code - Access share link (no auth required)
   if (pathname.startsWith('/s/')) {
     const code = pathname.slice(3);

@@ -383,7 +383,7 @@ function getFile(id) {
 function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null) {
   const db = getDb();
   const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-  const safeSort = ['created_at', 'updated_at', 'filename', 'size'].includes(sort) ? sort : 'created_at';
+  const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type'].includes(sort) ? sort : 'created_at';
   const files = db.prepare(`
     SELECT ${FILE_FIELDS} FROM files
     ${folder ? 'WHERE filename LIKE ? ESCAPE ?' : ''}
@@ -1205,6 +1205,43 @@ function getShareLink(code) {
   };
 }
 
+function updateShareLink(code, updates) {
+  const db = getDb();
+  const MAX_TS_SECONDS = Math.floor(32503680000000 / 1000);
+  const existing = getShareLink(code);
+  if (!existing) return { success: false, error: 'Share link not found' };
+
+  const fields = [];
+  const values = [];
+
+  if (updates.expiresAt !== undefined) {
+    const expiresAtSecs = updates.expiresAt === 0 || updates.expiresAt === null
+      ? MAX_TS_SECONDS
+      : Math.floor(updates.expiresAt / 1000);
+    fields.push('expires_at = ?');
+    values.push(expiresAtSecs);
+  }
+
+  if (updates.maxDownloads !== undefined) {
+    fields.push('max_downloads = ?');
+    values.push(updates.maxDownloads || null);
+  }
+
+  if (updates.password !== undefined) {
+    // null means no password, string means set password
+    fields.push('password = ?');
+    values.push(updates.password ? hashPassword(updates.password) : null);
+  }
+
+  if (fields.length === 0) {
+    return { success: false, error: 'No fields to update' };
+  }
+
+  values.push(code);
+  db.prepare(`UPDATE share_links SET ${fields.join(', ')} WHERE code = ?`).run(...values);
+  return { success: true };
+}
+
 function deleteShareLink(code) {
   const db = getDb();
   db.prepare('DELETE FROM share_links WHERE code = ?').run(code);
@@ -1463,7 +1500,7 @@ module.exports = {
   // 速率限制
   checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig,
   // 分享链接
-  saveShareLink, getShareLink, deleteShareLink, incrementShareLinkDownload,
+  saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload,
   listShareLinks, cleanupExpiredShareLinks,
   // 迁移
   migrateFromFileSystem,

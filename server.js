@@ -217,6 +217,8 @@ const I18N = {
     'share.linkCopied': '✓ 链接已复制',
     'share.linkCopyFailed': '复制失败',
     'share.confirmDelete': '确定删除此分享链接？',
+    'share.editLink': '编辑分享链接',
+    'share.leaveBlank': '留空则不修改密码',
     'share.deleted': '已删除',
     'share.deleteFailed': '删除失败:',
     'share.neverExpire': '永不过期',
@@ -307,6 +309,7 @@ const I18N = {
     'err.failed': '失败',
     'err.genFailed': '生成失败',
     'err.reqFailed': '请求失败',
+    'err.notFound': '未找到',
     'err.browserNotSupport': '您的浏览器不支持',
     'err.getLinkFailed': '获取分享链接失败',
 
@@ -476,6 +479,9 @@ const I18N = {
     'ui.gridView': '网格视图',
     'ui.resultsFound': '找到 {n} 个结果',
     'ui.save': '保存',
+    'ui.saved': '已保存',
+    'ui.saveFailed': '保存失败',
+    'ui.edit': '编辑',
     'ui.downloadDir': '下载目录',
     'ui.deleteAll': '删除全部',
     'ui.delete1Week': '删除1周前',
@@ -611,6 +617,8 @@ const I18N = {
     'share.linkCopied': '✓ Link copied',
     'share.linkCopyFailed': 'Copy failed',
     'share.confirmDelete': 'Delete this share link?',
+    'share.editLink': 'Edit share link',
+    'share.leaveBlank': 'Leave blank to keep current password',
     'share.deleted': '✓ Deleted',
     'share.deleteFailed': 'Delete failed',
     'share.daysLeft': 'Remaining',
@@ -697,6 +705,7 @@ const I18N = {
     'err.failed': 'Failed',
     'err.genFailed': 'Generation failed',
     'err.reqFailed': 'Request failed',
+    'err.notFound': 'Not found',
     'err.browserNotSupport': 'Your browser does not support',
     'err.getLinkFailed': 'Failed to get share link',
 
@@ -843,6 +852,8 @@ const I18N = {
     'ui.sortNameZA': 'Name Z-A',
     'ui.sortLargest': 'Largest first',
     'ui.sortSmallest': 'Smallest first',
+    'ui.sortTypeAZ': 'Type A-Z',
+    'ui.sortTypeZA': 'Type Z-A',
     'ui.allFiles': 'All files',
     'ui.shortcuts': 'Shortcuts',
     'ui.shortcutHelp': '? View shortcuts',
@@ -860,6 +871,9 @@ const I18N = {
     'ui.gridView': 'Grid view',
     'ui.resultsFound': '{n} results found',
     'ui.save': 'Save',
+    'ui.saved': 'Saved',
+    'ui.saveFailed': 'Save failed',
+    'ui.edit': 'Edit',
     'ui.downloadDir': 'Download dir',
     'ui.deleteAll': 'Delete all',
     'ui.delete1Week': 'Delete 1 week ago',
@@ -1000,6 +1014,7 @@ const I18N = {
     'err.failed': 'Failed',
     'err.genFailed': 'Generation failed',
     'err.reqFailed': 'Request failed',
+    'err.notFound': 'Not found',
     'err.browserNotSupport': 'Your browser does not support',
     'err.getLinkFailed': 'Failed to get share link',
 
@@ -3377,6 +3392,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <option value="name_desc">' + T('ui.sortNameZA') + '</option>
         <option value="size_desc">' + T('ui.sortLargest') + '</option>
         <option value="size_asc">' + T('ui.sortSmallest') + '</option>
+        <option value="type_asc">' + T('ui.sortTypeAZ') + '</option>
+        <option value="type_desc">' + T('ui.sortTypeZA') + '</option>
       </select>
       <span id="fileCount" style="margin-left:auto;"></span>
       <span id="searchResultCount" style="display:none;color:var(--accent-primary);font-weight:500;margin-left:8px;"></span>
@@ -3538,6 +3555,42 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button class="modal-close" onclick="closeShareLinksModal()">x</button>
     </div>
     <div id="shareLinksList" style="padding:8px 0;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editShareLinkModal" onclick="if(event.target===this)closeEditShareLinkModal()">
+  <div class="modal-content" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">✏️ ' + T('share.editLink') + '</div>
+      <button class="modal-close" onclick="closeEditShareLinkModal()">x</button>
+    </div>
+    <div style="padding:8px 0;">
+      <input type="hidden" id="editShareCode">
+      <div id="editShareFilename" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;padding:8px;background:var(--bg-tertiary);border-radius:8px;word-break:break-all;"></div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.lifetime') + '</div>
+        <select id="editShareExpiryHours" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+          <option value="24">' + T('share.24h') + '</option>
+          <option value="72">' + T('share.3days') + '</option>
+          <option value="168">' + T('share.7days') + '</option>
+          <option value="720">' + T('share.30days') + '</option>
+          <option value="0">' + T('share.never') + '</option>
+        </select>
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.downloadLimit') + '</div>
+        <input type="number" id="editShareMaxDownloads" placeholder="' + T('admin.none') + '" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.passwordOptional') + '</div>
+        <input type="password" id="editSharePassword" placeholder="' + T('share.noPassword') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + T('share.leaveBlank') + '</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="doUpdateShareLink()" style="flex:1;">' + T('ui.save') + '</button>
+        <button class="btn btn-secondary" onclick="closeEditShareLinkModal()">' + T('msg.cancel') + '</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4895,6 +4948,7 @@ function showShareLinksModal() {
             '<div style="display:flex;gap:8px;margin-top:4px;">' +
               '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code + '\', \'' + escapeHtml(url) + '\')">' + T('share.copyLink') + '</button>' +
               '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code + '\')">' + T('share.qrCode') + '</button>' +
+              '<button class="btn btn-sm" onclick="showEditShareLinkModal(\'' + l.code + '\')">' + T('ui.edit') + '</button>' +
               '<button class="btn btn-sm btn-danger" onclick="deleteShareLink(\'' + l.code + '\')">' + T('tag.delete') + '</button>' +
             '</div>' +
           '</div>';
@@ -4948,6 +5002,63 @@ function deleteShareLink(code) {
         showToast(T('file.deleteFailed'));
       }
     }).catch(() => showToast(T('file.deleteFailed')));
+}
+
+function showEditShareLinkModal(code) {
+  // Fetch current link data and populate edit form
+  fetch(API + '/api/share/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) { showToast(T('err.reqFailed')); return; }
+      const link = (data.links || []).find(l => l.code === code);
+      if (!link) { showToast(T('err.notFound')); return; }
+      document.getElementById('editShareCode').value = code;
+      document.getElementById('editShareFilename').textContent = link.filename;
+      // Compute current expiryHours from expiresAt
+      const MAX_TS_MS = 32503680000000;
+      const expiryEl = document.getElementById('editShareExpiryHours');
+      if (link.expiresAt && link.expiresAt !== MAX_TS_MS) {
+        const hoursLeft = Math.max(1, Math.ceil((link.expiresAt - Date.now()) / 3600000));
+        if (hoursLeft <= 24) expiryEl.value = '24';
+        else if (hoursLeft <= 72) expiryEl.value = '72';
+        else if (hoursLeft <= 168) expiryEl.value = '168';
+        else if (hoursLeft <= 720) expiryEl.value = '720';
+        else expiryEl.value = '0';
+      } else {
+        expiryEl.value = '0';
+      }
+      document.getElementById('editShareMaxDownloads').value = link.maxDownloads || '';
+      document.getElementById('editSharePassword').value = '';
+      lockScroll();
+      document.getElementById('editShareLinkModal').classList.add('show');
+    }).catch(() => showToast(T('err.reqFailed')));
+}
+
+function doUpdateShareLink() {
+  const code = document.getElementById('editShareCode').value;
+  const expiryHours = parseInt(document.getElementById('editShareExpiryHours').value) || 0;
+  const maxDownloads = parseInt(document.getElementById('editShareMaxDownloads').value) || null;
+  const password = document.getElementById('editSharePassword').value || null;
+  closeEditShareLinkModal();
+  fetch(API + '/api/share/update/' + code, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ expiryHours, maxDownloads, password })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        showToast('✓ ' + T('ui.saved'));
+        showShareLinksModal(); // Refresh
+      } else {
+        showToast(T('ui.saveFailed') + ': ' + data.error);
+      }
+    }).catch(e => showToast(T('ui.saveFailed') + ': ' + e.message));
+}
+
+function closeEditShareLinkModal() {
+  unlockScroll();
+  document.getElementById('editShareLinkModal').classList.remove('show');
 }
 
 function showAuditModal() {
