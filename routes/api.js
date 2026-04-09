@@ -182,6 +182,159 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // ============================================================
+  // 标签 API
+  // ============================================================
+
+  // GET /api/tags/list — 列出所有标签及使用次数
+  if (pathname === '/api/tags/list' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const files = db.listFiles();
+    // 统计每个标签的使用次数
+    const tagCounts = {};
+    for (const f of files) {
+      if (f.tags) {
+        for (const t of f.tags.split(',').map(s => s.trim()).filter(Boolean)) {
+          tagCounts[t] = (tagCounts[t] || 0) + 1;
+        }
+      }
+    }
+    const colors = db.getAllTagColors();
+    const tags = Object.keys(tagCounts).map(tag => ({
+      tag,
+      count: tagCounts[tag],
+      color: colors[tag] || null
+    })).sort((a, b) => b.count - a.count);
+    sendJson(res, { success: true, tags });
+    return true;
+  }
+
+  // GET /api/tags/suggest-color?tag=xxx — 为新标签推荐颜色
+  if (pathname === '/api/tags/suggest-color' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const tag = parsed.query.tag || '';
+    const color = db.getSuggestedColor(tag);
+    sendJson(res, { success: true, color });
+    return true;
+  }
+
+  // PUT /api/tags/color — 更新标签颜色
+  if (pathname === '/api/tags/color' && method === 'PUT') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { tag, color } = JSON.parse(body);
+        if (!tag || !color) { sendJson(res, { success: false, error: 'tag and color required' }, 400); return; }
+        db.setTagColor(tag, color);
+        sendJson(res, { success: true });
+      } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
+    });
+    return true;
+  }
+
+  // POST /api/tags/rename/:oldTag — 重命名标签（同时更新所有文件的 tags 字段）
+  if (pathname.startsWith('/api/tags/rename/') && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const oldTag = decodeURIComponent(pathname.slice('/api/tags/rename/'.length));
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { newTag } = JSON.parse(body);
+        if (!newTag) { sendJson(res, { success: false, error: 'newTag required' }, 400); return; }
+        if (oldTag === newTag) { sendJson(res, { success: false, error: 'same as old' }, 400); return; }
+        const files = db.listFiles();
+        let updated = 0;
+        for (const f of files) {
+          if (f.tags) {
+            const tags = f.tags.split(',').map(s => s.trim());
+            const idx = tags.indexOf(oldTag);
+            if (idx !== -1) {
+              tags[idx] = newTag;
+              db.updateFile(f.filename, null, { tags: tags.join(',') });
+              updated++;
+            }
+          }
+        }
+        // 更新标签颜色
+        const oldColor = db.getTagColor(oldTag);
+        if (oldColor) { db.setTagColor(newTag, oldColor); db.deleteTagColor(oldTag); }
+        sendJson(res, { success: true, updated });
+      } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
+    });
+    return true;
+  }
+
+  // DELETE /api/tags/delete/:tag — 删除标签（从所有文件移除）
+  if (pathname.startsWith('/api/tags/delete/') && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const tag = decodeURIComponent(pathname.slice('/api/tags/delete/'.length));
+    const files = db.listFiles();
+    let updated = 0;
+    for (const f of files) {
+      if (f.tags) {
+        const tags = f.tags.split(',').map(s => s.trim()).filter(s => s !== tag);
+        if (tags.length !== f.tags.split(',').map(s => s.trim()).filter(Boolean).length) {
+          db.updateFile(f.filename, null, { tags: tags.join(',') });
+          updated++;
+        }
+      }
+    }
+    db.deleteTagColor(tag);
+    sendJson(res, { success: true, updated });
+    return true;
+  }
+
+  // GET /api/file-tags/:filename — 获取文件标签
+  if (pathname.startsWith('/api/file-tags/') && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
+    const tags = file.tags ? file.tags.split(',').map(s => s.trim()).filter(Boolean) : [];
+    sendJson(res, { success: true, filename, tags });
+    return true;
+  }
+
+  // PUT /api/file-tags/:filename — 更新文件标签
+  if (pathname.startsWith('/api/file-tags/') && method === 'PUT') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { tags } = JSON.parse(body);
+        const file = db.getFileByName(filename);
+        if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
+        db.updateFile(filename, null, { tags: Array.isArray(tags) ? tags.join(',') : (tags || '') });
+        sendJson(res, { success: true });
+      } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
+    });
+    return true;
+  }
+
+  // DELETE /api/file-tags/:filename — 清除文件标签
+  if (pathname.startsWith('/api/file-tags/') && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
+    db.updateFile(filename, null, { tags: '' });
+    sendJson(res, { success: true });
+    return true;
+  }
+
   // GET /api/audit/logs
   if (pathname === '/api/audit/logs') {
     const authData = authRequired(req, res);
