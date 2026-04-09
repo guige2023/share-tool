@@ -500,6 +500,59 @@ function renameFilesByPrefix(oldPrefix, newPrefix) {
   return { renamed };
 }
 
+// 复制文件（生成新副本，不修改原文件）
+function copyFile(sourceFilename, newFilename) {
+  const db = getDb();
+  const source = getFileByName(sourceFilename);
+  if (!source) return { success: false, error: '源文件不存在' };
+
+  // 检查目标文件名是否已存在
+  const conflict = getFileByName(newFilename);
+  if (conflict) return { success: false, error: '目标文件名已存在' };
+
+  // 插入新记录，内容/哈希/size 相同，但 filename 和时间戳不同
+  const now = Math.floor(Date.now() / 1000);
+  const stmt = db.prepare(`
+    INSERT INTO files (filename, content, type, size, hash, created_at, updated_at, tags, starred, encrypted, share_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+  `);
+  const result = stmt.run(
+    newFilename,
+    source.content,
+    source.type,
+    source.size,
+    source.hash,
+    source.created_at,  // 保留源文件的创建时间
+    now,                // 但更新时间是复制时刻
+    source.tags,
+    source.starred || 0,
+    source.encrypted || 0
+  );
+
+  const newId = result.lastInsertRowid;
+
+  // 记录同步日志
+  addSyncLog(newId, newFilename, 'create', source.hash, null, source.size);
+
+  return { success: true, id: newId, filename: newFilename, hash: source.hash, size: source.size };
+}
+
+// 前缀复制（用于虚拟文件夹复制）
+function copyFilesByPrefix(sourcePrefix, destPrefix) {
+  const db = getDb();
+  const pattern = sourcePrefix.endsWith('/') ? sourcePrefix + '%' : sourcePrefix + '/%';
+  const files = db.prepare("SELECT id, filename, content, type, size, hash, created_at, tags, starred, encrypted FROM files WHERE filename LIKE ?").all(pattern);
+  const now = Math.floor(Date.now() / 1000);
+  let copied = 0;
+  for (const f of files) {
+    const newFilename = destPrefix.endsWith('/') ? destPrefix + f.filename.slice(sourcePrefix.length) : destPrefix + '/' + f.filename.slice(sourcePrefix.endsWith('/') ? sourcePrefix.length : (sourcePrefix.length + 1));
+    db.prepare(`INSERT INTO files (filename, content, type, size, hash, created_at, updated_at, tags, starred, encrypted, share_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`)
+      .run(newFilename, f.content, f.type, f.size, f.hash, f.created_at, now, f.tags, f.starred || 0, f.encrypted || 0);
+    copied++;
+  }
+  return { copied };
+}
+
 function deleteFile(id) {
   const db = getDb();
   const existing = getFile(id);
@@ -1291,7 +1344,7 @@ module.exports = {
   // 文件
   addFile, getFile, getFileByName, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
-  deleteFilesByPrefix, renameFilesByPrefix,
+  deleteFilesByPrefix, renameFilesByPrefix, copyFile, copyFilesByPrefix,
   searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
