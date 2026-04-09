@@ -315,6 +315,8 @@ async function main() {
     console.log('  batch-tag remove <tag> [files]   Remove tag from files');
     console.log('  batch-tag set <tag> [files]       Set (replace) tag on files');
     console.log('  search <query> Search files');
+    console.log('  cat <name>     Print file content to stdout');
+    console.log('  find <query> [--tag=x] [--type=x] [--limit=n]  Advanced search');
     console.log('  share <text>   Share text snippet');
     console.log('  sync           Trigger sync push');
     console.log('  stats          Show storage stats');
@@ -346,6 +348,36 @@ async function main() {
           process.exit(1);
         }
         printJson(res.data);
+        break;
+      }
+
+      case 'cat': {
+        const filename = args[1];
+        if (!filename) {
+          printError('Usage: share-tool cat <filename>');
+          process.exit(1);
+        }
+        const encoded = encodeURIComponent(filename);
+        const res = await request('GET', `/api/files/${encoded}`);
+        if (res.status === 404) {
+          printError(`File not found: ${filename}`);
+          process.exit(1);
+        }
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          process.exit(1);
+        }
+        const file = res.data.file;
+        if (!file) {
+          printError('Unexpected response format');
+          process.exit(1);
+        }
+        if (file.content !== undefined && file.content !== null) {
+          process.stdout.write(String(file.content));
+        } else {
+          printError(`File has no text content (type: ${file.type || 'unknown'}). Use 'download' command instead.`);
+          process.exit(1);
+        }
         break;
       }
 
@@ -650,6 +682,45 @@ async function main() {
             const date = new Date(f.updated_at * 1000).toLocaleString('zh-CN');
             const size = f.size ? `${(f.size / 1024).toFixed(1)}KB` : '0KB';
             console.log(`  ${i + 1}. ${f.filename} (${size}) - ${date}`);
+          });
+        }
+        break;
+      }
+
+      case 'find': {
+        if (!args[0]) {
+          printError('Usage: share-tool find <query> [--tag=<tag>] [--type=text|file] [--limit=<n>]');
+          process.exit(1);
+        }
+        // Parse flags
+        let query = '';
+        let tag = '';
+        let typeFilter = '';
+        let limit = 50;
+        for (const arg of args.slice(1)) {
+          if (arg.startsWith('--tag=')) tag = arg.slice(6);
+          else if (arg.startsWith('--type=')) typeFilter = arg.slice(6);
+          else if (arg.startsWith('--limit=')) limit = parseInt(arg.slice(8)) || 50;
+          else if (!arg.startsWith('--')) query += (query ? ' ' : '') + arg;
+        }
+        query = args[0] + (query ? ' ' + query : '');
+        const params = new URLSearchParams({ q: query, limit });
+        if (tag) params.set('tags', tag);
+        if (typeFilter) params.set('type', typeFilter);
+        const res = await request('GET', `/api/search?${params}`);
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          process.exit(1);
+        }
+        const results = res.data.files || res.data.results || [];
+        if (results.length === 0) {
+          console.log('No files found.');
+        } else {
+          console.log(`Found ${results.length} file(s):`);
+          results.forEach((f, i) => {
+            const score = f.score !== undefined ? ` [score:${f.score}]` : '';
+            const tags = f.tags ? ` [${f.tags}]` : '';
+            console.log(`  ${i + 1}. ${f.filename}${tags}${score}`);
           });
         }
         break;

@@ -1022,7 +1022,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v2.87',
+          version: 'v2.88',
         });
         return;
       }
@@ -3421,22 +3421,27 @@ function handleFolderItemClick(folderName) {
 }
 
 function closeModal() {
+  unlockScroll();
   document.getElementById('fileModal').classList.remove('show');
 }
 
 function closeShortcutModal() {
+  unlockScroll();
   document.getElementById('shortcutModal').classList.remove('show');
 }
 
 function closeAuditModal() {
+  unlockScroll();
   document.getElementById('auditModal').classList.remove('show');
 }
 
 function closeTokenModal() {
+  unlockScroll();
   document.getElementById('tokenModal').classList.remove('show');
 }
 
 function closeShareLinksModal() {
+  unlockScroll();
   document.getElementById('shareLinksModal').classList.remove('show');
 }
 
@@ -4062,6 +4067,7 @@ async function doCreateShareLink() {
 }
 
 function closeShareOptionsModal() {
+  unlockScroll();
   document.getElementById('shareOptionsModal').classList.remove('show');
 }
 
@@ -4093,6 +4099,7 @@ function showShareQRModal() {
 }
 
 function closeShareQRModal() {
+  unlockScroll();
   const modal = document.getElementById('qrModal');
   if (modal) modal.classList.remove('show');
 }
@@ -4646,10 +4653,12 @@ async function showTagManager() {
       '</div>';
     }).join('');
   }
+  lockScroll();
   document.getElementById('tagManagerModal').classList.add('show');
 }
 
 function closeTagManager() {
+  unlockScroll();
   document.getElementById('tagManagerModal').classList.remove('show');
 }
 
