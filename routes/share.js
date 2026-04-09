@@ -85,10 +85,8 @@ module.exports = function handleShareRoutes(req, res, pathname, query, ctx) {
 
   // GET /s/:code - Access share link (no auth required)
   if (pathname.startsWith('/s/')) {
-    const pathPart = pathname.slice(3);
-    const [code, queryStr] = pathPart.split('?');
-    const params = new URLSearchParams(queryStr || '');
-    const inputPwd = params.get('pwd') || '';
+    const code = pathname.slice(3);
+    const inputPwd = (query && query.pwd) ? decodeURIComponent(query.pwd) : '';
     const shareData = validateShareCode(code);
     if (!shareData) {
       sendJson(res, { success: false, error: '分享链接已过期或不存在' }, 404);

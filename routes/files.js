@@ -103,7 +103,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
         // 保存分片到临时文件
         const chunkDir = require('path').join(process.env.TMPDIR || '/tmp', 'sharetool-chunks', uploadId);
         require('fs').mkdirSync(chunkDir, { recursive: true });
-        const chunkPath = path.join(chunkDir, `chunk_${chunkIndex}`);
+        const chunkPath = require('path').join(chunkDir, `chunk_${chunkIndex}`);
         const chunkData = Buffer.from(content, 'base64');
         require('fs').writeFileSync(chunkPath, chunkData);
         // 更新已接收分片列表
@@ -143,7 +143,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
         const chunkDir = require('path').join(process.env.TMPDIR || '/tmp', 'sharetool-chunks', uploadId);
         let fullContent = '';
         for (let i = 0; i < row.total_chunks; i++) {
-          const chunkPath = path.join(chunkDir, `chunk_${i}`);
+          const chunkPath = require('path').join(chunkDir, `chunk_${i}`);
           fullContent += require('fs').readFileSync(chunkPath, 'utf8');
         }
         // 添加到数据库
@@ -154,7 +154,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
         }
         // 清理
         for (let i = 0; i < row.total_chunks; i++) {
-          try { require('fs').unlinkSync(path.join(chunkDir, `chunk_${i}`)); } catch (e) {}
+          try { require('fs').unlinkSync(require('path').join(chunkDir, `chunk_${i}`)); } catch (e) {}
         }
         try { require('fs').rmSync(chunkDir, { recursive: true, force: true }); } catch (e) {}
         db.deleteChunkUpload(uploadId);
