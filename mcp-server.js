@@ -420,7 +420,7 @@ function handleMessage(request) {
           },
           serverInfo: {
             name: 'share-tool',
-            version: '2.45.0'
+            version: '2.53.0'
           }
         }
       });
