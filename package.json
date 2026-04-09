@@ -1,6 +1,6 @@
 {
   "name": "share-tool",
-  "version": "v2.95",
+  "version": "v2.96",
   "description": "本地局域网文件/文字分享工具，支持 Web UI 和命令行操作。",
   "main": "server.js",
   "bin": {

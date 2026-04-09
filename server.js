@@ -468,6 +468,7 @@ const I18N = {
     'msg.inputRequired': '请输入内容',
     'file.textShareSuccess': '文字分享成功',
     'file.linkCopied': '链接已复制',
+    'file.noFileSelected': 'Please select a file first',
     'share.createFailed': '创建分享失败',
   },
 
