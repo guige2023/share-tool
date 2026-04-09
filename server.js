@@ -3152,6 +3152,41 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-item .swipe-btn.delete { background: var(--danger); }
 .file-item .swipe-btn.tag { background: var(--warning); }
 .file-item .swipe-btn .icon { font-size: 16px; }
+/* Long-press context menu (mobile) */
+#contextMenu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 6px 0;
+  min-width: 180px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  display: none;
+}
+#contextMenu.show { display: block; }
+.ctx-item {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 0;
+  transition: background 0.1s;
+}
+.ctx-item:hover, .ctx-item:active { background: var(--bg-tertiary); }
+.ctx-item.danger { color: var(--danger); }
+.ctx-sep { height: 1px; background: var(--border-color); margin: 4px 0; }
+.ctx-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: transparent;
+  display: none;
+}
+.ctx-backdrop.show { display: block; }
 .file-content { flex: 1; min-width: 0; }
 .file-preview { background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-top: 8px; max-height: 150px; overflow: auto; white-space: pre-wrap; font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border-color); word-break: break-all; display: none; }
 .file-preview.show { display: block; }
@@ -3638,6 +3673,9 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 
 <div class="notif-badge" id="notifBadge"></div>
 <div id="toast" class="toast"></div>
+
+<div class="ctx-backdrop" id="ctxBackdrop" onclick="hideContextMenu()"></div>
+<div id="contextMenu"></div>
 
 <div class="modal-overlay" id="auditModal" onclick="if(event.target===this)closeAuditModal()">
   <div class="modal-content" style="max-width:700px;max-height:80vh;overflow:auto;">
@@ -4642,23 +4680,24 @@ const SWIPE_THRESHOLD = 80;
 const LONG_PRESS_MS = 500;
 let longPressTimer = null;
 let longPressFired = false;
+let longPressTarget = null; // filename for context menu
 function handleSwipeStart(e, el) {
   swipeState.el = el;
   swipeState.startX = e.touches[0].clientX;
   swipeState.currentX = swipeState.startX;
   longPressFired = false;
-  // Long-press detection: if no movement after LONG_PRESS_MS, trigger rename
+  longPressTarget = el.dataset.filename ? decodeURIComponent(el.dataset.filename) : null;
+  // Long-press detection: show context menu
   longPressTimer = setTimeout(() => {
     longPressFired = true;
-    const filename = el.dataset.filename;
-    if (filename) startInlineRename(el.querySelector('.file-name'), decodeURIComponent(filename));
+    if (longPressTarget) showContextMenu(longPressTarget, el);
   }, LONG_PRESS_MS);
 }
 
 function handleSwipeMove(e, el) {
   if (!swipeState.el || swipeState.el !== el) return;
   // Cancel long-press if finger moved significantly
-  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; longPressTarget = null; }
   const dx = e.touches[0].clientX - swipeState.startX;
   swipeState.currentX = e.touches[0].clientX;
   const actions = el.querySelector('.swipe-actions');
@@ -4673,6 +4712,7 @@ function handleSwipeEnd(e, el) {
   if (!swipeState.el || swipeState.el !== el) return;
   // Cancel long-press timer
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  longPressTarget = null;
   const dx = swipeState.currentX - swipeState.startX;
   const actions = el.querySelector('.swipe-actions');
   if (!actions) return;
@@ -4779,6 +4819,63 @@ function downloadCurrentImage() {
   a.href = window._imageDataUrl || '';
   a.download = document.getElementById('modalTitle').textContent || 'image';
   a.click();
+}
+
+// Long-press context menu
+function showContextMenu(filename, el) {
+  const menu = document.getElementById('contextMenu');
+  const backdrop = document.getElementById('ctxBackdrop');
+  const isImage = isImageFile(filename);
+  const isText = /\.(txt|md|js|py|json|html|css|xml|yaml|yml|toml|sh|bash|c|cpp|h|java|go|rs|sql|ini|cfg|conf|log)$/i.test(filename);
+  const isMarkdown = /\.(md|markdown)$/i.test(filename);
+  const isPdf = /\.pdf$/i.test(filename);
+  const isAudio = isAudioFile(filename);
+  const isVideo = isVideoFile(filename);
+
+  const items = [
+    { label: '👁 ' + T('file.view'), action: "handleFileItemClick({stopPropagation:()=>{}}, '" + encodeURIComponent(filename) + "', " + isImage + ')' },
+    { sep: true },
+    { label: '🏷 ' + T('file.addTag'), action: "addTag('" + encodeURIComponent(filename) + "', ''); hideContextMenu()" },
+    ...(isImage ? [{ label: '🖼 ' + T('media.viewImage'), action: "openImageModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isMarkdown ? [{ label: '📝 ' + T('media.viewMarkdown'), action: "openMarkdownModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isText ? [{ label: '📄 ' + T('media.viewCode'), action: "openCodeModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isAudio ? [{ label: '🎵 ' + T('media.playAudio'), action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isVideo ? [{ label: '🎬 ' + T('media.playVideo'), action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isPdf ? [{ label: '📕 ' + T('media.viewPdf'), action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" }] : []),
+    { sep: true },
+    { label: '📋 复制', action: "copyText('" + filename.replace(/'/g, "\\'") + "'); hideContextMenu()" },
+    { label: '✏️ 重命名', action: "startInlineRename(null, '" + encodeURIComponent(filename) + "'); hideContextMenu()" },
+    { label: '📤 分享', action: "showShareModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
+    { label: '🔗 复制链接', action: "createShareLink('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
+    { sep: true },
+    { label: '🗑 ' + T('tag.delete'), action: "deleteFile('" + encodeURIComponent(filename) + "'); hideContextMenu()", danger: true },
+  ];
+
+  menu.innerHTML = items.map(item =>
+    item.sep ? '<div class="ctx-sep"></div>' :
+    '<div class="ctx-item' + (item.danger ? ' danger' : '') + '" onclick="event.stopPropagation();' + item.action + '">' + item.label + '</div>'
+  ).join('');
+
+  // Position near element but keep on screen
+  const rect = el.getBoundingClientRect();
+  const menuW = 200, menuH = items.length * 42;
+  let top = rect.bottom + 8;
+  let left = Math.min(rect.left, window.innerWidth - menuW - 8);
+  if (top + menuH > window.innerHeight - 8) top = rect.top - menuH - 8;
+  if (top < 8) top = 8;
+
+  menu.style.top = top + 'px';
+  menu.style.left = Math.max(8, left) + 'px';
+  menu.classList.add('show');
+  backdrop.classList.add('show');
+  hideContextMenu._active = true;
+}
+
+function hideContextMenu() {
+  if (!hideContextMenu._active) return;
+  document.getElementById('contextMenu').classList.remove('show');
+  document.getElementById('ctxBackdrop').classList.remove('show');
+  hideContextMenu._active = false;
 }
 
 function updateImageNavButtons() {
@@ -5109,9 +5206,10 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// Keyboard: Escape closes file modal
+// Keyboard: Escape closes file modal and context menu
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
+    hideContextMenu();
     const fileModal = document.getElementById('fileModal');
     if (fileModal && fileModal.classList.contains('show')) {
       closeModal();
