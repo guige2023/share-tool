@@ -93,7 +93,7 @@ function uploadFile(filePath) {
     const fileContent = fs.readFileSync(filePath);
 
     const boundary = crypto.randomBytes(16).toString('hex');
-    const body = `--${boundary}\r\n`;
+    let body = `--${boundary}\r\n`;
     body += `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n`;
     body += `Content-Type: application/octet-stream\r\n\r\n`;
     body += fileContent;
@@ -200,7 +200,7 @@ async function main() {
   try {
     switch (command) {
       case 'list': {
-        const res = await request('GET', '/list');
+        const res = await request('GET', '/api/list');
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
           printJson(res.data);

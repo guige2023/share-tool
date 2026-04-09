@@ -67,3 +67,14 @@
 [ShareTool] Discovery: udp://192.168.1.192:18792
 [Discovery] UDP server on port 18792
 [HTTPS] Server listening on https://192.168.1.192:18793
+[DB] Schema version: 2 → 2
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)
+[HTTPS] Server listening on https://192.168.1.192:18793
+[HTTP] Server listening on http://192.168.1.192:18790 (plain)
+[WS] WebSocket server on ws://192.168.1.192:18791
+[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83
+[ShareTool] HTTP: http://192.168.1.192:18790
+[ShareTool] WebSocket: ws://192.168.1.192:18791
+[ShareTool] Discovery: udp://192.168.1.192:18792
+[Discovery] UDP server on port 18792

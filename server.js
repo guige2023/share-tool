@@ -26,6 +26,7 @@ const archiver = require('archiver');
 // ============================================================
 // 常量配置
 // ============================================================
+const MAX_TS = 32503680000000; // 3000-01-01，永久不过期的时间戳
 const PORT = 18790;
 const HTTPS_PORT = 18793; // HTTPS 端口
 const WS_PORT = 18791;  // WebSocket 专用端口
@@ -655,7 +656,6 @@ function createShareLink(filename, options = {}) {
   const code = generateShareCode();
   const expiresHours = options.expiryHours;
   // expiryHours = 0 表示永不过期（用 MAX_INT 代替 NULL 避免 SQLite schema 迁移）
-  const MAX_TS = 32503680000000; // 3000-01-01
   const expiresAt = (!expiresHours && expiresHours !== 0)
     ? Date.now() + 168 * 60 * 60 * 1000  // 默认7天
     : (expiresHours === 0 ? MAX_TS : Date.now() + expiresHours * 60 * 60 * 1000);
