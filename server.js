@@ -67,6 +67,7 @@ const I18N = {
   zh: {
     // 操作结果
     'msg.copied': '已复制',
+    'ui.copy': '复制',
     'msg.copy.failed': '复制失败',
     'msg.delete.failed': '删除失败',
     'msg.rename.failed': '重命名失败',
@@ -83,6 +84,31 @@ const I18N = {
     'msg.cancel': '取消',
     'msg.confirm': '确认',
     'msg.optional': '可选',
+    'msg.confirmDelete': '确定删除 {name}？',
+    'ui.confirmDelete': '确定删除',
+    'msg.confirmDeleteAll': '确定删除所有文件?',
+    'msg.confirmDeleteSelected': '确定删除选中的 {n} 个文件?',
+    'msg.confirmDeleteDays': '确定删除 {n} 天前的文件?',
+    'msg.copiedToClipboard': '✓ 链接已复制到剪贴板',
+    'msg.textShareSuccess': '✓ 文字分享成功',
+    'msg.textShareFailed': '失败:',
+    'msg.uploadSuccess': '上传成功',
+    'msg.uploadFailed': '重试失败:',
+    'msg.uploaded': '已上传',
+    'msg.uploadFail': '，失败',
+    'msg.contentCopied': '内容已复制',
+    'msg.copyContent': '复制内容:',
+    'msg.pasted': '✓ 图片已粘贴上传:',
+    'msg.noFileSelected': '请先选择文件',
+    'msg.batchPackUnavailable': '批量打包不可用，正在逐个打开下载...',
+    'msg.downloadFailed': '下载失败:',
+    'msg.batchDownloadSuccess': '批量下载成功',
+    'msg.batchDownloadFailed': '批量下载失败:',
+    'msg.downloadDirSaved': '下载目录已保存（仅本机有效）',
+    'msg.noContent': '暂无分享内容',
+    'msg.getFailed': '获取失败',
+    'msg.tokenRefreshed': '已刷新',
+
 
     // 文件状态
     'file.deleted': '已删除',
@@ -92,7 +118,18 @@ const I18N = {
     'file.rename': '重命名',
     'file.delete': '删除',
     'file.copy': '复制',
+    'file.share': '分享',
     'file.files': '文件',
+    'file.view': '查看',
+    'file.play': '播放',
+    'file.history': '历史',
+    'file.addTag': '添加标签',
+    'file.dblclickRename': '双击重命名',
+    'file.enterFolder': '点击进入文件夹',
+    'file.previewPdf': '预览PDF',
+    'file.previewMd': '预览MD',
+    'file.orText': '或',
+    'file.pasteHint': '可直接 Ctrl+V 粘贴图片或文件',
     'file.selected': '已选择',
     'file.noContent': '暂无分享内容',
     'file.uploadOrShare': '上传文件或分享文字开始使用',
@@ -118,9 +155,22 @@ const I18N = {
     'device.syncOnline': '同步在线',
     'device.connection': '连接',
     'device.noOnlineDevices': '暂无在线设备',
+    'device.discovering': '正在发现设备...',
+    'device.wsConnected': 'WS 已连接',
+    'device.wsDisconnected': 'WS 未连接',
+    'device.syncPending': '项待同步',
+    'device.syncing': '同步中',
+    'device.online': '同步在线',
 
     // 同步
     'sync.incSync': '增量同步',
+    'sync.newFileReceived': '📤 收到新文件:',
+    'sync.remoteDeleted': '🗑 远程删除了文件',
+    'sync.remoteRenamed': '✏️ 远程重命名:',
+    'sync.syncSuccess': '✅ 同步成功:',
+    'sync.conflictResolved': '🔄 冲突解决: 已重命名文件保留双方版本',
+    'sync.discovered': '📡 发现',
+    'sync.pendingChanges': '项待同步变更，开始拉取...',
     'sync.incSyncChange': '应用增量同步变更',
     'sync.diffUpdate': '差异更新',
     'sync.newFile': '收到新文件',
@@ -128,6 +178,16 @@ const I18N = {
     'sync.conflict': '冲突',
     'sync.conflictResolve': '冲突解决',
     'sync.keepLocal': '保留本地版本',
+    'sync.keepRemote': '接受远程版本',
+    'sync.keepBoth': '保留两个版本',
+    'sync.later': '稍后处理',
+    'sync.localVersion': '本地版本',
+    'sync.remoteVersion': '远程版本',
+    'sync.fileConflict': '文件冲突',
+    'sync.conflictDesc': '文件 {name} 在两台设备上被同时修改',
+    'sync.localKept': '已保留本地版本',
+    'sync.remoteKept': '已接受远程版本',
+    'sync.multiVersionNote': '需要服务器支持多版本存储',
 
     // 分享
     'share.link': '分享链接',
@@ -136,6 +196,34 @@ const I18N = {
     'share.manualRenew': '手动续期',
     'share.password': '密码',
     'share.lifetime': '有效期',
+    'share.copyLink': '复制链接',
+    'share.qrCode': '二维码',
+    'share.linkCopied': '✓ 链接已复制',
+    'share.linkCopyFailed': '复制失败',
+    'share.confirmDelete': '确定删除此分享链接？',
+    'share.deleted': '✓ 已删除',
+    'share.deleteFailed': '删除失败',
+    'share.neverExpire': '永不过期',
+    'share.expired': '已过期',
+    'share.daysLeft': '剩余',
+    'share.day': '天',
+    'share.unlimited': '不限制',
+    'share.noPassword': '不设置密码',
+    'share.create': '创建链接',
+    'share.manage': '管理分享链接',
+    'share.createNew': '创建分享链接',
+    'share.getLinkFailed': '获取分享链接失败',
+    'share.24h': '24小时',
+    'share.3days': '3天',
+    'share.7days': '7天（默认）',
+    'share.30days': '30天',
+    'share.never': '永不过期',
+    'share.downloadLimit': '下载次数限制（可选）',
+    'share.passwordOptional': '密码保护（可选）',
+    'share.linkCreateFailed': '创建分享链接失败',
+    'share.successCreated': '✓ 分享链接已创建',
+    'share.failed': '分享失败:',
+    'share.generateFirst': '请先生成分享链接',
 
     // 管理
     'admin.config': '配置',
@@ -144,6 +232,46 @@ const I18N = {
     'admin.tagMgmt': '标签管理',
     'admin.tags': '标签',
     'admin.noTags': '暂无标签',
+    'admin.audit': '审计日志',
+    'admin.auditTitle': '📊 审计日志',
+    'admin.todayOps': '今日操作',
+    'admin.totalOps': '总操作',
+    'admin.lastOp': '最后操作',
+    'admin.noLogs': '暂无日志记录',
+    'admin.viewAudit': '查看审计日志',
+    'admin.settings': '设置',
+    'admin.accessToken': '访问 Token',
+    'admin.changeToken': '更换Token',
+    'admin.refresh': '刷新',
+    'admin.https': 'HTTPS 状态',
+    'admin.httpsEnabled': '✅ HTTPS 已启用',
+    'admin.httpsDisabled': '⚠️ HTTPS 未启用',
+    'admin.httpsExpire': '到期:',
+    'admin.httpsDays': '天)',
+    'admin.httpsLan': '局域网可跳过',
+    'admin.renew': '手动续期',
+    'admin.renewing': '续期中...',
+    'admin.renewed': '证书已续期',
+    'admin.renewFailed': '续期失败:',
+    'admin.renewReqFailed': '续期请求失败',
+    'admin.unknown': '未知错误',
+    'admin.tokenRefreshed': 'Token 已刷新',
+    'admin.expired': '已过期',
+    'admin.refreshed': '已刷新',
+    'admin.refreshFailed': '刷新失败:',
+    'admin.refreshFail': '刷新失败',
+    'admin.configSaved': '配置已保存',
+    'admin.saveFailed': '保存失败:',
+    'admin.saveReqFailed': '保存请求失败',
+    'admin.none': '(无)',
+    'admin.tokenUpdated': 'Token 更新成功',
+    'admin.updateFailed': '更新失败:',
+    'admin.updateFail': '更新失败',
+    'admin.rateLimit': '暴力破解防护',
+    'admin.rateLimitConfig': '配置',
+    'admin.loaded': '加载中...',
+    'admin.getFailed': '获取日志失败',
+    'admin.opts': '可选',
     'share.noLinks': '暂无分享链接',
 
     // 收藏
@@ -158,6 +286,78 @@ const I18N = {
     'err.reqFailed': '请求失败',
     'err.browserNotSupport': '您的浏览器不支持',
     'err.getLinkFailed': '获取分享链接失败',
+
+    // 标签
+    'tag.manager': '标签管理',
+    'tag.rename': '重命名',
+    'tag.delete': '删除',
+    'tag.inputName': '请输入标签名称（多个用逗号分隔）:',
+    'tag.added': '已为 {n} 个文件添加标签',
+    'tag.addFailed': '批量添加失败:',
+    'tag.colorChanged': '颜色已更新',
+    'tag.clickChangeColor': '点击修改颜色',
+    'tag.count': '个',
+    'tag.renamePrompt': '将标签 "{old}" 重命名为：',
+    'tag.renameSuccess': '已重命名，更新了 {n} 个文件',
+    'tag.renameFailed': '重命名失败',
+    'tag.confirmDelete': '确定删除标签 "{name}"？将从所有文件中移除。',
+    'tag.removed': '已删除，从 {n} 个文件中移除',
+    'tag.removedLabel': '已移除标签',
+
+    // 版本历史
+    'ver.history': '历史版本',
+    'ver.restore': '恢复',
+    'ver.confirmRestore': '确定要恢复到这个版本吗？当前内容会作为新版本保存。',
+    'ver.restored': '已恢复到版本',
+    'ver.restoreFailed': '恢复失败:',
+    'ver.confirmDelete': '确定要删除这个版本吗？',
+    'ver.noVersions': '暂无历史版本',
+    'ver.loadFailed': '加载版本失败',
+    'ver.backToList': '← 返回列表',
+    'ver.empty': '(空)',
+
+    // 文件操作
+    'file.inputNewName': '输入新文件名:',
+    'file.inputFolderName': '输入新文件夹名称:',
+    'file.renamed': '已重命名',
+    'file.renameFailed': '重命名失败:',
+    'file.deleted': '已删除',
+    'file.deleteFailed': '删除失败:',
+    'file.inputFolderPrefix': '请输入目标虚拟文件夹前缀（如 work/backup/）:\n选中的 {n} 个文件将被复制到此目录下',
+    'file.copied': '已复制',
+    'file.copiedCount': '已复制 {n} 个文件，{e} 个失败',
+    'file.copyDest': '个文件到',
+    'file.versionRestore': '已恢复到版本',
+    'file.skipAlreadyLoaded': '已有内容，跳过',
+    'file.storage': '存储:',
+    'file.storageNone': '存储: --',
+
+    // 音频/视频
+    'media.browserNotSupportAudio': '您的浏览器不支持音频播放',
+    'media.browserNotSupportVideo': '您的浏览器不支持视频播放',
+    'media.tableOfContents': '目录',
+    'media.audio': '音频',
+    'media.video': '视频',
+
+    // 搜索
+    'search.noResults': '未找到结果',
+    'search.found': '找到',
+    'search.results': '个结果',
+    'search.failed': '搜索失败',
+    'search.inputContent': '请输入内容',
+    'search.historyClear': '✕清除',
+    'search.manage': '⚙管理',
+
+    // 设备
+    'device.device': '设备:',
+    'device.allFiles': '📁 全部文件',
+    'device.fileCount': '个文件',
+
+    // PWA
+    'pwa.addToHome': '添加到主屏幕，离线也能访问',
+    'pwa.install': '安装',
+    'pwa.fileUpload': '上传文件',
+    'pwa.shareText': '分享文字',
 
     // UI 状态文本
     'ui.connecting': '连接中',
@@ -218,6 +418,7 @@ const I18N = {
 
   en: {
     'msg.copied': 'Copied',
+    'ui.copy': 'Copy',
     'msg.copy.failed': 'Copy failed',
     'msg.delete.failed': 'Delete failed',
     'msg.rename.failed': 'Rename failed',
@@ -235,6 +436,7 @@ const I18N = {
     'msg.confirm': 'Confirm',
     'msg.optional': 'optional',
 
+    // 文件状态
     'file.deleted': 'Deleted',
     'file.unavailable': 'File unavailable',
     'file.download': 'Download',
@@ -242,19 +444,30 @@ const I18N = {
     'file.rename': 'Rename',
     'file.delete': 'Delete',
     'file.copy': 'Copy',
+    'file.share': 'Share',
     'file.files': 'Files',
+    'file.view': 'View',
+    'file.play': 'Play',
+    'file.history': 'History',
+    'file.addTag': 'Add tag',
+    'file.dblclickRename': 'Double-click to rename',
+    'file.enterFolder': 'Click to enter folder',
+    'file.previewPdf': 'Preview PDF',
+    'file.previewMd': 'Preview MD',
+    'file.orText': 'or',
+    'file.pasteHint': 'Paste images or files with Ctrl+V',
     'file.selected': 'selected',
     'file.noContent': 'No content yet',
     'file.uploadOrShare': 'Upload files or share text to get started',
     'file.upload': 'Upload file',
     'file.shareText': 'Share text',
     'file.textShare': 'Text share',
-    'file.share': 'Share',
     'file.copyLink': 'Copy link',
     'file.twoQR': 'QR Code',
     'file.noFiles': 'days',
     'file.numFiles': 'files',
 
+    // 设备
     'device.server': 'Server',
     'device.notConnected': 'Not connected',
     'device.connected': 'Connected',
@@ -267,7 +480,17 @@ const I18N = {
     'device.syncOnline': 'Sync online',
     'device.connection': 'Connection',
     'device.noOnlineDevices': 'No online devices',
+    'device.discovering': 'Discovering devices...',
+    'device.wsConnected': 'WS Connected',
+    'device.wsDisconnected': 'WS Disconnected',
+    'device.syncPending': 'pending sync',
+    'device.syncing': 'Syncing',
+    'device.online': 'Sync online',
+    'device.device': 'Device:',
+    'device.allFiles': '📁 All files',
+    'device.fileCount': 'files',
 
+    // 同步
     'sync.incSync': 'Incremental sync',
     'sync.incSyncChange': 'Apply incremental sync changes',
     'sync.diffUpdate': 'Diff update',
@@ -276,32 +499,184 @@ const I18N = {
     'sync.conflict': 'Conflict',
     'sync.conflictResolve': 'Conflict resolution',
     'sync.keepLocal': 'Keep local version',
+    'sync.keepRemote': 'Accept remote version',
+    'sync.keepBoth': 'Keep both versions',
+    'sync.later': 'Later',
+    'sync.localVersion': 'Local version',
+    'sync.remoteVersion': 'Remote version',
+    'sync.fileConflict': 'File conflict',
+    'sync.conflictDesc': 'File {name} was modified simultaneously on two devices',
+    'sync.localKept': 'Local version kept',
+    'sync.remoteKept': 'Remote version accepted',
+    'sync.multiVersionNote': 'Requires server multi-version storage support',
+    'sync.newFileReceived': '📤 New file received:',
+    'sync.remoteDeleted': '🗑 File deleted remotely',
+    'sync.remoteRenamed': '✏️ Renamed remotely:',
+    'sync.syncSuccess': '✅ Sync success:',
+    'sync.conflictResolved': '🔄 Conflict resolved: renamed files kept both versions',
+    'sync.discovered': '📡 Discovered',
+    'sync.pendingChanges': ' pending changes, pulling...',
 
+    // 分享
     'share.link': 'Share link',
     'share.expired': 'Expired',
     'share.neverExpire': 'Never expires',
     'share.manualRenew': 'Manual renew',
     'share.password': 'Password',
     'share.lifetime': 'Lifetime',
+    'share.copyLink': 'Copy link',
+    'share.qrCode': 'QR Code',
+    'share.linkCopied': '✓ Link copied',
+    'share.linkCopyFailed': 'Copy failed',
+    'share.confirmDelete': 'Delete this share link?',
+    'share.deleted': '✓ Deleted',
+    'share.deleteFailed': 'Delete failed',
+    'share.daysLeft': 'Remaining',
+    'share.day': 'days',
+    'share.unlimited': 'Unlimited',
+    'share.noPassword': 'No password',
+    'share.create': 'Create link',
+    'share.manage': 'Manage share links',
+    'share.createNew': 'Create share link',
+    'share.getLinkFailed': 'Failed to get share link',
+    'share.24h': '24 hours',
+    'share.3days': '3 days',
+    'share.7days': '7 days (default)',
+    'share.30days': '30 days',
+    'share.never': 'Never',
+    'share.downloadLimit': 'Download limit (optional)',
+    'share.passwordOptional': 'Password protection (optional)',
+    'share.linkCreateFailed': 'Failed to create share link',
+    'share.successCreated': '✓ Share link created',
+    'share.failed': 'Share failed:',
+    'share.generateFirst': 'Please generate a share link first',
+    'share.noLinks': 'No share links',
 
+    // 管理
     'admin.config': 'Config',
     'admin.settings': 'Settings',
     'admin.audit': 'Audit log',
     'admin.tagMgmt': 'Tag management',
     'admin.tags': 'Tags',
     'admin.noTags': 'No tags',
-    'share.noLinks': 'No share links',
+    'admin.auditTitle': '📊 Audit Log',
+    'admin.todayOps': 'Today',
+    'admin.totalOps': 'Total',
+    'admin.lastOp': 'Last op',
+    'admin.noLogs': 'No log records',
+    'admin.viewAudit': 'View audit log',
+    'admin.accessToken': 'Access Token',
+    'admin.changeToken': 'Change Token',
+    'admin.refresh': 'Refresh',
+    'admin.https': 'HTTPS Status',
+    'admin.httpsEnabled': '✅ HTTPS Enabled',
+    'admin.httpsDisabled': '⚠️ HTTPS Disabled',
+    'admin.httpsExpire': 'Expires:',
+    'admin.httpsDays': 'days)',
+    'admin.httpsLan': 'Skip for LAN',
+    'admin.renew': 'Renew',
+    'admin.renewing': 'Renewing...',
+    'admin.renewed': 'Certificate renewed',
+    'admin.renewFailed': 'Renew failed:',
+    'admin.renewReqFailed': 'Renew request failed',
+    'admin.unknown': 'Unknown error',
+    'admin.tokenRefreshed': 'Token refreshed',
+    'admin.expired': 'Expired',
+    'admin.refreshed': 'Refreshed',
+    'admin.refreshFailed': 'Refresh failed:',
+    'admin.refreshFail': 'Refresh failed',
+    'admin.configSaved': 'Config saved',
+    'admin.saveFailed': 'Save failed:',
+    'admin.saveReqFailed': 'Save request failed',
+    'admin.none': '(none)',
+    'admin.tokenUpdated': 'Token updated',
+    'admin.updateFailed': 'Update failed:',
+    'admin.updateFail': 'Update failed',
+    'admin.rateLimit': 'Brute-force protection',
+    'admin.rateLimitConfig': 'Configure',
+    'admin.loaded': 'Loading...',
+    'admin.getFailed': 'Failed to get logs',
+    'admin.opts': 'optional',
 
+    // 收藏
     'fav.favorite': 'Favorite',
-    'fav.addFav': 'Add to favorites',
-    'fav.removeFav': 'Remove from favorites',
+    'fav.addFav': 'Add favorite',
+    'fav.removeFav': 'Remove favorite',
 
+    // 错误
     'err.unknown': 'Unknown error',
     'err.failed': 'Failed',
     'err.genFailed': 'Generation failed',
     'err.reqFailed': 'Request failed',
     'err.browserNotSupport': 'Your browser does not support',
     'err.getLinkFailed': 'Failed to get share link',
+
+    // 标签
+    'tag.manager': 'Tag management',
+    'tag.rename': 'Rename',
+    'tag.delete': 'Delete',
+    'tag.inputName': 'Enter tag name (multiple separated by comma):',
+    'tag.added': 'Added tag to {n} files',
+    'tag.addFailed': 'Batch add failed:',
+    'tag.colorChanged': 'Color updated',
+    'tag.clickChangeColor': 'Click to change color',
+    'tag.count': '',
+    'tag.renamePrompt': 'Rename tag "{old}" to:',
+    'tag.renameSuccess': 'Renamed, updated {n} files',
+    'tag.renameFailed': 'Rename failed',
+    'tag.confirmDelete': 'Delete tag "{name}"? Will be removed from all files.',
+    'tag.removed': 'Removed, from {n} files',
+    'tag.removedLabel': 'Tag removed',
+
+    // 版本历史
+    'ver.history': 'Version history',
+    'ver.restore': 'Restore',
+    'ver.confirmRestore': 'Restore to this version? Current content will be saved as new version.',
+    'ver.restored': 'Restored to version',
+    'ver.restoreFailed': 'Restore failed:',
+    'ver.confirmDelete': 'Delete this version?',
+    'ver.noVersions': 'No version history',
+    'ver.loadFailed': 'Failed to load versions',
+    'ver.backToList': '← Back to list',
+    'ver.empty': '(empty)',
+
+    // 文件操作
+    'file.inputNewName': 'Enter new filename:',
+    'file.inputFolderName': 'Enter new folder name:',
+    'file.renamed': 'Renamed',
+    'file.renameFailed': 'Rename failed:',
+    'file.deleted': 'Deleted',
+    'file.deleteFailed': 'Delete failed:',
+    'file.inputFolderPrefix': 'Enter target virtual folder prefix (e.g. work/backup/):\n{n} files will be copied to this directory',
+    'file.copied': 'Copied',
+    'file.copiedCount': 'Copied {n} files, {e} failed',
+    'file.copyDest': 'files to',
+    'file.versionRestore': 'Restored to version',
+    'file.skipAlreadyLoaded': 'Already loaded, skip',
+    'file.storage': 'Storage:',
+    'file.storageNone': 'Storage: --',
+
+    // 音频/视频
+    'media.browserNotSupportAudio': 'Your browser does not support audio playback',
+    'media.browserNotSupportVideo': 'Your browser does not support video playback',
+    'media.tableOfContents': 'Contents',
+    'media.audio': 'Audio',
+    'media.video': 'Video',
+
+    // 搜索
+    'search.noResults': 'No results found',
+    'search.found': 'Found',
+    'search.results': 'results',
+    'search.failed': 'Search failed',
+    'search.inputContent': 'Please enter content',
+    'search.historyClear': '✕Clear',
+    'search.manage': '⚙Manage',
+
+    // PWA
+    'pwa.addToHome': 'Add to home screen, access offline',
+    'pwa.install': 'Install',
+    'pwa.fileUpload': 'Upload file',
+    'pwa.shareText': 'Share text',
 
     // UI status texts
     'ui.connecting': 'Connecting',
@@ -320,6 +695,7 @@ const I18N = {
     'ui.share': 'Share',
     'ui.clear': 'Clear',
     'ui.close': 'Close',
+    'ui.confirmDelete': 'Confirm delete',
     'ui.copyLink': 'Copy Link',
     'ui.qrCode': 'QR Code',
     'ui.shareQR': 'Share QR Code',
@@ -358,12 +734,205 @@ const I18N = {
     'ui.sortNameZA': 'Name Z-A',
     'ui.sortLargest': 'Largest first',
     'ui.sortSmallest': 'Smallest first',
+
+    // 文件状态
+    'file.share': 'Share',
+    'file.view': 'View',
+    'file.play': 'Play',
+    'file.history': 'History',
+    'file.addTag': 'Add tag',
+    'file.dblclickRename': 'Double-click to rename',
+    'file.enterFolder': 'Click to enter folder',
+    'file.previewPdf': 'Preview PDF',
+    'file.previewMd': 'Preview MD',
+    'file.orText': 'or',
+    'file.pasteHint': 'Paste images or files with Ctrl+V',
+
+    // 设备
+    'device.discovering': 'Discovering devices...',
+    'device.wsConnected': 'WS Connected',
+    'device.wsDisconnected': 'WS Disconnected',
+    'device.syncPending': 'pending sync',
+    'device.syncing': 'Syncing',
+    'device.online': 'Sync online',
+
+    // 同步
+    'sync.keepRemote': 'Accept remote version',
+    'sync.keepBoth': 'Keep both versions',
+    'sync.later': 'Later',
+    'sync.localVersion': 'Local version',
+    'sync.remoteVersion': 'Remote version',
+    'sync.fileConflict': 'File conflict',
+    'sync.conflictDesc': 'File {name} was modified simultaneously on two devices',
+    'sync.localKept': 'Local version kept',
+    'sync.remoteKept': 'Remote version accepted',
+    'sync.multiVersionNote': 'Requires server multi-version storage support',
+    'sync.newFileReceived': '📤 New file received:',
+    'sync.remoteDeleted': '🗑 File deleted remotely',
+    'sync.remoteRenamed': '✏️ Renamed remotely:',
+    'sync.syncSuccess': '✅ Sync success:',
+    'sync.conflictResolved': '🔄 Conflict resolved: renamed files kept both versions',
+    'sync.discovered': '📡 Discovered',
+    'sync.pendingChanges': ' pending changes, pulling...',
+
+    // 分享
+    'share.copyLink': 'Copy link',
+    'share.qrCode': 'QR Code',
+    'share.linkCopied': '✓ Link copied',
+    'share.linkCopyFailed': 'Copy failed',
+    'share.confirmDelete': 'Delete this share link?',
+    'share.deleted': '✓ Deleted',
+    'share.deleteFailed': 'Delete failed',
+    'share.daysLeft': 'Remaining',
+    'share.day': 'days',
+    'share.unlimited': 'Unlimited',
+    'share.noPassword': 'No password',
+    'share.create': 'Create link',
+    'share.manage': 'Manage share links',
+    'share.createNew': 'Create share link',
+    'share.getLinkFailed': 'Failed to get share link',
+    'share.24h': '24 hours',
+    'share.3days': '3 days',
+    'share.7days': '7 days (default)',
+    'share.30days': '30 days',
+    'share.never': 'Never',
+    'share.downloadLimit': 'Download limit (optional)',
+    'share.passwordOptional': 'Password protection (optional)',
+    'share.linkCreateFailed': 'Failed to create share link',
+    'share.successCreated': '✓ Share link created',
+    'share.failed': 'Share failed:',
+    'share.generateFirst': 'Please generate a share link first',
+
+    // 管理
+    'admin.auditTitle': '📊 Audit Log',
+    'admin.todayOps': 'Today',
+    'admin.totalOps': 'Total',
+    'admin.lastOp': 'Last op',
+    'admin.noLogs': 'No log records',
+    'admin.viewAudit': 'View audit log',
+    'admin.accessToken': 'Access Token',
+    'admin.changeToken': 'Change Token',
+    'admin.refresh': 'Refresh',
+    'admin.https': 'HTTPS Status',
+    'admin.httpsEnabled': '✅ HTTPS Enabled',
+    'admin.httpsDisabled': '⚠️ HTTPS Disabled',
+    'admin.httpsExpire': 'Expires:',
+    'admin.httpsDays': 'days)',
+    'admin.httpsLan': 'Skip for LAN',
+    'admin.renew': 'Renew',
+    'admin.renewing': 'Renewing...',
+    'admin.renewed': 'Certificate renewed',
+    'admin.renewFailed': 'Renew failed:',
+    'admin.renewReqFailed': 'Renew request failed',
+    'admin.unknown': 'Unknown error',
+    'admin.tokenRefreshed': 'Token refreshed',
+    'admin.refreshFailed': 'Refresh failed:',
+    'admin.refreshFail': 'Refresh failed',
+    'admin.configSaved': 'Config saved',
+    'admin.saveFailed': 'Save failed:',
+    'admin.saveReqFailed': 'Save request failed',
+    'admin.none': '(none)',
+    'admin.tokenUpdated': 'Token updated',
+    'admin.updateFailed': 'Update failed:',
+    'admin.updateFail': 'Update failed',
+    'admin.rateLimit': 'Brute-force protection',
+    'admin.rateLimitConfig': 'Configure',
+    'admin.loaded': 'Loading...',
+    'admin.getFailed': 'Failed to get logs',
+    'admin.opts': 'optional',
+
+    // 收藏
+    'fav.favorite': 'Favorite',
+    'fav.addFav': 'Add favorite',
+    'fav.removeFav': 'Remove favorite',
+
+    // 错误
+    'err.unknown': 'Unknown error',
+    'err.failed': 'Failed',
+    'err.genFailed': 'Generation failed',
+    'err.reqFailed': 'Request failed',
+    'err.browserNotSupport': 'Your browser does not support',
+    'err.getLinkFailed': 'Failed to get share link',
+
+    // 标签
+    'tag.manager': 'Tag management',
+    'tag.rename': 'Rename',
+    'tag.delete': 'Delete',
+    'tag.inputName': 'Enter tag name (multiple separated by comma):',
+    'tag.added': 'Added tag to {n} files',
+    'tag.addFailed': 'Batch add failed:',
+    'tag.colorChanged': 'Color updated',
+    'tag.clickChangeColor': 'Click to change color',
+    'tag.count': '',
+    'tag.renamePrompt': 'Rename tag "{old}" to:',
+    'tag.renameSuccess': 'Renamed, updated {n} files',
+    'tag.renameFailed': 'Rename failed',
+    'tag.confirmDelete': 'Delete tag "{name}"? Will be removed from all files.',
+    'tag.removed': 'Removed, from {n} files',
+    'tag.removedLabel': 'Tag removed',
+
+    // 版本历史
+    'ver.history': 'Version history',
+    'ver.restore': 'Restore',
+    'ver.confirmRestore': 'Restore to this version? Current content will be saved as new version.',
+    'ver.restored': 'Restored to version',
+    'ver.restoreFailed': 'Restore failed:',
+    'ver.confirmDelete': 'Delete this version?',
+    'ver.noVersions': 'No version history',
+    'ver.loadFailed': 'Failed to load versions',
+    'ver.backToList': '← Back to list',
+    'ver.empty': '(empty)',
+
+    // 文件操作
+    'file.inputNewName': 'Enter new filename:',
+    'file.inputFolderName': 'Enter new folder name:',
+    'file.renamed': 'Renamed',
+    'file.renameFailed': 'Rename failed:',
+    'file.deleted': 'Deleted',
+    'file.deleteFailed': 'Delete failed:',
+    'file.inputFolderPrefix': 'Enter target virtual folder prefix (e.g. work/backup/):\n{n} files will be copied to this directory',
+    'file.copied': 'Copied',
+    'file.copiedCount': 'Copied {n} files, {e} failed',
+    'file.copyDest': 'files to',
+    'file.versionRestore': 'Restored to version',
+    'file.storage': 'Storage:',
+    'file.storageNone': 'Storage: --',
+
+    // 音频/视频
+    'media.browserNotSupportAudio': 'Your browser does not support audio playback',
+    'media.browserNotSupportVideo': 'Your browser does not support video playback',
+    'media.tableOfContents': 'Contents',
+
+    // 搜索
+    'search.noResults': 'No results found',
+    'search.found': 'Found',
+    'search.results': 'results',
+    'search.failed': 'Search failed',
+    'search.inputContent': 'Please enter content',
+    'search.historyClear': '✕Clear',
+    'search.manage': '⚙Manage',
+
+    // 设备
+    'device.device': 'Device:',
+    'device.allFiles': '📁 All files',
+    'device.fileCount': 'files',
+
+    // PWA
+    'pwa.addToHome': 'Add to home screen, access offline',
+    'pwa.install': 'Install',
+    'pwa.fileUpload': 'Upload file',
+    'pwa.shareText': 'Share text',
   },
 
   // 翻译函数
-  t(key, lang = null) {
+  t(key, lang = null, params = null) {
     const detectLang = lang || this.detectLang();
-    const translated = this[detectLang]?.[key] ?? this[this.DEFAULT_LANG][key] ?? key;
+    let translated = this[detectLang]?.[key] ?? this[this.DEFAULT_LANG][key] ?? key;
+    if (params) {
+      for (const [k, v] of Object.entries(params)) {
+        translated = translated.replace(new RegExp('\\{' + k + '\\}', 'g'), String(v));
+      }
+    }
     return translated;
   },
 
@@ -2411,7 +2980,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="qr-modal-overlay" id="versionsModal" onclick="if(event.target===this)closeVersionsModal()">
       <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:560px;width:90%;max-height:80vh;overflow-y:auto;text-align:left;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <div style="font-size:18px;font-weight:600;">历史版本</div>
+          <div style="font-size:18px;font-weight:600;" id="versionsModalTitle">' + T('ver.history') + '</div>
           <button class="btn btn-sm" onclick="closeVersionsModal()">✕</button>
         </div>
         <div id="versionsContent" style="font-size:13px;"></div>
@@ -2528,18 +3097,18 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       </div>
     </div>
     <div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">📊 操作日志</div>
-      <button class="btn btn-sm" onclick="showAuditModal()">查看审计日志</button>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">📊 <span id="adminAuditLabel">' + T('admin.auditTitle').replace('📊 ', '') + '</span></div>
+      <button class="btn btn-sm" onclick="showAuditModal()"><span id="adminAuditBtn">' + T('admin.viewAudit') + '</span></button>
     </div>
     <div style="margin-top:12px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔗 分享链接</div>
-      <button class="btn btn-sm" onclick="showShareLinksModal()">管理分享链接</button>
-      <button class="btn btn-sm" onclick="showTagManager()">🏷 标签管理</button>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔗 <span id="adminShareLabel">' + T('share.link').replace('链接', '') + '</span></div>
+      <button class="btn btn-sm" onclick="showShareLinksModal()">' + T('share.manage') + '</button>
+      <button class="btn btn-sm" onclick="showTagManager()">🏷 <span id="adminTagBtn">' + T('tag.manager') + '</span></button>
     </div>
     <div style="margin-top:12px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🛡 暴力破解防护</div>
-      <div id="rateLimitStatus" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">加载中...</div>
-      <button class="btn btn-sm" onclick="showRateLimitModal()">配置</button>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🛡 <span id="adminRateLimitLabel">' + T('admin.rateLimit') + '</span></div>
+      <div id="rateLimitStatus" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">' + T('admin.loaded') + '</div>
+      <button class="btn btn-sm" onclick="showRateLimitModal()">' + T('admin.rateLimitConfig') + '</button>
     </div>
   </div>
 
@@ -2569,7 +3138,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="auditModal" onclick="if(event.target===this)closeAuditModal()">
   <div class="modal-content" style="max-width:700px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">📊 审计日志</div>
+      <div class="modal-title">📊 <span id="auditModalTitle">' + T('admin.auditTitle') + '</span></div>
       <button class="modal-close" onclick="closeAuditModal()">x</button>
     </div>
     <div id="auditStats" style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;"></div>
@@ -2580,15 +3149,15 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="tokenModal" onclick="if(event.target===this)closeTokenModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <div class="modal-title">🔐 更换访问 Token</div>
+      <div class="modal-title">🔐 <span id="tokenModalTitle">' + T('admin.changeToken') + '</span></div>
       <button class="modal-close" onclick="closeTokenModal()">x</button>
     </div>
     <div style="padding:8px 0;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">新 Token (留空自动生成):</div>
-      <input type="text" id="newTokenInput" placeholder="可选，自定义Token" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;font-family:monospace;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">' + T('admin.accessToken') + ' (' + T('admin.none') + '):</div>
+      <input type="text" id="newTokenInput" placeholder="' + T('admin.opts') + '" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;font-family:monospace;">
       <div style="margin-top:12px;display:flex;gap:8px;">
-        <button class="btn" onclick="doSetToken()" style="flex:1;">确认更换</button>
-        <button class="btn btn-secondary" onclick="closeTokenModal()">取消</button>
+        <button class="btn" onclick="doSetToken()" style="flex:1;">' + T('msg.confirm') + '</button>
+        <button class="btn btn-secondary" onclick="closeTokenModal()">' + T('msg.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -2597,33 +3166,33 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="shareOptionsModal" onclick="if(event.target===this)closeShareOptionsModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <div class="modal-title">🔗 创建分享链接</div>
+      <div class="modal-title">🔗 <span id="shareOptionsTitle">' + T('share.create') + '</span></div>
       <button class="modal-close" onclick="closeShareOptionsModal()">x</button>
     </div>
     <div style="padding:8px 0;">
       <input type="hidden" id="shareOptionsFilename">
       <div id="shareOptionsFileName" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;padding:8px;background:var(--bg-tertiary);border-radius:8px;word-break:break-all;"></div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">过期时间</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.lifetime') + '</div>
         <select id="shareExpiryHours" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
-          <option value="24">24小时</option>
-          <option value="72">3天</option>
-          <option value="168" selected>7天（默认）</option>
-          <option value="720">30天</option>
-          <option value="0">永不过期</option>
+          <option value="24">' + T('share.24h') + '</option>
+          <option value="72">' + T('share.3days') + '</option>
+          <option value="168" selected>' + T('share.7days') + '</option>
+          <option value="720">' + T('share.30days') + '</option>
+          <option value="0">' + T('share.never') + '</option>
         </select>
       </div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">下载次数限制（可选）</div>
-        <input type="number" id="shareMaxDownloads" placeholder="不限制" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.downloadLimit') + '</div>
+        <input type="number" id="shareMaxDownloads" placeholder="' + T('admin.none') + '" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">密码保护（可选）</div>
-        <input type="password" id="sharePassword" placeholder="不设置密码" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.passwordOptional') + '</div>
+        <input type="password" id="sharePassword" placeholder="' + T('share.noPassword') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn" onclick="doCreateShareLink()" style="flex:1;">创建链接</button>
-        <button class="btn btn-secondary" onclick="closeShareOptionsModal()">取消</button>
+        <button class="btn" onclick="doCreateShareLink()" style="flex:1;">' + T('share.create') + '</button>
+        <button class="btn btn-secondary" onclick="closeShareOptionsModal()">' + T('msg.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -2632,7 +3201,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="shareLinksModal" onclick="if(event.target===this)closeShareLinksModal()">
   <div class="modal-content" style="max-width:600px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">🔗 分享链接管理</div>
+      <div class="modal-title">🔗 <span id="shareLinksTitle">' + T('share.manage') + '</span></div>
       <button class="modal-close" onclick="closeShareLinksModal()">x</button>
     </div>
     <div id="shareLinksList" style="padding:8px 0;"></div>
@@ -2787,25 +3356,25 @@ function showConflictDialog(conflict) {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
   overlay.innerHTML = '<div style="background:var(--card-bg);border-radius:16px;padding:28px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);border:1px solid var(--border-color);">' +
-    '<div style="font-size:20px;font-weight:600;margin-bottom:8px;">' + '⚠️ 文件冲突' + '</div>' +
-    '<div style="color:var(--text-muted);margin-bottom:16px;font-size:13px;">文件 <b>' + escapedName + '</b> 在两台设备上被同时修改</div>' +
+    '<div style="font-size:20px;font-weight:600;margin-bottom:8px;">⚠️ ' + T('sync.fileConflict') + '</div>' +
+    '<div style="color:var(--text-muted);margin-bottom:16px;font-size:13px;">' + T('sync.conflictDesc', null, {name: escapedName}) + '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">' +
       '<div style="background:var(--bg-secondary);border-radius:8px;padding:12px;">' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">本地版本</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">' + T('sync.localVersion') + '</div>' +
         '<div style="font-size:12px;font-family:monospace;word-break:break-all;">' + localHashDisplay + '</div>' +
         '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + localTime + '</div>' +
       '</div>' +
       '<div style="background:var(--bg-secondary);border-radius:8px;padding:12px;">' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">远程版本</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">' + T('sync.remoteVersion') + '</div>' +
         '<div style="font-size:12px;font-family:monospace;word-break:break-all;">' + remoteHashDisplay + '</div>' +
         '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + remoteTime + '</div>' +
       '</div>' +
     '</div>' +
     '<div style="display:flex;flex-direction:column;gap:8px;">' +
-      '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--primary-color);color:var(--text-inverse,#fff);border:none;border-radius:8px;cursor:pointer;font-size:14px;">保留本地版本</button>' +
-      '<button id="conflict_keep_remote" style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-color);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:14px;">接受远程版本</button>' +
-      '<button id="conflict_rename_both" disabled style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-muted);border:1px solid var(--border-color);border-radius:8px;cursor:not-allowed;font-size:14px;opacity:0.6;" title="需要服务器支持多版本存储">保留两个版本（后续支持）</button>' +
-      '<button id="conflict_cancel" style="padding:10px 16px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-size:13px;">稍后处理</button>' +
+      '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--primary-color);color:var(--text-inverse,#fff);border:none;border-radius:8px;cursor:pointer;font-size:14px;">' + T('sync.keepLocal') + '</button>' +
+      '<button id="conflict_keep_remote" style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-color);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:14px;">' + T('sync.keepRemote') + '</button>' +
+      '<button id="conflict_rename_both" disabled style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-muted);border:1px solid var(--border-color);border-radius:8px;cursor:not-allowed;font-size:14px;opacity:0.6;" title="' + T('sync.multiVersionNote') + '">' + T('sync.keepBoth') + '</button>' +
+      '<button id="conflict_cancel" style="padding:10px 16px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-size:13px;">' + T('sync.later') + '</button>' +
     '</div>' +
   '</div>';
   document.body.appendChild(overlay);
@@ -2813,12 +3382,12 @@ function showConflictDialog(conflict) {
   overlay.querySelector('#conflict_keep_local').onclick = function() {
     wsSend('conflict_resolve', { filename: filename, resolution: 'force_local' });
     document.body.removeChild(overlay);
-    showToast('已保留本地版本');
+    showToast(T('sync.localKept'));
   };
   overlay.querySelector('#conflict_keep_remote').onclick = function() {
     wsSend('conflict_resolve', { filename: filename, resolution: 'force_remote', hash: remoteHash });
     document.body.removeChild(overlay);
-    showToast('已接受远程版本');
+    showToast(T('sync.remoteKept'));
   };
   overlay.querySelector('#conflict_cancel').onclick = function() {
     document.body.removeChild(overlay);
@@ -2888,9 +3457,9 @@ function connectWS() {
     const dot = document.getElementById('connDot');
     const txt = document.getElementById('connText');
     if (dot) dot.classList.add('connected');
-    if (txt) txt.textContent = '已连接';
+    if (txt) txt.textContent = T('device.connected');
     const statusEl = document.getElementById('wsStatus');
-    if (statusEl) { statusEl.className = 'status-item connected'; statusEl.textContent = 'WS 已连接'; }
+    if (statusEl) { statusEl.className = 'status-item connected'; statusEl.textContent = T('device.wsConnected'); }
 
       logger.info('[WS] Connected');
       isConnected = true;
@@ -2917,9 +3486,9 @@ function connectWS() {
     const dot = document.getElementById('connDot');
     const txt = document.getElementById('connText');
     if (dot) dot.classList.remove('connected');
-    if (txt) txt.textContent = '未连接';
+    if (txt) txt.textContent = T('device.notConnected');
     const statusEl = document.getElementById('wsStatus');
-    if (statusEl) { statusEl.className = 'status-item disconnected'; statusEl.textContent = 'WS 未连接'; }
+    if (statusEl) { statusEl.className = 'status-item disconnected'; statusEl.textContent = T('device.wsDisconnected'); }
 
       logger.info('[WS] Disconnected');
       isConnected = false;
@@ -2980,7 +3549,7 @@ function handleWsMessage(msg) {
         const { unsynced, unsyncedSize } = payload.syncStatus;
         if (unsynced > 0) {
           const sizeStr = formatSize(unsyncedSize || 0);
-          document.getElementById('syncStatus').textContent = '同步在线 · ' + unsynced + ' 项待同步 (' + sizeStr + ')';
+          document.getElementById('syncStatus').textContent = T('device.online') + ' · ' + unsynced + ' ' + T('device.syncPending') + ' (' + sizeStr + ')';
         }
       }
       // 应用增量同步变更（差异更新，避免全量刷新）
@@ -3003,15 +3572,15 @@ function handleWsMessage(msg) {
       // Toast notification for remote changes
       if (type === 'file_create') {
         incrementBadge();
-        showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
+        showToast(T('sync.newFileReceived') + ' ' + (payload.filename || '').substring(0, 30));
       } else if (type === 'file_delete') {
-        showToast('🗑 远程删除了文件');
+        showToast(T('sync.remoteDeleted'));
       } else if (type === 'file_rename') {
-        showToast('✏️ 远程重命名: ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
+        showToast(T('sync.remoteRenamed') + ' ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
       } else if (type === 'change' && payload.type === 'create') {
-        showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
+        showToast(T('sync.newFileReceived') + ' ' + (payload.filename || '').substring(0, 30));
       } else if (type === 'change' && payload.type === 'rename') {
-        showToast('✏️ 远程重命名: ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
+        showToast(T('sync.remoteRenamed') + ' ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
       }
       break;
     }
@@ -3037,9 +3606,9 @@ function handleWsMessage(msg) {
       if (payload.status === 'duplicate' || payload.status === 'kept_local') {
         logger.info('[Sync] Ack:', payload.status, payload.filename);
       } else if (payload.status === 'ok' || payload.status === 'created') {
-        showToast('✅ 同步成功: ' + (payload.filename || ''));
+        showToast(T('sync.syncSuccess') + ' ' + (payload.filename || ''));
       } else if (payload.status === 'renamed') {
-        showToast('🔄 冲突解决: 已重命名文件保留双方版本');
+        showToast(T('sync.conflictResolved'));
       }
       break;
     }
@@ -3047,7 +3616,7 @@ function handleWsMessage(msg) {
       // 服务器主动通知有未同步数据，立即拉取
       logger.info('[Sync] Nudge received: pending=' + payload.pending + ', size=' + formatSize(payload.size || 0));
       if (payload.pending > 0) {
-        showToast('📡 发现 ' + payload.pending + ' 项待同步变更，开始拉取...');
+        showToast(T('sync.discovered') + ' ' + payload.pending + T('sync.pendingChanges'));
         doIncrementalSync(lastSyncTs);
       }
       break;
@@ -3831,7 +4400,7 @@ function showShareLinksModal() {
   fetch(API + '/api/share/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
     .then(r => r.json())
     .then(data => {
-      if (!data.success) { showToast('获取分享链接失败'); return; }
+      if (!data.success) { showToast(T('share.getLinkFailed')); return; }
       const links = data.links || [];
       const el = document.getElementById('shareLinksList');
       if (!el) return;
@@ -3841,28 +4410,28 @@ function showShareLinksModal() {
         el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' + links.map(l => {
           const url = location.origin + '/s/' + l.code + (l.password ? '?pwd=' : '');
           const isExpired = l.expiresAt && l.expiresAt !== MAX_TS && l.expiresAt < Date.now();
-          const expires = (l.expiresAt === MAX_TS || !l.expiresAt) ? '永不过期' : (isExpired ? '已过期' : '剩余 ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' 天');
+          const expires = (l.expiresAt === MAX_TS || !l.expiresAt) ? T('share.neverExpire') : (isExpired ? T('share.expired') : T('share.daysLeft') + ' ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' ' + T('share.day'));
           return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<span style="font-weight:600;">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
-              '<span style="font-size:11px;color:' + (isExpired ? '#dc2626' : 'var(--text-muted)') + ';">' + (isExpired ? '已过期' : expires) + '</span>' +
+              '<span style="font-size:11px;color:' + (isExpired ? '#dc2626' : 'var(--text-muted)') + ';">' + (isExpired ? T('share.expired') : expires) + '</span>' +
             '</div>' +
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
             '<div style="display:flex;gap:8px;margin-top:4px;">' +
-              '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code + '\', \'' + escapeHtml(url) + '\')">复制链接</button>' +
-              '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code + '\')">二维码</button>' +
-              '<button class="btn btn-sm btn-danger" onclick="deleteShareLink(\'' + l.code + '\')">删除</button>' +
+              '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code + '\', \'' + escapeHtml(url) + '\')">' + T('share.copyLink') + '</button>' +
+              '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code + '\')">' + T('share.qrCode') + '</button>' +
+              '<button class="btn btn-sm btn-danger" onclick="deleteShareLink(\'' + l.code + '\')">' + T('tag.delete') + '</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';
       }
       lockScroll();
       document.getElementById('shareLinksModal').classList.add('show');
-    }).catch(() => showToast('获取分享链接失败'));
+    }).catch(() => showToast(T('share.getLinkFailed')));
 }
 
 function copyShareLinkOf(code, url) {
-  navigator.clipboard.writeText(url).then(() => showToast('✓ 链接已复制')).catch(() => showToast('复制失败'));
+  navigator.clipboard.writeText(url).then(() => showToast(T('share.linkCopied'))).catch(() => showToast(T('share.linkCopyFailed')));
 }
 
 function showShareLinkQR(code) {
@@ -3910,12 +4479,12 @@ function showAuditModal() {
   fetch(API + '/api/audit/logs', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
     .then(r => r.json())
     .then(data => {
-      if (!data.success) { showToast('获取日志失败'); return; }
+      if (!data.success) { showToast(T('admin.getFailed')); return; }
       const stats = data.stats || {};
       document.getElementById('auditStats').innerHTML =
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">今日操作</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.todayCount || 0) + '</div></div>' +
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">总操作</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.totalCount || 0) + '</div></div>' +
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">最后操作</div><div style="font-size:12px;color:var(--text-secondary)">' + escapeHtml(stats.lastAction || '--') + '</div></div>';
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.todayOps') + '</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.todayCount || 0) + '</div></div>' +
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.totalOps') + '</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.totalCount || 0) + '</div></div>' +
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.lastOp') + '</div><div style="font-size:12px;color:var(--text-secondary)">' + escapeHtml(stats.lastAction || '--') + '</div></div>';
 
       const logs = data.logs || [];
       document.getElementById('auditLogList').innerHTML = logs.length ? logs.map(l =>
@@ -3924,10 +4493,10 @@ function showAuditModal() {
           '<div style="text-align:right;flex-shrink:0;"><div style="color:var(--text-muted);font-size:11px;">' + formatTime((l.created_at || 0) * 1000) + '</div>' +
           (l.ip ? '<div style="color:var(--text-muted);font-size:10px;font-family:monospace;">' + escapeHtml(l.ip) + '</div>' : '') +
           '</div></div>'
-      ).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无日志记录</div>';
+      ).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('admin.noLogs') + '</div>';
       lockScroll();
       document.getElementById('auditModal').classList.add('show');
-    }).catch(() => showToast('获取日志失败'));
+    }).catch(() => showToast(T('admin.getFailed')));
 }
 
 function showTokenModal() {
@@ -3945,27 +4514,27 @@ async function refreshToken() {
       AUTH_TOKEN = data.token;
       localStorage.setItem('sharetool_token', AUTH_TOKEN);
       updateTokenDisplay(AUTH_TOKEN, data.expiresAt);
-      showToast('Token 已刷新');
+      showToast(T('admin.tokenRefreshed'));
     } else {
-      showToast('刷新失败: ' + (data.error || ''));
+      showToast(T('admin.refreshFailed') + ': ' + (data.error || ''));
     }
-  } catch (e) { showToast('刷新失败'); }
+  } catch (e) { showToast(T('admin.refreshFail')); }
 }
 
 async function manualRenewCert() {
   const btn = event.target;
-  if (btn) { btn.disabled = true; btn.textContent = '续期中...'; }
+  if (btn) { btn.disabled = true; btn.textContent = T('admin.renewing'); }
   try {
     const res = await fetch(API + '/api/admin/renew-cert', { method: 'POST', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.success) {
-      showToast('证书已续期');
+      showToast(T('admin.renewed'));
       loadSettings(); // Refresh status display
     } else {
-      showToast('续期失败: ' + (data.error || '未知错误'), 'error');
+      showToast(T('admin.renewFailed') + ' ' + (data.error || T('admin.unknown')), 'error');
     }
-  } catch (e) { showToast('续期请求失败', 'error'); }
-  if (btn) { btn.disabled = false; btn.textContent = '🔄 手动续期'; }
+  } catch (e) { showToast(T('admin.renewReqFailed'), 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 ' + T('admin.renew'); }
 }
 
 async function loadRateLimitStatus() {
@@ -4014,19 +4583,19 @@ async function saveRateLimitConfig() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('配置已保存');
+      showToast(T('admin.configSaved'));
       closeModal();
       loadRateLimitStatus();
     } else {
-      showToast('保存失败: ' + (data.error || '未知错误'), 'error');
+      showToast(T('admin.saveFailed') + ' ' + (data.error || T('admin.unknown')), 'error');
     }
-  } catch (e) { showToast('保存请求失败', 'error'); }
+  } catch (e) { showToast(T('admin.saveReqFailed'), 'error'); }
 }
 
 function updateTokenDisplay(token, expiresAt) {
   const el = document.getElementById('currentTokenDisplay');
   if (!el) return;
-  if (!token) { el.textContent = '(无)'; el.style.color = 'var(--text-muted)'; return; }
+  if (!token) { el.textContent = '(' + T('admin.none').replace(/^\(|\)$/g, '') + ')'; el.style.color = 'var(--text-muted)'; return; }
   el.textContent = token;
   el.style.color = '';
   // 如果有过期时间，显示剩余天数
@@ -4067,15 +4636,15 @@ async function doSetToken() {
     });
     const data = await res.json();
     if (data.success) {
-      AUTH_TOKEN = data.token;
+      AUTH_TOKEN = data.token || newToken || crypto.randomUUID();
       localStorage.setItem('sharetool_token', AUTH_TOKEN);
       updateTokenDisplay(AUTH_TOKEN, null); // static token has no expiry
       closeTokenModal();
-      showToast('Token 更新成功');
+      showToast(T('admin.tokenUpdated'));
     } else {
-      showToast('更新失败: ' + (data.error || ''));
+      showToast(T('admin.updateFailed') + ': ' + (data.error || ''));
     }
-  } catch (e) { showToast('更新失败'); }
+  } catch (e) { showToast(T('admin.updateFail')); }
 }
 
 document.addEventListener('keydown', (e) => {
@@ -5084,13 +5653,13 @@ async function showFileVersions(filename) {
   });
   const data = await res.json();
   if (!data.success) {
-    showToast('加载历史失败: ' + (data.error || '未知错误'), 'error');
+    showToast(T('ver.loadFailed') + ': ' + (data.error || T('admin.unknown')), 'error');
     return;
   }
   const versions = data.versions || [];
   let html = '';
   if (versions.length === 0) {
-    html = '<div style="color:var(--text-muted);padding:20px;text-align:center;">暂无历史版本</div>';
+    html = '<div style="color:var(--text-muted);padding:20px;text-align:center;">' + T('ver.noVersions') + '</div>';
   } else {
     html = '<div style="display:flex;flex-direction:column;gap:8px;">';
     for (const v of versions) {
@@ -5102,9 +5671,9 @@ async function showFileVersions(filename) {
         '<div style="font-size:11px;color:var(--text-muted);">' + ts + ' · ' + size + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;">' +
-        '<button class="btn btn-sm" onclick="previewVersion(' + v.id + ')">预览</button>' +
-        '<button class="btn btn-sm" onclick="restoreVersion(' + v.id + ')">恢复</button>' +
-        '<button class="btn btn-sm btn-danger" onclick="deleteVersion(' + v.id + ')">删除</button>' +
+        '<button class="btn btn-sm" onclick="previewVersion(' + v.id + ')">' + T('file.view') + '</button>' +
+        '<button class="btn btn-sm" onclick="restoreVersion(' + v.id + ')">' + T('ver.restore') + '</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteVersion(' + v.id + ')">' + T('tag.delete') + '</button>' +
         '</div>' +
         '</div>';
     }
@@ -5125,46 +5694,46 @@ async function previewVersion(versionId) {
   });
   const data = await res.json();
   if (!data.success || !data.version) {
-    showToast('加载版本失败', 'error');
+    showToast(T('ver.loadFailed'), 'error');
     return;
   }
   const v = data.version;
-  const content = escapeHtml(v.content || '(空)');
+  const content = escapeHtml(v.content || T('ver.empty'));
   document.getElementById('versionsContent').innerHTML =
-    '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(v.filename).replace(/'/g, "\\'") + '\')">← 返回列表</button></div>' +
+    '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(v.filename).replace(/'/g, "\\'") + '\')">' + T('ver.backToList') + '</button></div>' +
     '<div style="background:var(--bg-secondary);padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all;font-size:12px;max-height:400px;overflow-y:auto;">' + content + '</div>';
 }
 
 async function restoreVersion(versionId) {
-  if (!confirm('确定要恢复到这个版本吗？当前内容会作为新版本保存。')) return;
+  if (!confirm(T('ver.confirmRestore'))) return;
   const res = await fetch(API + '/api/file-version/' + versionId + '/restore', {
     method: 'POST',
     headers: { 'x-auth-token': AUTH_TOKEN || '' }
   });
   const data = await res.json();
   if (data.success) {
-    showToast('已恢复到版本 ' + versionId);
+    showToast(T('ver.restored') + ' v' + versionId);
     closeVersionsModal();
     loadFiles();
   } else {
-    showToast('恢复失败: ' + (data.error || '未知错误'), 'error');
+    showToast(T('ver.restoreFailed') + ' ' + (data.error || T('admin.unknown')), 'error');
   }
 }
 
 async function deleteVersion(versionId) {
-  if (!confirm('确定要删除这个版本吗？')) return;
+  if (!confirm(T('ver.confirmDelete'))) return;
   const res = await fetch(API + '/api/file-version/' + versionId, {
     method: 'DELETE',
     headers: { 'x-auth-token': AUTH_TOKEN || '' }
   });
   const data = await res.json();
   if (data.success) {
-    showToast('已删除');
+    showToast(T('file.deleted'));
     if (window._versionsFilename) {
       showFileVersions(window._versionsFilename);
     }
   } else {
-    showToast('删除失败', 'error');
+    showToast(T('file.deleteFailed'), 'error');
   }
 }
 
@@ -5179,11 +5748,11 @@ async function showTagManager() {
       const color = t.color || '#667eea';
       const tagEsc = escapeHtml(t.tag);
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;">' +
-        '<input type="color" value="' + color + '" style="width:24px;height:24px;border:none;background:none;cursor:pointer;padding:0;border-radius:4px;" title="点击修改颜色" onchange="updateTagColor(\'' + tagEsc + '\', this.value)">' +
+        '<input type="color" value="' + color + '" style="width:24px;height:24px;border:none;background:none;cursor:pointer;padding:0;border-radius:4px;" title="' + T('tag.clickChangeColor') + '" onchange="updateTagColor(\'' + tagEsc + '\', this.value)">' +
         '<span style="flex:1;font-size:13px;">' + tagEsc + '</span>' +
-        '<span style="font-size:11px;color:var(--text-muted);">' + t.count + '个</span>' +
-        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="renameTag(\'' + tagEsc + '\')">重命名</button>' +
-        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteTag(\'' + tagEsc + '\')">删除</button>' +
+        '<span style="font-size:11px;color:var(--text-muted);">' + t.count + T('tag.count') + '</span>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="renameTag(\'' + tagEsc + '\')">' + T('tag.rename') + '</button>' +
+        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteTag(\'' + tagEsc + '\')">' + T('tag.delete') + '</button>' +
       '</div>';
     }).join('');
   }
@@ -5197,7 +5766,7 @@ function closeTagManager() {
 }
 
 async function renameTag(oldTag) {
-  const newTag = prompt('将标签 "' + oldTag + '" 重命名为：', oldTag);
+  const newTag = prompt(T('tag.renamePrompt', null, {old: oldTag}), oldTag);
   if (!newTag || newTag === oldTag) return;
   const res = await fetch(API + '/api/tags/rename/' + encodeURIComponent(oldTag), {
     method: 'POST',
@@ -5206,27 +5775,27 @@ async function renameTag(oldTag) {
   });
   const data = await res.json();
   if (data.success) {
-    showToast('已重命名，更新了 ' + data.updated + ' 个文件');
+    showToast(T('tag.renameSuccess', null, {n: data.updated}));
     showTagManager();
     loadFiles();
   } else {
-    showToast('重命名失败');
+    showToast(T('tag.renameFailed'));
   }
 }
 
 async function deleteTag(tag) {
-  if (!confirm('确定删除标签 "' + tag + '"？将从所有文件中移除。')) return;
+  if (!confirm(T('tag.confirmDelete', null, {name: tag}))) return;
   const res = await fetch(API + '/api/tags/delete/' + encodeURIComponent(tag), {
     method: 'DELETE',
     headers: { 'x-auth-token': AUTH_TOKEN || '' }
   });
   const data = await res.json();
   if (data.success) {
-    showToast('已删除，从 ' + data.updated + ' 个文件中移除');
+    showToast(T('tag.removed', null, {n: data.updated}));
     showTagManager();
     loadFiles();
   } else {
-    showToast('删除失败');
+    showToast(T('tag.renameFailed'));
   }
 }
 
@@ -5247,14 +5816,14 @@ async function updateTagColor(tag, color) {
         el.style.borderColor = color;
       }
     });
-    showToast('颜色已更新');
+    showToast(T('tag.colorChanged'));
   }
 }
 
 async function batchAddTag() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
-  const tag = prompt('请输入标签名称（多个用逗号分隔）:');
+  const tag = prompt(T('tag.inputName'));
   if (!tag || !tag.trim()) return;
   const newTags = tag.split(',').map(t => t.trim()).filter(t => t);
   if (newTags.length === 0) return;
@@ -5287,12 +5856,12 @@ async function batchAddTag() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('已为 ' + data.updated + ' 个文件添加标签');
+      showToast(T('tag.added', null, {n: data.updated}));
     } else {
-      showToast('批量添加失败: ' + (data.error || '未知错误'), 'error');
+      showToast(T('tag.addFailed') + ' ' + (data.error || T('admin.unknown')), 'error');
     }
   } catch (e) {
-    showToast('批量添加失败: ' + e.message, 'error');
+    showToast(T('tag.addFailed') + ' ' + e.message, 'error');
   }
   clearBatch();
   loadFiles();
