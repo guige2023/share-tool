@@ -842,5 +842,14 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/dashboard - 全局统计 Dashboard
+  if (pathname === '/api/dashboard' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const stats = db.getDashboardStats();
+    sendJson(res, { success: true, ...stats });
+    return true;
+  }
+
   return false;
 };
