@@ -5082,15 +5082,15 @@ function showShareLinksModal() {
           const expires = (l.expiresAt === MAX_TS || !l.expiresAt) ? T('share.neverExpire') : (isExpired ? T('share.expired') : T('share.daysLeft') + ' ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' ' + T('share.day'));
           return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-              '<span style="font-weight:600;cursor:pointer;" onclick="copyText(\'' + escapeHtml(l.filename) + '\')" title="Click to copy filename">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
+              '<span style="font-weight:600;cursor:pointer;" onclick="copyText(\'' + l.filename.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" title="Click to copy filename">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
               '<span style="font-size:11px;color:' + (isExpired ? '#dc2626' : 'var(--text-muted)') + ';">' + (isExpired ? T('share.expired') : expires) + '</span>' +
             '</div>' +
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
             '<div style="display:flex;gap:8px;margin-top:4px;">' +
-              '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code + '\', \'' + escapeHtml(url) + '\')">' + T('share.copyLink') + '</button>' +
-              '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code + '\')">' + T('share.qrCode') + '</button>' +
-              '<button class="btn btn-sm" onclick="showEditShareLinkModal(\'' + l.code + '\')">' + T('ui.edit') + '</button>' +
-              '<button class="btn btn-sm btn-danger" onclick="deleteShareLink(\'' + l.code + '\')">' + T('tag.delete') + '</button>' +
+              '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(url) + '\')">' + T('share.copyLink') + '</button>' +
+              '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('share.qrCode') + '</button>' +
+              '<button class="btn btn-sm" onclick="showEditShareLinkModal(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('ui.edit') + '</button>' +
+              '<button class="btn btn-sm btn-danger" onclick="deleteShareLink(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('tag.delete') + '</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';
