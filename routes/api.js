@@ -226,7 +226,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // GET /api/search/suggest?q=xxx — 搜索建议（标签 + 文件名）
+  // GET /api/search/suggest?q=xxx — 搜索建议（标签 + 文件名 + 搜索语法提示）
   if (pathname === '/api/search/suggest' && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
@@ -235,6 +235,16 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
 
     const suggestions = [];
     const maxPerType = 4;
+
+    // 0. 搜索语法提示：content: 前缀
+    if (!q.startsWith('content:') && q.length < 20) {
+      suggestions.push({
+        text: 'content:' + q,
+        type: 'syntax',
+        icon: '🔍',
+        color: null
+      });
+    }
 
     // 1. 标签建议
     const allTags = db.getAllTags();

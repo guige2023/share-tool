@@ -7276,7 +7276,7 @@ function renderSuggestions(suggestions) {
   selectedSuggestionIndex = -1;
   container.innerHTML = suggestions.map((s, i) => {
     const tagStyle = s.color ? 'background:rgba(' + hexToRgb(s.color) + ',0.2);color:' + s.color + ';' : 'background:rgba(102,126,234,0.2);color:var(--accent-primary);';
-    const tagLabel = s.type === 'tag' ? '<span class="suggestion-tag" style="' + tagStyle + '">tag</span>' : '';
+    const tagLabel = s.type === 'tag' ? '<span class="suggestion-tag" style="' + tagStyle + '">tag</span>' : s.type === 'syntax' ? '<span class="suggestion-tag" style="background:rgba(102,126,234,0.2);color:var(--accent-primary);">content</span>' : '';
     return '<div class="search-suggestion' + (i === 0 ? ' selected' : '') + '" data-idx="' + i + '" onclick="applySuggestion(\'' + escapeHtml(s.text).replace(/'/g, "\\'") + '\', \'' + s.type + '\')">' +
       '<span class="suggestion-icon">' + escapeHtml(s.icon || '') + '</span>' +
       '<span>' + escapeHtml(s.text) + '</span>' +
@@ -7303,7 +7303,7 @@ function hideSuggestions() {
 }
 
 function applySuggestion(text, type) {
-  document.getElementById('searchInput').value = type === 'tag' ? 'tag:' + text : text;
+  document.getElementById('searchInput').value = type === 'tag' ? 'tag:' + text : type === 'syntax' ? text : text;
   hideSuggestions();
   doSearch();
 }
