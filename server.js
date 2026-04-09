@@ -431,9 +431,10 @@ function isLocalhost(origin) {
          /^https?:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/.test(origin);    // 局域网 IP
 }
 
-function sendJson(res, data, status = 200, req = null) {
+function sendJson(res, data, status = 200) {
   const json = JSON.stringify(data);
-  const acceptGzip = req && req.headers && req.headers['accept-encoding'] || '';
+  // gzip: only if client accepts it and payload > 512B
+  const acceptGzip = res.req && res.req.headers && res.req.headers['accept-encoding'] || '';
   const shouldCompress = acceptGzip.includes('gzip') && json.length > 512;
 
   if (shouldCompress) {
