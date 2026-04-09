@@ -963,8 +963,8 @@ function saveShareLink(shareData) {
     shareData.filename,
     shareData.isText ? 1 : 0,
     hashedPassword,
-    Math.floor(shareData.expiresAt / 1000),
-    shareData.maxDownloads,
+    shareData.expiresAt ? Math.floor(shareData.expiresAt / 1000) : null,
+    shareData.maxDownloads || null,
     0,
     shareData.description || '',
     shareData.createdBy || null

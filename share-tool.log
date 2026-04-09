@@ -147,3 +147,30 @@
 {"level":30,"time":"2026-04-09T11:45:16.030Z","service":"sharetool","pid":22037,"msg":"[Discovery] UDP server on port 18792"}
 {"level":50,"time":"2026-04-09T11:45:17.532Z","service":"sharetool","pid":22037,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:931:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}
 {"level":50,"time":"2026-04-09T11:45:30.907Z","service":"sharetool","pid":22037,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:931:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}
+[DB] Schema version: 3 → 3
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T11:45:43.354Z","service":"sharetool","pid":22120,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T11:45:43.359Z","service":"sharetool","pid":22120,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T11:45:43.359Z","service":"sharetool","pid":22120,"msg":"[HTTP] Server listening on http://192.168.1.192:18790 (plain)"}
+{"level":30,"time":"2026-04-09T11:45:43.360Z","service":"sharetool","pid":22120,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T11:45:43.360Z","service":"sharetool","pid":22120,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T11:45:43.360Z","service":"sharetool","pid":22120,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T11:45:43.360Z","service":"sharetool","pid":22120,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T11:45:43.360Z","service":"sharetool","pid":22120,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T11:45:43.360Z","service":"sharetool","pid":22120,"msg":"[Discovery] UDP server on port 18792"}
+{"level":50,"time":"2026-04-09T11:46:03.310Z","service":"sharetool","pid":22120,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:931:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}
+{"level":50,"time":"2026-04-09T11:46:03.325Z","service":"sharetool","pid":22120,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:931:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}
+[DB] Schema version: 3 → 3
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T11:46:29.703Z","service":"sharetool","pid":22354,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T11:46:29.709Z","service":"sharetool","pid":22354,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T11:46:29.709Z","service":"sharetool","pid":22354,"msg":"[HTTP] Server listening on http://192.168.1.192:18790 (plain)"}
+{"level":30,"time":"2026-04-09T11:46:29.709Z","service":"sharetool","pid":22354,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T11:46:29.709Z","service":"sharetool","pid":22354,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T11:46:29.709Z","service":"sharetool","pid":22354,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T11:46:29.709Z","service":"sharetool","pid":22354,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T11:46:29.709Z","service":"sharetool","pid":22354,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T11:46:29.709Z","service":"sharetool","pid":22354,"msg":"[Discovery] UDP server on port 18792"}
+{"level":50,"time":"2026-04-09T11:46:35.781Z","service":"sharetool","pid":22354,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:931:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}
+{"level":50,"time":"2026-04-09T11:46:56.380Z","service":"sharetool","pid":22354,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:931:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}
+{"level":50,"time":"2026-04-09T11:46:56.402Z","service":"sharetool","pid":22354,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:931:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}

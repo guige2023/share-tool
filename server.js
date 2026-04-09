@@ -774,10 +774,11 @@ async function startHttpServer() {
       return;
     }
 
-    // 速率限制检查（跳过静态资源和根路径）
+    // 速率限制检查（跳过静态资源和健康检查）
     const parsed = url.parse(req.url, true);
     const pathname = parsed.pathname;
-    if (!pathname.startsWith('/index') && !pathname.startsWith('/favicon')) {
+    // Skip rate limit for healthcheck, static assets
+    if (!['/api/health', '/index', '/favicon'].some(p => pathname.startsWith(p))) {
       const clientIp = getClientIp(req);
       if (!checkRateLimit(clientIp)) {
         res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
@@ -952,8 +953,12 @@ self.addEventListener('push', (event) => {
       sendJson(res, { success: false, error: 'Not found' }, 404);
 
     } catch (e) {
-      logger.error({ err: e }, 'HTTP error');
-      sendJson(res, { success: false, error: e.message }, 500);
+      // Log full error, return safe message to client
+      const safeError = process.env.NODE_ENV === 'production'
+        ? 'Internal server error'
+        : e.message;
+      logger.error({ err: e, pathname, method: req.method }, 'HTTP error');
+      sendJson(res, { success: false, error: safeError }, 500);
     }
   };
 
@@ -3805,17 +3810,26 @@ function sendHtml(res) {
 // ============================================================
 // 启动
 // ============================================================
-process.on('SIGINT', () => {
-  logger.info('\n[ShareTool] Shutting down...');
+// Graceful shutdown helper
+function gracefulShutdown(code = 0) {
+  logger.info('[ShareTool] Shutting down gracefully...');
   if (broadcastTimer) clearInterval(broadcastTimer);
   if (wsServer) wsServer.close();
   if (udpServer) udpServer.close();
   if (httpServer) httpServer.close();
-  process.exit(0);
-});
+  setTimeout(() => process.exit(code), 500);
+}
+
+process.on('SIGINT', () => gracefulShutdown(0));
+process.on('SIGTERM', () => gracefulShutdown(0));
 
 process.on('uncaughtException', (e) => {
-  logger.error({ err: e }, 'Uncaught exception');
+  logger.fatal({ err: e }, 'Uncaught exception - shutting down');
+  gracefulShutdown(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error({ reason: String(reason) }, 'Unhandled Promise rejection');
 });
 
 init();
