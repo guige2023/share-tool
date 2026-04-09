@@ -1065,6 +1065,13 @@ self.addEventListener('push', (event) => {
 
   if (serverOptions.https) {
     httpServer = https.createServer(serverOptions, requestHandler);
+    httpServer.on('error', (e) => {
+      if (e.code === 'EADDRINUSE') {
+        logger.error(`[HTTPS] Port ${HTTPS_PORT} already in use - another instance may be running`);
+      } else {
+        logger.error({ err: e }, '[HTTPS] Server error');
+      }
+    });
     httpServer.listen(HTTPS_PORT, '0.0.0.0', () => {
       logger.info(`[HTTPS] Server listening on https://${LOCAL_IP}:${HTTPS_PORT}`);
     });
@@ -1100,6 +1107,13 @@ self.addEventListener('push', (event) => {
     });
   } else {
     httpServer = http.createServer(requestHandler);
+    httpServer.on('error', (e) => {
+      if (e.code === 'EADDRINUSE') {
+        logger.error(`[HTTP] Port ${PORT} already in use - another instance may be running`);
+      } else {
+        logger.error({ err: e }, '[HTTP] Server error');
+      }
+    });
     httpServer.listen(PORT, '0.0.0.0', () => {
       logger.info(`[HTTP] Server listening on http://${LOCAL_IP}:${PORT}`);
       logger.info('[HTTPS] SSL certificates not found, HTTPS disabled');
@@ -1161,6 +1175,14 @@ function startWsServer() {
       ws.ping();
     });
   }, 30000);
+
+  wsServer.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      logger.error(`[WS] Port ${WS_PORT} already in use`);
+    } else {
+      logger.error({ err: e }, '[WS] Server error');
+    }
+  });
 
   wsServer.on('close', () => clearInterval(heartbeat));
   
@@ -1504,37 +1526,53 @@ function broadcastDiscovery() {
 
 function startHeartbeat() {
   setInterval(() => {
-    db.touchDevice(DEVICE_ID);
-    db.cleanupStaleDevices(5); // 5分钟不活跃视为离线
+    try {
+      db.touchDevice(DEVICE_ID);
+      db.cleanupStaleDevices(5); // 5分钟不活跃视为离线
+    } catch (e) {
+      logger.error({ err: e }, '[Heartbeat]');
+    }
   }, 60000);
 }
 
 function startSyncScheduler() {
   // 每分钟检查一次同步状态
   setInterval(() => {
-    const onlineDevices = db.getOnlineDevices().filter(d => d.device_id !== DEVICE_ID);
-    const { unsynced, unsyncedSize } = db.getSyncStatus();
+    try {
+      const onlineDevices = db.getOnlineDevices().filter(d => d.device_id !== DEVICE_ID);
+      const { unsynced, unsyncedSize } = db.getSyncStatus();
 
-    if (onlineDevices.length > 0 && unsynced > 0) {
-      logger.info(`[Sync] ${unsynced} unsynced changes (${formatSize(unsyncedSize)}), ${onlineDevices.length} online devices - nudging`);
-      // 主动通知在线设备拉取待同步变更
-      broadcastChange({ type: 'sync_nudge', pending: unsynced, size: unsyncedSize }, null);
+      if (onlineDevices.length > 0 && unsynced > 0) {
+        logger.info(`[Sync] ${unsynced} unsynced changes (${formatSize(unsyncedSize)}), ${onlineDevices.length} online devices - nudging`);
+        // 主动通知在线设备拉取待同步变更
+        broadcastChange({ type: 'sync_nudge', pending: unsynced, size: unsyncedSize }, null);
+      }
+    } catch (e) {
+      logger.error({ err: e }, '[SyncScheduler]');
     }
   }, 60000);
   
   // 每小时清理一次过期 Token、分享链接、sync_log
   setInterval(() => {
-    db.cleanupExpiredTokens();
-    db.cleanupExpiredShareLinks();
-    db.cleanupSyncLog(7);  // 保留7天已同步的 sync_log
+    try {
+      db.cleanupExpiredTokens();
+      db.cleanupExpiredShareLinks();
+      db.cleanupSyncLog(7);  // 保留7天已同步的 sync_log
+    } catch (e) {
+      logger.error({ err: e }, '[Cleanup]');
+    }
   }, 3600000);
 
   // 每天凌晨3点执行 VACUUM（DB碎片整理）
   setInterval(() => {
-    const h = new Date().getHours();
-    if (h === 3) {
-      logger.info('[DB] Running daily VACUUM...');
-      db.runVacuum();
+    try {
+      const h = new Date().getHours();
+      if (h === 3) {
+        logger.info('[DB] Running daily VACUUM...');
+        db.runVacuum();
+      }
+    } catch (e) {
+      logger.error({ err: e }, '[Vacuum]');
     }
   }, 3600000);
 }
