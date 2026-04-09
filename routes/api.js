@@ -720,6 +720,21 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/star/:filename — toggle star/favorite status
+  const starMatch = pathname.match(/^\/api\/star\/(.+)$/);
+  if (starMatch && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(starMatch[1]);
+    const result = db.toggleStar(filename);
+    if (!result.success) {
+      sendJson(res, result, 404);
+      return true;
+    }
+    sendJson(res, result);
+    return true;
+  }
+
   // POST /api/file-version/:versionId/restore — restore a specific version
   const restoreMatch = pathname.match(/^\/api\/file-version\/(\d+)\/restore$/);
   if (restoreMatch && method === 'POST') {
@@ -759,6 +774,70 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
       return true;
     }
     db.deleteFileVersion(parseInt(delVersionMatch[1]));
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // GET /api/trash — list trash items
+  if (pathname === '/api/trash' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const trash = db.listTrash(100);
+    sendJson(res, { success: true, trash });
+    return true;
+  }
+
+  // POST /api/trash/:id/restore — restore from trash
+  const trashRestoreMatch = pathname.match(/^\/api\/trash\/(\d+)\/restore$/);
+  if (trashRestoreMatch && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const result = db.restoreFromTrash(parseInt(trashRestoreMatch[1]));
+    if (result.success) {
+      addAuditLog('trash_restore', `filename=${result.filename}`, getClientIp(req), authData.token);
+    }
+    sendJson(res, result);
+    return true;
+  }
+
+  // DELETE /api/trash/:id — permanently delete a trash item
+  const trashDeleteMatch = pathname.match(/^\/api\/trash\/(\d+)$/);
+  if (trashDeleteMatch && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    db.permanentlyDeleteTrash(parseInt(trashDeleteMatch[1]));
+    addAuditLog('trash_delete', `trash_id=${trashDeleteMatch[1]}`, getClientIp(req), authData.token);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // DELETE /api/trash — empty all trash
+  if (pathname === '/api/trash' && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const trash = db.listTrash(9999);
+    const count = trash.length;
+    for (const item of trash) {
+      db.permanentlyDeleteTrash(item.id);
+    }
+    addAuditLog('trash_empty', `count=${count}`, getClientIp(req), authData.token);
+    sendJson(res, { success: true, count });
+    return true;
+  }
+
+  // DELETE /api/file/:filename/permanent — permanently delete (skip trash)
+  const filePermanentDeleteMatch = pathname.match(/^\/api\/file\/(.+)\/permanent$/);
+  if (filePermanentDeleteMatch && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(filePermanentDeleteMatch[1]);
+    const existing = db.getFileByName(filename);
+    if (!existing) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    db.permanentlyDeleteFile(filename);
+    addAuditLog('file_permanent_delete', `filename=${filename}`, getClientIp(req), authData.token);
     sendJson(res, { success: true });
     return true;
   }

@@ -109,10 +109,18 @@ function initSchemaV1(db) {
       hash         TEXT,
       tags         TEXT    DEFAULT '',
       encrypted    INTEGER NOT NULL DEFAULT 0,
+      starred      INTEGER NOT NULL DEFAULT 0,
       created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at   INTEGER NOT NULL DEFAULT (unixepoch())
     )
   `);
+
+  // Migration: add starred column if not exists
+  try {
+    db.exec(`ALTER TABLE files ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column may already exist in older dbs
+  }
 
   // 文件版本历史表
   db.exec(`
@@ -363,7 +371,7 @@ function runMigrations(db, fromVersion) {
 // ============================================================
 // 文件操作
 // ============================================================
-const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, created_at, updated_at';
+const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, starred, created_at, updated_at';
 
 function addFile(filename, content, type = 'file', hash = null, encrypted = false) {
   const db = getDb();
@@ -493,14 +501,65 @@ function updateFile(id, updates) {
   return updated;
 }
 
-function deleteFileByName(filename) {
+function moveToTrash(filename) {
   const db = getDb();
   const existing = getFileByName(filename);
   if (!existing) return false;
-
+  // 软删除：写入 trash 表，30天后自动清理
+  db.prepare(`
+    INSERT INTO trash (file_id, filename, content, size, type, hash, deleted_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, unixepoch(), unixepoch() + 2592000)
+  `).run(existing.id, existing.filename, existing.content, existing.size, existing.type, existing.hash);
   addSyncLog(existing.id, filename, 'delete', existing.hash, null, existing.size);
   db.prepare('DELETE FROM files WHERE filename = ?').run(filename);
   return true;
+}
+
+function deleteFileByName(filename) {
+  // 软删除到回收站
+  return moveToTrash(filename);
+}
+
+// 永久删除（不经过回收站）
+function permanentlyDeleteFile(filename) {
+  const db = getDb();
+  const existing = getFileByName(filename);
+  if (!existing) return false;
+  addSyncLog(existing.id, filename, 'delete', existing.hash, null, existing.size);
+  db.prepare('DELETE FROM files WHERE filename = ?').run(filename);
+  return true;
+}
+
+function listTrash(limit = 100) {
+  const db = getDb();
+  return db.prepare('SELECT * FROM trash ORDER BY deleted_at DESC LIMIT ?').all(limit);
+}
+
+function restoreFromTrash(trashId) {
+  const db = getDb();
+  const item = db.prepare('SELECT * FROM trash WHERE id = ?').get(trashId);
+  if (!item) return { success: false, error: 'Trash item not found' };
+  // 检查原文件名是否已存在（可能被占用）
+  const conflict = getFileByName(item.filename);
+  if (conflict) return { success: false, error: '文件名已存在，请先删除或重命名现有文件' };
+  // 恢复文件
+  db.prepare(`
+    INSERT INTO files (filename, content, size, type, hash, tags, encrypted, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, '', 0, unixepoch(), unixepoch())
+  `).run(item.filename, item.content, item.size, item.type, item.hash);
+  db.prepare('DELETE FROM trash WHERE id = ?').run(trashId);
+  return { success: true, filename: item.filename };
+}
+
+function permanentlyDeleteTrash(trashId) {
+  const db = getDb();
+  db.prepare('DELETE FROM trash WHERE id = ?').run(trashId);
+}
+
+function cleanupExpiredTrash() {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  return db.prepare('DELETE FROM trash WHERE expires_at < ?').run(now);
 }
 
 function renameFile(oldFilename, newFilename) {
@@ -606,7 +665,11 @@ function deleteFile(id) {
   const db = getDb();
   const existing = getFile(id);
   if (!existing) return false;
-  
+  // 软删除到回收站
+  db.prepare(`
+    INSERT INTO trash (file_id, filename, content, size, type, hash, deleted_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, unixepoch(), unixepoch() + 2592000)
+  `).run(existing.id, existing.filename, existing.content, existing.size, existing.type, existing.hash);
   addSyncLog(existing.id, existing.filename, 'delete', existing.hash, null, existing.size);
   db.prepare('DELETE FROM files WHERE id = ?').run(id);
   return true;
@@ -1508,7 +1571,7 @@ module.exports = {
   // 密码
   hashPassword, verifyPassword,
   // 文件
-  addFile, getFile, getFileByName, listFiles, updateFile, updateFileByName,
+  addFile, getFile, getFileByName, toggleStar, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, copyFile, copyFilesByPrefix,
   searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
@@ -1534,6 +1597,8 @@ module.exports = {
   cleanupSyncLog, getDbStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, getAllTags,
+  // 回收站
+  moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, cleanupExpiredTrash,
   // 文件版本历史
   saveFileVersion, listFileVersions, getFileVersion, getFileVersionCount, deleteFileVersion, pruneFileVersions,
   // 分片上传

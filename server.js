@@ -4419,7 +4419,7 @@ function renderFiles() {
         (!isVirtualFolder ? '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">' + T('file.share') + '</button>' : '') +
         (!isVirtualFolder ? '<button class="btn btn-sm" onclick="showFileVersions(\'' + encodeURIComponent(f.name) + '\')">' + T('file.history') + '</button>' : '') +
         (!isVirtualFolder ? '<button class="btn btn-sm" onclick="openFileInfoPanel(\'' + encodeURIComponent(f.name) + '\')">ℹ️ ' + T('file.info') + '</button>' : '') +
-        (!isVirtualFolder ? '<span class="file-star" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">☆</span>' : '') +
+        (!isVirtualFolder ? '<span class="file-star' + (f.starred ? ' starred' : '') + '" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">' + (f.starred ? '★' : '☆') + '</span>' : '') +
         '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">' + T('tag.delete') + '</button>' +
       '</div>' +
     '</div>';
@@ -6540,22 +6540,28 @@ function getFavorites() {
 }
 
 function toggleFavorite(filename) {
-  let favs = getFavorites();
   const decoded = decodeURIComponent(filename);
-  if (favs.includes(decoded)) {
-    favs = favs.filter(f => f !== decoded);
-  } else {
-    favs.unshift(decoded);
-    favs = favs.slice(0, 20);
-  }
-  try { localStorage.setItem('sharetool_favorites', JSON.stringify(favs)); } catch (e) {}
-  // Update star UI
-  const isFav = getFavorites().includes(decoded);
-  const starEl = document.querySelector('[data-starfile="' + filename + '"]');
-  if (starEl) {
-    starEl.classList.toggle('starred', isFav);
-    starEl.textContent = isFav ? '★' : '☆';
-  }
+  fetch(API + '/api/star/' + encodeURIComponent(decoded), { method: 'POST', headers: { 'x-auth-token': getToken() } })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) { showToast('Star failed'); return; }
+      // Update localStorage favorites
+      let favs = getFavorites();
+      if (data.starred) {
+        if (!favs.includes(decoded)) { favs.unshift(decoded); favs = favs.slice(0, 20); }
+      } else {
+        favs = favs.filter(f => f !== decoded);
+      }
+      try { localStorage.setItem('sharetool_favorites', JSON.stringify(favs)); } catch (e) {}
+      // Update star UI
+      const isFav = data.starred;
+      const starEl = document.querySelector('[data-starfile="' + filename + '"]');
+      if (starEl) {
+        starEl.classList.toggle('starred', isFav);
+        starEl.textContent = isFav ? '★' : '☆';
+      }
+    })
+    .catch(() => {});
 }
 
 function updateFavoritesInView() {
