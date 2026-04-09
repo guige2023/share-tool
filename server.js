@@ -56,6 +56,218 @@ const CONFIG_FILE = path.join(os.homedir(), '.share-tool', 'config.json');
 const SSL_DIR = path.join(os.homedir(), '.share-tool', 'ssl');
 
 // ============================================================
+// i18n - 国际化翻译（默认简体中文，英文为备用）
+// ============================================================
+const I18N = {
+  // 语言映射
+  LANG_MAP: { 'zh': 'zh', 'en': 'en', 'zh-CN': 'zh', 'en-US': 'en' },
+  DEFAULT_LANG: 'zh',
+
+  // 翻译数据
+  zh: {
+    // 操作结果
+    'msg.copied': '已复制',
+    'msg.copy.failed': '复制失败',
+    'msg.delete.failed': '删除失败',
+    'msg.rename.failed': '重命名失败',
+    'msg.update.failed': '更新失败',
+    'msg.link.copied': '链接已复制',
+    'msg.share.failed': '获取分享链接失败',
+    'msg.deleted': '已删除',
+    'msg.renamed': '已重命名',
+    'msg.loading': '加载中',
+    'msg.retry': '重试',
+    'msg.clear': '清除',
+    'msg.retry.all': '重试全部',
+    'msg.close': '关闭',
+    'msg.cancel': '取消',
+    'msg.confirm': '确认',
+    'msg.optional': '可选',
+
+    // 文件状态
+    'file.deleted': '已删除',
+    'file.unavailable': '文件不可用',
+    'file.download': '下载',
+    'file.preview': '预览',
+    'file.rename': '重命名',
+    'file.delete': '删除',
+    'file.copy': '复制',
+    'file.files': '文件',
+    'file.selected': '已选择',
+    'file.noContent': '暂无分享内容',
+    'file.uploadOrShare': '上传文件或分享文字开始使用',
+    'file.upload': '上传文件',
+    'file.shareText': '分享文字',
+    'file.textShare': '文字分享',
+    'file.share': '分享',
+    'file.copyLink': '复制链接',
+    'file.twoQR': '二维码',
+    'file.noFiles': '天',
+    'file.numFiles': '个文件',
+
+    // 设备
+    'device.server': '服务器',
+    'device.notConnected': '未连接',
+    'device.connected': '已连接',
+    'device.devices': '设备',
+    'device.lan': '局域网',
+    'device.lanFile': '局域网文件',
+    'device.discovery': '设备发现',
+    'device.firstLaunch': '首次启动',
+    'device.start': '启动',
+    'device.syncOnline': '同步在线',
+    'device.connection': '连接',
+    'device.noOnlineDevices': '暂无在线设备',
+
+    // 同步
+    'sync.incSync': '增量同步',
+    'sync.incSyncChange': '应用增量同步变更',
+    'sync.diffUpdate': '差异更新',
+    'sync.newFile': '收到新文件',
+    'sync.remoteRename': '远程重命名',
+    'sync.conflict': '冲突',
+    'sync.conflictResolve': '冲突解决',
+    'sync.keepLocal': '保留本地版本',
+
+    // 分享
+    'share.link': '分享链接',
+    'share.expired': '已过期',
+    'share.neverExpire': '永不过期',
+    'share.manualRenew': '手动续期',
+    'share.password': '密码',
+    'share.lifetime': '有效期',
+
+    // 管理
+    'admin.config': '配置',
+    'admin.settings': '设置',
+    'admin.audit': '审计日志',
+    'admin.tagMgmt': '标签管理',
+    'admin.tags': '标签',
+    'admin.noTags': '暂无标签',
+    'share.noLinks': '暂无分享链接',
+
+    // 收藏
+    'fav.favorite': '收藏',
+    'fav.addFav': '添加收藏',
+    'fav.removeFav': '取消收藏',
+
+    // 错误
+    'err.unknown': '未知错误',
+    'err.failed': '失败',
+    'err.genFailed': '生成失败',
+    'err.reqFailed': '请求失败',
+    'err.browserNotSupport': '您的浏览器不支持',
+    'err.getLinkFailed': '获取分享链接失败',
+  },
+
+  en: {
+    'msg.copied': 'Copied',
+    'msg.copy.failed': 'Copy failed',
+    'msg.delete.failed': 'Delete failed',
+    'msg.rename.failed': 'Rename failed',
+    'msg.update.failed': 'Update failed',
+    'msg.link.copied': 'Link copied',
+    'msg.share.failed': 'Failed to get share link',
+    'msg.deleted': 'Deleted',
+    'msg.renamed': 'Renamed',
+    'msg.loading': 'Loading',
+    'msg.retry': 'Retry',
+    'msg.clear': 'Clear',
+    'msg.retry.all': 'Retry all',
+    'msg.close': 'Close',
+    'msg.cancel': 'Cancel',
+    'msg.confirm': 'Confirm',
+    'msg.optional': 'optional',
+
+    'file.deleted': 'Deleted',
+    'file.unavailable': 'File unavailable',
+    'file.download': 'Download',
+    'file.preview': 'Preview',
+    'file.rename': 'Rename',
+    'file.delete': 'Delete',
+    'file.copy': 'Copy',
+    'file.files': 'Files',
+    'file.selected': 'selected',
+    'file.noContent': 'No content yet',
+    'file.uploadOrShare': 'Upload files or share text to get started',
+    'file.upload': 'Upload file',
+    'file.shareText': 'Share text',
+    'file.textShare': 'Text share',
+    'file.share': 'Share',
+    'file.copyLink': 'Copy link',
+    'file.twoQR': 'QR Code',
+    'file.noFiles': 'days',
+    'file.numFiles': 'files',
+
+    'device.server': 'Server',
+    'device.notConnected': 'Not connected',
+    'device.connected': 'Connected',
+    'device.devices': 'Devices',
+    'device.lan': 'LAN',
+    'device.lanFile': 'LAN Files',
+    'device.discovery': 'Device discovery',
+    'device.firstLaunch': 'First launch',
+    'device.start': 'Start',
+    'device.syncOnline': 'Sync online',
+    'device.connection': 'Connection',
+    'device.noOnlineDevices': 'No online devices',
+
+    'sync.incSync': 'Incremental sync',
+    'sync.incSyncChange': 'Apply incremental sync changes',
+    'sync.diffUpdate': 'Diff update',
+    'sync.newFile': 'New file received',
+    'sync.remoteRename': 'Remote rename',
+    'sync.conflict': 'Conflict',
+    'sync.conflictResolve': 'Conflict resolution',
+    'sync.keepLocal': 'Keep local version',
+
+    'share.link': 'Share link',
+    'share.expired': 'Expired',
+    'share.neverExpire': 'Never expires',
+    'share.manualRenew': 'Manual renew',
+    'share.password': 'Password',
+    'share.lifetime': 'Lifetime',
+
+    'admin.config': 'Config',
+    'admin.settings': 'Settings',
+    'admin.audit': 'Audit log',
+    'admin.tagMgmt': 'Tag management',
+    'admin.tags': 'Tags',
+    'admin.noTags': 'No tags',
+    'share.noLinks': 'No share links',
+
+    'fav.favorite': 'Favorite',
+    'fav.addFav': 'Add to favorites',
+    'fav.removeFav': 'Remove from favorites',
+
+    'err.unknown': 'Unknown error',
+    'err.failed': 'Failed',
+    'err.genFailed': 'Generation failed',
+    'err.reqFailed': 'Request failed',
+    'err.browserNotSupport': 'Your browser does not support',
+    'err.getLinkFailed': 'Failed to get share link',
+  },
+
+  // 翻译函数
+  t(key, lang = null) {
+    const detectLang = lang || this.detectLang();
+    const translated = this[detectLang]?.[key] ?? this[this.DEFAULT_LANG][key] ?? key;
+    return translated;
+  },
+
+  detectLang() {
+    if (typeof navigator !== 'undefined' && navigator.language) {
+      const lang = this.LANG_MAP[navigator.language] || this.LANG_MAP[navigator.language.split('-')[0]];
+      if (lang) return lang;
+    }
+    return this.DEFAULT_LANG;
+  }
+};
+
+// 快速翻译别名
+function T(key) { return I18N.t(key); }
+
+// ============================================================
 // Token 配置（从环境变量或配置文件读取，无硬编码）
 // ============================================================
 function getShareToken() {
@@ -2421,7 +2633,7 @@ function toggleFavFilter() {
   const btn = document.getElementById('favFilterBtn');
   if (btn) {
     btn.classList.toggle('active', showFavoritesOnly);
-    btn.innerHTML = showFavoritesOnly ? '★ 收藏' : '☆ 收藏';
+    btn.innerHTML = showFavoritesOnly ? '★ ' + T('fav.favorite') : '☆ ' + T('fav.favorite');
   }
   currentPage = 1;
   renderFiles();
@@ -2830,7 +3042,7 @@ function renderDevices(devices) {
   document.getElementById('deviceCount').textContent = '设备: ' + devices.length;
   
   if (!devices.length) {
-    container.innerHTML = '<div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">暂无在线设备</div></div>';
+    container.innerHTML = '<div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">' + T('device.noOnlineDevices') + '</div></div>';
     return;
   }
   
@@ -3034,8 +3246,8 @@ function renderFiles() {
     const searchMode = !!window.currentSearchQ;
     container.innerHTML = '<div class="empty" id="emptyState">' +
       '<div class="empty-icon">' + (searchMode ? '🔍' : '📭') + '</div>' +
-      '<div class="empty-text">' + (searchMode ? '未找到匹配结果' : '暂无分享内容') + '</div>' +
-      '<div class="empty-text" style="font-size:12px;margin-top:8px;">' + (searchMode ? '尝试其他关键词或清除筛选' : '上传文件或分享文字开始使用') + '</div>' +
+      '<div class="empty-text">' + (searchMode ? '未找到匹配结果' : T('file.noContent')) + '</div>' +
+      '<div class="empty-text" style="font-size:12px;margin-top:8px;">' + (searchMode ? '尝试其他关键词或清除筛选' : T('file.uploadOrShare')) + '</div>' +
       '</div>';
     container.classList.remove('file-list', 'file-grid');
     container.classList.add(currentView === 'grid' ? 'file-grid' : 'file-list');
@@ -3235,9 +3447,9 @@ async function loadMediaPlayer(filename, playerId) {
     const mime = mimeMap[ext] || (isAudio ? 'audio/mpeg' : 'video/mp4');
     const dataUrl = 'data:' + mime + ';base64,' + data.content;
     if (isAudio) {
-      el.innerHTML = '<audio controls style="width:100%;height:36px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持音频</audio>';
+      el.innerHTML = '<audio controls style="width:100%;height:36px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '音频</audio>';
     } else {
-      el.innerHTML = '<video controls style="width:100%;max-height:200px;border-radius:8px;background:var(--bg-modal,#000);"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频</video>';
+      el.innerHTML = '<video controls style="width:100%;max-height:200px;border-radius:8px;background:var(--bg-modal,#000);"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '视频</video>';
     }
     el.dataset.loaded = '1';
   } catch (e) {}
@@ -3501,7 +3713,7 @@ function showShareLinksModal() {
       const el = document.getElementById('shareLinksList');
       if (!el) return;
       if (!links.length) {
-        el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无分享链接</div>';
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('share.noLinks') + '</div>';
       } else {
         el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' + links.map(l => {
           const url = location.origin + '/s/' + l.code + (l.password ? '?pwd=' : '');
@@ -3541,7 +3753,7 @@ function showShareQRModalForCode(code) {
   const content = document.getElementById('qrModalContent');
   const urlEl = document.getElementById('qrModalUrl');
   if (modal && content && urlEl) {
-    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div>';
+    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div><div style="margin-top:8px;color:var(--text-muted);">' + T('msg.loading') + '</div>';
     urlEl.textContent = url;
     modal.classList.add('show');
     fetch(API + '/api/share/qr/' + code, { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
@@ -3550,10 +3762,10 @@ function showShareQRModalForCode(code) {
         if (qrData.success && qrData.dataUrl) {
           content.innerHTML = '<img src="' + qrData.dataUrl + '" style="border-radius:8px;max-width:256px;width:100%;" />';
         } else {
-          content.innerHTML = '<div style="color:var(--danger-fg);">生成失败</div>';
+          content.innerHTML = '<div style="color:var(--danger-fg);">' + T('err.genFailed') + '</div>';
         }
       })
-      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">请求失败</div>'; });
+      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">' + T('err.reqFailed') + '</div>'; });
   }
 }
 
@@ -4186,7 +4398,7 @@ function showShareQRModal() {
   const content = document.getElementById('qrModalContent');
   const urlEl = document.getElementById('qrModalUrl');
   if (modal && content && urlEl) {
-    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div>';
+    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div><div style="margin-top:8px;color:var(--text-muted);">' + T('msg.loading') + '</div>';
     urlEl.textContent = url;
     modal.classList.add('show');
     // Generate QR from URL (share code is embedded)
@@ -4198,10 +4410,10 @@ function showShareQRModal() {
         if (qrData.success && qrData.dataUrl) {
           content.innerHTML = '<img src="' + qrData.dataUrl + '" style="border-radius:8px;max-width:256px;width:100%;" />';
         } else {
-          content.innerHTML = '<div style="color:var(--danger-fg);">生成失败: ' + escapeHtml(qrData.error || '未知错误') + '</div>';
+          content.innerHTML = '<div style="color:var(--danger-fg);">' + T('err.genFailed') + ': ' + escapeHtml(qrData.error || T('err.unknown')) + '</div>';
         }
       })
-      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">请求失败: ' + escapeHtml(e.message) + '</div>'; });
+      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">' + T('err.reqFailed') + ': ' + escapeHtml(e.message || T('err.unknown')) + '</div>'; });
   }
 }
 
@@ -4343,7 +4555,7 @@ async function uploadFiles(files) {
     if (uploadQueue) {
       const retryBar = document.createElement('div');
       retryBar.style.cssText = 'display:flex;gap:8px;align-items:center;padding-top:8px;border-top:1px solid var(--border-color);margin-top:4px;';
-      retryBar.innerHTML = '<span style="color:var(--danger-fg,var(--danger));font-size:12px;">' + failCount + ' 个文件失败</span><button id="retryAllBtn" style="padding:4px 12px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;font-size:12px;cursor:pointer;">重试全部</button><button id="dismissQueueBtn" style="padding:4px 12px;background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border-color);border-radius:4px;font-size:12px;cursor:pointer;">关闭</button>';
+      retryBar.innerHTML = '<span style="color:var(--danger-fg,var(--danger));font-size:12px;">' + failCount + ' ' + T('file.numFiles') + ' ' + T('err.failed') + '</span><button id="retryAllBtn" style="padding:4px 12px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;font-size:12px;cursor:pointer;">' + T('msg.retry.all') + '</button><button id="dismissQueueBtn" style="padding:4px 12px;background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border-color);border-radius:4px;font-size:12px;cursor:pointer;">' + T('msg.close') + '</button>';
       uploadQueue.appendChild(retryBar);
       retryBar.querySelector('#retryAllBtn').onclick = () => retryAllFailed();
       retryBar.querySelector('#dismissQueueBtn').onclick = () => {
@@ -4746,7 +4958,7 @@ async function showTagManager() {
   const data = await res.json();
   const list = document.getElementById('tagManagerList');
   if (!data.success || !data.tags.length) {
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无标签</div>';
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('admin.noTags') + '</div>';
   } else {
     list.innerHTML = data.tags.map(t => {
       const color = t.color || '#667eea';
