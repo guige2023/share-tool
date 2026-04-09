@@ -525,6 +525,37 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/admin/rate-limit — get current rate limit config
+  if (pathname === '/api/admin/rate-limit' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    sendJson(res, { success: true, config: db.getRateLimitConfig() });
+    return true;
+  }
+
+  // POST /api/admin/rate-limit — update rate limit config
+  if (pathname === '/api/admin/rate-limit' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const updates = JSON.parse(body);
+        if (typeof updates !== 'object' || !updates) {
+          sendJson(res, { success: false, error: 'Invalid request body' }, 400);
+          return;
+        }
+        db.setRateLimitConfig(updates);
+        db.addAuditLog('rate_limit_update', JSON.stringify(updates), getClientIp(req), authData.token);
+        sendJson(res, { success: true, config: db.getRateLimitConfig() });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   // POST /api/admin/renew-cert — force renew HTTPS certificate
   if (pathname === '/api/admin/renew-cert' && method === 'POST') {
     const authData = authRequired(req, res);

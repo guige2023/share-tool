@@ -2180,6 +2180,11 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button class="btn btn-sm" onclick="showShareLinksModal()">管理分享链接</button>
       <button class="btn btn-sm" onclick="showTagManager()">🏷 标签管理</button>
     </div>
+    <div style="margin-top:12px;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🛡 暴力破解防护</div>
+      <div id="rateLimitStatus" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">加载中...</div>
+      <button class="btn btn-sm" onclick="showRateLimitModal()">配置</button>
+    </div>
   </div>
 
   <div class="card">
@@ -3604,6 +3609,61 @@ async function manualRenewCert() {
     }
   } catch (e) { showToast('续期请求失败', 'error'); }
   if (btn) { btn.disabled = false; btn.textContent = '🔄 手动续期'; }
+}
+
+async function loadRateLimitStatus() {
+  try {
+    const res = await fetch(API + '/api/admin/rate-limit', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (data.success) {
+      const c = data.config;
+      document.getElementById('rateLimitStatus').textContent = 'maxAttempts=' + c.maxAttempts + ', window=' + c.windowSeconds + 's, lockout=' + c.lockoutSeconds + 's';
+    } else {
+      document.getElementById('rateLimitStatus').innerHTML = '获取失败';
+    }
+  } catch (e) {
+    document.getElementById('rateLimitStatus').innerHTML = '获取失败';
+  }
+}
+
+async function showRateLimitModal() {
+  try {
+    const res = await fetch(API + '/api/admin/rate-limit', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.success) { showToast('fetch config failed', 'error'); return; }
+    const c = data.config;
+    var html = '<div style="display:flex;flex-direction:column;gap:16px;">';
+    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Max attempts</div>';
+    html += '<input type="number" id="rlMaxAttempts" value="' + c.maxAttempts + '" min="1" max="100" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
+    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Window (seconds)</div>';
+    html += '<input type="number" id="rlWindow" value="' + c.windowSeconds + '" min="60" max="86400" step="60" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
+    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Lockout (seconds)</div>';
+    html += '<input type="number" id="rlLockout" value="' + c.lockoutSeconds + '" min="30" max="86400" step="30" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
+    html += '<div style="font-size:11px;color:var(--text-muted);">Changes take effect immediately</div>';
+    html += '<button class="btn" onclick="saveRateLimitConfig()" style="width:100%;">Save</button></div>';
+    openModal('Rate Limit Config', html, 'modal-small');
+  } catch (e) { showToast('load failed', 'error'); }
+}
+
+async function saveRateLimitConfig() {
+  const maxAttempts = parseInt(document.getElementById('rlMaxAttempts').value);
+  const windowSeconds = parseInt(document.getElementById('rlWindow').value);
+  const lockoutSeconds = parseInt(document.getElementById('rlLockout').value);
+  try {
+    const res = await fetch(API + '/api/admin/rate-limit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ maxAttempts, windowSeconds, lockoutSeconds })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('配置已保存');
+      closeModal();
+      loadRateLimitStatus();
+    } else {
+      showToast('保存失败: ' + (data.error || '未知错误'), 'error');
+    }
+  } catch (e) { showToast('保存请求失败', 'error'); }
 }
 
 function updateTokenDisplay(token, expiresAt) {
