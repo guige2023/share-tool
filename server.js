@@ -3061,6 +3061,14 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 [data-theme="light"] .hljs-number,[data-theme="light"] .hljs-literal { color: #005cc5; }
 [data-theme="light"] .hljs-title,[data-theme="light"] .hljs-section { color: #6f42c1; }
 [data-theme="light"] .hljs-type,[data-theme="light"] .hljs-class { color: #22863a; }
+/* Mobile lightbox nav buttons: larger touch targets */
+@media (max-width: 500px) {
+  #imgNavPrev, #imgNavNext {
+    width: 52px !important;
+    height: 52px !important;
+    font-size: 26px !important;
+  }
+}
 </style>
 </head>
 <body>
@@ -6558,7 +6566,22 @@ function fabClicked() {
   }
 }
 function fabUpload() {
-  document.getElementById('fileInput').click();
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    // iOS Safari doesn't support webkitdirectory well — use plain file input instead
+    const fileInput = document.getElementById('fileInput');
+    fileInput.removeAttribute('webkitdirectory');
+    fileInput.removeAttribute('multiple');
+    const handler = () => {
+      fileInput.removeEventListener('change', handler);
+      fileInput.setAttribute('webkitdirectory', '');
+      fileInput.setAttribute('multiple', '');
+    };
+    fileInput.addEventListener('change', handler);
+    fileInput.click();
+  } else {
+    document.getElementById('fileInput').click();
+  }
   fabClicked(); // close menu
 }
 function fabText() {
