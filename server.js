@@ -530,6 +530,7 @@ const I18N = {
     'file.view': 'View',
     'file.play': 'Play',
     'file.history': 'History',
+    'file.info': 'Info',
     'file.addTag': 'Add tag',
     'file.dblclickRename': 'Double-click to rename',
     'file.enterFolder': 'Click to enter folder',
@@ -878,10 +879,11 @@ const I18N = {
     'share.createFailed': 'Failed to create share',
 
     // 文件状态
-    'file.share': 'Share',
+    'file.files': 'Files',
     'file.view': 'View',
     'file.play': 'Play',
     'file.history': 'History',
+    'file.info': 'Info',
     'file.addTag': 'Add tag',
     'file.dblclickRename': 'Double-click to rename',
     'file.enterFolder': 'Click to enter folder',
