@@ -197,6 +197,14 @@ function initSchemaV2(db) {
     if (!e.message.includes('duplicate column')) throw e;
   }
 
+  // v2 新增：tokens.refresh_token_expires_at
+  try {
+    db.exec("ALTER TABLE tokens ADD COLUMN refresh_token_expires_at INTEGER");
+    console.log('[DB] Migrated: tokens.refresh_token_expires_at');
+  } catch (e) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
+
   // v2 新增：devices.preferred_sync_strategy
   try {
     db.exec("ALTER TABLE devices ADD COLUMN preferred_sync_strategy TEXT DEFAULT 'incremental'");
