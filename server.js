@@ -472,6 +472,7 @@ const I18N = {
     'ui.trashEmpty': '清空回收站',
     'ui.trashRestore': '恢复',
     'ui.trashPermanentDelete': '永久删除',
+    'ui.trashExpiresIn': '{n} 天后自动删除',
     'ui.trashEmptyConfirm': '确定清空回收站？此操作不可恢复！',
     'ui.trashEmptyTitle': '回收站（30天后自动清理）',
     'ui.trashEmptyInfo': '选中项目将被永久删除',
@@ -882,6 +883,7 @@ const I18N = {
     'ui.trashEmpty': 'Empty Trash',
     'ui.trashRestore': 'Restore',
     'ui.trashPermanentDelete': 'Delete Forever',
+    'ui.trashExpiresIn': 'Auto-deletes in {n} days',
     'ui.trashEmptyConfirm': 'Empty trash? This cannot be undone!',
     'ui.trashEmptyTitle': 'Trash (auto-cleanup after 30 days)',
     'ui.trashEmptyInfo': 'Selected items will be permanently deleted',
@@ -5487,7 +5489,7 @@ document.addEventListener('keydown', (e) => {
   } else if (e.key === 'r' || e.key === 'R') {
     e.preventDefault();
     loadFiles();
-    showToast(T('admin.refreshed');
+    showToast(T('admin.refreshed'));
   } else if (e.key === '?') {
     e.preventDefault();
     lockScroll();
@@ -6596,7 +6598,7 @@ async function showTrashModal() {
       html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg-secondary);border-radius:8px;">' +
         '<div style="flex:1;min-width:0;">' +
         '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(item.filename) + '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);">' + ts + (size ? ' · ' + size : '') + ' · ' + T('ui.trash').replace('回收站', '') + expiresIn + '天后自动删除</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);">' + ts + (size ? ' · ' + size : '') + ' · ' + T('ui.trashExpiresIn').replace('{n}', expiresIn) + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;flex-shrink:0;">' +
         '<button class="btn btn-sm" onclick="restoreTrashItem(' + item.id + ')">' + T('ui.trashRestore') + '</button>' +
