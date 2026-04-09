@@ -116,6 +116,7 @@ const I18N = {
     'msg.copiedN': '已复制 {n} 个文件',
     'msg.copyFailedN': '已复制 {n} 个文件，{m} 个失败',
     'msg.copiedTo': '已复制 {n} 个文件到 {dest}',
+    'msg.batchStarred': '已收藏 {n} 个文件',
     'file.invalidName': '文件名无效',
     'file.retry': '重试',
     'file.storage': '存储',
@@ -861,6 +862,7 @@ const I18N = {
     'ui.selectedN': '{n} files selected',
     'ui.batchDownload': 'Download',
     'ui.batchTag': 'Tag',
+    'ui.batchStar': 'Star',
     'ui.batchCopy': 'Copy',
     'ui.batchDelete': 'Delete',
     'ui.batchCancel': 'Cancel',
@@ -1129,6 +1131,7 @@ const I18N = {
     'msg.copiedN': '{n} files copied',
     'msg.copyFailedN': '{n} copied, {m} failed',
     'msg.copiedTo': '{n} files copied to {dest}',
+    'msg.batchStarred': '{n} files starred',
     'msg.confirmDelete': 'Confirm delete {name}?',
     'msg.confirmDeleteAll': 'Delete all files?',
     'msg.confirmDeleteDays': 'Delete files older than {n} days?',
@@ -6408,6 +6411,26 @@ async function batchCopy() {
   } else {
     showToast(T('msg.copiedTo', { n: copied, dest: cleanPrefix }));
   }
+  clearBatch();
+
+async function batchStar() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  let starred = 0, errors = 0;
+  for (const cb of checked) {
+    const filename = decodeURIComponent(cb.value);
+    try {
+      const res = await fetch(API + '/api/star/' + encodeURIComponent(filename), {
+        method: 'POST',
+        headers: { 'x-auth-token': AUTH_TOKEN || '' }
+      });
+      const data = await res.json();
+      if (data.success && data.starred) starred++;
+      else if (data.success) starred++;
+      else errors++;
+    } catch (e) { errors++; }
+  }
+  showToast(T('msg.batchStarred').replace('{n}', starred));
   clearBatch();
   loadFiles();
 }
