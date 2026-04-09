@@ -14,6 +14,14 @@ const DEFAULT_URL = 'http://localhost:18790';
 const CHUNK_SIZE = 512 * 1024; // 512KB per chunk
 const MAX_HISTORY = 500;
 
+function formatSize(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
 function getConfig() {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
@@ -755,17 +763,29 @@ async function main() {
       }
 
       case 'stats': {
-        const res = await request('GET', '/api/db/stats');
+        const res = await request('GET', '/api/dashboard');
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
           process.exit(1);
         }
         const s = res.data;
-        console.log(`Files:    ${s.fileCount || 0}`);
-        console.log(`Storage:  ${((s.totalSize || 0) / 1024).toFixed(1)} KB`);
-        console.log(`Tokens:   ${s.tokenCount || 0}`);
-        console.log(`Shares:   ${s.shareCount || 0}`);
-        console.log(`Devices:  ${s.deviceCount || 0}`);
+        console.log('=== Dashboard Stats ===');
+        console.log(`Files:      ${s.fileCount || 0}`);
+        console.log(`Storage:    ${formatSize(s.totalSize || 0)}`);
+        console.log(`Starred:    ${s.starredCount || 0}`);
+        console.log(`Trash:      ${s.trashCount || 0}`);
+        console.log(`Shares:     ${s.shareCount || 0}`);
+        console.log(`Devices:    ${s.deviceCount || 0}`);
+        console.log(`Tokens:     ${s.tokenCount || 0}`);
+        if (s.syncStatus) {
+          console.log(`Sync:       ${s.syncStatus.lastSync || 'Never'}`);
+          console.log(`  Peers:   ${s.syncStatus.peerCount || 0}`);
+          console.log(`  Status:  ${s.syncStatus.status || 'unknown'}`);
+        }
+        if (s.versions) {
+          console.log(`Versions:   ${s.versions.totalVersions || 0}`);
+          console.log(`  Storage: ${formatSize(s.versions.totalVersionSize || 0)}`);
+        }
         break;
       }
 
