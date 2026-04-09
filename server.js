@@ -1731,6 +1731,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-grid .file-tag { font-size: 10px; padding: 2px 6px; }
 .file-grid .file-star { position: absolute; top: 8px; right: 8px; }
 .file-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: var(--bg-tertiary); border-radius: 10px; border: 1px solid var(--border-color); gap: 12px; touch-action: pan-y; user-select: none; position: relative; overflow: hidden; }
+.file-item.focused { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
 .file-item:hover { border-color: var(--text-muted); }
 .file-item .swipe-actions { position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 0; transform: translateX(100%); transition: transform 0.2s ease; }
 .file-item .swipe-actions.show { transform: translateX(0); }
@@ -2222,6 +2223,11 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <button class="modal-close" onclick="closeShortcutModal()">x</button>
     </div>
     <div class="shortcut-list">
+      <span class="shortcut-key">j / k</span><span class="shortcut-desc">上下移动文件焦点</span>
+      <span class="shortcut-key">x</span><span class="shortcut-desc">选中/取消选中文件</span>
+      <span class="shortcut-key">c</span><span class="shortcut-desc">复制选中文件链接</span>
+      <span class="shortcut-key">n</span><span class="shortcut-desc">新建上传</span>
+      <span class="shortcut-key">Delete</span><span class="shortcut-desc">删除焦点文件</span>
       <span class="shortcut-key">f</span><span class="shortcut-desc">切换收藏筛选</span>
       <span class="shortcut-key">r</span><span class="shortcut-desc">刷新文件列表</span>
       <span class="shortcut-key">/</span><span class="shortcut-desc">聚焦搜索框</span>
@@ -2266,6 +2272,7 @@ let currentPage = 1;
 let currentView = localStorage.getItem('sharetool_view') || 'list';
 const PAGE_SIZE = 20;
 let showFavoritesOnly = false;
+let focusedFileIndex = -1;   // keyboard-navigated file focus
 const lastSyncTs = parseInt(localStorage.getItem('sharetool_last_sync') || '0');
 const offlineQueue = JSON.parse(localStorage.getItem('sharetool_offline_queue') || '[]');
 const TAG_COLOR_PRESETS = ['#667eea','#f59e0b','#10b981','#ef4444','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316'];
@@ -3383,10 +3390,12 @@ document.addEventListener('keydown', (e) => {
     closeShortcutModal();
     closeAuditModal();
     closeTokenModal();
+    focusedFileIndex = -1;
+    refreshFileFocus();
   }
   // Don't interfere with typing in inputs (except / to override)
   const tag = e.target.tagName;
-  const isInput = tag === 'INPUT' || tag === 'TEXTAREA';
+  const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 
   if (e.key === '/') {
     e.preventDefault();
@@ -3395,6 +3404,10 @@ document.addEventListener('keydown', (e) => {
   } else if (isInput) {
     // Enter in search input triggers search
     if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+    // Escape in input: blur
+    if (e.key === 'Escape' && (tag === 'INPUT' || tag === 'TEXTAREA')) {
+      e.target.blur();
+    }
     return;
   } else if (e.key === 'f' || e.key === 'F') {
     e.preventDefault();
@@ -3406,8 +3419,70 @@ document.addEventListener('keydown', (e) => {
   } else if (e.key === '?') {
     e.preventDefault();
     document.getElementById('shortcutModal').classList.add('show');
+  } else if (e.key === 'n' || e.key === 'N') {
+    // n: new upload (trigger hidden file input)
+    e.preventDefault();
+    const inp = document.getElementById('fileInput');
+    if (inp) inp.click();
+  } else if (e.key === 'j' || e.key === 'J') {
+    // j: move focus down
+    e.preventDefault();
+    const items = getVisibleFileItems();
+    if (items.length === 0) return;
+    if (focusedFileIndex < 0) focusedFileIndex = 0;
+    else focusedFileIndex = Math.min(focusedFileIndex + 1, items.length - 1);
+    refreshFileFocus();
+    items[focusedFileIndex].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'k' || e.key === 'K') {
+    // k: move focus up
+    e.preventDefault();
+    const items = getVisibleFileItems();
+    if (items.length === 0) return;
+    if (focusedFileIndex < 0) focusedFileIndex = items.length - 1;
+    else focusedFileIndex = Math.max(focusedFileIndex - 1, 0);
+    refreshFileFocus();
+    items[focusedFileIndex].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'x' || e.key === 'X') {
+    // x: toggle select focused file
+    e.preventDefault();
+    const items = getVisibleFileItems();
+    if (focusedFileIndex >= 0 && items[focusedFileIndex]) {
+      const el = items[focusedFileIndex];
+      const cb = el.querySelector('.file-checkbox');
+      if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
+    }
+  } else if (e.key === 'c' || e.key === 'C') {
+    // c: copy share link of focused file
+    e.preventDefault();
+    const items = getVisibleFileItems();
+    if (focusedFileIndex >= 0 && items[focusedFileIndex]) {
+      const fn = items[focusedFileIndex].dataset.filename;
+      if (fn) copyShareLinkByFilename(decodeURIComponent(fn));
+    }
+  } else if ((e.key === 'Delete' || e.key === 'Backspace') && focusedFileIndex >= 0) {
+    // Delete: delete focused file (with confirmation)
+    e.preventDefault();
+    const items = getVisibleFileItems();
+    if (items[focusedFileIndex]) {
+      const fn = items[focusedFileIndex].dataset.filename;
+      if (fn && confirm('确定删除 ' + decodeURIComponent(fn) + '？')) {
+        deleteFile(decodeURIComponent(fn));
+      }
+    }
   }
 });
+
+function getVisibleFileItems() {
+  return Array.from(document.querySelectorAll('.file-item[data-filename]'));
+}
+
+function refreshFileFocus() {
+  document.querySelectorAll('.file-item.focused').forEach(el => el.classList.remove('focused'));
+  const items = getVisibleFileItems();
+  if (focusedFileIndex >= 0 && items[focusedFileIndex]) {
+    items[focusedFileIndex].classList.add('focused');
+  }
+}
 
 function applySearchHighlight(q) {
   if (!q || !q.trim()) return;
@@ -3640,6 +3715,36 @@ function copyShareLink() {
     document.execCommand('copy');
     showToast('✓ 链接已复制');
   });
+}
+
+async function copyShareLinkByFilename(filename) {
+  // Create a temporary share link for the file and copy it
+  try {
+    const res = await fetch(API + '/api/share/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ filename, expiryHours: 168 })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const url = window.location.origin + '/s/' + data.code;
+      navigator.clipboard.writeText(url).then(() => {
+        showToast('✓ 链接已复制到剪贴板');
+      }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        showToast('✓ 链接已复制到剪贴板');
+      });
+    } else {
+      showToast('创建分享链接失败');
+    }
+  } catch {
+    showToast('创建分享链接失败');
+  }
 }
 
 async function shareFile(filename) {
