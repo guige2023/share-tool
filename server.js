@@ -104,13 +104,14 @@ let broadcastTimer = null;
 // ============================================================
 // 速率限制（时间窗口桶）
 // ============================================================
-const rateLimitWindow = 60 * 1000; // 60秒窗口
-const rateLimitMax = 60; // 最多60次请求
-const rateLimitMap = new Map(); // ip -> [{timestamp}]
+// API 全局限流：基于时间窗口桶（内存 Map，进程重启即重置，符合 Ephemeral 原则）
+const RATE_LIMIT_GLOBAL_WINDOW_MS = 60 * 1000; // 60秒窗口
+const RATE_LIMIT_GLOBAL_MAX = 60;              // 最多60次
+const rateLimitMap = new Map();                 // ip -> [{timestamp}]
 
-function checkRateLimit(ip) {
+function checkGlobalRateLimit(ip) {
   const now = Date.now();
-  const windowStart = now - rateLimitWindow;
+  const windowStart = now - RATE_LIMIT_GLOBAL_WINDOW_MS;
 
   if (!rateLimitMap.has(ip)) {
     rateLimitMap.set(ip, []);
@@ -122,12 +123,13 @@ function checkRateLimit(ip) {
     requests.shift();
   }
 
-  if (requests.length >= rateLimitMax) {
-    return false; // 超限
+  const remaining = Math.max(0, RATE_LIMIT_GLOBAL_MAX - requests.length);
+  if (requests.length >= RATE_LIMIT_GLOBAL_MAX) {
+    return { allowed: false, retryAfter: 60, remaining: 0, total: RATE_LIMIT_GLOBAL_MAX };
   }
 
   requests.push(now);
-  return true;
+  return { allowed: true, remaining: remaining - 1, total: RATE_LIMIT_GLOBAL_MAX };
 }
 
 // ============================================================
@@ -451,11 +453,22 @@ function authRequired(req, res) {
   const clientIp = getClientIp(req);
   
   // 检查速率限制
-  if (!checkRateLimit(clientIp)) {
-    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
-    res.end(JSON.stringify({ success: false, error: 'Too Many Requests', retryAfter: 60 }));
+  const rate = checkGlobalRateLimit(clientIp);
+  if (!rate.allowed) {
+    res.writeHead(429, {
+      'Content-Type': 'application/json',
+      'Retry-After': String(rate.retryAfter || 60),
+      'X-RateLimit-Limit': String(rate.total),
+      'X-RateLimit-Remaining': '0',
+      'X-RateLimit-Reset': String(Math.ceil(Date.now() / 1000) + (rate.retryAfter || 60))
+    });
+    res.end(JSON.stringify({ success: false, error: 'Too Many Requests', retryAfter: rate.retryAfter || 60 }));
     return null;
   }
+  // 设置 RateLimit headers（即使未超限也返回）
+  res.setHeader('X-RateLimit-Limit', String(rate.total));
+  res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+  res.setHeader('X-RateLimit-Reset', String(Math.ceil(Date.now() / 1000) + 60));
   
   const authData = auth(req);
   if (!authData) {
@@ -780,11 +793,21 @@ async function startHttpServer() {
     // Skip rate limit for healthcheck, static assets
     if (!['/api/health', '/index', '/favicon'].some(p => pathname.startsWith(p))) {
       const clientIp = getClientIp(req);
-      if (!checkRateLimit(clientIp)) {
-        res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
-        res.end(JSON.stringify({ success: false, error: '请求过于频繁，请 60 秒后重试' }));
+      const rate = checkGlobalRateLimit(clientIp);
+      if (!rate.allowed) {
+        res.writeHead(429, {
+          'Content-Type': 'application/json',
+          'Retry-After': String(rate.retryAfter || 60),
+          'X-RateLimit-Limit': String(rate.total),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(Math.ceil(Date.now() / 1000) + (rate.retryAfter || 60))
+        });
+        res.end(JSON.stringify({ success: false, error: '请求过于频繁，请 60 秒后重试', retryAfter: rate.retryAfter || 60 }));
         return;
       }
+      res.setHeader('X-RateLimit-Limit', String(rate.total));
+      res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+      res.setHeader('X-RateLimit-Reset', String(Math.ceil(Date.now() / 1000) + 60));
     }
 
     const query = parsed.query;
