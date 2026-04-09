@@ -3742,9 +3742,10 @@ function doSearch() {
       // Show result count in sort-bar area
       const countEl = document.getElementById('searchResultCount');
       if (countEl) {
-        countEl.textContent = '找到 ' + currentFiles.length + ' 个结果';
+        countEl.textContent = currentFiles.length === 0 ? '未找到结果' : '找到 ' + currentFiles.length + ' 个结果';
         countEl.style.display = 'inline';
       }
+      updateTagFilterBar();
     })
     .catch(e => showAlert('listAlert', '搜索失败', 'error'));
 }

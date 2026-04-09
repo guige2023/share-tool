@@ -416,7 +416,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     results.forEach(f => {
       suggestions.push({ type: 'file', text: f.filename, icon: getFileIcon(f.filename), tag: null });
     });
-    // Tag matches from suggestion keywords
+    // Tag matches from suggestion keywords (from matched files)
     const allTags = new Set();
     results.forEach(f => { if (f.tags) f.tags.split(',').forEach(t => allTags.add(t.trim())); });
     const tagMatches = Array.from(allTags).filter(t => t.toLowerCase().includes(q.toLowerCase())).slice(0, 3);
@@ -424,6 +424,19 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
       const color = db.getTagColor ? db.getTagColor(t) : null;
       suggestions.push({ type: 'tag', text: t, icon: '🏷', color });
     });
+    // Direct tag search: also search tags directly if query looks like a tag search
+    // (no "tag:" prefix needed — if no file results but tags match, show tag suggestions)
+    if (results.length === 0 || !tagMatches.length) {
+      const allTagRows = db.getAllTagColors ? db.getAllTagColors() : [];
+      const directTagMatches = allTagRows
+        .filter(t => t.tag.toLowerCase().includes(q.toLowerCase()))
+        .slice(0, 3);
+      directTagMatches.forEach(t => {
+        if (!suggestions.find(s => s.type === 'tag' && s.text === t.tag)) {
+          suggestions.push({ type: 'tag', text: t.tag, icon: '🏷', color: t.color });
+        }
+      });
+    }
     sendJson(res, { success: true, suggestions });
     return true;
   }
