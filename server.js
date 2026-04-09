@@ -2900,6 +2900,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .search-bar .btn { width: 100%; }
   .search-bar input { min-height: 44px; /* touch target */ font-size: 16px; /* prevent iOS zoom */ }
   .sort-bar select, .share-link-box input, input[type="password"] { font-size: 16px; min-height: 44px; }
+  .file-grid { grid-template-columns: 1fr; }
+  .file-grid .file-item { flex-direction: row; min-height: 60px; }
   .search-suggestions { max-height: 250px; }
   .qr-section.show { display: block; }
   .conn-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-left: 8px; }
