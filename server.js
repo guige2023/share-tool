@@ -1022,7 +1022,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v2.85',
+          version: 'v2.86',
         });
         return;
       }
@@ -2288,6 +2288,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <span class="shortcut-key">x</span><span class="shortcut-desc">选中/取消选中文件</span>
       <span class="shortcut-key">c</span><span class="shortcut-desc">复制选中文件链接</span>
       <span class="shortcut-key">n</span><span class="shortcut-desc">新建上传</span>
+      <span class="shortcut-key">m</span><span class="shortcut-desc">快捷文字笔记</span>
       <span class="shortcut-key">Delete</span><span class="shortcut-desc">删除焦点文件</span>
       <span class="shortcut-key">f</span><span class="shortcut-desc">切换收藏筛选</span>
       <span class="shortcut-key">r</span><span class="shortcut-desc">刷新文件列表</span>
@@ -3646,6 +3647,16 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     const inp = document.getElementById('fileInput');
     if (inp) inp.click();
+  } else if (e.key === 'm' || e.key === 'M') {
+    // m: quick text note
+    e.preventDefault();
+    const textarea = document.getElementById('textContent');
+    const shareTextBtn = document.getElementById('shareTextBtn');
+    if (textarea && shareTextBtn) {
+      const shareModal = document.getElementById('shareTextModal');
+      if (shareModal) shareModal.classList.add('show');
+      textarea.focus();
+    }
   } else if (e.key === 'j' || e.key === 'J') {
     // j: move focus down
     e.preventDefault();
