@@ -1440,8 +1440,9 @@ const HTML_PAGE = `<!DOCTYPE html>
 :root {
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
-  --bg-tertiary: #0f172a;
-  --border-color: var(--border-color);
+  --bg-tertiary: #334155;
+  --bg-hover: #1e293b;
+  --border-color: #334155;
   --text-primary: #e2e8f0;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
@@ -1455,7 +1456,8 @@ const HTML_PAGE = `<!DOCTYPE html>
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
   --bg-tertiary: #f1f5f9;
-  --border-color: var(--text-primary);
+  --bg-hover: #e2e8f0;
+  --border-color: #cbd5e1;
   --text-primary: #1e293b;
   --text-secondary: #475569;
   --text-muted: #64748b;
@@ -1520,7 +1522,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .file-upload-area { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; background: var(--bg-tertiary); border: 2px dashed var(--border-color); border-radius: 12px; cursor: pointer; transition: all 0.2s; text-align: center; }
-.file-upload-area:hover { border-color: var(--accent-primary); background: #1a2744; }
+.file-upload-area:hover { border-color: var(--accent-primary); background: var(--bg-hover); }
 .file-upload-area input { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .file-upload-area .icon { font-size: 40px; margin-bottom: 12px; }
 .file-upload-area .text { color: var(--text-muted); font-size: 14px; }
@@ -1645,7 +1647,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .qr-section.show { display: block; }
   .conn-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-left: 8px; }
   .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
-  .conn-dot.connected { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
+  .conn-dot.connected { background: var(--success); box-shadow: 0 0 4px var(--success); }
   .storage-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); }
   .storage-bar progress { width: 80px; height: 6px; accent-color: var(--accent-primary); }
   .storage-text { font-size: 11px; color: var(--text-muted); }
@@ -1655,14 +1657,14 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
   .upload-progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.3s; }
   .file-star { cursor: pointer; font-size: 16px; color: var(--text-muted); transition: color 0.2s; user-select: none; }
-  .file-star:hover { color: #f5a623; }
-  .file-star.starred { color: #f5a623; }
-  .notif-badge { position: fixed; top: 12px; right: 12px; background: #e53935; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; z-index: 400; font-weight: bold; }
+  .file-star:hover { color: var(--warning); }
+  .file-star.starred { color: var(--warning); }
+  .notif-badge { position: fixed; top: 12px; right: 12px; background: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; z-index: 400; font-weight: bold; }
   .notif-badge.show { display: flex; }
   .filter-tab .kbd-hint { font-size: 9px; opacity: 0.6; }
 .fav-filter-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 14px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .fav-filter-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
-.fav-filter-btn.active { background: rgba(245,166,35,0.15); border-color: #f5a623; color: #f5a623; }
+.fav-filter-btn.active { background: rgba(217,119,6,0.15); border-color: var(--warning); color: var(--warning); }
 .shortcut-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; }
 .shortcut-key { font-family: monospace; background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border-color); }
 .shortcut-desc { color: var(--text-secondary); align-self: center; }
