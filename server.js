@@ -457,6 +457,7 @@ const I18N = {
     'ui.batchDownload': '下载',
     'ui.batchTag': '标签',
     'ui.batchStar': '收藏',
+    'ui.batchRename': '重命名',
     'ui.batchCopy': '复制',
     'ui.batchDelete': '删除',
     'ui.batchCancel': '取消',
@@ -870,6 +871,7 @@ const I18N = {
     'ui.batchDownload': 'Download',
     'ui.batchTag': 'Tag',
     'ui.batchStar': 'Star',
+    'ui.batchRename': 'Rename',
     'ui.batchCopy': 'Copy',
     'ui.batchDelete': 'Delete',
     'ui.batchCancel': 'Cancel',
@@ -3557,6 +3559,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button onclick="batchAddTag()">🏷 ' + T('ui.batchTag') + '</button>
       <button onclick="batchStar()">⭐ ' + T('ui.batchStar') + '</button>
       <button onclick="batchCopy()">📋 ' + T('ui.batchCopy') + '</button>
+      <button onclick="showBatchRenameModal()">✏️ ' + T('ui.batchRename') + '</button>
       <button class="danger" onclick="batchDelete()">🗑 ' + T('ui.batchDelete') + '</button>
       <button class="danger" onclick="clearBatch()">✕ ' + T('ui.batchCancel') + '</button>
     </div>
@@ -3667,6 +3670,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <div class="modal-meta" id="modalMeta"></div>
     <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="modalFooter" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-color);"></div>
     <div class="kbd-hint"><span class="kbd">Esc</span> close</div>
   </div>
 </div>
@@ -5220,6 +5224,8 @@ document.addEventListener('keydown', function(e) {
 function closeModal() {
   unlockScroll();
   document.getElementById('fileModal').classList.remove('show');
+  const footer = document.getElementById('modalFooter');
+  if (footer) footer.style.display = 'none';
 }
 
 function closeShortcutModal() {
@@ -7104,6 +7110,120 @@ async function batchAddTag() {
   }
   clearBatch();
   loadFiles();
+}
+
+function showBatchRenameModal() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  const filenames = Array.from(checked).map(cb => cb.value);
+  const body = document.getElementById('modalBody');
+  const previewList = filenames.slice(0, 5).map(f => '<div style="font-size:12px;color:var(--text-muted);word-break:break-all;">' + escapeHtml(decodeURIComponent(f)) + '</div>').join('');
+  const more = filenames.length > 5 ? '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">以及其他 ' + (filenames.length - 5) + ' 个文件</div>' : '';
+  body.innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:12px;">' +
+      '<div>' +
+        '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">操作类型</label>' +
+        '<select id="brOpType" onchange="onBrOpTypeChange(); updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;">' +
+          '<option value="replace">查找替换</option>' +
+          '<option value="prefix">添加前缀</option>' +
+          '<option value="suffix">添加后缀</option>' +
+          '<option value="case">切换大小写</option>' +
+        '</select>' +
+      '</div>' +
+      '<div id="brReplaceFields">' +
+        '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">查找</label>' +
+        '<input id="brFind" type="text" placeholder="要替换的文本" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+        '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;margin-top:8px;">替换为</label>' +
+        '<input id="brReplace" type="text" placeholder="替换为（留空则删除）" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+      '</div>' +
+      '<div id="brPrefixSuffixField" style="display:none;">' +
+        '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">文本</label>' +
+        '<input id="brText" type="text" placeholder="输入前缀或后缀" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+      '</div>' +
+      '<div id="brPreviewArea" style="background:var(--bg-tertiary);border-radius:8px;padding:12px;max-height:200px;overflow:auto;">' +
+        '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">预览（前5个）</div>' +
+        '<div id="brPreviewList">' + previewList + more + '</div>' +
+      '</div>' +
+    '</div>';
+  document.getElementById('modalTitle').textContent = '✏️ 批量重命名 (' + filenames.length + ' 个文件)';
+  document.getElementById('modalMeta').textContent = '';
+  const footer = document.getElementById('modalFooter');
+  footer.style.display = 'flex';
+  footer.style.gap = '8px';
+  footer.style.justifyContent = 'flex-end';
+  footer.innerHTML = '<button class="btn btn-sm" onclick="batchRename()">确认重命名</button><button class="btn btn-sm btn-secondary" onclick="closeModal()">取消</button>';
+  lockScroll();
+  document.getElementById('fileModal').classList.add('show');
+  window._batchRenameFiles = filenames;
+}
+
+function onBrOpTypeChange() {
+  const op = document.getElementById('brOpType').value;
+  const replaceFields = document.getElementById('brReplaceFields');
+  const prefixSuffixField = document.getElementById('brPrefixSuffixField');
+  if (replaceFields) replaceFields.style.display = op === 'replace' ? 'block' : 'none';
+  if (prefixSuffixField) prefixSuffixField.style.display = op === 'replace' ? 'none' : 'block';
+}
+
+function updateBatchRenamePreview() {
+  const op = document.getElementById('brOpType').value;
+  const find = (document.getElementById('brFind') || {}).value || '';
+  const repl = (document.getElementById('brReplace') || {}).value || '';
+  const text = (document.getElementById('brText') || {}).value || '';
+  const files = window._batchRenameFiles || [];
+  const preview = files.slice(0, 5).map(f => {
+    const fn = decodeURIComponent(f);
+    const ext = fn.includes('.') ? fn.split('.').pop() : '';
+    const base = ext ? fn.slice(0, -(ext.length + 1)) : fn;
+    let newBase = base;
+    if (op === 'replace') newBase = find ? base.split(find).join(repl) : base;
+    else if (op === 'prefix') newBase = text + base;
+    else if (op === 'suffix') newBase = base + text;
+    else if (op === 'case') newBase = base === base.toLowerCase() ? base.toUpperCase() : base.toLowerCase();
+    const newFn = ext ? newBase + '.' + ext : newBase;
+    const changed = newFn !== fn;
+    return '<div style="font-size:12px;word-break:break-all;margin:3px 0;">' +
+      (changed ? '<span style="color:var(--text-muted);text-decoration:line-through;">' + escapeHtml(fn) + '</span> → <span style="color:var(--success-fg);">' + escapeHtml(newFn) + '</span>' :
+       '<span>' + escapeHtml(fn) + '</span>') + '</div>';
+  }).join('');
+  const more = files.length > 5 ? '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">以及其他 ' + (files.length - 5) + ' 个文件</div>' : '';
+  const el = document.getElementById('brPreviewList');
+  if (el) el.innerHTML = preview + more;
+}
+
+async function batchRename() {
+  const op = document.getElementById('brOpType').value;
+  const find = (document.getElementById('brFind') || {}).value || '';
+  const repl = (document.getElementById('brReplace') || {}).value || '';
+  const text = (document.getElementById('brText') || {}).value || '';
+  const files = window._batchRenameFiles || [];
+  let renamed = 0, failed = 0;
+  for (const oldEnc of files) {
+    const oldFn = decodeURIComponent(oldEnc);
+    const ext = oldFn.includes('.') ? oldFn.split('.').pop() : '';
+    const base = ext ? oldFn.slice(0, -(ext.length + 1)) : oldFn;
+    let newBase = base;
+    if (op === 'replace') newBase = find ? base.split(find).join(repl) : base;
+    else if (op === 'prefix') newBase = text + base;
+    else if (op === 'suffix') newBase = base + text;
+    else if (op === 'case') newBase = base === base.toLowerCase() ? base.toUpperCase() : base.toLowerCase();
+    const newFn = ext ? newBase + '.' + ext : newBase;
+    if (newFn === oldFn) continue;
+    try {
+      const res = await fetch(API + '/api/file-rename/' + oldEnc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ newFilename: newFn.trim() })
+      });
+      const data = await res.json();
+      if (data.success) renamed++;
+      else failed++;
+    } catch (e) { failed++; }
+  }
+  closeModal();
+  clearBatch();
+  loadFiles();
+  if (renamed > 0) showToast('已重命名 ' + renamed + ' 个文件' + (failed > 0 ? '，' + failed + ' 个失败' : ''));
 }
 
 // Favorites (localStorage)
