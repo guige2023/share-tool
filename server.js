@@ -1479,7 +1479,11 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .file-item:hover { border-color: var(--text-muted); }
 [data-theme="dark"] .code-box { background: #0f172a; border-color: #334155; color: #86efac; }
 [data-theme="dark"] .modal-content { background: var(--bg-secondary); border-color: var(--border-color); }
+[data-theme="dark"] .modal-overlay { background: rgba(0,0,0,0.85); }
 [data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,0.7); }
+[data-theme="dark"] .modal-close { color: var(--text-muted); }
+[data-theme="dark"] .modal-close:hover { color: var(--text-primary); }
+[data-theme="dark"] .qr-modal-overlay { background: rgba(0,0,0,0.9); }
 [data-theme="dark"] select { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); }
 [data-theme="dark"] ::-webkit-scrollbar { background: var(--bg-secondary); }
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); }
@@ -1664,7 +1668,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .filter-tab .kbd-hint { font-size: 9px; opacity: 0.6; }
 .fav-filter-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 14px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .fav-filter-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
-.fav-filter-btn.active { background: rgba(217,119,6,0.15); border-color: var(--warning); color: var(--warning); }
+.fav-filter-btn.active { background: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
 .shortcut-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; }
 .shortcut-key { font-family: monospace; background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border-color); }
 .shortcut-desc { color: var(--text-secondary); align-self: center; }
