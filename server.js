@@ -3338,13 +3338,18 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   z-index: 1;
 }
 .markdown-body pre:hover .copy-btn { opacity: 1; }
+/* Mobile/touch: always show copy button */
+@media (hover: none) and (pointer: coarse) {
+  .markdown-body pre .copy-btn { opacity: 1; }
+}
 .markdown-body pre .copy-btn:hover { color: var(--accent-primary); border-color: var(--accent-primary); }
 .markdown-body pre .copy-btn.copied { color: var(--success, #10b981); border-color: var(--success, #10b981); }
 /* Task list */
 .markdown-body input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent-primary); }
-/* Code syntax highlighting theme */
-.markdown-body pre { background: var(--bg-tertiary); border-radius: 8px; padding: 12px; overflow-x: auto; }
-.markdown-body code { background: var(--bg-tertiary); border-radius: 4px; padding: 2px 6px; font-size: 0.9em; }
+/* TOC hover */
+.md-toc div:hover { color: var(--accent-secondary); }
+/* External links in markdown open in new tab */
+.markdown-body a[href^="http"] { target: "_blank"; rel: "noopener noreferrer"; }
 .markdown-body pre code { background: none; padding: 0; }
 /* Override hljs colors for light mode to use softer background */
 [data-theme="light"] .hljs { background: var(--bg-tertiary); color: #24292e; }
