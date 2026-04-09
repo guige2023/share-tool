@@ -275,14 +275,18 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // GET /api/search?q=xxx&tags=xxx — 搜索文件
+  // GET /api/search?q=xxx&tags=xxx&size_min=&size_max=&date_from=&date_to= — 高级搜索
   if (pathname === '/api/search' && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const q = (parsed.query.q || '').trim();
     const tags = parsed.query.tags || null;
     const fuzzy = parsed.query.fuzzy !== 'false';
-    const files = db.searchFiles(q, tags, { fuzzy, limit: 200 });
+    const size_min = parsed.query.size_min ? parseInt(parsed.query.size_min) : null;
+    const size_max = parsed.query.size_max ? parseInt(parsed.query.size_max) : null;
+    const date_from = parsed.query.date_from ? parseInt(parsed.query.date_from) : null;
+    const date_to = parsed.query.date_to ? parseInt(parsed.query.date_to) : null;
+    const files = db.searchFiles(q, tags, { fuzzy, limit: 200, size_min, size_max, date_from, date_to });
     sendJson(res, { success: true, files, query: q, count: files.length });
     return true;
   }

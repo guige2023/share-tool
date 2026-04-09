@@ -491,15 +491,19 @@ const I18N = {
     'ui.shortcuts': '快捷键',
     'ui.shortcutHelp': '? 查看快捷键',
     'ui.shortcutNewUpload': 'N 上传文件',
-    'ui.shortcutSearch': 'F 搜索',
-    'ui.shortcutCopyLink': 'L 复制链接',
-    'ui.shortcutToggleFav': 'S 收藏',
+    'ui.shortcutSearch': '/ 搜索',
+    'ui.shortcutCopyLink': 'C 复制链接',
+    'ui.shortcutToggleFav': 'F 收藏筛选',
     'ui.shortcutToggleSelect': 'X 选中/取消',
     'ui.shortcutRefresh': 'R 刷新',
     'ui.shortcutClose': 'Esc 关闭',
-    'ui.shortcutMoveFocus': 'Tab 移动焦点',
+    'ui.shortcutMoveFocus': 'J/K 上下移动焦点',
     'ui.shortcutDeleteFocused': 'Del 删除焦点项',
-    'ui.shortcutTextNote': 'T 文字笔记',
+    'ui.shortcutTextNote': 'M 文字笔记',
+    'ui.shortcutSelectAll': 'A 全选/取消全选',
+    'ui.shortcutStarFocused': 'S 收藏当前文件',
+    'ui.shortcutGoRoot': 'G 回到根目录',
+    'ui.shortcutImageNav': '← → 图片左右切换',
     'ui.listView': '列表视图',
     'ui.gridView': '网格视图',
     'ui.resultsFound': '找到 {n} 个结果',
@@ -902,16 +906,20 @@ const I18N = {
     'ui.trashNoItems': 'Trash is empty',
     'ui.shortcuts': 'Shortcuts',
     'ui.shortcutHelp': '? View shortcuts',
-    'ui.shortcutNewUpload': 'N Upload',
-    'ui.shortcutSearch': 'F Search',
-    'ui.shortcutCopyLink': 'L Copy link',
-    'ui.shortcutToggleFav': 'S Favorite',
+    'ui.shortcutNewUpload': 'N Upload file',
+    'ui.shortcutSearch': '/ Search',
+    'ui.shortcutCopyLink': 'C Copy link',
+    'ui.shortcutToggleFav': 'F Favorite filter',
     'ui.shortcutToggleSelect': 'X Toggle select',
     'ui.shortcutRefresh': 'R Refresh',
     'ui.shortcutClose': 'Esc Close',
-    'ui.shortcutMoveFocus': 'Tab Move focus',
-    'ui.shortcutDeleteFocused': 'Del Delete',
-    'ui.shortcutTextNote': 'T Text note',
+    'ui.shortcutMoveFocus': 'J/K Move focus',
+    'ui.shortcutDeleteFocused': 'Del Delete focused',
+    'ui.shortcutTextNote': 'M Text note',
+    'ui.shortcutSelectAll': 'A Select all',
+    'ui.shortcutStarFocused': 'S Star focused',
+    'ui.shortcutGoRoot': 'G Go to root',
+    'ui.shortcutImageNav': '← → Image nav',
     'ui.listView': 'List view',
     'ui.gridView': 'Grid view',
     'ui.resultsFound': '{n} results found',
@@ -3803,14 +3811,18 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="shortcut-list">
       <span class="shortcut-key">j / k</span><span class="shortcut-desc">' + T('ui.shortcutMoveFocus') + '</span>
       <span class="shortcut-key">x</span><span class="shortcut-desc">' + T('ui.shortcutToggleSelect') + '</span>
+      <span class="shortcut-key">a</span><span class="shortcut-desc">' + T('ui.shortcutSelectAll') + '</span>
+      <span class="shortcut-key">s</span><span class="shortcut-desc">' + T('ui.shortcutStarFocused') + '</span>
       <span class="shortcut-key">c</span><span class="shortcut-desc">' + T('ui.shortcutCopyLink') + '</span>
       <span class="shortcut-key">n</span><span class="shortcut-desc">' + T('ui.shortcutNewUpload') + '</span>
       <span class="shortcut-key">m</span><span class="shortcut-desc">' + T('ui.shortcutTextNote') + '</span>
+      <span class="shortcut-key">g</span><span class="shortcut-desc">' + T('ui.shortcutGoRoot') + '</span>
       <span class="shortcut-key">Delete</span><span class="shortcut-desc">' + T('ui.shortcutDeleteFocused') + '</span>
       <span class="shortcut-key">f</span><span class="shortcut-desc">' + T('ui.shortcutToggleFav') + '</span>
       <span class="shortcut-key">r</span><span class="shortcut-desc">' + T('ui.shortcutRefresh') + '</span>
       <span class="shortcut-key">/</span><span class="shortcut-desc">' + T('ui.shortcutSearch') + '</span>
       <span class="shortcut-key">Esc</span><span class="shortcut-desc">' + T('ui.shortcutClose') + '</span>
+      <span class="shortcut-key">← →</span><span class="shortcut-desc">' + T('ui.shortcutImageNav') + '</span>
       <span class="shortcut-key">?</span><span class="shortcut-desc">' + T('ui.shortcutHelp') + '</span>
     </div>
   </div>
@@ -5716,6 +5728,25 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       imageNav(1);
     }
+  } else if (e.key === 's' || e.key === 'S') {
+    // s: star/favorite focused file
+    e.preventDefault();
+    const items = getVisibleFileItems();
+    if (focusedFileIndex >= 0 && items[focusedFileIndex]) {
+      const fn = items[focusedFileIndex].dataset.filename;
+      if (fn) toggleFavorite(decodeURIComponent(fn));
+    }
+  } else if (e.key === 'a' || e.key === 'A') {
+    // a: select all files
+    e.preventDefault();
+    const cbs = document.querySelectorAll('.batch-checkbox');
+    const allChecked = Array.from(cbs).every(cb => cb.checked);
+    cbs.forEach(cb => cb.checked = !allChecked);
+    updateBatchBar();
+  } else if (e.key === 'g' || e.key === 'G') {
+    // g: go to root (when not in input)
+    e.preventDefault();
+    if (currentPath !== '/') { currentPath = '/'; loadFiles(); }
   } else if (e.key === 'j' || e.key === 'J') {
     // j: move focus down
     e.preventDefault();

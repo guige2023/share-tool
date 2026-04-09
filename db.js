@@ -776,9 +776,30 @@ function tokenizeQuery(query) {
  */
 function searchFiles(query, tags = null, opts = {}) {
   const db = getDb();
-  const { limit = 100, fuzzy = true } = opts;
+  const { limit = 100, fuzzy = true, size_min, size_max, date_from, date_to } = opts;
 
-  if (!query && !tags) {
+  // 构建 size 和 date 的 SQL 过滤条件
+  const extraConditions = [];
+  const extraParams = [];
+  if (size_min != null) {
+    extraConditions.push('size >= ?');
+    extraParams.push(parseInt(size_min));
+  }
+  if (size_max != null) {
+    extraConditions.push('size <= ?');
+    extraParams.push(parseInt(size_max));
+  }
+  if (date_from != null) {
+    extraConditions.push('created_at >= ?');
+    extraParams.push(parseInt(date_from));
+  }
+  if (date_to != null) {
+    extraConditions.push('created_at <= ?');
+    extraParams.push(parseInt(date_to));
+  }
+  const extraWhere = extraConditions.length > 0 ? ' AND ' + extraConditions.join(' AND ') : '';
+
+  if (!query && !tags && !extraWhere) {
     return db.prepare(`SELECT ${FILE_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
   }
 
@@ -793,13 +814,13 @@ function searchFiles(query, tags = null, opts = {}) {
 
   const queryTokens = tokenizeQuery(cleanQuery);
 
-  // 如果没有查询词，只有标签过滤：直接用 SQLite
+  // 如果没有查询词，只有标签过滤 + size/date：直接用 SQLite
   if (queryTokens.length === 0 && tags && !contentQuery) {
     const tagList = tags.split(',').map(t => t.trim().toLowerCase());
     const tagConditions = tagList.map(() => `LOWER(tags) LIKE ?`).join(' AND ');
     const tagParams = tagList.map(t => `%${t}%`);
-    return db.prepare(`SELECT ${FILE_FIELDS} FROM files WHERE ${tagConditions} ORDER BY created_at DESC LIMIT ?`)
-      .all(...tagParams, limit);
+    return db.prepare(`SELECT ${FILE_FIELDS} FROM files WHERE ${tagConditions}${extraWhere} ORDER BY created_at DESC LIMIT ?`)
+      .all(...tagParams, ...extraParams, limit);
   }
 
   // 有查询词：先用 SQLite LIKE 过滤候选集（避免全表扫描）
@@ -815,15 +836,15 @@ function searchFiles(query, tags = null, opts = {}) {
     // 限制候选集上限，避免 LIKE %% 全表扫描返回过多结果
     const candidateLimit = 500;
     candidateFiles = db.prepare(
-      `SELECT ${FILE_FIELDS} FROM files WHERE ${conditions.join(' OR ')} LIMIT ?`
-    ).all(...params, candidateLimit);
+      `SELECT ${FILE_FIELDS} FROM files WHERE ${conditions.join(' OR ')}${extraWhere} LIMIT ?`
+    ).all(...params, ...extraParams, candidateLimit);
   } else if (contentQuery && !queryTokens.length && !tags) {
     // 只有 content: 搜索：搜所有 text 类型文件
     candidateFiles = db.prepare(
-      `SELECT ${FILE_FIELDS} FROM files WHERE type = 'text' ORDER BY created_at DESC LIMIT ?`
-    ).all(limit);
+      `SELECT ${FILE_FIELDS} FROM files WHERE type = 'text'${extraWhere} ORDER BY created_at DESC LIMIT ?`
+    ).all(...extraParams, limit);
   } else {
-    candidateFiles = db.prepare(`SELECT ${FILE_FIELDS} FROM files`).all();
+    candidateFiles = db.prepare(`SELECT ${FILE_FIELDS} FROM files${extraWhere}`).all(...extraParams);
   }
 
   if (queryTokens.length === 0 && !tags && !contentQuery) {
