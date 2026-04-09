@@ -3392,10 +3392,11 @@ function renderFiles() {
   }
   
   if (files.length === 0) {
+    const searchMode = !!window.currentSearchQ;
     container.innerHTML = '<div class="empty" id="emptyState">' +
-      '<div class="empty-icon">📭</div>' +
-      '<div class="empty-text">暂无分享内容</div>' +
-      '<div class="empty-text" style="font-size:12px;margin-top:8px;">上传文件或分享文字开始使用</div>' +
+      '<div class="empty-icon">' + (searchMode ? '🔍' : '📭') + '</div>' +
+      '<div class="empty-text">' + (searchMode ? '未找到匹配结果' : '暂无分享内容') + '</div>' +
+      '<div class="empty-text" style="font-size:12px;margin-top:8px;">' + (searchMode ? '尝试其他关键词或清除筛选' : '上传文件或分享文字开始使用') + '</div>' +
       '</div>';
     container.classList.remove('file-list', 'file-grid');
     container.classList.add(currentView === 'grid' ? 'file-grid' : 'file-list');
