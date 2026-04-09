@@ -2949,6 +2949,16 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .progress-bar { background: var(--bg-secondary); }
 [data-theme="dark"] .file-upload-area { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="dark"] .file-preview { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
+[data-theme="dark"] .filter-tab { background: var(--bg-tertiary); color: var(--text-muted); border-color: var(--border-color); }
+[data-theme="dark"] .filter-tab:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+[data-theme="dark"] .filter-tab.active { background: rgba(102,126,234,0.25); border-color: var(--accent-primary); color: var(--text-primary); }
+[data-theme="dark"] .batch-bar { background: var(--bg-tertiary); }
+[data-theme="dark"] .batch-bar button { background: var(--accent-primary); color: #fff; }
+[data-theme="dark"] .batch-bar button.danger { background: var(--danger); color: #fff; }
+[data-theme="dark"] .file-info-header { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .sort-bar { color: var(--text-muted); }
+[data-theme="dark"] .tag-filter-bar { color: var(--text-muted); }
+[data-theme="dark"] .view-toggle { background: var(--bg-tertiary); border-color: var(--border-color); }
 
 /* ============================================================ */
 /* File Info Side Panel */

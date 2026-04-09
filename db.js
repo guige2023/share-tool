@@ -353,6 +353,34 @@ function initSchemaV5(db) {
   } catch (e) {
     if (!e.message.includes('duplicate table')) throw e;
   }
+
+  // file_versions 表（可能在旧数据库中缺失）
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS file_versions (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_id      INTEGER NOT NULL,
+        filename     TEXT    NOT NULL,
+        content      TEXT,
+        size         INTEGER NOT NULL DEFAULT 0,
+        hash         TEXT,
+        created_at   INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_file_versions_file_id ON file_versions(file_id)`);
+    console.log('[DB] Migrated: file_versions table');
+  } catch (e) {
+    if (!e.message.includes('duplicate table')) throw e;
+  }
+
+  // 修复旧数据库缺少的列
+  const alterStatements = [
+    `ALTER TABLE files ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE files ADD COLUMN encrypted INTEGER NOT NULL DEFAULT 0`,
+  ];
+  for (const sql of alterStatements) {
+    try { db.exec(sql); console.log('[DB] Altered: ' + sql.split('ADD COLUMN ')[1]); } catch (e) { /* ignore */ }
+  }
 }
 
 function runMigrations(db, fromVersion) {
