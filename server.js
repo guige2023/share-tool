@@ -407,6 +407,7 @@ const I18N = {
     'ui.recentShares': '最近分享',
     'ui.searchPlaceholder': '搜索文件名...',
     'ui.filterByTag': '标签筛选',
+    'ui.searchTags': '搜索标签...',
     'ui.clearFilter': '清除筛选',
     'ui.noFiles': '暂无分享内容',
     'ui.noFilesHint': '上传文件或分享文字开始使用',
@@ -770,6 +771,7 @@ const I18N = {
     'ui.recentShares': 'Recent Shares',
     'ui.searchPlaceholder': 'Search filenames...',
     'ui.filterByTag': 'Filter by tag',
+    'ui.searchTags': 'Search tags...',
     'ui.clearFilter': 'Clear filter',
     'ui.noFiles': 'No shared content yet',
     'ui.noFilesHint': 'Upload files or share text to get started',
@@ -3395,6 +3397,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div class="modal-title">' + T('tag.manager') + '</div>
       <button class="modal-close" onclick="closeTagManager()">x</button>
     </div>
+    <input type="text" id="tagManagerSearch" placeholder="' + T('ui.searchTags') + '" style="width:100%;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;margin-bottom:12px;box-sizing:border-box;" oninput="filterTagManagerList(this.value)">
     <div id="tagManagerList" style="display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
@@ -5932,22 +5935,11 @@ async function deleteVersion(versionId) {
 async function showTagManager() {
   const res = await fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
   const data = await res.json();
-  const list = document.getElementById('tagManagerList');
-  if (!data.success || !data.tags.length) {
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('admin.noTags') + '</div>';
-  } else {
-    list.innerHTML = data.tags.map(t => {
-      const color = t.color || '#667eea';
-      const tagEsc = escapeHtml(t.tag);
-      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;">' +
-        '<input type="color" value="' + color + '" style="width:24px;height:24px;border:none;background:none;cursor:pointer;padding:0;border-radius:4px;" title="' + T('tag.clickChangeColor') + '" onchange="updateTagColor(\'' + tagEsc + '\', this.value)">' +
-        '<span style="flex:1;font-size:13px;">' + tagEsc + '</span>' +
-        '<span style="font-size:11px;color:var(--text-muted);">' + t.count + T('tag.count') + '</span>' +
-        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="renameTag(\'' + tagEsc + '\')">' + T('tag.rename') + '</button>' +
-        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteTag(\'' + tagEsc + '\')">' + T('tag.delete') + '</button>' +
-      '</div>';
-    }).join('');
-  }
+  _tagManagerData = (data.success && data.tags) ? data.tags : [];
+  // Reset search filter on open
+  const searchInput = document.getElementById('tagManagerSearch');
+  if (searchInput) searchInput.value = '';
+  renderTagManagerItems(_tagManagerData);
   lockScroll();
   document.getElementById('tagManagerModal').classList.add('show');
 }
@@ -5955,6 +5947,35 @@ async function showTagManager() {
 function closeTagManager() {
   unlockScroll();
   document.getElementById('tagManagerModal').classList.remove('show');
+}
+
+let _tagManagerData = [];  // cache for filtering
+function filterTagManagerList(q) {
+  const list = document.getElementById('tagManagerList');
+  if (!q.trim()) {
+    renderTagManagerItems(_tagManagerData);
+    return;
+  }
+  const lq = q.toLowerCase();
+  renderTagManagerItems(_tagManagerData.filter(t => t.tag.toLowerCase().includes(lq)));
+}
+function renderTagManagerItems(tags) {
+  const list = document.getElementById('tagManagerList');
+  if (!tags.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('admin.noTags') + '</div>';
+    return;
+  }
+  list.innerHTML = tags.map(t => {
+    const color = t.color || '#667eea';
+    const tagEsc = escapeHtml(t.tag);
+    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;">' +
+      '<input type="color" value="' + color + '" style="width:24px;height:24px;border:none;background:none;cursor:pointer;padding:0;border-radius:4px;" title="' + T('tag.clickChangeColor') + '" onchange="updateTagColor(\'' + tagEsc + '\', this.value)">' +
+      '<span style="flex:1;font-size:13px;">' + tagEsc + '</span>' +
+      '<span style="font-size:11px;color:var(--text-muted);">' + t.count + T('tag.count') + '</span>' +
+      '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="renameTag(\'' + tagEsc + '\')">' + T('tag.rename') + '</button>' +
+      '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteTag(\'' + tagEsc + '\')">' + T('tag.delete') + '</button>' +
+    '</div>';
+  }).join('');
 }
 
 async function renameTag(oldTag) {
