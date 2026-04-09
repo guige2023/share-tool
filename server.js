@@ -1715,6 +1715,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .file-upload-area { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; background: var(--bg-tertiary); border: 2px dashed var(--border-color); border-radius: 12px; cursor: pointer; transition: all 0.2s; text-align: center; }
 .file-upload-area:hover { border-color: var(--accent-primary); background: var(--bg-hover); }
+.file-upload-area.drag-over { border-color: var(--accent-primary); background: rgba(102,126,234,0.1); transform: scale(1.02); }
 .file-upload-area input { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .file-upload-area .icon { font-size: 40px; margin-bottom: 12px; }
 .file-upload-area .text { color: var(--text-muted); font-size: 14px; }
@@ -4122,13 +4123,19 @@ async function init() {
   
   // Drag and drop
   const dropZone = document.getElementById('dropZone');
-  if (dropZone) {
+  const fileUploadArea = document.querySelector('.file-upload-area');
+  const dragTargets = [dropZone, fileUploadArea].filter(Boolean);
+
+  dragTargets.forEach(el => {
     ['dragenter','dragover'].forEach(evt => {
-      dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+      el.addEventListener(evt, (e) => { e.preventDefault(); el.classList.add('drag-over'); });
     });
     ['dragleave','drop'].forEach(evt => {
-      dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.remove('drag-over'); });
+      el.addEventListener(evt, (e) => { e.preventDefault(); el.classList.remove('drag-over'); });
     });
+  });
+
+  if (dropZone) {
     dropZone.addEventListener('drop', (e) => {
       const files = e.dataTransfer.files;
       if (files.length > 0) {
