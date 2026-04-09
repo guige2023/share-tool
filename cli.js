@@ -279,6 +279,7 @@ async function main() {
     console.log('  share <text>   Share text snippet');
     console.log('  sync           Trigger sync push');
     console.log('  stats          Show storage stats');
+    console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
     console.log('  config         Show all config');
     console.log('  config get <key>        Get a config value');
@@ -488,6 +489,66 @@ async function main() {
         console.log(`Tokens:   ${s.tokenCount || 0}`);
         console.log(`Shares:   ${s.shareCount || 0}`);
         console.log(`Devices:  ${s.deviceCount || 0}`);
+        break;
+      }
+
+      case 'export': {
+        let outputDir = args.indexOf('-o') !== -1 ? args[args.indexOf('-o') + 1] : process.cwd();
+        console.log(`Exporting files to: ${outputDir}`);
+        const listRes = await request('GET', '/api/list?limit=10000');
+        if (listRes.status >= 400) {
+          printError(`Server error: ${listRes.status}`);
+          process.exit(1);
+        }
+        const files = listRes.data.files || [];
+        if (files.length === 0) {
+          console.log('No files to export.');
+          break;
+        }
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true });
+        }
+        let exported = 0;
+        let errors = 0;
+        for (const f of files) {
+          const name = f.filename || f.name;
+          const contentRes = await new Promise((resolve) => {
+            const serverUrl = getServerUrl();
+            const parsedUrl = parseUrl(serverUrl, `/content/${encodeURIComponent(name)}`);
+            const isHttps = parsedUrl.protocol === 'https:';
+            const client = isHttps ? https : http;
+            const token = getToken();
+            const reqOptions = {
+              hostname: parsedUrl.hostname,
+              port: parsedUrl.port || (isHttps ? 443 : 80),
+              path: parsedUrl.pathname,
+              method: 'GET',
+              headers: token ? { 'x-auth-token': token } : {}
+            };
+            const req = client.request(reqOptions, (res) => {
+              const chunks = [];
+              res.on('data', c => chunks.push(c));
+              res.on('end', () => {
+                const buf = Buffer.concat(chunks);
+                resolve({ status: res.statusCode, data: buf });
+              });
+            });
+            req.on('error', () => resolve({ status: 0, data: null }));
+            req.end();
+          });
+          if (contentRes.status === 200 && contentRes.data) {
+            const outPath = path.join(outputDir, name);
+            const dir = path.dirname(outPath);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(outPath, contentRes.data);
+            exported++;
+            process.stdout.write(`\rExported ${exported}/${files.length}: ${name}`);
+          } else {
+            errors++;
+            process.stdout.write(`\rError ${contentRes.status}: ${name}`);
+          }
+        }
+        console.log(`\nDone: ${exported} exported, ${errors} errors.`);
         break;
       }
 
