@@ -288,6 +288,7 @@ const I18N = {
     'admin.rateLimitConfig': '配置',
     'admin.loaded': '加载中...',
     'admin.getFailed': '获取日志失败',
+    'admin.exported': '审计日志已导出',
     'admin.opts': '可选',
     'share.noLinks': '暂无分享链接',
 
@@ -655,6 +656,7 @@ const I18N = {
     'admin.rateLimitConfig': 'Configure',
     'admin.loaded': 'Loading...',
     'admin.getFailed': 'Failed to get logs',
+    'admin.exported': 'Audit log exported',
     'admin.opts': 'optional',
 
     // 收藏
@@ -934,6 +936,7 @@ const I18N = {
     'admin.rateLimitConfig': 'Configure',
     'admin.loaded': 'Loading...',
     'admin.getFailed': 'Failed to get logs',
+    'admin.exported': 'Audit log exported',
     'admin.opts': 'optional',
 
     // 收藏
@@ -3286,6 +3289,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button class="modal-close" onclick="closeAuditModal()">x</button>
     </div>
     <div id="auditStats" style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;"></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-sm" onclick="exportAudit('csv')">📥 CSV</button>
+      <button class="btn btn-sm" onclick="exportAudit('json')">📥 JSON</button>
+    </div>
     <div id="auditLogList" style="font-size:12px;"></div>
   </div>
 </div>
@@ -4644,6 +4651,18 @@ function showAuditModal() {
       lockScroll();
       document.getElementById('auditModal').classList.add('show');
     }).catch(() => showToast(T('admin.getFailed')));
+}
+
+function exportAudit(format) {
+  const url = API + '/api/audit/export?format=' + format;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast(T('admin.exported') || (format.toUpperCase() + ' exported'));
 }
 
 function showTokenModal() {

@@ -456,19 +456,39 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/audit/export') {
     const authData = authRequired(req, res);
     if (!authData) return true;
+    const format = parsed.query.format || 'csv';
     const filters = {
       action: parsed.query.action || null,
       ip: parsed.query.ip || null,
       since: parsed.query.since ? parseInt(parsed.query.since) : null,
       until: parsed.query.until ? parseInt(parsed.query.until) : null
     };
-    const csv = db.exportAuditLogsCSV(filters);
-    res.writeHead(200, {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="audit_log_${Date.now()}.csv"`
-    });
-    res.end(csv);
-    db.addAuditLog('audit_export', `CSV export, action=${filters.action || 'all'}`, getClientIp(req), authData.token);
+    
+    if (format === 'json') {
+      const rows = db.listAuditLogs(10000, 0, filters);
+      const exportData = rows.map(r => ({
+        id: r.id,
+        action: r.action,
+        details: r.details,
+        ip: r.ip,
+        timestamp: r.timestamp,
+        time: new Date(r.timestamp * 1000).toISOString()
+      }));
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="audit_log_${Date.now()}.json"`
+      });
+      res.end(JSON.stringify(exportData, null, 2));
+      db.addAuditLog('audit_export', `JSON export, action=${filters.action || 'all'}`, getClientIp(req), authData.token);
+    } else {
+      const csv = db.exportAuditLogsCSV(filters);
+      res.writeHead(200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="audit_log_${Date.now()}.csv"`
+      });
+      res.end(csv);
+      db.addAuditLog('audit_export', `CSV export, action=${filters.action || 'all'}`, getClientIp(req), authData.token);
+    }
     return true;
   }
 
