@@ -318,6 +318,7 @@ async function main() {
     console.log('  share <text>   Share text snippet');
     console.log('  sync           Trigger sync push');
     console.log('  stats          Show storage stats');
+    console.log('  recent [n]     Show recently modified files (default: 10)');
     console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
     console.log('  history [--clear]  Show command history');
@@ -630,6 +631,27 @@ async function main() {
           process.exit(1);
         }
         printJson(res.data);
+        break;
+      }
+
+      case 'recent': {
+        const limit = parseInt(args[0]) || 10;
+        const res = await request('GET', `/api/list?sort=updated&limit=${limit}`);
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          process.exit(1);
+        }
+        const files = res.data.files || [];
+        if (files.length === 0) {
+          console.log('No files found.');
+        } else {
+          console.log(`Recent ${files.length} file(s):`);
+          files.forEach((f, i) => {
+            const date = new Date(f.updated_at * 1000).toLocaleString('zh-CN');
+            const size = f.size ? `${(f.size / 1024).toFixed(1)}KB` : '0KB';
+            console.log(`  ${i + 1}. ${f.filename} (${size}) - ${date}`);
+          });
+        }
         break;
       }
 

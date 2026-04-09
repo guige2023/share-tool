@@ -5183,7 +5183,7 @@ init();
       <div style="font-size:14px;font-weight:600;color:var(--text-primary);">安装 ShareTool App</div>
       <div style="font-size:12px;color:var(--text-muted);">添加到主屏幕，离线也能访问</div>
     </div>
-    <button onclick="installPWA()" style="background:var(--accent-primary);color:#fff;border:none;border-radius:8px;padding:6px 16px;font-size:13px;cursor:pointer;white-space:nowrap;">安装</button>
+    <button onclick="installPWA()" style="background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:8px;padding:6px 16px;font-size:13px;cursor:pointer;white-space:nowrap;">安装</button>
     <button onclick="dismissPWAInstall()" style="background:transparent;color:var(--text-muted);border:none;font-size:18px;cursor:pointer;padding:4px;line-height:1;">✕</button>
   </div>
 </div>
