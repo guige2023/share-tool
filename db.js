@@ -1420,6 +1420,100 @@ function getDbStats() {
   };
 }
 
+function getDashboardStats() {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const oneDay = 86400, oneWeek = 604800, oneMonth = 2592000;
+
+  // 文件统计
+  const totalFiles = db.prepare('SELECT COUNT(*) as c FROM files').get().c;
+  const textFiles = db.prepare("SELECT COUNT(*) as c FROM files WHERE type='text'").get().c;
+  const binaryFiles = totalFiles - textFiles;
+  const starredFiles = db.prepare('SELECT COUNT(*) as c FROM files WHERE starred=1').get().c;
+  const trashCount = db.prepare('SELECT COUNT(*) as c FROM trash').get().c;
+
+  // 存储大小
+  const totalSize = db.prepare('SELECT COALESCE(SUM(size), 0) as s FROM files').get().s;
+
+  // 按类型分布
+  const byType = db.prepare(`
+    SELECT type, COUNT(*) as count, COALESCE(SUM(size), 0) as size
+    FROM files GROUP BY type ORDER BY count DESC
+  `).all();
+
+  // 按后缀分布（TOP 10）
+  const byExt = db.prepare(`
+    SELECT
+      CASE
+        WHEN INSTR(filename, '.') > 0 THEN LOWER(SUBSTR(filename, INSTR(filename, '.') + 1))
+        ELSE 'no_ext'
+      END as ext,
+      COUNT(*) as count
+    FROM files
+    GROUP BY ext
+    ORDER BY count DESC
+    LIMIT 10
+  `).all();
+
+  // 时间维度
+  const today = now - oneDay;
+  const thisWeek = now - oneWeek;
+  const thisMonth = now - oneMonth;
+
+  const filesToday = db.prepare('SELECT COUNT(*) as c FROM files WHERE created_at >= ?').get(today).c;
+  const filesThisWeek = db.prepare('SELECT COUNT(*) as c FROM files WHERE created_at >= ?').get(thisWeek).c;
+  const filesThisMonth = db.prepare('SELECT COUNT(*) as c FROM files WHERE created_at >= ?').get(thisMonth).c;
+
+  // 最近7天每日新增文件（用于图表）
+  const dailyNew = [];
+  for (let i = 6; i >= 0; i--) {
+    const dayStart = now - (i + 1) * oneDay;
+    const dayEnd = now - i * oneDay;
+    const count = db.prepare('SELECT COUNT(*) as c FROM files WHERE created_at >= ? AND created_at < ?').get(dayStart, dayEnd).c;
+    const date = new Date(dayStart * 1000);
+    dailyNew.push({
+      date: `${date.getMonth() + 1}/${date.getDate()}`,
+      count
+    });
+  }
+
+  // 活跃分享链接
+  const activeShares = db.prepare(`
+    SELECT COUNT(*) as c FROM share_links
+    WHERE (expires_at IS NULL OR expires_at > ?)
+  `).get(now).c;
+  const totalShares = db.prepare('SELECT COUNT(*) as c FROM share_links').get().c;
+  const sharesWithPwd = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE password_hash IS NOT NULL').get().c;
+
+  // 设备
+  const totalDevices = db.prepare('SELECT COUNT(*) as c FROM devices').get().c;
+  const onlineDevices = db.prepare('SELECT COUNT(*) as c FROM devices WHERE is_online=1').get().c;
+
+  // Token
+  const totalTokens = db.prepare('SELECT COUNT(*) as c FROM tokens').get().c;
+  const activeTokens = db.prepare('SELECT COUNT(*) as c FROM tokens WHERE expires_at > ?').get(now).c;
+
+  // 审计日志
+  const auditTotal = db.prepare('SELECT COUNT(*) as c FROM audit_log').get().c;
+  const auditToday = db.prepare('SELECT COUNT(*) as c FROM audit_log WHERE timestamp >= ?').get(today).c;
+
+  // 同步状态
+  const unsynced = db.prepare('SELECT COUNT(*) as c FROM sync_log WHERE synced=0').get().c;
+
+  return {
+    files: { total: totalFiles, text: textFiles, binary: binaryFiles, starred: starredFiles, trash: trashCount },
+    storage: { total: totalSize },
+    byType,
+    byExt,
+    activity: { today: filesToday, week: filesThisWeek, month: filesThisMonth, dailyNew },
+    shares: { active: activeShares, total: totalShares, withPassword: sharesWithPwd },
+    devices: { total: totalDevices, online: onlineDevices },
+    tokens: { total: totalTokens, active: activeTokens },
+    audit: { total: auditTotal, today: auditToday },
+    sync: { unsynced }
+  };
+}
+
 function runVacuum() {
   const db = getDb();
   db.exec('VACUUM');
@@ -1600,7 +1694,7 @@ module.exports = {
   // 清理
   cleanupExpiredTokens,
   // DB 健康
-  cleanupSyncLog, getDbStats, runVacuum, checkDbIntegrity,
+  cleanupSyncLog, getDbStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, getAllTags,
   // 回收站

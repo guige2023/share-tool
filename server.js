@@ -4924,6 +4924,7 @@ function renderFileInfoContent(meta) {
     for (const link of meta.shareLinks) {
       const shareUrl = location.origin + '/s/' + link.code;
       html += '<div class="file-info-share-item">';
+      html += '<div style="font-size:12px;color:var(--text-primary);">' + escapeHtml(link.filename || meta.filename) + ' <button class="btn btn-sm" style="font-size:9px;padding:1px 4px;" onclick="copyText(\'' + escapeHtml(link.filename || meta.filename) + '\')">📋</button></div>';
       html += '<div class="file-info-share-url" title="' + escapeHtml(shareUrl) + '">' + escapeHtml(shareUrl) + '</div>';
       html += '<div style="display:flex;gap:4px;flex-shrink:0;">';
       if (link.hasPassword) html += '<span style="font-size:10px;color:var(--warning);">🔑</span>';
@@ -4988,7 +4989,7 @@ function showShareLinksModal() {
           const expires = (l.expiresAt === MAX_TS || !l.expiresAt) ? T('share.neverExpire') : (isExpired ? T('share.expired') : T('share.daysLeft') + ' ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' ' + T('share.day'));
           return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-              '<span style="font-weight:600;">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
+              '<span style="font-weight:600;cursor:pointer;" onclick="copyText(\'' + escapeHtml(l.filename) + '\')" title="Click to copy filename">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
               '<span style="font-size:11px;color:' + (isExpired ? '#dc2626' : 'var(--text-muted)') + ';">' + (isExpired ? T('share.expired') : expires) + '</span>' +
             '</div>' +
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
