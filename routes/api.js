@@ -251,6 +251,18 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/search?q=xxx&tags=xxx — 搜索文件
+  if (pathname === '/api/search' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const q = (parsed.query.q || '').trim();
+    const tags = parsed.query.tags || null;
+    const fuzzy = parsed.query.fuzzy !== 'false';
+    const files = db.searchFiles(q, tags, { fuzzy, limit: 200 });
+    sendJson(res, { success: true, files, query: q, count: files.length });
+    return true;
+  }
+
   // GET /api/tags/suggest-color?tag=xxx — 为新标签推荐颜色
   if (pathname === '/api/tags/suggest-color' && method === 'GET') {
     const authData = authRequired(req, res);

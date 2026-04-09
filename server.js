@@ -3402,6 +3402,16 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   </div>
 </div>
 
+<div class="modal-overlay" id="favoritesModal" onclick="if(event.target===this)closeFavoritesManager()">
+  <div class="modal-content" style="max-width:480px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">' + T('fav.favorites') + '</div>
+      <button class="modal-close" onclick="closeFavoritesManager()">x</button>
+    </div>
+    <div id="favoritesManagerList" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
 <script>
 const API = '';
 let AUTH_TOKEN='${AUTH_TOKEN}';
