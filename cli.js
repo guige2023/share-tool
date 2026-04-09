@@ -604,6 +604,23 @@ async function main() {
         break;
       }
 
+      case 'list-tags': {
+        const res = await request('GET', '/api/tags');
+        if (res.status >= 400 || !res.data.success) {
+          printError(`Failed to list tags: ${res.data.error || res.status}`);
+          process.exit(1);
+        }
+        const tags = res.data.tags || [];
+        if (tags.length === 0) {
+          console.log('No tags found.');
+        } else {
+          console.log(`Tags (${tags.length}):`);
+          tags.forEach(t => console.log('  ' + t));
+        }
+        process.exit(0);
+        break;
+      }
+
       case 'sync': {
         console.log('Triggering sync...');
         const res = await request('POST', '/api/sync/push', { body: '{}', contentType: 'application/json' });

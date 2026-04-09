@@ -180,6 +180,15 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/tags — 返回所有标签名（纯列表，供 CLI 使用）
+  if (pathname === '/api/tags' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const tags = db.getAllTags();
+    sendJson(res, { success: true, tags });
+    return true;
+  }
+
   // GET /api/tags/colors
   if (pathname === '/api/tags/colors' && method === 'GET') {
     const authData = authRequired(req, res);

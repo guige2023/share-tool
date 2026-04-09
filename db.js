@@ -1248,6 +1248,18 @@ function deleteTagColor(tag) {
   db.prepare('DELETE FROM tag_colors WHERE tag = ?').run(tag);
 }
 
+// 从所有文件提取所有不重复的标签
+function getAllTags() {
+  const db = getDb();
+  const rows = db.prepare('SELECT tags FROM files WHERE tags IS NOT NULL AND tags != ""').all();
+  const tagSet = new Set();
+  for (const row of rows) {
+    const tags = row.tags.split(',').map(t => t.trim()).filter(Boolean);
+    tags.forEach(t => tagSet.add(t));
+  }
+  return Array.from(tagSet).sort();
+}
+
 // ============================================================
 // 迁移旧文件（从文件系统迁移到数据库）
 // ============================================================
@@ -1367,7 +1379,7 @@ module.exports = {
   // DB 健康
   cleanupSyncLog, getDbStats, runVacuum, checkDbIntegrity,
   // 标签颜色
-  getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor,
+  getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, getAllTags,
   // 分片上传
   initChunkUpload, getChunkUpload, addChunkReceived, getChunkUploadStatus, deleteChunkUpload, getIncompleteUpload
 };
