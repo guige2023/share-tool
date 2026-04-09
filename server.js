@@ -1147,7 +1147,7 @@ self.addEventListener('push', (event) => {
         sendJson(res, { success: true, files: results.map(f => ({
           id: f.id, name: f.filename, size: f.size, time: f.created_at * 1000,
           type: f.type, hash: f.hash, tags: f.tags,
-          relevance: f._score || 0
+          relevance: f.score || 0
         }))});
         return;
       }
@@ -2477,6 +2477,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; }
 
 .tag-filter-btn { cursor: pointer; transition: all 0.2s; }
+.search-highlight { background: rgba(102,126,234,0.4); color: #a5b4fc; border-radius: 2px; padding: 0 2px; }
 .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--text-muted); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -2683,6 +2684,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
         <option value="size_asc">最小优先</option>
       </select>
       <span id="fileCount" style="margin-left:auto;"></span>
+      <span id="searchResultCount" style="display:none;color:var(--accent-primary);font-weight:500;margin-left:8px;"></span>
       <div class="view-toggle">
         <button class="active" id="listViewBtn" onclick="setView('list')" title="列表视图">☰</button>
         <button id="gridViewBtn" onclick="setView('grid')" title="网格视图">▦</button>
@@ -3851,7 +3853,7 @@ function doSearch() {
     loadFiles();
     return;
   }
-  
+
   fetch(API + '/api/search?q=' + encodeURIComponent(q), { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
     .then(r => r.json())
     .then(data => {
@@ -3859,6 +3861,12 @@ function doSearch() {
       renderFiles();
       if (q) applySearchHighlight(q);
       if (data.files && data.files.length > 0) saveRecentSearch(q);
+      // Show result count in sort-bar area
+      const countEl = document.getElementById('searchResultCount');
+      if (countEl) {
+        countEl.textContent = '找到 ' + currentFiles.length + ' 个结果';
+        countEl.style.display = 'inline';
+      }
     })
     .catch(e => showAlert('listAlert', '搜索失败', 'error'));
 }
@@ -3867,6 +3875,8 @@ function clearSearch() {
   document.getElementById('searchInput').value = '';
   window.currentSearchQ = '';
   document.getElementById('clearSearchBtn').style.display = 'none';
+  const countEl = document.getElementById('searchResultCount');
+  if (countEl) countEl.style.display = 'none';
   loadFiles();
 }
 
