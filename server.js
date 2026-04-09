@@ -1306,6 +1306,80 @@ self.addEventListener('push', (event) => {
         return;
       }
 
+      // 获取所有标签列表（含使用次数）
+      if (pathname === '/api/tags/list' && req.method === 'GET') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const files = db.listFiles();
+        const tagCount = {};
+        files.forEach(f => {
+          if (f.tags) {
+            f.tags.split(',').map(t => t.trim()).filter(t => t).forEach(t => {
+              tagCount[t] = (tagCount[t] || 0) + 1;
+            });
+          }
+        });
+        const list = Object.entries(tagCount).map(([tag, count]) => {
+          const color = db.getTagColor(tag);
+          return { tag, count, color };
+        }).sort((a, b) => b.count - a.count);
+        sendJson(res, { success: true, tags: list });
+        return;
+      }
+
+      // 重命名标签（全局）
+      if (pathname.startsWith('/api/tags/rename/') && req.method === 'POST') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const parts = pathname.split('/');
+        const oldTag = decodeURIComponent(parts[parts.length - 1]);
+        let body = '';
+        req.on('data', d => body += d);
+        req.on('end', () => {
+          try {
+            const { newTag } = JSON.parse(body);
+            if (!newTag || !newTag.trim()) { sendJson(res, { success: false, error: 'newTag required' }, 400); return; }
+            const files = db.listFiles();
+            let updated = 0;
+            files.forEach(f => {
+              if (f.tags) {
+                const tags = f.tags.split(',').map(t => t.trim());
+                const idx = tags.findIndex(t => t === oldTag);
+                if (idx >= 0) {
+                  tags[idx] = newTag.trim();
+                  db.updateFile(f.id, { tags: tags.join(',') });
+                  updated++;
+                }
+              }
+            });
+            sendJson(res, { success: true, updated });
+          } catch (e) {
+            sendJson(res, { success: false, error: e.message }, 400);
+          }
+        });
+        return;
+      }
+
+      // 删除标签（全局，从所有文件移除）
+      if (pathname.startsWith('/api/tags/delete/') && req.method === 'DELETE') {
+        const authData = authRequired(req, res);
+        if (!authData) return;
+        const tag = decodeURIComponent(pathname.slice('/api/tags/delete/'.length));
+        const files = db.listFiles();
+        let updated = 0;
+        files.forEach(f => {
+          if (f.tags) {
+            const tags = f.tags.split(',').map(t => t.trim()).filter(t => t !== tag);
+            if (tags.length !== f.tags.split(',').map(t => t.trim()).filter(t => t).length) {
+              db.updateFile(f.id, { tags: tags.join(',') });
+              updated++;
+            }
+          }
+        });
+        sendJson(res, { success: true, updated });
+        return;
+      }
+
       // 文件重命名 API
       if (pathname.startsWith('/api/file-rename/') && req.method === 'POST') {
         const authData = authRequired(req, res);
@@ -2658,6 +2732,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div style="margin-top:12px;">
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔗 分享链接</div>
       <button class="btn btn-sm" onclick="showShareLinksModal()">管理分享链接</button>
+      <button class="btn btn-sm" onclick="showTagManager()">🏷 标签管理</button>
     </div>
   </div>
 
@@ -2770,6 +2845,16 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <span class="shortcut-key">Esc</span><span class="shortcut-desc">关闭弹窗/取消搜索</span>
       <span class="shortcut-key">?</span><span class="shortcut-desc">显示此帮助</span>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tagManagerModal" onclick="if(event.target===this)closeTagManager()">
+  <div class="modal-content" style="max-width:480px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">🏷 标签管理</div>
+      <button class="modal-close" onclick="closeTagManager()">x</button>
+    </div>
+    <div id="tagManagerList" style="display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
 
@@ -4162,6 +4247,66 @@ async function batchDelete() {
   showToast('已删除 ' + deleted + ' 个文件');
   clearBatch();
   loadFiles();
+}
+
+async function showTagManager() {
+  const res = await fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+  const data = await res.json();
+  const list = document.getElementById('tagManagerList');
+  if (!data.success || !data.tags.length) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无标签</div>';
+  } else {
+    list.innerHTML = data.tags.map(t => {
+      const color = t.color || '#667eea';
+      const tagEsc = escapeHtml(t.tag);
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;">' +
+        '<span style="width:12px;height:12px;border-radius:50%;background:' + color + ';flex-shrink:0;"></span>' +
+        '<span style="flex:1;font-size:13px;">' + tagEsc + '</span>' +
+        '<span style="font-size:11px;color:var(--text-muted);">' + t.count + '个</span>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="renameTag(\'' + tagEsc + '\')">重命名</button>' +
+        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteTag(\'' + tagEsc + '\')">删除</button>' +
+      '</div>';
+    }).join('');
+  }
+  document.getElementById('tagManagerModal').classList.add('show');
+}
+
+function closeTagManager() {
+  document.getElementById('tagManagerModal').classList.remove('show');
+}
+
+async function renameTag(oldTag) {
+  const newTag = prompt('将标签 "' + oldTag + '" 重命名为：', oldTag);
+  if (!newTag || newTag === oldTag) return;
+  const res = await fetch(API + '/api/tags/rename/' + encodeURIComponent(oldTag), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ newTag })
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast('已重命名，更新了 ' + data.updated + ' 个文件');
+    showTagManager();
+    loadFiles();
+  } else {
+    showToast('重命名失败');
+  }
+}
+
+async function deleteTag(tag) {
+  if (!confirm('确定删除标签 "' + tag + '"？将从所有文件中移除。')) return;
+  const res = await fetch(API + '/api/tags/delete/' + encodeURIComponent(tag), {
+    method: 'DELETE',
+    headers: { 'x-auth-token': AUTH_TOKEN || '' }
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast('已删除，从 ' + data.updated + ' 个文件中移除');
+    showTagManager();
+    loadFiles();
+  } else {
+    showToast('删除失败');
+  }
 }
 
 async function batchAddTag() {
