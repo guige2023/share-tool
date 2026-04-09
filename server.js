@@ -1022,7 +1022,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v2.68',
+          version: 'v2.76',
         });
         return;
       }
@@ -2150,6 +2150,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div style="margin-bottom: 12px;">
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔒 HTTPS 状态</div>
       <div id="httpsStatus" style="font-size:13px;color:var(--text-muted);">检测中...</div>
+      <div id="httpsRenewBtn" style="margin-top:6px;display:none;">
+        <button class="btn btn-sm" onclick="manualRenewCert()">🔄 手动续期</button>
+      </div>
     </div>
     <div>
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">📊 操作日志</div>
@@ -3436,6 +3439,22 @@ async function refreshToken() {
       showToast('刷新失败: ' + (data.error || ''));
     }
   } catch (e) { showToast('刷新失败'); }
+}
+
+async function manualRenewCert() {
+  const btn = event.target;
+  if (btn) { btn.disabled = true; btn.textContent = '续期中...'; }
+  try {
+    const res = await fetch(API + '/api/admin/renew-cert', { method: 'POST', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (data.success) {
+      showToast('证书已续期');
+      loadSettings(); // Refresh status display
+    } else {
+      showToast('续期失败: ' + (data.error || '未知错误'), 'error');
+    }
+  } catch (e) { showToast('续期请求失败', 'error'); }
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 手动续期'; }
 }
 
 function updateTokenDisplay(token, expiresAt) {
@@ -4974,11 +4993,16 @@ async function init() {
       .then(r => r.json())
       .then(data => {
         const el = document.getElementById('httpsStatus');
+        const btnEl = document.getElementById('httpsRenewBtn');
         if (el) {
           if (data.https) {
-            el.innerHTML = '<span style="color:var(--success-fg)">✅ HTTPS 已启用</span> <span style="color:var(--text-muted)">到期: ' + (data.expires || '未知') + '</span>';
+            const warnStyle = data.daysRemaining !== null && data.daysRemaining <= 30
+              ? 'color:var(--warning)' : 'color:var(--text-muted)';
+            el.innerHTML = '<span style="color:var(--success-fg)">✅ HTTPS 已启用</span> <span style="' + warnStyle + '">到期: ' + (data.expires || '未知') + (data.daysRemaining !== null ? ' (' + data.daysRemaining + '天)' : '') + '</span>';
+            if (btnEl) btnEl.style.display = 'inline-block';
           } else {
             el.innerHTML = '<span style="color:var(--warning)">⚠️ HTTPS 未启用</span> <span style="color:var(--text-muted)">局域网可跳过</span>';
+            if (btnEl) btnEl.style.display = 'none';
           }
         }
       }).catch(() => {
