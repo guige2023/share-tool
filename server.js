@@ -1553,6 +1553,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-content { flex: 1; min-width: 0; }
 .file-preview { background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-top: 8px; max-height: 150px; overflow: auto; white-space: pre-wrap; font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border-color); word-break: break-all; display: none; }
 .file-preview.show { display: block; }
+.file-audio-player audio { width: 100%; height: 36px; margin-top: 4px; }
+.file-video-wrapper video { width: 100%; max-height: 200px; border-radius: 8px; background: #000; margin-top: 4px; }
+[data-theme="dark"] .file-audio-player audio { filter: invert(0.8); } /* improve contrast on dark bg */
 .file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .file-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 .file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: #667eea; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
@@ -2548,6 +2551,9 @@ function renderFiles() {
   container.innerHTML = '<div class="file-list">' + pagedFiles.map(f => {
     const isText = f.type === 'text';
     const isImage = isImageFile(f.name);
+    const isAudio = isAudioFile(f.name);
+    const isVideo = isVideoFile(f.name);
+    const isPdf = isPdfFile(f.name);
     const previewId = 'preview-' + btoaSafe(f.name).substring(0, 20);
     const thumbId = 'thumb-' + btoaSafe(f.name).substring(0, 20);
     const tags = f.tags ? f.tags.split(',').filter(t => t.trim()) : [];
@@ -2571,9 +2577,15 @@ function renderFiles() {
         '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' +
         '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' +
         (isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
+        // Audio/Video/PDF inline player
+        (isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
+        (isVideo ? '<div class="file-video-wrapper" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
+        (isPdf ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')">📕 预览PDF</button>' : '') +
       '</div>' +
       '<div class="file-actions">' +
         (isText ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') +
+        (isAudio || isVideo ? '<button class="btn btn-sm" onclick="openMediaModal(\'' + encodeURIComponent(f.name) + '\')">▶ 播放</button>' : '') +
+        (isImage ? '<button class="btn btn-sm" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')">🖼 查看</button>' : '') +
         '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">复制</button>' +
         '<button class="btn btn-sm" onclick="renameFile(\'' + encodeURIComponent(f.name) + '\')">重命名</button>' +
         '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">下载</button>' +
@@ -2695,6 +2707,46 @@ async function openImageModal(filename) {
     document.getElementById('modalBody').innerHTML = '<img src="' + dataUrl + '" style="max-width:100%;max-height:80vh;display:block;margin:0 auto;border-radius:8px;" />';
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open image'); }
+}
+
+async function openMediaModal(filename) {
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.content) return;
+    const ext = filename.split('.').pop().toLowerCase();
+    const isAudio = isAudioFile(filename);
+    const mimeMap = {
+      mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac', flac: 'audio/flac', m4a: 'audio/mp4',
+      mp4: 'video/mp4', webm: 'video/webm', avi: 'video/x-msvideo', mov: 'video/quicktime', mkv: 'video/x-matroska'
+    };
+    const mime = mimeMap[ext] || (isAudio ? 'audio/mpeg' : 'video/mp4');
+    const dataUrl = 'data:' + mime + ';base64,' + data.content;
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
+    if (isAudio) {
+      document.getElementById('modalBody').innerHTML =
+        '<div style="text-align:center;padding:20px;"><audio controls autoplay style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持音频播放</audio></div>';
+    } else {
+      document.getElementById('modalBody').innerHTML =
+        '<div style="text-align:center;background:#000;padding:10px;border-radius:8px;"><video controls autoplay style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频播放</video></div>';
+    }
+    document.getElementById('fileModal').classList.add('show');
+  } catch (e) { showToast('Failed to open media: ' + e.message); }
+}
+
+async function openPdfModal(filename) {
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.content) return;
+    const dataUrl = 'data:application/pdf;base64,' + data.content;
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
+    document.getElementById('modalBody').innerHTML =
+      '<iframe src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;" title="PDF预览"></iframe>';
+    document.getElementById('fileModal').classList.add('show');
+  } catch (e) { showToast('Failed to open PDF: ' + e.message); }
 }
 
 function togglePreview(filename, previewId) {
@@ -3932,9 +3984,25 @@ function getFileIcon(filename) {
 }
 
 const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico']);
+const AUDIO_EXTS = new Set(['mp3','wav','ogg','aac','flac','m4a','wma','opus']);
+const VIDEO_EXTS = new Set(['mp4','webm','avi','mov','mkv','flv','wmv','m4v','mpeg','mpg']);
+const PDF_EXTS = new Set(['pdf']);
+
 function isImageFile(filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   return IMAGE_EXTS.has(ext);
+}
+function isAudioFile(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return AUDIO_EXTS.has(ext);
+}
+function isVideoFile(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return VIDEO_EXTS.has(ext);
+}
+function isPdfFile(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return PDF_EXTS.has(ext);
 }
 
 
