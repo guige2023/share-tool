@@ -4252,12 +4252,13 @@ function renderBreadcrumb() {
   bar.style.display = 'block';
 }
 
-async function loadFiles(folder = null) {
+async function loadFiles(folder = null, starred = false) {
   try {
     const sortRaw = localStorage.getItem('sharetool_sort') || 'created_at';
     const sortOrder = localStorage.getItem('sharetool_order') || 'desc';
     const folderParam = folder ? '&folder=' + encodeURIComponent(folder) : '';
-    const res = await fetch(API + '/api/list?sort=' + sortRaw + '&order=' + sortOrder + folderParam, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const starredParam = starred ? '&starred=1' : '';
+    const res = await fetch(API + '/api/list?sort=' + sortRaw + '&order=' + sortOrder + folderParam + starredParam, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     currentFiles = data.files || [];
     currentFolder = folder;
@@ -5628,8 +5629,17 @@ document.querySelectorAll('.filter-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    currentFilter = tab.dataset.filter;
-    renderFiles();
+    const filter = tab.dataset.filter;
+    const prevFilter = currentFilter;
+    currentFilter = filter;
+    if (filter === 'starred') {
+      loadFiles(null, true).then(() => { currentFilter = 'all'; });
+    } else if (prevFilter === 'starred' || filter === 'all') {
+      // Switching away from starred or to all: reload all files
+      loadFiles(null, false);
+    } else {
+      renderFiles();
+    }
   });
 });
 
