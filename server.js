@@ -1581,7 +1581,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>ShareTool</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#667eea" media="(prefers-color-scheme: light)">
@@ -1717,10 +1717,12 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .file-preview { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
 /* iOS Safari 100vh fix: use 100dvh for dynamic viewport height */
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100dvh; overscroll-behavior: none; /* prevent pull-to-refresh on mobile */ -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+/* iOS safe-area support for notch/Dynamic Island devices */
+header { text-align: center; margin-bottom: 32px; padding: env(safe-area-inset-top) 16px 0; }
+main { padding: 0 16px env(safe-area-inset-bottom); }
+.container { max-width: 900px; margin: 0 auto; padding: 24px 16px; overflow-x: hidden; }
 /* Global overflow guard */
-#root, #app, main { overflow-x: hidden; }
-.container { max-width: 900px; margin: 0 auto; padding: 24px; overflow-x: hidden; }
-header { text-align: center; margin-bottom: 32px; }
+#root, #app { overflow-x: hidden; }
 h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
 .subtitle { color: var(--text-muted); font-size: 14px; }
 .status-bar { display: flex; gap: 16px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
@@ -3013,15 +3015,26 @@ function renderFiles() {
 // Mobile swipe gesture handling
 let swipeState = {};
 const SWIPE_THRESHOLD = 80;
-
+const LONG_PRESS_MS = 500;
+let longPressTimer = null;
+let longPressFired = false;
 function handleSwipeStart(e, el) {
   swipeState.el = el;
   swipeState.startX = e.touches[0].clientX;
   swipeState.currentX = swipeState.startX;
+  longPressFired = false;
+  // Long-press detection: if no movement after LONG_PRESS_MS, trigger rename
+  longPressTimer = setTimeout(() => {
+    longPressFired = true;
+    const filename = el.dataset.filename;
+    if (filename) startInlineRename(el.querySelector('.file-name'), decodeURIComponent(filename));
+  }, LONG_PRESS_MS);
 }
 
 function handleSwipeMove(e, el) {
   if (!swipeState.el || swipeState.el !== el) return;
+  // Cancel long-press if finger moved significantly
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   const dx = e.touches[0].clientX - swipeState.startX;
   swipeState.currentX = e.touches[0].clientX;
   const actions = el.querySelector('.swipe-actions');
@@ -3034,6 +3047,8 @@ function handleSwipeMove(e, el) {
 
 function handleSwipeEnd(e, el) {
   if (!swipeState.el || swipeState.el !== el) return;
+  // Cancel long-press timer
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   const dx = swipeState.currentX - swipeState.startX;
   const actions = el.querySelector('.swipe-actions');
   if (!actions) return;
@@ -4834,6 +4849,14 @@ function hexToRgb(hex) {
 // 点击其他区域关闭建议
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.search-wrapper')) hideSuggestions();
+  // Close swipe actions when tapping outside a file-item
+  if (!e.target.closest('.file-item')) {
+    document.querySelectorAll('.swipe-actions.show').forEach(el => {
+      el.classList.remove('show');
+      el.closest('.file-item').style.transform = 'translateX(0)';
+      el.closest('.file-item').style.transition = 'transform 0.2s ease';
+    });
+  }
 });
 
 function broadcastWs(msg) {
