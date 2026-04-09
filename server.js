@@ -1853,6 +1853,15 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
   .upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
   .upload-progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.3s; }
+  .upload-queue { display: none; margin-top: 8px; max-height: 120px; overflow-y: auto; }
+  .upload-queue.show { display: block; }
+  .upload-queue-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
+  .upload-queue-item:last-child { border-bottom: none; }
+  .upload-queue-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .upload-queue-item .status { font-size: 14px; flex-shrink: 0; }
+  .upload-queue-item.done .status { color: var(--success-fg, #4caf50); }
+  .upload-queue-item.fail .status { color: var(--danger-fg, #e53935); }
+  .upload-queue-item .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--text-muted); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.6s linear infinite; }
   .file-star { cursor: pointer; font-size: 16px; color: var(--text-muted); transition: color 0.2s; user-select: none; }
   .file-star:hover { color: var(--warning); }
   .file-star.starred { color: var(--warning); }
@@ -1942,6 +1951,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div class="upload-progress-bar" id="uploadProgressBar">
       <div class="upload-progress-fill" id="uploadProgressFill" style="width:0%"></div>
     </div>
+    <div class="upload-queue" id="uploadQueue"></div>
     <div class="share-link-box" id="shareLinkBox" style="display:none;">
       <input type="text" id="shareLinkInput" readonly>
       <button onclick="copyShareLink()">复制链接</button>
@@ -3167,11 +3177,19 @@ document.addEventListener('keydown', (e) => {
     closeAuditModal();
     closeTokenModal();
   }
-  // Don't interfere with typing in inputs
+  // Don't interfere with typing in inputs (except / to override)
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  
-  if (e.key === 'f' || e.key === 'F') {
+  const isInput = tag === 'INPUT' || tag === 'TEXTAREA';
+
+  if (e.key === '/') {
+    e.preventDefault();
+    const el = document.getElementById('searchInput');
+    if (el) { el.focus(); el.select(); }
+  } else if (isInput) {
+    // Enter in search input triggers search
+    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
+    return;
+  } else if (e.key === 'f' || e.key === 'F') {
     e.preventDefault();
     toggleFavFilter();
   } else if (e.key === 'r' || e.key === 'R') {
@@ -3505,12 +3523,26 @@ async function uploadFiles(files) {
   const totalFiles = files.length;
   const progressBar = document.getElementById('uploadProgressBar');
   const progressFill = document.getElementById('uploadProgressFill');
+  const uploadQueue = document.getElementById('uploadQueue');
   if (progressBar) progressBar.style.display = 'block';
-  
+  if (uploadQueue) {
+    uploadQueue.innerHTML = '';
+    uploadQueue.classList.add('show');
+  }
+
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const filename = file.webkitRelativePath || file.name;
-    
+
+    // Render queue item (spinner pending)
+    if (uploadQueue) {
+      const item = document.createElement('div');
+      item.className = 'upload-queue-item';
+      item.id = 'upload-item-' + i;
+      item.innerHTML = '<span class="spinner"></span><span class="name">' + escapeHtml(filename) + '</span><span class="status">⏳</span>';
+      uploadQueue.appendChild(item);
+    }
+
     await new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = async () => {
@@ -3523,7 +3555,7 @@ async function uploadFiles(files) {
           const animPct = Math.min(basePct + Math.round(animFrame / 10), basePct + 20);
           if (progressFill) progressFill.style.width = animPct + '%';
         }, 50);
-        
+
         try {
           const res = await fetch(API + '/api/upload', {
             method: 'POST',
@@ -3533,6 +3565,11 @@ async function uploadFiles(files) {
           clearInterval(animInterval);
           const data = await res.json();
           if (progressFill) progressFill.style.width = Math.round(((i + 1) / totalFiles) * 100) + '%';
+          const queueItem = document.getElementById('upload-item-' + i);
+          if (queueItem) {
+            queueItem.classList.add(data.success ? 'done' : 'fail');
+            queueItem.querySelector('.status').textContent = data.success ? '✓' : '✗';
+          }
           if (data.success) {
             successCount++;
             showToast('✓ ' + filename);
@@ -3545,20 +3582,34 @@ async function uploadFiles(files) {
         } catch (e) {
           clearInterval(animInterval);
           failCount++;
+          const queueItem = document.getElementById('upload-item-' + i);
+          if (queueItem) {
+            queueItem.classList.add('fail');
+            queueItem.querySelector('.status').textContent = '✗';
+          }
           showAlert('uploadAlert', '失败: ' + e.message, 'error');
         }
         resolve();
       };
-      reader.onerror = () => { failCount++; resolve(); };
+      reader.onerror = () => {
+        failCount++;
+        const queueItem = document.getElementById('upload-item-' + i);
+        if (queueItem) {
+          queueItem.classList.add('fail');
+          queueItem.querySelector('.status').textContent = '✗';
+        }
+        resolve();
+      };
       reader.readAsDataURL(file);
     });
   }
-  
+
   setTimeout(() => {
     if (progressBar) progressBar.style.display = 'none';
     if (progressFill) progressFill.style.width = '0%';
+    if (uploadQueue) uploadQueue.classList.remove('show');
   }, 2000);
-  
+
   if (successCount > 0) {
     showAlert('uploadAlert', '已上传 ' + successCount + ' 个文件' + (failCount > 0 ? '，失败 ' + failCount : ''), failCount > 0 ? 'error' : 'success');
   }
