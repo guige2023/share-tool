@@ -1022,7 +1022,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v2.84',
+          version: 'v2.85',
         });
         return;
       }
@@ -3195,7 +3195,7 @@ async function loadMediaPlayer(filename, playerId) {
     if (isAudio) {
       el.innerHTML = '<audio controls style="width:100%;height:36px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持音频</audio>';
     } else {
-      el.innerHTML = '<video controls style="width:100%;max-height:200px;border-radius:8px;background:#000;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频</video>';
+      el.innerHTML = '<video controls style="width:100%;max-height:200px;border-radius:8px;background:var(--bg-modal,#000);"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频</video>';
     }
     el.dataset.loaded = '1';
   } catch (e) {}
