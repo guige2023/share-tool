@@ -4921,11 +4921,29 @@ function refreshFileFocus() {
 function applySearchHighlight(q) {
   if (!q || !q.trim()) return;
   const targets = document.querySelectorAll('.search-target');
-  const escaped = q.trim().replace(/[.*+?^\${}()|[\\]\\]/g, '\\$&');
+  // Escape regex special chars for safe text matching
+  var s = q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   try {
-    const regex = new RegExp('(' + escaped + ')', 'gi');
+    const regex = new RegExp('(' + s + ')', 'gi');
     targets.forEach(el => {
-      el.innerHTML = el.textContent.replace(regex, '<span class="search-highlight">$1</span>');
+      const text = el.textContent || '';
+      if (!regex.test(text)) return;
+      regex.lastIndex = 0;
+      const fragments = text.split(regex);
+      regex.lastIndex = 0;
+      el.innerHTML = '';
+      fragments.forEach(frag => {
+        if (!frag) return;
+        if (regex.test(frag)) {
+          regex.lastIndex = 0;
+          const span = document.createElement('span');
+          span.className = 'search-highlight';
+          span.textContent = frag;
+          el.appendChild(span);
+        } else {
+          el.appendChild(document.createTextNode(frag));
+        }
+      });
     });
   } catch (e) {}
 }

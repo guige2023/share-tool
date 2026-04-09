@@ -226,6 +226,31 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/search/suggest?q=xxx — 搜索建议（标签匹配）
+  if (pathname === '/api/search/suggest' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const q = (parsed.query.q || '').toLowerCase().trim();
+    if (!q) { sendJson(res, { success: true, suggestions: [] }); return true; }
+
+    // 标签建议
+    const allTags = db.getAllTags();
+    const matchedTags = allTags.filter(t => t.toLowerCase().includes(q)).slice(0, 5);
+    const tagColors = db.getAllTagColors();
+    const colorMap = {};
+    tagColors.forEach(c => { colorMap[c.tag] = c.color; });
+
+    const suggestions = matchedTags.map(t => ({
+      text: t,
+      type: 'tag',
+      icon: '🏷',
+      color: colorMap[t] || null
+    }));
+
+    sendJson(res, { success: true, suggestions });
+    return true;
+  }
+
   // GET /api/tags/suggest-color?tag=xxx — 为新标签推荐颜色
   if (pathname === '/api/tags/suggest-color' && method === 'GET') {
     const authData = authRequired(req, res);
