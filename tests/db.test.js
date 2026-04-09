@@ -65,7 +65,7 @@ describe('文件操作', () => {
 
   test('updateFile 更新文件', () => {
     const created = db.addFile('update.txt', 'old', 'text');
-    db.updateFile(created.id, 'new content');
+    db.updateFile(created.id, { content: 'new content' });
     const updated = db.getFile(created.id);
     expect(updated.content).toBe('new content');
   });
@@ -127,35 +127,37 @@ describe('文件操作', () => {
 
 describe('Token 管理', () => {
   test('generateToken 生成 token', () => {
-    const token = db.generateToken();
-    expect(token).toBeDefined();
-    expect(token.length).toBeGreaterThan(20);
+    const result = db.generateToken();
+    expect(result.token).toBeDefined();
+    expect(result.token.length).toBeGreaterThan(20);
   });
 
   test('validateToken 验证有效 token', () => {
-    const token = db.generateToken();
-    const valid = db.validateToken(token);
-    expect(valid).toBe(true);
+    const result = db.generateToken();
+    const valid = db.validateToken(result.token);
+    expect(valid).not.toBe(null);
+    expect(valid.token).toBe(result.token);
   });
 
   test('validateToken 拒绝无效 token', () => {
     const valid = db.validateToken('invalid-token-xyz');
-    expect(valid).toBe(false);
+    expect(valid).toBe(null);
   });
 
   test('refreshToken 刷新 token', () => {
-    const oldToken = db.generateToken();
-    const newToken = db.refreshToken(oldToken);
-    expect(newToken).toBeDefined();
-    expect(newToken).not.toBe(oldToken);
-    expect(db.validateToken(oldToken)).toBe(false);
-    expect(db.validateToken(newToken)).toBe(true);
+    const result = db.generateToken();
+    const oldToken = result.token;
+    const refreshResult = db.refreshToken(result.refreshToken);
+    expect(refreshResult.success).toBe(true);
+    expect(refreshResult.token).not.toBe(oldToken);
+    expect(db.validateToken(oldToken)).toBe(null);
+    expect(db.validateToken(refreshResult.token)).not.toBe(null);
   });
 
   test('revokeToken 撤销 token', () => {
-    const token = db.generateToken();
-    db.revokeToken(token);
-    expect(db.validateToken(token)).toBe(false);
+    const result = db.generateToken();
+    db.revokeToken(result.token);
+    expect(db.validateToken(result.token)).toBe(null);
   });
 });
 
