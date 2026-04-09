@@ -1663,8 +1663,11 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .progress-bar { background: var(--bg-secondary); }
 [data-theme="dark"] .file-upload-area { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="dark"] .file-preview { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; overscroll-behavior: none; /* prevent pull-to-refresh on mobile */ -webkit-tap-highlight-color: transparent; }
-.container { max-width: 900px; margin: 0 auto; padding: 24px; }
+/* iOS Safari 100vh fix: use 100dvh for dynamic viewport height */
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100dvh; overscroll-behavior: none; /* prevent pull-to-refresh on mobile */ -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+/* Global overflow guard */
+#root, #app, main { overflow-x: hidden; }
+.container { max-width: 900px; margin: 0 auto; padding: 24px; overflow-x: hidden; }
 header { text-align: center; margin-bottom: 32px; }
 h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
 .subtitle { color: var(--text-muted); font-size: 14px; }
@@ -1799,7 +1802,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .file-item { animation: fadeIn 0.2s ease-out; }
-.toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 10px; font-size: 14px; z-index: 200; box-shadow: 0 4px 20px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s; }
+.toast { position: fixed; bottom: max(100px, calc(100px + env(safe-area-inset-bottom))); left: 50%; transform: translateX(-50%); background: var(--bg-secondary); border: 1px solid var(--border-color); padding: 12px 24px; border-radius: 10px; font-size: 14px; z-index: 200; box-shadow: 0 4px 20px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.3s; max-width: calc(100vw - 48px); text-align: center; word-break: break-word; }
 .toast.show { opacity: 1; }
 @media (max-width: 768px) {
   .container { max-width: 100%; }
@@ -2216,9 +2219,9 @@ const WS_URL = 'ws://' + location.hostname + ':${WS_PORT}';
 const DEVICE_ID = '${DEVICE_ID}';
 const DEVICE_NAME = navigator.platform || 'Unknown';
 
-// Configure marked for safe rendering
+// Configure marked for safe rendering (marked@9 API)
 if (typeof marked !== 'undefined') {
-  marked.setOptions({ breaks: true, gfm: true });
+  marked.setOptions({ breaks: true, gfm: true, mangle: false, headerIds: false });
 }
 
 let ws = null;
@@ -2926,7 +2929,7 @@ function renderFiles() {
 
 // Mobile swipe gesture handling
 let swipeState = {};
-const SWIPE_THRESHOLD = 60;
+const SWIPE_THRESHOLD = 80;
 
 function handleSwipeStart(e, el) {
   swipeState.el = el;
@@ -4616,7 +4619,7 @@ function getFileIcon(filename) {
 
 init();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 
 <!-- FAB: Mobile-friendly upload button -->
 <div class="fab" id="fabMain" style="position:fixed;bottom:max(24px,env(safe-area-inset-bottom));right:24px;width:56px;height:56px;background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));border-radius:50%;box-shadow:0 4px 16px rgba(102,126,234,0.4);cursor:pointer;z-index:100;display:none;" onclick="fabClicked()">
