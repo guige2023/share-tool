@@ -4842,10 +4842,34 @@ document.addEventListener('keydown', (e) => {
     const el = document.getElementById('searchInput');
     if (el) { el.focus(); el.select(); }
   } else if (isInput) {
-    // Enter in search input triggers search
-    if (e.key === 'Enter') { e.preventDefault(); doSearch(); }
-    // Escape in input: blur
+    // Enter in search input triggers search (or apply selected suggestion)
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedSuggestionIndex >= 0 && currentSuggestions.length > 0) {
+        const sel = currentSuggestions[selectedSuggestionIndex];
+        applySuggestion(sel.text, sel.type);
+      } else {
+        doSearch();
+      }
+    }
+    // Arrow keys for suggestion navigation
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (currentSuggestions.length > 0) {
+        selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, currentSuggestions.length - 1);
+        updateSuggestionSelection();
+      }
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (currentSuggestions.length > 0) {
+        selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+        updateSuggestionSelection();
+      }
+    }
+    // Escape in input: blur and hide suggestions
     if (e.key === 'Escape' && (tag === 'INPUT' || tag === 'TEXTAREA')) {
+      hideSuggestions();
       e.target.blur();
     }
     return;
