@@ -851,5 +851,49 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/file-versions/:filename - list versions
+  // GET /api/file-versions/:filename/:versionId - get specific version
+  if (pathname.startsWith('/api/file-versions/') && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const rest = pathname.slice('/api/file-versions/'.length);
+    const parts = rest.split('/');
+    const filename = parts[0] ? decodeURIComponent(parts[0]) : null;
+    if (!filename) { sendJson(res, { success: false, error: 'Missing filename' }, 400); return true; }
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return true; }
+
+    if (parts.length === 1 || (parts.length === 2 && parts[1] === '')) {
+      // List versions
+      const versions = db.listFileVersions(file.id, 20);
+      sendJson(res, { success: true, filename, currentHash: file.hash, versions });
+    } else {
+      // Get specific version
+      const versionId = parts.length >= 2 ? parseInt(parts[1]) : null;
+      if (!versionId) { sendJson(res, { success: false, error: 'Missing versionId' }, 400); return true; }
+      const version = db.getFileVersion(versionId);
+      if (!version) { sendJson(res, { success: false, error: 'Version not found' }, 404); return true; }
+      sendJson(res, { success: true, version });
+    }
+    return true;
+  }
+
+  // POST /api/file-versions/:filename/:versionId/restore - restore version
+  if (pathname.match(/^\/api\/file-versions\/[^/]+\/\d+\/restore$/) && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const parts = pathname.match(/^\/api\/file-versions\/([^/]+)\/(\d+)\/restore$/);
+    const filename = decodeURIComponent(parts[1]);
+    const versionId = parseInt(parts[2]);
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return true; }
+    const version = db.getFileVersion(versionId);
+    if (!version) { sendJson(res, { success: false, error: 'Version not found' }, 404); return true; }
+    db.updateFileByName(filename, { content: version.content, type: file.type });
+    db.addAuditLog('file_version_restore', `filename=${filename}, version=${versionId}`, getClientIp(req), authData.token);
+    sendJson(res, { success: true, message: 'Version restored', newHash: file.hash });
+    return true;
+  }
+
   return false;
 };

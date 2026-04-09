@@ -854,5 +854,45 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/file-version/:versionId/restore
+  if (pathname.match(/^\/api\/file-version\/\d+\/restore$/) && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const parts = pathname.match(/^\/api\/file-version\/(\d+)\/restore$/);
+    const versionId = parseInt(parts[1]);
+    const version = db.getFileVersion(versionId);
+    if (!version) { sendJson(res, { success: false, error: 'Version not found' }, 404); return true; }
+    const file = db.getFileByName(version.filename);
+    if (!file) { sendJson(res, { success: false, error: 'Original file not found' }, 404); return true; }
+    db.updateFileByName(version.filename, { content: version.content, type: file.type });
+    db.addAuditLog('file_version_restore', `filename=${version.filename}, version=${versionId}`, getClientIp(req), authData.token);
+    sendJson(res, { success: true, message: 'Version restored' });
+    return true;
+  }
+
+  // DELETE /api/file-version/:versionId
+  if (pathname.match(/^\/api\/file-version\/\d+$/) && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const versionId = parseInt(pathname.match(/^\/api\/file-version\/(\d+)$/)[1]);
+    const version = db.getFileVersion(versionId);
+    if (!version) { sendJson(res, { success: false, error: 'Version not found' }, 404); return true; }
+    db.deleteFileVersion(versionId);
+    db.addAuditLog('file_version_delete', `filename=${version.filename}, version=${versionId}`, getClientIp(req), authData.token);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // GET /api/file-version/:versionId - get version content for preview
+  if (pathname.match(/^\/api\/file-version\/\d+$/) && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const versionId = parseInt(pathname.match(/^\/api\/file-version\/(\d+)$/)[1]);
+    const version = db.getFileVersion(versionId);
+    if (!version) { sendJson(res, { success: false, error: 'Version not found' }, 404); return true; }
+    sendJson(res, { success: true, version });
+    return true;
+  }
+
   return false;
 };

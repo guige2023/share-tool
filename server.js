@@ -2920,6 +2920,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   width: 90%;
   max-height: 80vh;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   padding-bottom: max(24px, env(safe-area-inset-bottom));
   transform: scale(0.95) translateY(8px);
   transition: transform 0.25s ease, opacity 0.25s ease;
@@ -2960,6 +2961,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 #fileInfoPanel.open {
   transform: translateX(0);
@@ -3088,9 +3090,9 @@ h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667
 .card { background: var(--bg-secondary); border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 1px solid var(--border-color); }
 .section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
 .section-title::before { content: ''; width: 4px; height: 16px; background: linear-gradient(180deg, #667eea, #764ba2); border-radius: 2px; }
-textarea { width: 100%; padding: 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px; margin-bottom: 12px; resize: vertical; min-height: 100px; font-family: inherit; }
+textarea { width: 100%; padding: 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 16px; margin-bottom: 12px; resize: vertical; min-height: 100px; font-family: inherit; touch-action: manipulation; }
 textarea:focus { outline: none; border-color: var(--accent-primary); }
-input[type="text"], input[type="search"] { width: 100%; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 16px; margin-bottom: 12px; }
+input[type="text"], input[type="search"] { width: 100%; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 16px; margin-bottom: 12px; touch-action: manipulation; }
 input:focus { outline: none; border-color: var(--accent-primary); }
 .btn { padding: 12px 20px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .btn:hover { opacity: 0.9; transform: translateY(-1px); }
