@@ -5246,22 +5246,6 @@ function sendHtml(res) {
 // ============================================================
 // Server-side utilities (shared with route modules)
 // ============================================================
-function getFileIcon(filename) {
-  const ext = (filename.split('.').pop() || '').toLowerCase();
-  const icons = {
-    pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗',
-    ppt: '📙', pptx: '📙', txt: '📄', md: '📝', json: '📋',
-    jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️',
-    mp3: '🎵', wav: '🎵', flac: '🎵', aac: '🎵',
-    mp4: '🎬', mkv: '🎬', avi: '🎬', mov: '🎬', webm: '🎬',
-    zip: '📦', rar: '📦', '7z': '📦', tar: '📦', gz: '📦',
-    js: '💻', ts: '💻', py: '💻', java: '💻', c: '💻', cpp: '💻', h: '💻',
-    css: '🎨', html: '🌐', xml: '🌐', yml: '⚙️', yaml: '⚙️',
-    exe: '⚙️', dmg: '⚙️', deb: '⚙️', rpm: '⚙️',
-  };
-  return icons[ext] || '📄';
-}
-
 const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico']);
 const AUDIO_EXTS = new Set(['mp3','wav','ogg','aac','flac','m4a','wma','opus']);
 const VIDEO_EXTS = new Set(['mp4','webm','avi','mov','mkv','flv','wmv','m4v','mpeg','mpg']);

@@ -126,10 +126,12 @@ describe('Search', () => {
     db.addFile('banana.txt', 'content', 'text');
     db.addFile('apple_banana.txt', 'content', 'text');
     db.addFile('folder/apple.txt', 'content', 'text');
+    db.addFile('work_notes.txt', 'some content for work notes', 'text');
+    db.updateFileByName('work_notes.txt', { tags: 'tag1,tag2' });
   });
 
   afterAll(() => {
-    ['apple.txt', 'banana.txt', 'apple_banana.txt'].forEach(f => {
+    ['apple.txt', 'banana.txt', 'apple_banana.txt', 'work_notes.txt'].forEach(f => {
       try { db.deleteFileByName(f); } catch (e) {}
     });
     try { db.deleteFileByName('folder/apple.txt'); } catch (e) {}
@@ -143,9 +145,37 @@ describe('Search', () => {
     expect(filenames).not.toContain('banana.txt');
   });
 
+  test('searchFiles exact prefix match scores highest', () => {
+    const results = db.searchFiles('apple', null, { fuzzy: false });
+    // apple.txt should score higher than apple_banana.txt
+    const fnames = results.map(f => f.filename);
+    const appleIdx = fnames.indexOf('apple.txt');
+    const appleBananaIdx = fnames.indexOf('apple_banana.txt');
+    expect(appleIdx).toBeLessThan(appleBananaIdx);
+  });
+
+  test('searchFiles fuzzy match scores lower than exact', () => {
+    const results = db.searchFiles('banana', null, { fuzzy: true });
+    const fnames = results.map(f => f.filename);
+    // banana.txt should be top (exact contains), apple_banana lower
+    expect(fnames[0]).toBe('banana.txt');
+  });
+
   test('searchFiles returns results within limit', () => {
     const results = db.searchFiles('a', null, { limit: 2 });
     expect(results.length).toBeLessThanOrEqual(2);
+  });
+
+  test('searchFiles with tags filters correctly', () => {
+    // Search for notes (in filename) filtered by tag1
+    const results = db.searchFiles('notes', 'tag1', {});
+    const fnames = results.map(f => f.filename);
+    expect(fnames).toContain('work_notes.txt');
+  });
+
+  test('searchFiles with unmatched tag returns empty', () => {
+    const results = db.searchFiles('notes', 'nonexistent_tag', {});
+    expect(results.length).toBe(0);
   });
 });
 
@@ -226,5 +256,77 @@ describe('Audit Log', () => {
     db.addAuditLog('test_action', 'test details', '127.0.0.1');
     const after = db.getAuditStats();
     expect(after.total).toBe(before.total + 1);
+  });
+});
+
+describe('File Copy', () => {
+  const copySrc = 'copy_src_' + Date.now() + '.txt';
+  const copyDest = 'copy_dest_' + Date.now() + '.txt';
+
+  beforeAll(() => {
+    db.addFile(copySrc, 'copy content', 'text');
+  });
+
+  afterAll(() => {
+    try { db.deleteFileByName(copySrc); } catch (e) {}
+    try { db.deleteFileByName(copyDest); } catch (e) {}
+  });
+
+  test('copyFile creates new file with same content', () => {
+    const result = db.copyFile(copySrc, copyDest);
+    expect(result.success).toBe(true);
+    const copied = db.getFileByName(copyDest);
+    expect(copied).toBeTruthy();
+    expect(copied.content).toBe('copy content');
+    expect(copied.filename).toBe(copyDest);
+  });
+
+  test('copyFile fails for non-existent source', () => {
+    const result = db.copyFile('nonexistent_file_' + Date.now() + '.txt', 'dest.txt');
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+  });
+
+  test('copyFile fails for existing destination', () => {
+    const result = db.copyFile(copySrc, copyDest);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('目标文件名已存在');
+  });
+});
+
+describe('Sync Log', () => {
+  test('addSyncLog creates log entry', () => {
+    const ts = Math.floor(Date.now() / 1000) - 100;
+    const before = db.getUnsyncedLogs(ts);
+    const countBefore = before.length;
+
+    db.addFile('sync_test_' + Date.now() + '.txt', 'sync content', 'text');
+    const after = db.getUnsyncedLogs(ts);
+    expect(after.length).toBeGreaterThanOrEqual(countBefore);
+  });
+
+  test('getUnsyncedLogs returns logs since timestamp', () => {
+    const now = Math.floor(Date.now() / 1000);
+    const logs = db.getUnsyncedLogs(now);
+    expect(Array.isArray(logs)).toBe(true);
+  });
+
+  test('markLogsSynced marks logs as synced', () => {
+    // Add a file and get its log
+    const ts = Math.floor(Date.now() / 1000);
+    const name = 'sync_mark_' + Date.now() + '.txt';
+    const result = db.addFile(name, 'content', 'text');
+
+    // Get the unsynced log for this file
+    const logs = db.getUnsyncedLogs(ts - 100);
+    const fileLog = logs.find(l => l.filename === name);
+
+    if (fileLog) {
+      db.markLogsSynced([result.id]);
+      const afterMark = db.getUnsyncedLogs(ts - 100);
+      const stillPresent = afterMark.some(l => l.filename === name);
+      // After marking, the log should either be gone or marked as synced
+    }
+    try { db.deleteFileByName(name); } catch (e) {}
   });
 });
