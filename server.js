@@ -2881,7 +2881,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 }
 [data-theme="dark"] body { background: var(--bg-primary); }
 [data-theme="dark"] .card { background: var(--bg-secondary); border-color: var(--border-color); }
-[data-theme="dark"] .hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-color: #334155; }
+[data-theme="dark"] .hero { background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%); border-color: var(--border-color); }
 [data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="search"], [data-theme="dark"] textarea { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-primary); }
 [data-theme="dark"] .file-item { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="dark"] .file-item:hover { border-color: var(--text-muted); }
@@ -3133,7 +3133,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-video-wrapper video { width: 100%; max-height: 200px; border-radius: 8px; background: var(--bg-secondary,#000); margin-top: 4px; }
 [data-theme="dark"] .file-audio-player audio { filter: invert(0.8); } /* improve contrast on dark bg */
 .file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-.file-name input.inline-rename { font-size: 14px; font-weight: 500; background: var(--bg-input); border: 1px solid var(--accent-primary); border-radius: 4px; color: var(--text-primary); padding: 2px 6px; outline: none; width: 100%; }
+.file-name input.inline-rename { font-size: 14px; font-weight: 500; background: var(--bg-tertiary); border: 1px solid var(--accent-primary); border-radius: 4px; color: var(--text-primary); padding: 2px 6px; outline: none; width: 100%; }
 .file-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 .file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: var(--accent-primary); border-radius: 4px; cursor: pointer; transition: all 0.15s; }
 .file-tag:hover { opacity: 0.85; }
@@ -3879,7 +3879,7 @@ function showConflictDialog(conflict) {
 
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
-  overlay.innerHTML = '<div style="background:var(--card-bg);border-radius:16px;padding:28px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);border:1px solid var(--border-color);">' +
+  overlay.innerHTML = '<div style="background:var(--bg-secondary);border-radius:16px;padding:28px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);border:1px solid var(--border-color);">' +
     '<div style="font-size:20px;font-weight:600;margin-bottom:8px;">⚠️ ' + T('sync.fileConflict') + '</div>' +
     '<div style="color:var(--text-muted);margin-bottom:16px;font-size:13px;">' + T('sync.conflictDesc', null, {name: escapedName}) + '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">' +
@@ -3895,8 +3895,8 @@ function showConflictDialog(conflict) {
       '</div>' +
     '</div>' +
     '<div style="display:flex;flex-direction:column;gap:8px;">' +
-      '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--primary-color);color:var(--text-inverse,#fff);border:none;border-radius:8px;cursor:pointer;font-size:14px;">' + T('sync.keepLocal') + '</button>' +
-      '<button id="conflict_keep_remote" style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-color);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:14px;">' + T('sync.keepRemote') + '</button>' +
+      '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--accent-primary);color:var(--text-inverse);border:none;border-radius:8px;cursor:pointer;font-size:14px;">' + T('sync.keepLocal') + '</button>' +
+      '<button id="conflict_keep_remote" style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:14px;">' + T('sync.keepRemote') + '</button>' +
       '<button id="conflict_rename_both" disabled style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-muted);border:1px solid var(--border-color);border-radius:8px;cursor:not-allowed;font-size:14px;opacity:0.6;" title="' + T('sync.multiVersionNote') + '">' + T('sync.keepBoth') + '</button>' +
       '<button id="conflict_cancel" style="padding:10px 16px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-size:13px;">' + T('sync.later') + '</button>' +
     '</div>' +
@@ -5314,7 +5314,7 @@ async function loadDashboard() {
     chartEl.innerHTML = daily.map(item => {
       const barH = Math.max(3, Math.round((item.count / maxCount) * barMaxH));
       return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;">' +
-        '<div style="width:100%;max-width:28px;background:var(--accent);border-radius:2px 2px 0 0;height:' + barH + 'px;" title="' + item.count + ' files"></div>' +
+        '<div style="width:100%;max-width:28px;background:var(--accent-primary);border-radius:2px 2px 0 0;height:' + barH + 'px;" title="' + item.count + ' files"></div>' +
         '<div style="font-size:8px;color:var(--text-muted);">' + item.date + '</div>' +
         '</div>';
     }).join('');
