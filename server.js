@@ -2958,6 +2958,10 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .file-info-header { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="dark"] .sort-bar { color: var(--text-muted); }
 [data-theme="dark"] .tag-filter-bar { color: var(--text-muted); }
+[data-theme="dark"] .recent-search-tag { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-muted); }
+[data-theme="dark"] .recent-search-tag:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+[data-theme="dark"] .file-tag { background: rgba(102,126,234,0.25); color: #a5b4fc; }
+[data-theme="dark"] .file-tag:hover { opacity: 0.9; }
 [data-theme="dark"] .view-toggle { background: var(--bg-tertiary); border-color: var(--border-color); }
 
 /* ============================================================ */
