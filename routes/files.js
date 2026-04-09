@@ -101,7 +101,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
           return;
         }
         // 保存分片到临时文件
-        const chunkDir = path.join(process.env.TMPDIR || '/tmp', 'sharetool-chunks', uploadId);
+        const chunkDir = require('path').join(process.env.TMPDIR || '/tmp', 'sharetool-chunks', uploadId);
         require('fs').mkdirSync(chunkDir, { recursive: true });
         const chunkPath = path.join(chunkDir, `chunk_${chunkIndex}`);
         const chunkData = Buffer.from(content, 'base64');
@@ -140,7 +140,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
           return;
         }
         // 合并所有分片
-        const chunkDir = path.join(process.env.TMPDIR || '/tmp', 'sharetool-chunks', uploadId);
+        const chunkDir = require('path').join(process.env.TMPDIR || '/tmp', 'sharetool-chunks', uploadId);
         let fullContent = '';
         for (let i = 0; i < row.total_chunks; i++) {
           const chunkPath = path.join(chunkDir, `chunk_${i}`);
