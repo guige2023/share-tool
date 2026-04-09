@@ -1598,6 +1598,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
   --bg-hover: #1e293b;
+  --modal-backdrop: rgba(0,0,0,0.7);
   --border-color: #334155;
   --text-primary: #e2e8f0;
   --text-secondary: #94a3b8;
@@ -1618,6 +1619,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   --bg-tertiary: #f1f5f9;
   --bg-hover: #e2e8f0;
   --bg-modal: #ffffff;
+  --modal-backdrop: rgba(0,0,0,0.5);
   --border-color: #cbd5e1;
   --text-primary: #1e293b;
   --text-secondary: #475569;
@@ -1669,7 +1671,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 .qr-modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.7);
+  background: var(--modal-backdrop, rgba(0,0,0,0.7));
   z-index: 300;
   display: flex;
   align-items: center;
