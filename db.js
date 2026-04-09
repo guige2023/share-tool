@@ -383,7 +383,7 @@ function getFile(id) {
 function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null) {
   const db = getDb();
   const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-  const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type'].includes(sort) ? sort : 'created_at';
+  const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type', 'tags'].includes(sort) ? sort : 'created_at';
   const files = db.prepare(`
     SELECT ${FILE_FIELDS} FROM files
     ${folder ? 'WHERE filename LIKE ? ESCAPE ?' : ''}

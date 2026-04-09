@@ -460,6 +460,10 @@ const I18N = {
     'ui.sortNameZA': '名称 Z-A',
     'ui.sortLargest': '最大优先',
     'ui.sortSmallest': '最小优先',
+    'ui.sortTypeAZ': '类型 A-Z',
+    'ui.sortTypeZA': '类型 Z-A',
+    'ui.sortTagAZ': '标签 A-Z',
+    'ui.sortTagZA': '标签 Z-A',
     'ui.allFiles': '所有文件',
     'ui.noResults': '未找到匹配结果',
     'ui.tryOtherKeywords': '试试其他关键词或清除筛选',
@@ -854,6 +858,8 @@ const I18N = {
     'ui.sortSmallest': 'Smallest first',
     'ui.sortTypeAZ': 'Type A-Z',
     'ui.sortTypeZA': 'Type Z-A',
+    'ui.sortTagAZ': 'Tag A-Z',
+    'ui.sortTagZA': 'Tag Z-A',
     'ui.allFiles': 'All files',
     'ui.shortcuts': 'Shortcuts',
     'ui.shortcutHelp': '? View shortcuts',
@@ -3394,6 +3400,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <option value="size_asc">' + T('ui.sortSmallest') + '</option>
         <option value="type_asc">' + T('ui.sortTypeAZ') + '</option>
         <option value="type_desc">' + T('ui.sortTypeZA') + '</option>
+        <option value="tag_asc">' + T('ui.sortTagAZ') + '</option>
+        <option value="tag_desc">' + T('ui.sortTagZA') + '</option>
       </select>
       <span id="fileCount" style="margin-left:auto;"></span>
       <span id="searchResultCount" style="display:none;color:var(--accent-primary);font-weight:500;margin-left:8px;"></span>
@@ -5475,7 +5483,7 @@ function applySort(files) {
 
 function setSort(value) {
   const [sortKey, sortOrder] = value.split('_');
-  localStorage.setItem('sharetool_sort', sortKey === 'time' ? 'created_at' : sortKey);
+  localStorage.setItem('sharetool_sort', sortKey === 'time' ? 'created_at' : sortKey === 'tag' ? 'tags' : sortKey);
   localStorage.setItem('sharetool_order', sortOrder);
   currentSort = value;
   currentPage = 1;
