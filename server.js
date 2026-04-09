@@ -1104,6 +1104,20 @@ function handleWsMessage(ws, msg) {
       break;
     }
 
+    case 'auth': {
+      // 分享链接 Token 认证（用于访问受保护的分享链接）
+      const { token } = payload;
+      if (token && token === SHARE_TOKEN) {
+        ws.isShareAuth = true;
+        ws.send(JSON.stringify({ type: 'auth_ok', payload: { message: 'authenticated' } }));
+        logger.info(`[WS] Share token auth OK from ${ws._socket?.remoteAddress || 'unknown'}`);
+      } else {
+        ws.send(JSON.stringify({ type: 'auth_failed', payload: { error: 'invalid token' } }));
+        logger.warn(`[WS] Share token auth failed from ${ws._socket?.remoteAddress || 'unknown'}`);
+      }
+      break;
+    }
+
     case 'sync_request': {
       // 增量同步请求
       const { since = 0, deviceId } = payload;
@@ -2737,7 +2751,7 @@ async function openMediaModal(filename) {
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     if (isAudio) {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;padding:20px;"><audio controls autoplay style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持音频播放</audio></div>';
+        '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio controls autoplay style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持音频播放</audio></div>';
     } else {
       document.getElementById('modalBody').innerHTML =
         '<div style="text-align:center;background:#000;padding:10px;border-radius:8px;"><video controls autoplay style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频播放</video></div>';
@@ -2755,7 +2769,7 @@ async function openPdfModal(filename) {
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     document.getElementById('modalBody').innerHTML =
-      '<iframe src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;" title="PDF预览"></iframe>';
+      '<iframe src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;background:var(--bg-tertiary);" title="PDF预览"></iframe>';
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open PDF: ' + e.message); }
 }
