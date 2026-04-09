@@ -3043,7 +3043,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 }
 .markdown-body pre:hover .copy-btn { opacity: 1; }
 .markdown-body pre .copy-btn:hover { color: var(--accent-primary); border-color: var(--accent-primary); }
-.markdown-body pre .copy-btn.copied { color: #10b981; border-color: #10b981; }
+.markdown-body pre .copy-btn.copied { color: var(--success, #10b981); border-color: var(--success, #10b981); }
 /* Task list */
 .markdown-body input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent-primary); }
 /* Code syntax highlighting theme */
@@ -3976,17 +3976,19 @@ function initSortSelect(sort, order) {
 function updateTagFilterBar() {
   const bar = document.getElementById('tagFilterBar');
   if (!bar) return;
-  const allTags = new Set();
+  const tagCount = new Map();
   currentFiles.forEach(f => {
     if (f.tags) {
-      f.tags.split(',').map(t => t.trim()).filter(t => t).forEach(t => allTags.add(t));
+      f.tags.split(',').map(t => t.trim()).filter(t => t).forEach(t => {
+        tagCount.set(t, (tagCount.get(t) || 0) + 1);
+      });
     }
   });
-  if (allTags.size === 0) {
+  if (tagCount.size === 0) {
     bar.innerHTML = '';
     return;
   }
-  const sorted = Array.from(allTags).sort();
+  const sorted = Array.from(tagCount.keys()).sort();
   const currentQ = window.currentSearchQ || '';
   const activeTag = sorted.find(t => currentQ.includes('tag:' + t));
   const clearBtn = activeTag
@@ -3996,7 +3998,8 @@ function updateTagFilterBar() {
   bar.innerHTML = sorted.map(t => {
     const active = currentQ.includes('tag:' + t) ? 'active' : '';
     const style = getTagStyle(t) || '';
-    return '<span class="filter-tab ' + active + '" onclick="filterByTag(\'' + t.replace(/'/g, "\\'") + '\')" style="font-size:11px;' + style + '">🏷 ' + escapeHtml(t) + '</span>';
+    const count = tagCount.get(t);
+    return '<span class="filter-tab ' + active + '" onclick="filterByTag(\'' + t.replace(/'/g, "\\'") + '\')" style="font-size:11px;' + style + '">🏷 ' + escapeHtml(t) + '<sup style="font-size:9px;opacity:0.7;margin-left:3px;">' + count + '</sup></span>';
   }).join('') + clearBtn + manageBtn;
 }
 
