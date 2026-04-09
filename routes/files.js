@@ -614,6 +614,50 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/file-rename-batch
+  if (pathname === '/api/file-rename-batch' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { renames } = JSON.parse(body);
+        if (!Array.isArray(renames) || renames.length === 0) {
+          sendJson(res, { success: false, error: 'renames 必须是非空数组' }, 400);
+          return;
+        }
+        if (renames.length > 100) {
+          sendJson(res, { success: false, error: '单次最多支持 100 个文件重命名' }, 400);
+          return;
+        }
+        const results = [];
+        const errors = [];
+        for (const { oldFilename, newFilename } of renames) {
+          if (!newFilename || !newFilename.trim()) {
+            errors.push({ oldFilename, error: '新文件名不能为空' });
+            continue;
+          }
+          const newName = newFilename.trim();
+          const result = db.renameFile(oldFilename, newName);
+          if (result.success) {
+            broadcastChange({ type: 'rename', oldFilename, newFilename: newName, hash: result.hash });
+            results.push({ oldFilename, newFilename: newName });
+          } else {
+            errors.push({ oldFilename, error: result.error });
+          }
+        }
+        if (results.length > 0) {
+          db.addAuditLog('batch_rename', `${results.length} files renamed`, getClientIp(req), authData.token);
+        }
+        sendJson(res, { success: results.length > 0, renamed: results, errors, total: renames.length });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   // POST /api/tags/rename/:oldTag
   if (pathname.startsWith('/api/tags/rename/') && method === 'POST') {
     const authData = authRequired(req, res);
