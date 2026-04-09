@@ -81,6 +81,28 @@ const TOKEN_EXPIRES_IN = 7 * 86400; // 7天
 // 本机信息
 const DEVICE_ID = crypto.createHash('md5').update(os.hostname() + os.homedir()).digest('hex');
 const DEVICE_NAME = os.hostname();
+// File icon utilities (moved up for routeCtx availability)
+function getFileIcon(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  const icons = {
+    pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗',
+    ppt: '📙', pptx: '📙', txt: '📄', md: '📝', json: '📋',
+    jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️',
+    mp3: '🎵', wav: '🎵', flac: '🎵', aac: '🎵',
+    mp4: '🎬', mkv: '🎬', avi: '🎬', mov: '🎬', webm: '🎬',
+    zip: '📦', rar: '📦', '7z': '📦', tar: '📦', gz: '📦',
+    js: '💻', ts: '💻', py: '💻', java: '💻', c: '💻', cpp: '💻', h: '💻',
+    css: '🎨', html: '🌐', xml: '🌐', yml: '⚙️', yaml: '⚙️',
+    exe: '⚙️', dmg: '⚙️', deb: '⚙️', rpm: '⚙️',
+  };
+  return icons[ext] || '📄';
+}
+
+function isImageFile(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return ['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif'].includes(ext);
+}
+
 const LOCAL_IP = (() => {
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
