@@ -23,6 +23,23 @@ const dgram = require('dgram');
 // 批量打包
 const archiver = require('archiver');
 
+// 结构化日志
+const pino = require('pino');
+const LOG_LEVEL = (function() {
+  const envLevel = process.env.SHARETOOL_LOG_LEVEL;
+  if (envLevel && ['trace','debug','info','warn','error','fatal'].includes(envLevel)) return envLevel;
+  return 'info';
+})();
+const logger = pino({
+  level: LOG_LEVEL,
+  transport: process.stdout.isTTY ? {
+    target: 'pino-pretty',
+    options: { colorize: true, translateTime: 'SYS:standard', ignore: 'pid,hostname' }
+  } : undefined,
+  base: { service: 'sharetool', pid: process.pid },
+  timestamp: pino.stdTimeFunctions.isoTime,
+});
+
 // ============================================================
 // 常量配置
 // ============================================================
@@ -53,7 +70,7 @@ function getShareToken() {
   const newToken = crypto.randomBytes(32).toString('hex');
   config.shareToken = newToken;
   saveConfig();
-  console.log('[ShareTool] 首次启动，已生成新 Token:', newToken.substring(0, 8) + '***');
+  logger.info('[ShareTool] 首次启动，已生成新 Token:', newToken.substring(0, 8) + '***');
   return newToken;
 }
 
@@ -368,7 +385,7 @@ function loadConfig() {
     SHARE_TOKEN = crypto.randomBytes(32).toString('hex');
     config.shareToken = SHARE_TOKEN;
     saveConfig();
-    console.log('[ShareTool] 首次启动，已生成 Token 并保存到 ' + CONFIG_FILE);
+    logger.info('[ShareTool] 首次启动，已生成 Token 并保存到 ' + CONFIG_FILE);
   }
 }
 
@@ -383,7 +400,7 @@ function saveConfig() {
     }
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(saveConfig, null, 2));
   } catch (e) {
-    console.error('[Config] Save failed:', e.message);
+    logger.error({ err: e }, 'Config save failed');
   }
 }
 
@@ -496,10 +513,10 @@ async function init() {
   // 定时同步检查
   startSyncScheduler();
   
-  console.log(`[ShareTool] Device ID: ${DEVICE_ID}`);
-  console.log(`[ShareTool] HTTP: http://${LOCAL_IP}:${PORT}`);
-  console.log(`[ShareTool] WebSocket: ws://${LOCAL_IP}:${WS_PORT}`);
-  console.log(`[ShareTool] Discovery: udp://${LOCAL_IP}:${DISCOVERY_PORT}`);
+  logger.info(`[ShareTool] Device ID: ${DEVICE_ID}`);
+  logger.info(`[ShareTool] HTTP: http://${LOCAL_IP}:${PORT}`);
+  logger.info(`[ShareTool] WebSocket: ws://${LOCAL_IP}:${WS_PORT}`);
+  logger.info(`[ShareTool] Discovery: udp://${LOCAL_IP}:${DISCOVERY_PORT}`);
 }
 
 // ============================================================
@@ -566,17 +583,17 @@ async function ensureSslCertificates() {
   // 检查证书有效期
   const info = getCertExpiryInfo(certPath);
   if (info && info.valid && info.daysRemaining !== null && info.daysRemaining > 7) {
-    console.log(`[HTTPS] Using existing certificate (expires in ${info.daysRemaining} days)`);
+    logger.info(`[HTTPS] Using existing certificate (expires in ${info.daysRemaining} days)`);
     return true;
   }
 
   // 证书不存在、已过期或即将过期（<=7天）
   if (info && !info.valid) {
-    console.log(`[HTTPS] Certificate expired, regenerating...`);
+    logger.info(`[HTTPS] Certificate expired, regenerating...`);
   } else if (info && info.daysRemaining !== null) {
-    console.log(`[HTTPS] Certificate expires in ${info.daysRemaining} days, regenerating...`);
+    logger.info(`[HTTPS] Certificate expires in ${info.daysRemaining} days, regenerating...`);
   } else {
-    console.log(`[HTTPS] No certificate found, generating...`);
+    logger.info(`[HTTPS] No certificate found, generating...`);
   }
 
   try {
@@ -589,12 +606,12 @@ async function ensureSslCertificates() {
     fs.writeFileSync(keyPath, key);
     fs.writeFileSync(certPath, cert);
 
-    console.log('[HTTPS] Self-signed certificate generated');
-    console.log(`[HTTPS] Certificate: ${certPath}`);
-    console.log('[HTTPS] NOTE: Add cert to system trust store for full HTTPS support');
+    logger.info('[HTTPS] Self-signed certificate generated');
+    logger.info(`[HTTPS] Certificate: ${certPath}`);
+    logger.info('[HTTPS] NOTE: Add cert to system trust store for full HTTPS support');
     return true;
   } catch (e) {
-    console.error('[HTTPS] Certificate generation failed:', e.message);
+    logger.error({ err: e }, 'HTTPS cert generation failed');
     return false;
   }
 }
@@ -629,7 +646,7 @@ async function generateSelfSignedCert() {
     extensions: [{ name: 'subjectAltName', altNames }]
   });
   
-  console.log(`[HTTPS] SANs: localhost, 127.0.0.1, ${ips.filter(ip => ip !== '127.0.0.1').join(', ')}`);
+  logger.info(`[HTTPS] SANs: localhost, 127.0.0.1, ${ips.filter(ip => ip !== '127.0.0.1').join(', ')}`);
   
   return { key: pems.private, cert: pems.cert };
 }
@@ -733,10 +750,10 @@ async function startHttpServer() {
       serverOptions.https = true;
       const info = getCertInfo();
       if (info) {
-        console.log(`[HTTPS] Certificate valid for ${info.daysRemaining} days (expires: ${info.validTo})`);
+        logger.info(`[HTTPS] Certificate valid for ${info.daysRemaining} days (expires: ${info.validTo})`);
       }
     } catch (e) {
-      console.error('[HTTPS] Failed to load certificate:', e.message);
+      logger.error({ err: e }, 'HTTPS cert load failed');
     }
   } else {
     // 自动生成自签名证书
@@ -892,18 +909,33 @@ self.addEventListener('push', (event) => {
         }
       }
 
-      if (pathname === '/api/list') {
-        const authData = authRequired(req, res);
-        if (!authData) return;
-        const { files, total } = db.listFiles();
-        db.addAuditLog('list_files', `Total: ${total}`, getClientIp(req), authData.token);
-        sendJson(res, { success: true, files: files.map(f => ({
-          id: f.id, name: f.filename, size: f.size, time: f.created_at * 1000,
-          type: f.type, hash: f.hash, tags: f.tags
-        }))});
-        return;
+      // Route context - shared dependencies for route handlers
+      const routeCtx = {
+        db, config, sendJson, authRequired, getClientIp, broadcastChange,
+        getUploadMaxSize, getFileIcon, archiver, crypto, cryptoModule,
+        SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, LOCAL_IP, PORT,
+        saveConfig, ensureSslCertificates, getCertInfo, QRCode,
+        fs, path, createShareLink, validateShareCode
+      };
+
+      // API routes (non-share)
+      if (pathname.startsWith('/api/')) {
+        const apiRoutes = require('./routes/api');
+        if (apiRoutes(req, res, pathname, query, routeCtx)) return;
       }
-      
+
+      // File routes
+      const fileRoutes = require('./routes/files');
+      if (fileRoutes(req, res, pathname, query, routeCtx)) return;
+
+      // Share routes
+      const shareRoutes = require('./routes/share');
+      if (shareRoutes(req, res, pathname, query, routeCtx)) return;
+
+      // 未知路由
+      sendJson(res, { success: false, error: 'Not found' }, 404);
+      return;
+
       if (pathname === '/api/upload' && req.method === 'POST') {
         const authData = authRequired(req, res);
         if (!authData) return;
@@ -1864,7 +1896,7 @@ self.addEventListener('push', (event) => {
       sendJson(res, { success: false, error: 'Not found' }, 404);
       
     } catch (e) {
-      console.error('[HTTP] Error:', e);
+      logger.error({ err: e }, 'HTTP error');
       sendJson(res, { success: false, error: e.message }, 500);
     }
   };
@@ -1872,19 +1904,19 @@ self.addEventListener('push', (event) => {
   if (serverOptions.https) {
     httpServer = https.createServer(serverOptions, requestHandler);
     httpServer.listen(HTTPS_PORT, '0.0.0.0', () => {
-      console.log(`[HTTPS] Server listening on https://${LOCAL_IP}:${HTTPS_PORT}`);
+      logger.info(`[HTTPS] Server listening on https://${LOCAL_IP}:${HTTPS_PORT}`);
     });
     // 同时在 HTTP 端口运行 HTTP（重定向到 HTTPS）
     const plainServer = http.createServer(requestHandler);
     plainServer.listen(PORT, '0.0.0.0', () => {
-      console.log(`[HTTP] Server listening on http://${LOCAL_IP}:${PORT} (plain)`);
+      logger.info(`[HTTP] Server listening on http://${LOCAL_IP}:${PORT} (plain)`);
     });
   } else {
     httpServer = http.createServer(requestHandler);
     httpServer.listen(PORT, '0.0.0.0', () => {
-      console.log(`[HTTP] Server listening on http://${LOCAL_IP}:${PORT}`);
-      console.log('[HTTPS] SSL certificates not found, HTTPS disabled');
-      console.log('[HTTPS] Run with SSL_DIR set to enable HTTPS');
+      logger.info(`[HTTP] Server listening on http://${LOCAL_IP}:${PORT}`);
+      logger.info('[HTTPS] SSL certificates not found, HTTPS disabled');
+      logger.info('[HTTPS] Run with SSL_DIR set to enable HTTPS');
     });
   }
 }
@@ -1897,7 +1929,7 @@ function startWsServer() {
   
   wsServer.on('connection', (ws, req) => {
     const clientIp = req.socket.remoteAddress;
-    console.log(`[WS] New connection from ${clientIp}`);
+    logger.info(`[WS] New connection from ${clientIp}`);
     
     ws.isAlive = true;
     ws.deviceId = null;
@@ -1909,7 +1941,7 @@ function startWsServer() {
         const msg = JSON.parse(data.toString());
         handleWsMessage(ws, msg);
       } catch (e) {
-        console.error('[WS] Invalid message:', e.message);
+        logger.error({ err: e }, 'WS invalid message');
       }
     });
     
@@ -1919,12 +1951,12 @@ function startWsServer() {
         syncClients.delete(ws);
         db.setDeviceOffline(ws.deviceId);
         broadcastDeviceList();
-        console.log(`[WS] Device ${ws.deviceId} disconnected`);
+        logger.info(`[WS] Device ${ws.deviceId} disconnected`);
       }
     });
     
     ws.on('error', (e) => {
-      console.error('[WS] Error:', e.message);
+      logger.error({ err: e }, 'WS error');
     });
   });
 
@@ -1945,7 +1977,7 @@ function startWsServer() {
 
   wsServer.on('close', () => clearInterval(heartbeat));
   
-  console.log(`[WS] WebSocket server on ws://${LOCAL_IP}:${WS_PORT}`);
+  logger.info(`[WS] WebSocket server on ws://${LOCAL_IP}:${WS_PORT}`);
 }
 
 function handleWsMessage(ws, msg) {
@@ -1984,7 +2016,7 @@ function handleWsMessage(ws, msg) {
       }));
 
       broadcastDeviceList();
-      console.log(`[WS] Device registered: ${deviceId} (${deviceName}), incremental sync: ${changes.length} changes since ${lastSyncTs}`);
+      logger.info(`[WS] Device registered: ${deviceId} (${deviceName}), incremental sync: ${changes.length} changes since ${lastSyncTs}`);
       break;
     }
 
@@ -2000,7 +2032,7 @@ function handleWsMessage(ws, msg) {
           totalChanges: changes.length
         }
       }));
-      console.log(`[WS] sync_request from ${ws.deviceId}: ${changes.length} changes since ${since}`);
+      logger.info(`[WS] sync_request from ${ws.deviceId}: ${changes.length} changes since ${since}`);
       break;
     }
     
@@ -2060,7 +2092,7 @@ function handleWsMessage(ws, msg) {
           const conflictInfo = { type: 'conflict', payload: { action: 'file_create', filename, localHash: existing.hash, remoteHash: hash, localTs: existing.updated_at, remoteTs: clientTs || 0, serverTs: Math.floor(Date.now() / 1000) } };
           ws.send(JSON.stringify(conflictInfo));
           broadcastChange({ type: 'conflict', action: 'file_create', filename, hash: existing.hash, newHash: hash }, null);
-          console.log(`[Conflict] file_create: ${filename} - local=${existing.hash} remote=${hash}`);
+          logger.info(`[Conflict] file_create: ${filename} - local=${existing.hash} remote=${hash}`);
         }
       } else {
         db.addFile(filename, content, type || 'file', hash);
@@ -2086,7 +2118,7 @@ function handleWsMessage(ws, msg) {
         const conflictInfo = { type: 'conflict', payload: { action: 'file_update', filename, localHash: existing.hash, remoteHash: hash, localTs: existing.updated_at, remoteTs: clientTs || 0, serverTs: Math.floor(Date.now() / 1000) } };
         ws.send(JSON.stringify(conflictInfo));
         broadcastChange({ type: 'conflict', action: 'file_update', filename, hash: existing.hash, newHash: hash }, null);
-        console.log(`[Conflict] file_update: ${filename} - local=${existing.hash} remote=${hash}`);
+        logger.info(`[Conflict] file_update: ${filename} - local=${existing.hash} remote=${hash}`);
       }
       break;
     }
@@ -2118,11 +2150,11 @@ function handleWsMessage(ws, msg) {
           }
         }
         broadcastChange({ type: 'update', filename, hash }, ws.deviceId);
-        console.log(`[Conflict] Resolved force_remote: ${filename}`);
+        logger.info(`[Conflict] Resolved force_remote: ${filename}`);
       } else if (resolution === 'force_local') {
         // 通知其他设备以本地为准（不需要做什么，因为本地没变）
         ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'conflict_resolve', filename, status: 'kept_local' } }));
-        console.log(`[Conflict] Resolved force_local: ${filename}`);
+        logger.info(`[Conflict] Resolved force_local: ${filename}`);
       } else if (resolution === 'rename_both') {
         // 重命名远程版本：filename → filename_timestamp
         const ts = Date.now();
@@ -2132,7 +2164,7 @@ function handleWsMessage(ws, msg) {
         broadcastChange({ type: 'rename', oldFilename: filename, newFilename: newName }, ws.deviceId);
         broadcastChange({ type: 'create', filename, hash }, ws.deviceId);
         ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'conflict_resolve', filename, status: 'renamed', newFilename: filename } }));
-        console.log(`[Conflict] Resolved rename_both: ${filename} → ${newName}`);
+        logger.info(`[Conflict] Resolved rename_both: ${filename} → ${newName}`);
       }
       break;
     }
@@ -2227,7 +2259,7 @@ function startDiscovery() {
             data.payload.ip,
             data.payload.port
           );
-          console.log(`[Discovery] Found device: ${data.payload.deviceName} (${data.payload.ip})`);
+          logger.info(`[Discovery] Found device: ${data.payload.deviceName} (${data.payload.ip})`);
         }
       }
     } catch (e) {
@@ -2236,12 +2268,12 @@ function startDiscovery() {
   });
   
   udpServer.on('error', (e) => {
-    console.error('[Discovery] Error:', e.message);
+    logger.error({ err: e }, 'Discovery error');
   });
   
   udpServer.bind(DISCOVERY_PORT, () => {
     udpServer.setBroadcast(true);
-    console.log(`[Discovery] UDP server on port ${DISCOVERY_PORT}`);
+    logger.info(`[Discovery] UDP server on port ${DISCOVERY_PORT}`);
     
     // 立即广播一次
     broadcastDiscovery();
@@ -2283,7 +2315,7 @@ function startSyncScheduler() {
     const { unsynced, unsyncedSize } = db.getSyncStatus();
 
     if (onlineDevices.length > 0 && unsynced > 0) {
-      console.log(`[Sync] ${unsynced} unsynced changes (${formatSize(unsyncedSize)}), ${onlineDevices.length} online devices - nudging`);
+      logger.info(`[Sync] ${unsynced} unsynced changes (${formatSize(unsyncedSize)}), ${onlineDevices.length} online devices - nudging`);
       // 主动通知在线设备拉取待同步变更
       broadcastChange({ type: 'sync_nudge', pending: unsynced, size: unsyncedSize }, null);
     }
@@ -2300,7 +2332,7 @@ function startSyncScheduler() {
   setInterval(() => {
     const h = new Date().getHours();
     if (h === 3) {
-      console.log('[DB] Running daily VACUUM...');
+      logger.info('[DB] Running daily VACUUM...');
       db.runVacuum();
     }
   }, 3600000);
@@ -2879,9 +2911,9 @@ let tagColors = {};  // { tagName: color } from server
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
-      console.log('[SW] registered', reg.scope);
+      logger.info('[SW] registered', reg.scope);
     }).catch(err => {
-      console.log('[SW] registration failed:', err);
+      logger.info('[SW] registration failed:', err);
     });
   });
 }
@@ -3014,7 +3046,7 @@ function connectWS() {
     const statusEl = document.getElementById('wsStatus');
     if (statusEl) { statusEl.className = 'status-item connected'; statusEl.textContent = 'WS 已连接'; }
 
-      console.log('[WS] Connected');
+      logger.info('[WS] Connected');
       isConnected = true;
       reconnectDelay = 1000;
       updateWsStatus(true);
@@ -3043,7 +3075,7 @@ function connectWS() {
     const statusEl = document.getElementById('wsStatus');
     if (statusEl) { statusEl.className = 'status-item disconnected'; statusEl.textContent = 'WS 未连接'; }
 
-      console.log('[WS] Disconnected');
+      logger.info('[WS] Disconnected');
       isConnected = false;
       updateWsStatus(false);
       flushOfflineQueue();
@@ -3051,10 +3083,10 @@ function connectWS() {
     };
     
     ws.onerror = (e) => {
-      console.error('[WS] Error:', e);
+      logger.error({ err: e }, 'WS error');
     };
   } catch (e) {
-    console.error('[WS] Connect failed:', e);
+    logger.error({ err: e }, 'WS connect failed');
     scheduleReconnect();
   }
 }
@@ -3062,7 +3094,7 @@ function connectWS() {
 function scheduleReconnect() {
   if (reconnectTimer) clearTimeout(reconnectTimer);
   reconnectTimer = setTimeout(() => {
-    console.log('[WS] Reconnecting...');
+    logger.info('[WS] Reconnecting...');
     connectWS();
     reconnectDelay = Math.min(reconnectDelay * 2, 30000);
   }, reconnectDelay);
@@ -3095,7 +3127,7 @@ function handleWsMessage(msg) {
       if (payload.sync && payload.sync.serverTs) {
         lastSyncTs = payload.sync.serverTs;
         localStorage.setItem('sharetool_last_sync', lastSyncTs);
-        console.log('[Sync] Saved lastSyncTs:', lastSyncTs);
+        logger.info('[Sync] Saved lastSyncTs:', lastSyncTs);
       }
       // 显示未同步状态
       if (payload.syncStatus) {
@@ -3141,7 +3173,7 @@ function handleWsMessage(msg) {
         applyIncrementalChanges(payload.changes);
         showToast('📥 增量同步 ' + payload.changes.length + ' 项');
       }
-      console.log('[Sync] sync_response:', payload.changes ? payload.changes.length : 0, 'changes');
+      logger.info('[Sync] sync_response:', payload.changes ? payload.changes.length : 0, 'changes');
       break;
     }
     case 'conflict': {
@@ -3151,7 +3183,7 @@ function handleWsMessage(msg) {
     }
     case 'sync_ack': {
       if (payload.status === 'duplicate' || payload.status === 'kept_local') {
-        console.log('[Sync] Ack:', payload.status, payload.filename);
+        logger.info('[Sync] Ack:', payload.status, payload.filename);
       } else if (payload.status === 'ok' || payload.status === 'created') {
         showToast('✅ 同步成功: ' + (payload.filename || ''));
       } else if (payload.status === 'renamed') {
@@ -3161,7 +3193,7 @@ function handleWsMessage(msg) {
     }
     case 'sync_nudge': {
       // 服务器主动通知有未同步数据，立即拉取
-      console.log('[Sync] Nudge received: pending=' + payload.pending + ', size=' + formatSize(payload.size || 0));
+      logger.info('[Sync] Nudge received: pending=' + payload.pending + ', size=' + formatSize(payload.size || 0));
       if (payload.pending > 0) {
         showToast('📡 发现 ' + payload.pending + ' 项待同步变更，开始拉取...');
         doIncrementalSync(lastSyncTs);
@@ -3182,13 +3214,13 @@ function handleWsMessage(msg) {
 function addToOfflineQueue(action, payload) {
   offlineQueue.push({ action, payload, ts: Math.floor(Date.now() / 1000) });
   localStorage.setItem('sharetool_offline_queue', JSON.stringify(offlineQueue));
-  console.log('[OfflineQueue] Added:', action, 'Queue size:', offlineQueue.length);
+  logger.info('[OfflineQueue] Added:', action, 'Queue size:', offlineQueue.length);
 }
 
 // 重连时批量发送离线操作
 function flushOfflineQueue() {
   if (!isConnected || offlineQueue.length === 0) return;
-  console.log('[OfflineQueue] Flushing', offlineQueue.length, 'items');
+  logger.info('[OfflineQueue] Flushing', offlineQueue.length, 'items');
   const queue = [...offlineQueue];
   offlineQueue = [];
   localStorage.setItem('sharetool_offline_queue', '[]');
@@ -3204,7 +3236,7 @@ function flushOfflineQueue() {
   if (offlineQueue.length > 0) {
     localStorage.setItem('sharetool_offline_queue', JSON.stringify(offlineQueue));
   }
-  console.log('[OfflineQueue] Flush complete, remaining:', offlineQueue.length);
+  logger.info('[OfflineQueue] Flush complete, remaining:', offlineQueue.length);
 }
 
 // 增量同步：定期从服务器拉取变更
@@ -3213,11 +3245,11 @@ let syncIntervalId = null;
 // 手动触发一次增量同步
 function doIncrementalSync(sinceTs = 0) {
   if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
-    console.log('[Sync] Cannot sync: not connected');
+    logger.info('[Sync] Cannot sync: not connected');
     return;
   }
   ws.send(JSON.stringify({ type: 'sync_request', payload: { since: sinceTs || lastSyncTs, deviceId: DEVICE_ID } }));
-  console.log('[Sync] Manual sync_request sent, since:', sinceTs || lastSyncTs);
+  logger.info('[Sync] Manual sync_request sent, since:', sinceTs || lastSyncTs);
 }
 
 function startPeriodicSync(intervalMs = 30000) {
@@ -3225,16 +3257,16 @@ function startPeriodicSync(intervalMs = 30000) {
   syncIntervalId = setInterval(() => {
     if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'sync_request', payload: { since: lastSyncTs, deviceId: DEVICE_ID } }));
-      console.log('[Sync] Periodic sync_request sent, since:', lastSyncTs);
+      logger.info('[Sync] Periodic sync_request sent, since:', lastSyncTs);
     }
   }, intervalMs);
-  console.log('[Sync] Periodic sync started, interval:', intervalMs, 'ms');
+  logger.info('[Sync] Periodic sync started, interval:', intervalMs, 'ms');
 }
 
 // 应用增量同步变更（差异更新）
 function applyIncrementalChanges(changes) {
   if (!changes || !changes.length) return;
-  console.log('[Sync] Applying', changes.length, 'incremental changes');
+  logger.info('[Sync] Applying', changes.length, 'incremental changes');
   let updated = false;
   for (const change of changes) {
     const action = change.action;
@@ -3303,7 +3335,7 @@ async function loadTagColors() {
       renderFiles();
     }
   } catch (e) {
-    console.error('[TagColor] load failed:', e);
+    logger.error({ err: e }, 'TagColor load failed');
   }
 }
 
@@ -3326,7 +3358,7 @@ async function loadFiles() {
     renderFiles();
     updateTagFilterBar();
   } catch (e) {
-    console.error('Load files failed:', e);
+    logger.error({ err: e }, 'Load files failed');
   }
 }
 
@@ -4718,7 +4750,7 @@ function sendHtml(res) {
 // 启动
 // ============================================================
 process.on('SIGINT', () => {
-  console.log('\n[ShareTool] Shutting down...');
+  logger.info('\n[ShareTool] Shutting down...');
   if (broadcastTimer) clearInterval(broadcastTimer);
   if (wsServer) wsServer.close();
   if (udpServer) udpServer.close();
@@ -4727,7 +4759,7 @@ process.on('SIGINT', () => {
 });
 
 process.on('uncaughtException', (e) => {
-  console.error('[ShareTool] Uncaught exception:', e);
+  logger.error({ err: e }, 'Uncaught exception');
 });
 
 init();
