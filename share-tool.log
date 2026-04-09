@@ -264,3 +264,100 @@
 {"level":30,"time":"2026-04-09T13:48:11.342Z","service":"sharetool","pid":57022,"msg":"[WS] Share token auth OK from ::1"}
 {"level":50,"time":"2026-04-09T13:52:10.088Z","service":"sharetool","pid":57022,"err":{"type":"TypeError","message":"files.forEach is not a function","stack":"TypeError: files.forEach is not a function\n    at handleFileRoutes (/Users/guige/share-tool/routes/files.js:602:11)\n    at Server.requestHandler (/Users/guige/share-tool/server.js:991:11)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"pathname":"/api/tags/list","method":"GET","msg":"HTTP error"}
 {"level":50,"time":"2026-04-09T13:52:10.125Z","service":"sharetool","pid":57022,"err":{"type":"SqliteError","message":"no such table: tag_colors","stack":"SqliteError: no such table: tag_colors\n    at Database.prepare (/Users/guige/share-tool/node_modules/better-sqlite3/lib/methods/wrappers.js:5:21)\n    at Object.getAllTagColors (/Users/guige/share-tool/db.js:1154:13)\n    at handleApiRoutes (/Users/guige/share-tool/routes/api.js:180:26)\n    at Server.requestHandler (/Users/guige/share-tool/server.js:986:13)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)","code":"SQLITE_ERROR"},"pathname":"/api/tags/colors","method":"GET","msg":"HTTP error"}
+{"level":30,"time":"2026-04-09T13:58:28.311Z","service":"sharetool","pid":57022,"msg":"[WS] New connection from ::1"}
+{"level":30,"time":"2026-04-09T13:58:28.314Z","service":"sharetool","pid":57022,"msg":"[WS] Device registered: test-final-n2s2 (FinalTestDevice), incremental sync: 21 changes since 0"}
+{"level":30,"time":"2026-04-09T13:58:30.314Z","service":"sharetool","pid":57022,"msg":"[WS] Device test-final-n2s2 disconnected"}
+{"level":50,"time":"2026-04-09T14:00:09.546Z","service":"sharetool","pid":57022,"err":{"type":"SqliteError","message":"no such table: tag_colors","stack":"SqliteError: no such table: tag_colors\n    at Database.prepare (/Users/guige/share-tool/node_modules/better-sqlite3/lib/methods/wrappers.js:5:21)\n    at Object.getAllTagColors (/Users/guige/share-tool/db.js:1154:13)\n    at handleApiRoutes (/Users/guige/share-tool/routes/api.js:180:26)\n    at Server.requestHandler (/Users/guige/share-tool/server.js:986:13)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)","code":"SQLITE_ERROR"},"pathname":"/api/tags/colors","method":"GET","msg":"HTTP error"}
+{"level":50,"time":"2026-04-09T14:00:56.618Z","service":"sharetool","pid":57022,"err":{"type":"TypeError","message":"files.forEach is not a function","stack":"TypeError: files.forEach is not a function\n    at handleFileRoutes (/Users/guige/share-tool/routes/files.js:602:11)\n    at Server.requestHandler (/Users/guige/share-tool/server.js:991:11)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"pathname":"/api/tags/list","method":"GET","msg":"HTTP error"}
+{"level":50,"time":"2026-04-09T14:01:18.853Z","service":"sharetool","pid":57022,"err":{"type":"TypeError","message":"files.forEach is not a function","stack":"TypeError: files.forEach is not a function\n    at handleFileRoutes (/Users/guige/share-tool/routes/files.js:602:11)\n    at Server.requestHandler (/Users/guige/share-tool/server.js:991:11)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"pathname":"/api/tags/list","method":"GET","msg":"HTTP error"}
+{"level":50,"time":"2026-04-09T14:01:31.391Z","service":"sharetool","pid":57022,"err":{"type":"TypeError","message":"files.forEach is not a function","stack":"TypeError: files.forEach is not a function\n    at handleFileRoutes (/Users/guige/share-tool/routes/files.js:602:11)\n    at Server.requestHandler (/Users/guige/share-tool/server.js:991:11)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"pathname":"/api/tags/list","method":"GET","msg":"HTTP error"}
+[DB] Schema version: 4 → 4
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T14:04:39.707Z","service":"sharetool","pid":72613,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T14:04:39.715Z","service":"sharetool","pid":72613,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:04:39.715Z","service":"sharetool","pid":72613,"msg":"[HTTP->HTTPS] Redirect server listening on http://192.168.1.192:18790 -> https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:04:39.716Z","service":"sharetool","pid":72613,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:04:39.716Z","service":"sharetool","pid":72613,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T14:04:39.716Z","service":"sharetool","pid":72613,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T14:04:39.716Z","service":"sharetool","pid":72613,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:04:39.716Z","service":"sharetool","pid":72613,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T14:04:39.716Z","service":"sharetool","pid":72613,"msg":"[Discovery] UDP server on port 18792"}
+[DB] Schema version: 4 → 4
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T14:04:57.354Z","service":"sharetool","pid":72810,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T14:04:57.374Z","service":"sharetool","pid":72810,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:04:57.374Z","service":"sharetool","pid":72810,"msg":"[HTTP->HTTPS] Redirect server listening on http://192.168.1.192:18790 -> https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:04:57.375Z","service":"sharetool","pid":72810,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:04:57.375Z","service":"sharetool","pid":72810,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T14:04:57.375Z","service":"sharetool","pid":72810,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T14:04:57.375Z","service":"sharetool","pid":72810,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:04:57.376Z","service":"sharetool","pid":72810,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T14:04:57.376Z","service":"sharetool","pid":72810,"msg":"[Discovery] UDP server on port 18792"}
+[DB] Schema version: 4 → 4
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T14:05:13.141Z","service":"sharetool","pid":72967,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T14:05:13.151Z","service":"sharetool","pid":72967,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:05:13.151Z","service":"sharetool","pid":72967,"msg":"[HTTP->HTTPS] Redirect server listening on http://192.168.1.192:18790 -> https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:05:13.151Z","service":"sharetool","pid":72967,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:05:13.151Z","service":"sharetool","pid":72967,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T14:05:13.151Z","service":"sharetool","pid":72967,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T14:05:13.151Z","service":"sharetool","pid":72967,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:05:13.151Z","service":"sharetool","pid":72967,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T14:05:13.152Z","service":"sharetool","pid":72967,"msg":"[Discovery] UDP server on port 18792"}
+[DB] Schema version: 4 → 4
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T14:05:37.580Z","service":"sharetool","pid":73069,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T14:05:37.587Z","service":"sharetool","pid":73069,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:05:37.587Z","service":"sharetool","pid":73069,"msg":"[HTTP->HTTPS] Redirect server listening on http://192.168.1.192:18790 -> https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:05:37.587Z","service":"sharetool","pid":73069,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:05:37.587Z","service":"sharetool","pid":73069,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T14:05:37.587Z","service":"sharetool","pid":73069,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T14:05:37.588Z","service":"sharetool","pid":73069,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:05:37.588Z","service":"sharetool","pid":73069,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T14:05:37.588Z","service":"sharetool","pid":73069,"msg":"[Discovery] UDP server on port 18792"}
+[DB] Schema version: 4 → 4
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T14:05:57.428Z","service":"sharetool","pid":73146,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T14:05:57.435Z","service":"sharetool","pid":73146,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:05:57.435Z","service":"sharetool","pid":73146,"msg":"[HTTP->HTTPS] Redirect server listening on http://192.168.1.192:18790 -> https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:05:57.435Z","service":"sharetool","pid":73146,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:05:57.435Z","service":"sharetool","pid":73146,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T14:05:57.435Z","service":"sharetool","pid":73146,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T14:05:57.435Z","service":"sharetool","pid":73146,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:05:57.435Z","service":"sharetool","pid":73146,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T14:05:57.435Z","service":"sharetool","pid":73146,"msg":"[Discovery] UDP server on port 18792"}
+[DB] Schema version: 4 → 4
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T14:06:23.043Z","service":"sharetool","pid":73712,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T14:06:23.049Z","service":"sharetool","pid":73712,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:06:23.049Z","service":"sharetool","pid":73712,"msg":"[HTTP->HTTPS] Redirect server listening on http://192.168.1.192:18790 -> https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:06:23.049Z","service":"sharetool","pid":73712,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:06:23.049Z","service":"sharetool","pid":73712,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T14:06:23.049Z","service":"sharetool","pid":73712,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T14:06:23.049Z","service":"sharetool","pid":73712,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:06:23.049Z","service":"sharetool","pid":73712,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T14:06:23.050Z","service":"sharetool","pid":73712,"msg":"[Discovery] UDP server on port 18792"}
+[DB] Schema version: 4 → 4
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T14:06:41.706Z","service":"sharetool","pid":73903,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T14:06:41.713Z","service":"sharetool","pid":73903,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:06:41.713Z","service":"sharetool","pid":73903,"msg":"[HTTP->HTTPS] Redirect server listening on http://192.168.1.192:18790 -> https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:06:41.713Z","service":"sharetool","pid":73903,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:06:41.713Z","service":"sharetool","pid":73903,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T14:06:41.713Z","service":"sharetool","pid":73903,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T14:06:41.713Z","service":"sharetool","pid":73903,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:06:41.713Z","service":"sharetool","pid":73903,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T14:06:41.713Z","service":"sharetool","pid":73903,"msg":"[Discovery] UDP server on port 18792"}
+{"level":30,"time":"2026-04-09T14:06:56.204Z","service":"sharetool","pid":73903,"msg":"[ShareTool] Shutting down gracefully..."}
+[DB] Schema version: 4 → 4
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T14:06:56.985Z","service":"sharetool","pid":73987,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T14:06:56.991Z","service":"sharetool","pid":73987,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:06:56.991Z","service":"sharetool","pid":73987,"msg":"[HTTP->HTTPS] Redirect server listening on http://192.168.1.192:18790 -> https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T14:06:56.991Z","service":"sharetool","pid":73987,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:06:56.992Z","service":"sharetool","pid":73987,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T14:06:56.992Z","service":"sharetool","pid":73987,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T14:06:56.992Z","service":"sharetool","pid":73987,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T14:06:56.992Z","service":"sharetool","pid":73987,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T14:06:56.992Z","service":"sharetool","pid":73987,"msg":"[Discovery] UDP server on port 18792"}
+{"level":30,"time":"2026-04-09T14:07:09.069Z","service":"sharetool","pid":73987,"msg":"[ShareTool] Shutting down gracefully..."}

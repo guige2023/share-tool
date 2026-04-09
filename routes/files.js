@@ -597,7 +597,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/tags/list' && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const files = db.listFiles();
+    const { files } = db.listFiles();
     const tagCount = {};
     files.forEach(f => {
       if (f.tags) {

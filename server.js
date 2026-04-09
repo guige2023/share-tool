@@ -95,6 +95,7 @@ const LOCAL_IP = (() => {
 
 // 全局状态
 let config = {};
+let AUTH_TOKEN = ''; // 延迟初始化，供 HTML_PAGE 模板使用
 let wsClients = new Map(); // deviceId -> WebSocket
 let syncClients = new Set(); // 所有同步客户端
 let httpServer = null;

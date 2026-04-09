@@ -431,16 +431,30 @@ async function main() {
           printError('Text required to share');
           process.exit(1);
         }
-        const res = await request('POST', '/api/share/create', {
-          body: JSON.stringify({ content: text, isText: true }),
+        // 生成唯一文件名
+        const timestamp = Date.now();
+        const filename = `text_${timestamp}.txt`;
+        // 先上传文本内容
+        const uploadRes = await request('POST', '/api/upload', {
+          body: JSON.stringify({ filename, content: Buffer.from(text).toString('base64'), type: 'text' }),
           contentType: 'application/json'
         });
-        if (res.status >= 400) {
-          printError(`Server error: ${res.status}`);
-          printJson(res.data);
+        if (uploadRes.status >= 400) {
+          printError(`Upload failed: ${uploadRes.status}`);
+          printJson(uploadRes.data);
           process.exit(1);
         }
-        printJson(res.data);
+        // 再创建分享链接
+        const shareRes = await request('POST', '/api/share/create', {
+          body: JSON.stringify({ filename }),
+          contentType: 'application/json'
+        });
+        if (shareRes.status >= 400) {
+          printError(`Share failed: ${shareRes.status}`);
+          printJson(shareRes.data);
+          process.exit(1);
+        }
+        printJson(shareRes.data);
         break;
       }
 
