@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 4; // 当前 Schema 版本
+const SCHEMA_VERSION = 5; // 当前 Schema 版本
 
 let db = null;
 

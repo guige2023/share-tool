@@ -674,6 +674,52 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/file-versions/:filename/diff?v1=<timestamp>&v2=<timestamp> — diff two versions
+  const diffMatch = pathname.match(/^\/api\/file-versions\/(.+)\/diff$/);
+  if (diffMatch && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(diffMatch[1]);
+    const file = db.getFileByName(filename);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    const url = new URL(req.url, 'http://localhost');
+    const v1 = parseInt(url.searchParams.get('v1'));
+    const v2 = parseInt(url.searchParams.get('v2'));
+    if (!v1 || !v2) {
+      sendJson(res, { success: false, error: 'v1 and v2 timestamps required' }, 400);
+      return true;
+    }
+    const versions = db.listFileVersions(file.id, 100);
+    const version1 = versions.find(v => v.created_at === v1);
+    const version2 = versions.find(v => v.created_at === v2);
+    if (!version1 || !version2) {
+      sendJson(res, { success: false, error: 'Version not found' }, 404);
+      return true;
+    }
+    // Simple line-by-line diff
+    const lines1 = (version1.content || '').split('\n');
+    const lines2 = (version2.content || '').split('\n');
+    const diff = [];
+    const maxLines = Math.max(lines1.length, lines2.length);
+    for (let i = 0; i < maxLines; i++) {
+      const l1 = lines1[i];
+      const l2 = lines2[i];
+      if (l1 === undefined) diff.push({ op: '+', line: i + 1, content: l2 });
+      else if (l2 === undefined) diff.push({ op: '-', line: i + 1, content: l1 });
+      else if (l1 !== l2) {
+        diff.push({ op: '-', line: i + 1, content: l1 });
+        diff.push({ op: '+', line: i + 1, content: l2 });
+      } else {
+        diff.push({ op: ' ', line: i + 1, content: l1 });
+      }
+    }
+    sendJson(res, { success: true, filename, v1: version1.created_at, v2: version2.created_at, diff });
+    return true;
+  }
+
   // POST /api/file-version/:versionId/restore — restore a specific version
   const restoreMatch = pathname.match(/^\/api\/file-version\/(\d+)\/restore$/);
   if (restoreMatch && method === 'POST') {

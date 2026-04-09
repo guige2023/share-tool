@@ -918,6 +918,57 @@ async function main() {
         break;
       }
 
+      case 'diff': {
+        // Usage: share-tool diff <filename> [v1_timestamp] [v2_timestamp]
+        // Without timestamps: shows version list to pick from
+        const filename = args[1];
+        if (!filename) {
+          printError('Usage: share-tool diff <filename> [v1_timestamp] [v2_timestamp]');
+          process.exit(1);
+        }
+        // First get version list
+        const versionsRes = await request('GET', '/api/file-versions/' + encodeURIComponent(filename));
+        if (versionsRes.status >= 400) {
+          printError(`Failed to get versions: ${versionsRes.status}`);
+          process.exit(1);
+        }
+        const { versions } = versionsRes.data;
+        if (!versions || versions.length === 0) {
+          console.log('No version history found.');
+          break;
+        }
+        if (versions.length === 1) {
+          console.log('Only one version available. Need at least 2 versions to diff.');
+          break;
+        }
+        if (!args[2] || !args[3]) {
+          // Show version list for selection
+          console.log(`Version history for "${filename}":`);
+          versions.forEach((v, i) => {
+            const d = new Date(v.created_at * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+            const size = v.size != null ? ` (${v.size} bytes)` : '';
+            console.log(`  ${i + 1}. [${v.created_at}] ${d}${size}`);
+          });
+          console.log('\nUsage to diff: share-tool diff <filename> <v1_timestamp> <v2_timestamp>');
+          break;
+        }
+        const v1 = parseInt(args[2]);
+        const v2 = parseInt(args[3]);
+        const diffRes = await request('GET', '/api/file-versions/' + encodeURIComponent(filename) + '/diff?v1=' + v1 + '&v2=' + v2);
+        if (diffRes.status >= 400) {
+          printError(`Diff failed: ${diffRes.status}`);
+          printJson(diffRes.data);
+          process.exit(1);
+        }
+        const { diff } = diffRes.data;
+        console.log(`Diff: ${filename} (${v1} → ${v2})`);
+        diff.forEach(d => {
+          const prefix = d.op === '+' ? '  +' : d.op === '-' ? '  -' : '   ';
+          console.log(`${prefix} ${String(d.line).padStart(4)} | ${d.content}`);
+        });
+        break;
+      }
+
       case 'renew-cert': {
         const opts = {
           hostname: parsed.hostname, port: parsed.port,
