@@ -1723,7 +1723,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .storage-bar progress { width: 80px; height: 6px; accent-color: var(--accent-primary); }
   .storage-text { font-size: 11px; color: var(--text-muted); }
   .share-link-box { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-  .share-link-box input { flex: 1; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 12px; font-family: monospace; }
+  .share-link-box input { flex: 1; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px; font-family: monospace; min-height: 36px; /* prevent iOS zoom */ }
   .share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
   .upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
   .upload-progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.3s; }
@@ -1988,7 +1988,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     </div>
     <div style="padding:8px 0;">
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">新 Token (留空自动生成):</div>
-      <input type="text" id="newTokenInput" placeholder="可选，自定义Token" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;font-family:monospace;">
+      <input type="text" id="newTokenInput" placeholder="可选，自定义Token" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;font-family:monospace;">
       <div style="margin-top:12px;display:flex;gap:8px;">
         <button class="btn" onclick="doSetToken()" style="flex:1;">确认更换</button>
         <button class="btn btn-secondary" onclick="closeTokenModal()">取消</button>
@@ -2008,7 +2008,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <div id="shareOptionsFileName" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;padding:8px;background:var(--bg-tertiary);border-radius:8px;word-break:break-all;"></div>
       <div style="margin-bottom:12px;">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">过期时间</div>
-        <select id="shareExpiryHours" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;">
+        <select id="shareExpiryHours" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
           <option value="24">24小时</option>
           <option value="72">3天</option>
           <option value="168" selected>7天（默认）</option>
@@ -2018,11 +2018,11 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       </div>
       <div style="margin-bottom:12px;">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">下载次数限制（可选）</div>
-        <input type="number" id="shareMaxDownloads" placeholder="不限制" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;">
+        <input type="number" id="shareMaxDownloads" placeholder="不限制" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="margin-bottom:12px;">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">密码保护（可选）</div>
-        <input type="password" id="sharePassword" placeholder="不设置密码" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;">
+        <input type="password" id="sharePassword" placeholder="不设置密码" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="doCreateShareLink()" style="flex:1;">创建链接</button>

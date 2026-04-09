@@ -245,3 +245,20 @@
 {"level":30,"time":"2026-04-09T11:49:14.219Z","service":"sharetool","pid":23207,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
 {"level":30,"time":"2026-04-09T11:49:14.219Z","service":"sharetool","pid":23207,"msg":"[Discovery] UDP server on port 18792"}
 {"level":50,"time":"2026-04-09T11:49:21.422Z","service":"sharetool","pid":23207,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:932:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"pathname":"/api/token/current","method":"GET","msg":"HTTP error"}
+[DB] Schema version: 4 → 4
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T13:37:00.029Z","service":"sharetool","pid":57022,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T13:37:00.038Z","service":"sharetool","pid":57022,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T13:37:00.038Z","service":"sharetool","pid":57022,"msg":"[HTTP->HTTPS] Redirect server listening on http://192.168.1.192:18790 -> https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T13:37:00.038Z","service":"sharetool","pid":57022,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T13:37:00.038Z","service":"sharetool","pid":57022,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T13:37:00.038Z","service":"sharetool","pid":57022,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T13:37:00.038Z","service":"sharetool","pid":57022,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T13:37:00.039Z","service":"sharetool","pid":57022,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T13:37:00.039Z","service":"sharetool","pid":57022,"msg":"[Discovery] UDP server on port 18792"}
+{"level":30,"time":"2026-04-09T13:47:53.010Z","service":"sharetool","pid":57022,"msg":"[WS] New connection from ::1"}
+{"level":30,"time":"2026-04-09T13:47:53.017Z","service":"sharetool","pid":57022,"msg":"[WS] Device registered: test-9c1816 (TestDevice), incremental sync: 7 changes since 0"}
+{"level":40,"time":"2026-04-09T13:47:54.001Z","service":"sharetool","pid":57022,"msg":"[WS] Share token auth failed from ::1"}
+{"level":30,"time":"2026-04-09T13:47:56.011Z","service":"sharetool","pid":57022,"msg":"[WS] Device test-9c1816 disconnected"}
+{"level":30,"time":"2026-04-09T13:48:11.340Z","service":"sharetool","pid":57022,"msg":"[WS] New connection from ::1"}
+{"level":30,"time":"2026-04-09T13:48:11.342Z","service":"sharetool","pid":57022,"msg":"[WS] Share token auth OK from ::1"}
