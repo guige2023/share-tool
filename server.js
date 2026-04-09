@@ -2306,16 +2306,7 @@ function startSyncScheduler() {
   }, 3600000);
 }
 
-// ============================================================
-// HTML 页面
-// ============================================================
-function sendHtml(res) {
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(getHtml());
-}
-
-function getHtml() {
-  return `<!DOCTYPE html>
+const HTML_PAGE = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -4712,7 +4703,16 @@ init();
 </script>
 </body>
 </html>`;
+
+
+// ============================================================
+// HTML Page Handler
+// ============================================================
+function sendHtml(res) {
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(HTML_PAGE);
 }
+
 
 // ============================================================
 // 启动
