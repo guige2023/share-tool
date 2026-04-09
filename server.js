@@ -5096,6 +5096,16 @@ document.addEventListener('click', function(e) {
   }
 });
 
+// Keyboard: Escape closes file modal
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const fileModal = document.getElementById('fileModal');
+    if (fileModal && fileModal.classList.contains('show')) {
+      closeModal();
+    }
+  }
+});
+
 function closeModal() {
   unlockScroll();
   document.getElementById('fileModal').classList.remove('show');
