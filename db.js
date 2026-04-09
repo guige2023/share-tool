@@ -958,12 +958,17 @@ function saveShareLink(shareData) {
     INSERT INTO share_links (code, filename, is_text, password, expires_at, max_downloads, download_count, description, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+  // expiresAt: 0/undefined/null → MAX_TS（永不过期）
+  const MAX_TS_SECONDS = Math.floor(32503680000000 / 1000); // 32503680000
+  const expiresAtSecs = shareData.expiresAt
+    ? Math.floor(shareData.expiresAt / 1000)
+    : MAX_TS_SECONDS;
   stmt.run(
     shareData.code,
     shareData.filename,
     shareData.isText ? 1 : 0,
     hashedPassword,
-    shareData.expiresAt ? Math.floor(shareData.expiresAt / 1000) : null,
+    expiresAtSecs,
     shareData.maxDownloads || null,
     0,
     shareData.description || '',

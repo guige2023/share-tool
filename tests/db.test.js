@@ -162,28 +162,28 @@ describe('Token 管理', () => {
 describe('分享链接', () => {
   test('saveShareLink 创建分享链接', () => {
     db.addFile('share-test.txt', 'content', 'text');
-    const share = db.saveShareLink({ filename: 'share-test.txt', expiresAt: null });
+    const share = db.saveShareLink({ filename: 'share-test.txt', expiresAt: null, code: 'TEST01' });
     expect(share.code).toBeDefined();
     expect(share.code.length).toBe(6);
   });
 
   test('saveShareLink 密码哈希', () => {
     db.addFile('pwd-test.txt', 'content', 'text');
-    const share = db.saveShareLink({ filename: 'pwd-test.txt', password: 'secret123', expiresAt: null });
+    const share = db.saveShareLink({ filename: 'pwd-test.txt', password: 'secret123', expiresAt: null, code: 'TEST02' });
     expect(share.hasPassword).toBe(true);
     expect(share._passwordHash).not.toBe('secret123');
   });
 
   test('getShareLink 获取分享链接', () => {
     db.addFile('get-share.txt', 'content', 'text');
-    const created = db.saveShareLink({ filename: 'get-share.txt', expiresAt: null });
+    const created = db.saveShareLink({ filename: 'get-share.txt', expiresAt: null, code: 'TEST03' });
     const retrieved = db.getShareLink(created.code);
     expect(retrieved.filename).toBe('get-share.txt');
   });
 
   test('verifyPassword 密码验证', () => {
     db.addFile('verify-pwd.txt', 'content', 'text');
-    const share = db.saveShareLink({ filename: 'verify-pwd.txt', password: 'test1234', expiresAt: null });
+    const share = db.saveShareLink({ filename: 'verify-pwd.txt', password: 'test1234', expiresAt: null, code: 'TEST04' });
     const retrieved = db.getShareLink(share.code);
     const valid = db.verifyPassword('test1234', retrieved._passwordHash);
     expect(valid).toBe(true);
@@ -191,9 +191,9 @@ describe('分享链接', () => {
 
   test('deleteShareLink 删除分享链接', () => {
     db.addFile('del-share.txt', 'content', 'text');
-    const share = db.saveShareLink({ filename: 'del-share.txt', expiresAt: null });
+    const share = db.saveShareLink({ filename: 'del-share.txt', expiresAt: null, code: 'TEST05' });
     db.deleteShareLink(share.code);
-    expect(db.getShareLink(share.code)).toBeUndefined();
+    expect(db.getShareLink(share.code)).toBeNull();
   });
 });
 
