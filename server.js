@@ -2515,7 +2515,10 @@ function getTagStyle(tagName) {
 
 async function loadFiles() {
   try {
-    const res = await fetch(API + '/api/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const sortRaw = localStorage.getItem('sharetool_sort') || 'created_at';
+    const sort = sortRaw === 'created_at' ? 'time' : sortRaw;
+    const order = localStorage.getItem('sharetool_order') || 'desc';
+    const res = await fetch(API + '/api/list?sort=' + sortRaw + '&order=' + order, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     currentFiles = data.files || [];
     renderFiles();
@@ -3062,9 +3065,12 @@ function applySort(files) {
 }
 
 function setSort(value) {
+  const [sortKey, sortOrder] = value.split('_');
+  localStorage.setItem('sharetool_sort', sortKey === 'time' ? 'created_at' : sortKey);
+  localStorage.setItem('sharetool_order', sortOrder);
   currentSort = value;
   currentPage = 1;
-  renderFiles();
+  loadFiles();
   if (window.currentSearchQ) applySearchHighlight(window.currentSearchQ);
 }
 
