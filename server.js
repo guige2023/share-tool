@@ -991,9 +991,25 @@ self.addEventListener('push', (event) => {
       logger.info(`[HTTPS] Server listening on https://${LOCAL_IP}:${HTTPS_PORT}`);
     });
     // 同时在 HTTP 端口运行 HTTP（重定向到 HTTPS）
-    const plainServer = http.createServer(requestHandler);
+    const redirectHandler = (req, res) => {
+      const host = req.headers.host || `localhost:${PORT}`;
+      const destination = `https://${host}${req.url}`;
+      // 排除 WebSocket 升级请求
+      if (req.headers.upgrade === 'websocket') {
+        res.writeHead(426, { 'Content-Type': 'text/plain' });
+        res.end('WebSocket over HTTP not supported, use HTTPS');
+        return;
+      }
+      res.writeHead(301, {
+        'Location': destination,
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+        'Cache-Control': 'no-cache'
+      });
+      res.end(`Redirecting to ${destination}`);
+    };
+    const plainServer = http.createServer(redirectHandler);
     plainServer.listen(PORT, '0.0.0.0', () => {
-      logger.info(`[HTTP] Server listening on http://${LOCAL_IP}:${PORT} (plain)`);
+      logger.info(`[HTTP->HTTPS] Redirect server listening on http://${LOCAL_IP}:${PORT} -> https://${LOCAL_IP}:${HTTPS_PORT}`);
     });
   } else {
     httpServer = http.createServer(requestHandler);
