@@ -2243,7 +2243,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v3.21',
+          version: 'v3.22',
         });
         return;
       }
@@ -6168,6 +6168,38 @@ async function copyContent(filename) {
 
 function downloadFile(filename) {
   window.open(API + '/download/' + filename, '_blank');
+}
+
+async function downloadFolder(folderName) {
+  // Stream ZIP download of entire virtual folder
+  const a = document.createElement('a');
+  a.href = API + '/api/batch-download';
+  a.download = folderName.replace(/\/$/, '').replace(/\//g, '_') + '_folder.zip';
+  a.method = 'POST';
+  a.target = '_blank';
+  const body = JSON.stringify({ folder: folderName });
+  a.dataset.bearer = AUTH_TOKEN || '';
+  try {
+    const res = await fetch(API + '/api/batch-download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      showToast(data.error || T('msg.downloadFailed') || 'Download failed');
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    a.href = url;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    showToast('Download failed: ' + e.message);
+  }
 }
 
 async function addTag(filename, existingTags) {
