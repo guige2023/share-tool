@@ -3729,9 +3729,9 @@ function toggleTheme() {
 
 function initTheme() {
   const saved = localStorage.getItem('shareTool_theme');
-  if (saved) {
-    document.documentElement.setAttribute('data-theme', saved);
-    document.getElementById('themeToggle').textContent = saved === 'light' ? '☀️' : '🌙';
+  const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeToggle').textContent = theme === 'light' ? '☀️' : '🌙';
   const metaTheme = document.querySelector('meta[name="theme-color"]');
   if (metaTheme) metaTheme.content = theme === 'light' ? '#667eea' : '#0f172a';
 }
