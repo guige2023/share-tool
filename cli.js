@@ -310,6 +310,9 @@ async function main() {
     console.log('  delete <name>  Delete a file');
     console.log('  copy <src> <dest>  Copy a file to a new name');
     console.log('  batch-delete <name1> [name2] ...  Delete multiple files');
+    console.log('  batch-tag <tag> [files...]        Add tag to files (alias: share-tool batch-tag add <tag> [files])');
+    console.log('  batch-tag remove <tag> [files]   Remove tag from files');
+    console.log('  batch-tag set <tag> [files]       Set (replace) tag on files');
     console.log('  search <query> Search files');
     console.log('  share <text>   Share text snippet');
     console.log('  sync           Trigger sync push');
@@ -537,6 +540,47 @@ async function main() {
         }
         console.log(`\nDone: ${success} succeeded, ${failed} failed`);
         process.exit(failed > 0 ? 1 : 0);
+        break;
+      }
+
+      case 'batch-tag': {
+        // Usage: share-tool batch-tag <add|remove|set> <tag> [file1 file2 ...]
+        // Or: share-tool batch-tag <tag> [file1 file2 ...] (defaults to add)
+        const subCmd = args[1];
+        if (!subCmd) {
+          printError('Usage: share-tool batch-tag <add|remove|set> <tag> [files...]\n  Or: share-tool batch-tag <tag> [files...] (default: add)');
+          process.exit(1);
+        }
+        let action, tag, files;
+        const knownActions = ['add', 'remove', 'set'];
+        if (knownActions.includes(subCmd)) {
+          action = subCmd;
+          tag = args[2];
+          files = args.slice(3);
+        } else {
+          // subCmd is actually the tag
+          action = 'add';
+          tag = subCmd;
+          files = args.slice(2);
+        }
+        if (!tag) {
+          printError('Tag name required');
+          process.exit(1);
+        }
+        if (files.length === 0) {
+          printError('At least one file name required');
+          process.exit(1);
+        }
+        console.log(`${action.toUpperCase()} tag "${tag}" on ${files.length} files...`);
+        const res = await request('PUT', '/api/file-tags/batch', {
+          body: JSON.stringify({ files, action, tags: tag })
+        });
+        if (res.status >= 400 || !res.data.success) {
+          printError(`Batch tag failed: ${res.data.error || res.status}`);
+          process.exit(1);
+        }
+        console.log(`Done: ${res.data.updated} updated, ${res.data.failed} failed (total: ${res.data.total})`);
+        process.exit(res.data.failed > 0 ? 1 : 0);
         break;
       }
 

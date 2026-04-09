@@ -311,20 +311,34 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // PUT /api/file-tags/:filename — 更新文件标签
+  // PUT /api/file-tags/:filename — 更新文件标签（支持 add/remove 批量操作）
   if (pathname.startsWith('/api/file-tags/') && method === 'PUT') {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
     let body = '';
     req.on('data', d => body += d);
     req.on('end', () => {
       try {
         const { tags } = JSON.parse(body);
-        const file = db.getFileByName(filename);
-        if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
-        db.updateFile(filename, null, { tags: Array.isArray(tags) ? tags.join(',') : (tags || '') });
-        sendJson(res, { success: true });
+        const action = new URL(req.url, 'http://x').searchParams.get('action');
+        const currentTags = file.tags ? file.tags.split(',').map(s => s.trim()).filter(Boolean) : [];
+        let newTags;
+        if (action === 'add') {
+          const toAdd = Array.isArray(tags) ? tags : [tags].filter(Boolean);
+          const merged = new Set([...currentTags, ...toAdd]);
+          newTags = [...merged].join(',');
+        } else if (action === 'remove') {
+          const toRemove = Array.isArray(tags) ? tags : [tags].filter(Boolean);
+          newTags = currentTags.filter(t => !toRemove.includes(t)).join(',');
+        } else {
+          // Full replace (default)
+          newTags = Array.isArray(tags) ? tags.join(',') : (tags || '');
+        }
+        db.updateFile(filename, null, { tags: newTags });
+        sendJson(res, { success: true, tags: newTags });
       } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
     });
     return true;
@@ -339,6 +353,49 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
     db.updateFile(filename, null, { tags: '' });
     sendJson(res, { success: true });
+    return true;
+  }
+
+  // PUT /api/file-tags/batch — 批量更新多个文件的标签
+  if (pathname === '/api/file-tags/batch' && method === 'PUT') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { files = [], action = 'add', tags } = JSON.parse(body);
+        if (!Array.isArray(files) || files.length === 0) {
+          sendJson(res, { success: false, error: 'files array required' }, 400);
+          return;
+        }
+        if (!tags) {
+          sendJson(res, { success: false, error: 'tags required' }, 400);
+          return;
+        }
+        const toProcess = Array.isArray(tags) ? tags : [tags];
+        let updated = 0, failed = 0;
+        for (const filename of files) {
+          try {
+            const file = db.getFileByName(filename);
+            if (!file) { failed++; continue; }
+            const currentTags = file.tags ? file.tags.split(',').map(s => s.trim()).filter(Boolean) : [];
+            let newTags;
+            if (action === 'add') {
+              const merged = new Set([...currentTags, ...toProcess]);
+              newTags = [...merged].join(',');
+            } else if (action === 'remove') {
+              newTags = currentTags.filter(t => !toProcess.includes(t)).join(',');
+            } else {
+              newTags = toProcess.join(',');
+            }
+            db.updateFile(filename, null, { tags: newTags });
+            updated++;
+          } catch (e) { failed++; }
+        }
+        sendJson(res, { success: true, updated, failed, total: files.length });
+      } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
+    });
     return true;
   }
 
