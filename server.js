@@ -1022,7 +1022,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v2.76',
+          version: 'v2.77',
         });
         return;
       }
