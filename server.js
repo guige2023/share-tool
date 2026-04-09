@@ -117,6 +117,10 @@ const I18N = {
     'msg.copyFailedN': '已复制 {n} 个文件，{m} 个失败',
     'msg.copiedTo': '已复制 {n} 个文件到 {dest}',
     'file.invalidName': '文件名无效',
+    'file.retry': '重试',
+    'file.storage': '存储',
+    'file.httpsDisabled': 'HTTPS 未启用',
+    'file.httpsLanSkip': '局域网可跳过',
 
 
     // 文件状态
@@ -127,6 +131,7 @@ const I18N = {
     'file.rename': '重命名',
     'file.delete': '删除',
     'file.copy': '复制',
+    'file.copyContent': '复制内容',
     'file.share': '分享',
     'file.files': '文件',
     'file.view': '查看',
@@ -255,6 +260,8 @@ const I18N = {
     'admin.https': 'HTTPS 状态',
     'admin.httpsEnabled': '✅ HTTPS 已启用',
     'admin.httpsDisabled': '⚠️ HTTPS 未启用',
+    'admin.checkFailed': '检测失败',
+
     'admin.httpsExpire': '到期:',
     'admin.httpsDays': '天)',
     'admin.httpsLan': '局域网可跳过',
@@ -491,6 +498,7 @@ const I18N = {
     'file.rename': 'Rename',
     'file.delete': 'Delete',
     'file.copy': 'Copy',
+    'file.copyContent': 'Copy content',
     'file.share': 'Share',
     'file.files': 'Files',
     'file.view': 'View',
@@ -618,6 +626,8 @@ const I18N = {
     'admin.https': 'HTTPS Status',
     'admin.httpsEnabled': '✅ HTTPS Enabled',
     'admin.httpsDisabled': '⚠️ HTTPS Disabled',
+    'admin.checkFailed': 'Check failed',
+
     'admin.httpsExpire': 'Expires:',
     'admin.httpsDays': 'days)',
     'admin.httpsLan': 'Skip for LAN',
@@ -5084,7 +5094,7 @@ function copyShareLink() {
   }).catch(() => {
     input.select();
     document.execCommand('copy');
-    showToast('✓ 链接已复制');
+    showToast(T('msg.linkCopied'));
   });
 }
 
@@ -5108,13 +5118,13 @@ async function copyShareLinkByFilename(filename) {
         ta.select();
         document.execCommand('copy');
         ta.remove();
-        showToast('✓ 链接已复制到剪贴板');
+        showToast(T('msg.copiedToClipboard'));
       });
     } else {
       showToast(T('share.createFailed'));
     }
   } catch {
-    showToast('创建分享链接失败');
+    showToast(T('msg.createShareFailed'));
   }
 }
 
@@ -5131,7 +5141,7 @@ async function shareFile(filename) {
 
 async function doCreateShareLink() {
   const filename = document.getElementById('shareOptionsFilename').value;
-  if (!filename) { showToast('文件名无效'); return; }
+  if (!filename) { showToast(T('msg.invalidFilename')); return; }
   const expiryHours = parseInt(document.getElementById('shareExpiryHours').value) || 168;
   const maxDownloads = parseInt(document.getElementById('shareMaxDownloads').value) || null;
   const password = document.getElementById('sharePassword').value || null;
@@ -5153,10 +5163,10 @@ async function doCreateShareLink() {
       }
       showToast('✓ ' + T('share.successCreated'));
     } else {
-      showToast('分享失败: ' + data.error);
+      showToast(T('msg.shareFailed') + ': ' + data.error);
     }
   } catch (e) {
-    showToast('分享失败: ' + e.message);
+    showToast(T('msg.shareFailed') + ': ' + e.message);
   }
 }
 
@@ -5264,7 +5274,7 @@ async function uploadFiles(files) {
               // Add retry button
               const retryBtn = document.createElement('button');
               retryBtn.className = 'retry-btn';
-              retryBtn.textContent = '重试';
+              retryBtn.textContent = T('file.retry');
               retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;cursor:pointer;';
               retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
               queueItem.querySelector('.status').after(retryBtn);
@@ -5289,7 +5299,7 @@ async function uploadFiles(files) {
             window._failedUploads.push({ file, filename, index: i });
             const retryBtn = document.createElement('button');
             retryBtn.className = 'retry-btn';
-            retryBtn.textContent = '重试';
+            retryBtn.textContent = T('file.retry');
             retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;cursor:pointer;';
             retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
             queueItem.querySelector('.status').after(retryBtn);
@@ -5307,7 +5317,7 @@ async function uploadFiles(files) {
           window._failedUploads.push({ file, filename, index: i });
           const retryBtn = document.createElement('button');
           retryBtn.className = 'retry-btn';
-          retryBtn.textContent = '重试';
+          retryBtn.textContent = T('file.retry');
           retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;cursor:pointer;';
           retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
           queueItem.querySelector('.status').after(retryBtn);
@@ -5364,7 +5374,7 @@ async function retryUploadItem(idx) {
       });
       const data = await res.json();
       if (data.success) {
-        showToast('✓ ' + filename + ' 上传成功');
+        showToast('✓ ' + filename + ' ' + T('msg.uploadSuccess'));
         loadFiles();
         broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
       } else {
@@ -5406,7 +5416,7 @@ async function copyContent(filename) {
       textarea.style.opacity = '0';
       document.body.appendChild(textarea);
       textarea.select();
-      try { document.execCommand('copy'); showToast('内容已复制'); }
+      try { document.execCommand('copy'); showToast(T('msg.contentCopied')); }
       catch (e) { prompt('复制内容:', data.content); }
       document.body.removeChild(textarea);
     }
@@ -5514,7 +5524,7 @@ async function renameFile(oldFilename) {
     }
     var data = await res.json();
     if (data.success) {
-      showToast("Renamed");
+      showToast(T('msg.renamed'));
       loadFiles();
       broadcastWs({ type: "file_rename", payload: { oldFilename: oldFilename, newFilename: newFilename } });
     } else {
@@ -5690,7 +5700,7 @@ async function batchDelete() {
       deleted++;
     } catch (e) {}
   }
-  showToast('已删除 ' + deleted + ' 个文件');
+  showToast(T('msg.deletedN', { n: deleted }));
   clearBatch();
   loadFiles();
 }
@@ -5720,9 +5730,9 @@ async function batchCopy() {
     } catch (e) { errors++; }
   }
   if (errors > 0) {
-    showToast('已复制 ' + copied + ' 个文件，' + errors + ' 个失败');
+    showToast(T('msg.copyFailedN', { n: copied, m: errors }));
   } else {
-    showToast('已复制 ' + copied + ' 个文件到 ' + cleanPrefix);
+    showToast(T('msg.copiedTo', { n: copied, dest: cleanPrefix }));
   }
   clearBatch();
   loadFiles();
@@ -6025,7 +6035,7 @@ document.addEventListener('paste', async (e) => {
             body: JSON.stringify({ filename, content: base64, type: 'file' })
           }).then(r => r.json()).then(data => {
             if (data.success) {
-              showToast('✓ 图片已粘贴上传: ' + filename);
+              showToast(T('msg.pasted') + filename);
               loadFiles();
             }
           });
@@ -6341,7 +6351,7 @@ async function init() {
             el.innerHTML = '<span style="color:var(--success-fg)">✅ HTTPS 已启用</span> <span style="' + warnStyle + '">到期: ' + (data.expires || '未知') + (data.daysRemaining !== null ? ' (' + data.daysRemaining + '天)' : '') + '</span>';
             if (btnEl) btnEl.style.display = 'inline-block';
           } else {
-            el.innerHTML = '<span style="color:var(--warning)">⚠️ HTTPS 未启用</span> <span style="color:var(--text-muted)">局域网可跳过</span>';
+            el.innerHTML = '<span style="color:var(--warning)">⚠️ ' + T('file.httpsDisabled') + '</span> <span style="color:var(--text-muted)">' + T('file.httpsLanSkip') + '</span>';
             if (btnEl) btnEl.style.display = 'none';
           }
         }
@@ -6360,10 +6370,10 @@ async function fetchStorageInfo() {
     const max = data.maxSize || 10 * 1024 * 1024 * 1024;
     const pct = Math.round(used / max * 100);
     const el = document.getElementById('storageText');
-    if (el) el.textContent = ' + T('file.storage') + ': ' + formatSize(used) + ' / 10GB (' + pct + '%)';
+    if (el) el.textContent = T('file.storage') + ': ' + formatSize(used) + ' / 10GB (' + pct + '%)';
   } catch (e) {
     const el = document.getElementById('storageText');
-    if (el) el.textContent = '存储: --';
+    if (el) el.textContent = T('file.storage') + ': --';
   }
 }
 
