@@ -193,7 +193,18 @@ async function main() {
 
   if (!command) {
     console.log('Usage: share-tool <command> [args]');
-    console.log('Commands: list, upload <file>, download <name> [-o dir], delete <name>, search <query>, token, share <text>');
+    console.log('Commands:');
+    console.log('  list           List all files');
+    console.log('  upload <file>  Upload a single file');
+    console.log('  upload-dir <dir>  Upload all files in a directory');
+    console.log('  download <name> [-o dir]  Download a file');
+    console.log('  delete <name>  Delete a file');
+    console.log('  batch-delete <name1> [name2] ...  Delete multiple files');
+    console.log('  search <query> Search files');
+    console.log('  share <text>   Share text snippet');
+    console.log('  sync           Trigger sync push');
+    console.log('  stats          Show storage stats');
+    console.log('  token          Show current token');
     process.exit(1);
   }
 
@@ -312,9 +323,97 @@ async function main() {
         break;
       }
 
+      case 'upload-dir': {
+        const dirPath = args[1];
+        if (!dirPath) {
+          printError('Directory path required');
+          process.exit(1);
+        }
+        if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+          printError(`Not a directory: ${dirPath}`);
+          process.exit(1);
+        }
+        const files = fs.readdirSync(dirPath).filter(f => {
+          const stat = fs.statSync(path.join(dirPath, f));
+          return stat.isFile() && !f.startsWith('.');
+        });
+        if (files.length === 0) {
+          console.log('No files found in directory');
+          process.exit(0);
+        }
+        console.log(`Uploading ${files.length} files from ${dirPath}...`);
+        let success = 0, failed = 0;
+        for (const file of files) {
+          const fullPath = path.join(dirPath, file);
+          process.stdout.write(`  ${file}... `);
+          const res = await uploadFile(fullPath);
+          if (res.status < 400) {
+            console.log('OK');
+            success++;
+          } else {
+            console.log(`FAILED (${res.status})`);
+            failed++;
+          }
+        }
+        console.log(`\nDone: ${success} succeeded, ${failed} failed`);
+        process.exit(failed > 0 ? 1 : 0);
+        break;
+      }
+
+      case 'batch-delete': {
+        const names = args.slice(1);
+        if (names.length === 0) {
+          printError('At least one file name required');
+          process.exit(1);
+        }
+        console.log(`Deleting ${names.length} files...`);
+        let success = 0, failed = 0;
+        for (const name of names) {
+          process.stdout.write(`  ${name}... `);
+          const res = await request('DELETE', `/delete/${encodeURIComponent(name)}`);
+          if (res.status < 400) {
+            console.log('OK');
+            success++;
+          } else {
+            console.log(`FAILED (${res.status})`);
+            failed++;
+          }
+        }
+        console.log(`\nDone: ${success} succeeded, ${failed} failed`);
+        process.exit(failed > 0 ? 1 : 0);
+        break;
+      }
+
+      case 'sync': {
+        console.log('Triggering sync...');
+        const res = await request('POST', '/api/sync/push', { body: '{}', contentType: 'application/json' });
+        if (res.status >= 400) {
+          printError(`Sync failed: ${res.status}`);
+          printJson(res.data);
+          process.exit(1);
+        }
+        printJson(res.data);
+        break;
+      }
+
+      case 'stats': {
+        const res = await request('GET', '/api/db/stats');
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          process.exit(1);
+        }
+        const s = res.data;
+        console.log(`Files:    ${s.fileCount || 0}`);
+        console.log(`Storage:  ${((s.totalSize || 0) / 1024).toFixed(1)} KB`);
+        console.log(`Tokens:   ${s.tokenCount || 0}`);
+        console.log(`Shares:   ${s.shareCount || 0}`);
+        console.log(`Devices:  ${s.deviceCount || 0}`);
+        break;
+      }
+
       default:
         printError(`Unknown command: ${command}`);
-        console.log('Commands: list, upload <file>, download <name> [-o dir], delete <name>, search <query>, token, share <text>');
+        console.log('Run without args to see full command list');
         process.exit(1);
     }
   } catch (err) {
