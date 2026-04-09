@@ -114,6 +114,21 @@ function initSchemaV1(db) {
     )
   `);
 
+  // 文件版本历史表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS file_versions (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_id      INTEGER NOT NULL,
+      filename     TEXT    NOT NULL,
+      content      TEXT,
+      size         INTEGER NOT NULL DEFAULT 0,
+      hash         TEXT,
+      created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
+      FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_file_versions_file_id ON file_versions(file_id)`);
+
   // 设备表
   db.exec(`
     CREATE TABLE IF NOT EXISTS devices (
@@ -391,6 +406,10 @@ function updateFileByName(filename, updates) {
   const values = [];
 
   if (updates.content !== undefined) {
+    // 保存当前版本到历史（仅当内容真正变化时）
+    if (existing.content !== undefined && existing.content !== updates.content) {
+      saveFileVersion(existing.id, existing.filename, existing.content, existing.size, existing.hash);
+    }
     fields.push('content = ?');
     values.push(updates.content);
     fields.push('size = ?');
@@ -422,6 +441,9 @@ function updateFile(id, updates) {
   const values = [];
 
   if (updates.content !== undefined) {
+    if (existing.content !== undefined && existing.content !== updates.content) {
+      saveFileVersion(existing.id, existing.filename, existing.content, existing.size, existing.hash);
+    }
     fields.push('content = ?');
     values.push(updates.content);
     fields.push('size = ?');
@@ -701,6 +723,53 @@ function searchFiles(query, tags = null, opts = {}) {
   });
 
   return scored.slice(0, limit);
+}
+
+// ============================================================
+// 文件版本历史
+// ============================================================
+function saveFileVersion(fileId, filename, content, size, hash) {
+  const db = getDb();
+  db.prepare(`
+    INSERT INTO file_versions (file_id, filename, content, size, hash, created_at)
+    VALUES (?, ?, ?, ?, ?, unixepoch())
+  `).run(fileId, filename, content, size, hash);
+}
+
+function listFileVersions(fileId, limit = 20) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT id, file_id, filename, size, hash, created_at
+    FROM file_versions
+    WHERE file_id = ?
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).all(fileId, limit);
+}
+
+function getFileVersion(versionId) {
+  const db = getDb();
+  return db.prepare('SELECT * FROM file_versions WHERE id = ?').get(versionId);
+}
+
+function deleteFileVersion(versionId) {
+  const db = getDb();
+  db.prepare('DELETE FROM file_versions WHERE id = ?').run(versionId);
+}
+
+function pruneFileVersions(fileId, keepCount = 10) {
+  // 保留最近 keepCount 个版本，删除更旧的
+  const db = getDb();
+  const oldVersions = db.prepare(`
+    SELECT id FROM file_versions
+    WHERE file_id = ?
+    ORDER BY created_at DESC
+    LIMIT -1 OFFSET ?
+  `).all(fileId, keepCount);
+  for (const v of oldVersions) {
+    db.prepare('DELETE FROM file_versions WHERE id = ?').run(v.id);
+  }
+  return oldVersions.length;
 }
 
 function getFilesByHashSince(hash, timestamp) {
@@ -1399,6 +1468,8 @@ module.exports = {
   cleanupSyncLog, getDbStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, getAllTags,
+  // 文件版本历史
+  saveFileVersion, listFileVersions, getFileVersion, deleteFileVersion, pruneFileVersions,
   // 分片上传
   initChunkUpload, getChunkUpload, addChunkReceived, getChunkUploadStatus, deleteChunkUpload, getIncompleteUpload
 };

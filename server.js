@@ -2407,6 +2407,16 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <button class="btn" onclick="closeShareQRModal()" style="width:100%;">' + T('ui.close') + '</button>
       </div>
     </div>
+
+    <div class="qr-modal-overlay" id="versionsModal" onclick="if(event.target===this)closeVersionsModal()">
+      <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:560px;width:90%;max-height:80vh;overflow-y:auto;text-align:left;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div style="font-size:18px;font-weight:600;">历史版本</div>
+          <button class="btn btn-sm" onclick="closeVersionsModal()">✕</button>
+        </div>
+        <div id="versionsContent" style="font-size:13px;"></div>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -3420,6 +3430,7 @@ function renderFiles() {
         '<button class="btn btn-sm" onclick="renameFile(\'' + encodeURIComponent(f.name) + '\')">重命名</button>' +
         (!isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">下载</button>' : '') +
         (!isVirtualFolder ? '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">分享</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="showFileVersions(\'' + encodeURIComponent(f.name) + '\')">历史</button>' : '') +
         (!isVirtualFolder ? '<span class="file-star" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">☆</span>' : '') +
         '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">删除</button>' +
       '</div>' +
@@ -5063,6 +5074,98 @@ async function batchCopy() {
   }
   clearBatch();
   loadFiles();
+}
+
+async function showFileVersions(filename) {
+  // Store current filename for reload after delete
+  window._versionsFilename = filename;
+  const res = await fetch(API + '/api/file-versions/' + encodeURIComponent(filename), {
+    headers: { 'x-auth-token': AUTH_TOKEN || '' }
+  });
+  const data = await res.json();
+  if (!data.success) {
+    showToast('加载历史失败: ' + (data.error || '未知错误'), 'error');
+    return;
+  }
+  const versions = data.versions || [];
+  let html = '';
+  if (versions.length === 0) {
+    html = '<div style="color:var(--text-muted);padding:20px;text-align:center;">暂无历史版本</div>';
+  } else {
+    html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    for (const v of versions) {
+      const ts = new Date(v.created_at * 1000).toLocaleString('zh-CN');
+      const size = (v.size / 1024).toFixed(1) + ' KB';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg-secondary);border-radius:8px;">' +
+        '<div>' +
+        '<div style="font-weight:500;">v' + v.id + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);">' + ts + ' · ' + size + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;">' +
+        '<button class="btn btn-sm" onclick="previewVersion(' + v.id + ')">预览</button>' +
+        '<button class="btn btn-sm" onclick="restoreVersion(' + v.id + ')">恢复</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteVersion(' + v.id + ')">删除</button>' +
+        '</div>' +
+        '</div>';
+    }
+    html += '</div>';
+  }
+  document.getElementById('versionsContent').innerHTML = html;
+  document.getElementById('versionsModal').classList.add('show');
+}
+
+function closeVersionsModal() {
+  document.getElementById('versionsModal').classList.remove('show');
+  window._versionsFilename = null;
+}
+
+async function previewVersion(versionId) {
+  const res = await fetch(API + '/api/file-version/' + versionId, {
+    headers: { 'x-auth-token': AUTH_TOKEN || '' }
+  });
+  const data = await res.json();
+  if (!data.success || !data.version) {
+    showToast('加载版本失败', 'error');
+    return;
+  }
+  const v = data.version;
+  const content = escapeHtml(v.content || '(空)');
+  document.getElementById('versionsContent').innerHTML =
+    '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(v.filename).replace(/'/g, "\\'") + '\')">← 返回列表</button></div>' +
+    '<div style="background:var(--bg-secondary);padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all;font-size:12px;max-height:400px;overflow-y:auto;">' + content + '</div>';
+}
+
+async function restoreVersion(versionId) {
+  if (!confirm('确定要恢复到这个版本吗？当前内容会作为新版本保存。')) return;
+  const res = await fetch(API + '/api/file-version/' + versionId + '/restore', {
+    method: 'POST',
+    headers: { 'x-auth-token': AUTH_TOKEN || '' }
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast('已恢复到版本 ' + versionId);
+    closeVersionsModal();
+    loadFiles();
+  } else {
+    showToast('恢复失败: ' + (data.error || '未知错误'), 'error');
+  }
+}
+
+async function deleteVersion(versionId) {
+  if (!confirm('确定要删除这个版本吗？')) return;
+  const res = await fetch(API + '/api/file-version/' + versionId, {
+    method: 'DELETE',
+    headers: { 'x-auth-token': AUTH_TOKEN || '' }
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast('已删除');
+    if (window._versionsFilename) {
+      showFileVersions(window._versionsFilename);
+    }
+  } else {
+    showToast('删除失败', 'error');
+  }
 }
 
 async function showTagManager() {

@@ -573,5 +573,78 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/file-versions/:filename — list version history
+  const versionsMatch = pathname.match(/^\/api\/file-versions\/(.+)$/);
+  if (versionsMatch && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(versionsMatch[1]);
+    const file = db.getFileByName(filename);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    const versions = db.listFileVersions(file.id, 20);
+    sendJson(res, { success: true, filename, versions });
+    return true;
+  }
+
+  // GET /api/file-version/:versionId — get specific version content
+  const versionMatch = pathname.match(/^\/api\/file-version\/(\d+)$/);
+  if (versionMatch && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const version = db.getFileVersion(parseInt(versionMatch[1]));
+    if (!version) {
+      sendJson(res, { success: false, error: 'Version not found' }, 404);
+      return true;
+    }
+    sendJson(res, { success: true, version });
+    return true;
+  }
+
+  // POST /api/file-version/:versionId/restore — restore a specific version
+  const restoreMatch = pathname.match(/^\/api\/file-version\/(\d+)\/restore$/);
+  if (restoreMatch && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const version = db.getFileVersion(parseInt(restoreMatch[1]));
+    if (!version) {
+      sendJson(res, { success: false, error: 'Version not found' }, 404);
+      return true;
+    }
+    // Save current as new version before restoring
+    const current = db.getFileByName(version.filename);
+    if (current) {
+      db.saveFileVersion(current.id, current.filename, current.content, current.size, current.hash);
+    }
+    const restored = db.updateFileByName(version.filename, {
+      content: version.content,
+      type: current ? current.type : 'text'
+    });
+    if (restored) {
+      db.addAuditLog('version_restore', `Restored ${version.filename} from version ${version.id}`, getClientIp(req), authData.token);
+      sendJson(res, { success: true, message: 'Version restored', filename: version.filename });
+    } else {
+      sendJson(res, { success: false, error: 'Failed to restore version' }, 500);
+    }
+    return true;
+  }
+
+  // DELETE /api/file-version/:versionId — delete a specific version
+  const delVersionMatch = pathname.match(/^\/api\/file-version\/(\d+)$/);
+  if (delVersionMatch && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const version = db.getFileVersion(parseInt(delVersionMatch[1]));
+    if (!version) {
+      sendJson(res, { success: false, error: 'Version not found' }, 404);
+      return true;
+    }
+    db.deleteFileVersion(parseInt(delVersionMatch[1]));
+    sendJson(res, { success: true });
+    return true;
+  }
+
   return false;
 };
