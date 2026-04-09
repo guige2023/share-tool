@@ -180,6 +180,27 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/upload/check/:filename - 查询是否有未完成上传（断点续传用）
+  if (pathname.startsWith('/api/upload/check/') && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(pathname.slice('/api/upload/check/'.length));
+    const incomplete = db.getIncompleteUpload(filename);
+    if (!incomplete) {
+      sendJson(res, { success: true, hasIncomplete: false });
+      return true;
+    }
+    sendJson(res, {
+      success: true,
+      hasIncomplete: true,
+      uploadId: incomplete.upload_id,
+      filename: incomplete.filename,
+      totalChunks: incomplete.total_chunks,
+      receivedChunks: incomplete.receivedChunks
+    });
+    return true;
+  }
+
   // GET /api/content/:filename
   if (pathname.startsWith('/api/content/')) {
     const authData = authRequired(req, res);

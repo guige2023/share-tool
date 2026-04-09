@@ -1243,6 +1243,17 @@ function deleteChunkUpload(uploadId) {
   db.prepare('DELETE FROM upload_chunks WHERE upload_id = ?').run(uploadId);
 }
 
+// 获取某个文件名的未完成上传（用于断点续传）
+function getIncompleteUpload(filename) {
+  const db = getDb();
+  const row = db.prepare(
+    'SELECT upload_id, filename, total_chunks, received_chunks FROM upload_chunks WHERE filename = ? ORDER BY created_at DESC LIMIT 1'
+  ).get(filename);
+  if (!row) return null;
+  const received = JSON.parse(row.received_chunks || '[]');
+  return { ...row, receivedChunks: received };
+}
+
 module.exports = {
   initDatabase,
   getDb,
@@ -1275,5 +1286,5 @@ module.exports = {
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor,
   // 分片上传
-  initChunkUpload, getChunkUpload, addChunkReceived, getChunkUploadStatus, deleteChunkUpload
+  initChunkUpload, getChunkUpload, addChunkReceived, getChunkUploadStatus, deleteChunkUpload, getIncompleteUpload
 };
