@@ -11,6 +11,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const url = require('url');
+const zlib = require('zlib');
 const cryptoModule = require('./crypto');
 
 // 内部模块
@@ -430,9 +431,29 @@ function isLocalhost(origin) {
          /^https?:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/.test(origin);    // 局域网 IP
 }
 
-function sendJson(res, data, status = 200) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(data));
+function sendJson(res, data, status = 200, req = null) {
+  const json = JSON.stringify(data);
+  const acceptGzip = req && req.headers && req.headers['accept-encoding'] || '';
+  const shouldCompress = acceptGzip.includes('gzip') && json.length > 512;
+
+  if (shouldCompress) {
+    zlib.gzip(Buffer.from(json), (err, buf) => {
+      if (!err) {
+        res.writeHead(status, {
+          'Content-Type': 'application/json',
+          'Content-Encoding': 'gzip',
+          'Vary': 'Accept-Encoding'
+        });
+        res.end(buf);
+      } else {
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(json);
+      }
+    });
+  } else {
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(json);
+  }
 }
 
 function auth(req) {
@@ -2624,7 +2645,7 @@ function renderFiles() {
         '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>删除</span></button>' +
       '</div>' +
       '<div style="margin-right: 12px; display:flex; align-items:center;">' +
-        '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" style="width: 18px; height: 18px; cursor: pointer;">' +
+        '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" onchange="updateBatchBar()" style="width: 18px; height: 18px; cursor: pointer;">' +
       '</div>' +
       '<div class="file-content">' +
         (isImage
@@ -3621,16 +3642,45 @@ async function deleteTag(tag) {
 async function batchAddTag() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
-  const tag = prompt('请输入标签名称:');
+  const tag = prompt('请输入标签名称（多个用逗号分隔）:');
   if (!tag || !tag.trim()) return;
+  const newTags = tag.split(',').map(t => t.trim()).filter(t => t);
+  if (newTags.length === 0) return;
+
+  // Auto-assign colors for new tags
+  for (const t of newTags) {
+    if (!tagColors[t]) {
+      try {
+        const res = await fetch(API + '/api/tags/suggest-color?tag=' + encodeURIComponent(t), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+        const data = await res.json();
+        if (data.success) {
+          tagColors[t] = data.color;
+          await fetch(API + '/api/tags/color', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+            body: JSON.stringify({ tag: t, color: data.color })
+          });
+        }
+      } catch (e) {}
+    }
+  }
+
   let tagged = 0;
   for (const cb of checked) {
     const filename = cb.value;
     try {
+      // Get current file tags to append
+      const file = currentFiles.find(f => encodeURIComponent(f.name) === filename);
+      const existingTags = file && file.tags ? file.tags.split(',').map(t => t.trim()).filter(t => t) : [];
+      // Merge: append new tags not already present
+      const allTags = [...existingTags];
+      for (const t of newTags) {
+        if (!allTags.includes(t)) allTags.push(t);
+      }
       const res = await fetch(API + '/api/file-tags/' + filename, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-        body: JSON.stringify({ tags: tag.trim() })
+        body: JSON.stringify({ tags: allTags.join(',') })
       });
       if (res.ok) tagged++;
     } catch (e) {}
