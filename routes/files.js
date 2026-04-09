@@ -66,7 +66,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     const file = db.getFileByName(filename);
     if (file) {
       db.addAuditLog('read_content', filename, getClientIp(req), authData.token);
-      sendJson(res, { success: true, content: file.content, type: file.type });
+      sendJson(res, { success: true, content: file.content, type: file.type, size: file.size });
     } else {
       sendJson(res, { success: false, error: 'File not found' }, 404);
     }

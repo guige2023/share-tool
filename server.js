@@ -929,7 +929,7 @@ self.addEventListener('push', (event) => {
       // Route context - shared dependencies for route handlers
       const routeCtx = {
         db, config, sendJson, authRequired, getClientIp, broadcastChange,
-        getUploadMaxSize, getFileIcon, archiver, crypto, cryptoModule,
+        getUploadMaxSize, getFileIcon, isImageFile, archiver, crypto, cryptoModule,
         SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, LOCAL_IP, PORT,
         saveConfig, ensureSslCertificates, getCertInfo, QRCode,
         fs, path, createShareLink, validateShareCode
@@ -2490,12 +2490,14 @@ function renderFiles() {
 
   container.innerHTML = '<div class="file-list">' + pagedFiles.map(f => {
     const isText = f.type === 'text';
+    const isImage = isImageFile(f.name);
     const previewId = 'preview-' + btoaSafe(f.name).substring(0, 20);
+    const thumbId = 'thumb-' + btoaSafe(f.name).substring(0, 20);
     const tags = f.tags ? f.tags.split(',').filter(t => t.trim()) : [];
     const searchQ = (window.currentSearchQ || '').trim();
-    
+
     // Search highlight applied by applySearchHighlight() after render
-    
+
     return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
         '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>标签</span></button>' +
@@ -2505,7 +2507,9 @@ function renderFiles() {
         '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" style="width: 18px; height: 18px; cursor: pointer;">' +
       '</div>' +
       '<div class="file-content">' +
-        '<div class="file-name"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(f.name) + '</span></div>' +
+        (isImage
+          ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><img class="file-thumb-img" id="' + thumbId + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')" /></div>'
+          : '<div class="file-name"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(f.name) + '</span></div>') +
         (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
         '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' +
         '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' +
@@ -2527,6 +2531,13 @@ function renderFiles() {
   for (const f of pagedFiles) {
     if (f.type === 'text' && f.size < 50000) {
       loadPreview(f.name, 'preview-' + btoaSafe(f.name).substring(0, 20));
+    }
+  }
+
+  // 懒加载图片缩略图（仅 jpg/png/gif/webp，限制大小 2MB）
+  for (const f of pagedFiles) {
+    if (isImageFile(f.name) && f.size > 0 && f.size < 2 * 1024 * 1024) {
+      loadImageThumb(f.name, 'thumb-' + btoaSafe(f.name).substring(0, 20));
     }
   }
 
@@ -2593,6 +2604,40 @@ async function loadPreview(filename, previewId) {
       el.textContent = data.content.substring(0, 300) + (data.content.length > 300 ? '...' : '');
     }
   } catch (e) {}
+}
+
+// 懒加载图片缩略图：获取文件内容转为 data URL
+async function loadImageThumb(filename, thumbId) {
+  const el = document.getElementById(thumbId);
+  if (!el || el.dataset.src) return; // 已有内容，跳过
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (data.content && data.type && data.type.startsWith('image/')) {
+      const ext = filename.split('.').pop().toLowerCase();
+      const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
+      const mime = mimeMap[ext] || 'image/jpeg';
+      el.src = 'data:' + mime + ';base64,' + data.content;
+      el.dataset.src = 'loaded';
+    }
+  } catch (e) {}
+}
+
+// 点击图片缩略图打开全屏预览
+async function openImageModal(filename) {
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.content) return;
+    const ext = filename.split('.').pop().toLowerCase();
+    const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
+    const mime = mimeMap[ext] || 'image/jpeg';
+    const dataUrl = 'data:' + mime + ';base64,' + data.content;
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('modalMeta').textContent = 'Size: ' + formatSize(data.size || 0);
+    document.getElementById('modalBody').innerHTML = '<img src="' + dataUrl + '" style="max-width:100%;max-height:80vh;display:block;margin:0 auto;border-radius:8px;" />';
+    document.getElementById('fileModal').classList.add('show');
+  } catch (e) { showToast('Failed to open image'); }
 }
 
 function togglePreview(filename, previewId) {
@@ -3823,6 +3868,12 @@ function getFileIcon(filename) {
     exe: '⚙️', dmg: '⚙️', deb: '⚙️', rpm: '⚙️',
   };
   return icons[ext] || '📄';
+}
+
+const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico']);
+function isImageFile(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return IMAGE_EXTS.has(ext);
 }
 
 
