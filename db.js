@@ -974,7 +974,18 @@ function saveShareLink(shareData) {
     shareData.description || '',
     shareData.createdBy || null
   );
-  return shareData;
+  // 返回完整对象（包含 hasPassword 和内部 _passwordHash）
+  return {
+    code: shareData.code,
+    filename: shareData.filename,
+    isText: !!shareData.isText,
+    hasPassword: !!hashedPassword,
+    _passwordHash: hashedPassword,
+    expiresAt: expiresAtSecs * 1000,
+    maxDownloads: shareData.maxDownloads || null,
+    description: shareData.description || '',
+    createdBy: shareData.createdBy || null
+  };
 }
 
 function getShareLink(code) {
