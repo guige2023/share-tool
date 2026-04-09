@@ -1969,7 +1969,23 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .markdown-body th { background: var(--bg-tertiary); font-weight: 600; }
 .markdown-body hr { border: none; border-top: 1px solid var(--border-color); margin: 1.5em 0; }
 .markdown-body img { max-width: 100%; border-radius: 4px; }
+.markdown-body img[src^="http"] { cursor: pointer; }
+.markdown-body img[src^="http"]:hover { opacity: 0.85; }
 }
+/* Code block wrapper + copy button */
+.markdown-body pre { position: relative; }
+.markdown-body pre .copy-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--bg-primary); border: 1px solid var(--border-color);
+  color: var(--text-muted); border-radius: 4px; padding: 2px 8px;
+  font-size: 11px; cursor: pointer; opacity: 0; transition: opacity 0.2s;
+  z-index: 1;
+}
+.markdown-body pre:hover .copy-btn { opacity: 1; }
+.markdown-body pre .copy-btn:hover { color: var(--accent-primary); border-color: var(--accent-primary); }
+.markdown-body pre .copy-btn.copied { color: #10b981; border-color: #10b981; }
+/* Task list */
+.markdown-body input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent-primary); }
 /* Code syntax highlighting theme */
 .markdown-body pre { background: var(--bg-tertiary); border-radius: 8px; padding: 12px; overflow-x: auto; }
 .markdown-body code { background: var(--bg-tertiary); border-radius: 4px; padding: 2px 6px; font-size: 0.9em; }
@@ -3215,10 +3231,51 @@ async function openMarkdownModal(filename) {
     // Render markdown using marked + DOMPurify sanitization
     const rawHtml = marked.parse(content);
     const safeHtml = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } }) : rawHtml;
+
+    // Build table of contents from headings
+    const tocEntries = [];
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = safeHtml;
+    tempDiv.querySelectorAll('h1,h2,h3').forEach((h, i) => {
+      const id = 'md-heading-' + i;
+      h.id = id;
+      const level = parseInt(h.tagName[1]);
+      tocEntries.push({ id, text: h.textContent, level });
+    });
+
+    let tocHtml = '';
+    if (tocEntries.length > 1) {
+      tocHtml = '<div class="md-toc" style="background:var(--bg-tertiary);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;">' +
+        '<div style="color:var(--text-muted);margin-bottom:6px;font-weight:600;">目录</div>' +
+        tocEntries.map(e =>
+          '<div style="padding-left:' + ((e.level - 1) * 12) + 'px;color:var(--accent-primary);cursor:pointer;margin:2px 0;" onclick="document.getElementById(\'' + e.id + '\').scrollIntoView({behavior:\'smooth\'})">' + escapeHtml(e.text) + '</div>'
+        ).join('') + '</div>';
+    }
+
+    // Wrap safeHtml in container, add copy buttons to code blocks
+    const bodyHtml = '<div class="markdown-body" style="padding:16px;font-size:14px;line-height:1.6;">' + tocHtml + safeHtml + '</div>';
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
-    document.getElementById('modalBody').innerHTML =
-      '<div class="markdown-body" style="max-height:70vh;overflow-y:auto;padding:16px;background:var(--bg-secondary);border-radius:8px;font-size:14px;line-height:1.6;">' + safeHtml + '</div>';
+    document.getElementById('modalBody').innerHTML = bodyHtml;
+
+    // Add copy buttons to code blocks
+    document.querySelectorAll('#modalBody .markdown-body pre').forEach(pre => {
+      const code = pre.querySelector('code');
+      if (!code) return;
+      const btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = '复制';
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(code.textContent).then(() => {
+          btn.textContent = '已复制!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+        });
+      };
+      pre.appendChild(btn);
+    });
+
     // Apply syntax highlighting to code blocks
     if (typeof hljs !== 'undefined') hljs.highlightAll();
     document.getElementById('fileModal').classList.add('show');
