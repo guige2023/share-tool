@@ -1662,7 +1662,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; }
 
 .tag-filter-btn { cursor: pointer; transition: all 0.2s; }
-.search-highlight { background: rgba(102,126,234,0.4); color: #a5b4fc; border-radius: 2px; padding: 0 2px; }
+.search-highlight { background: rgba(102,126,234,0.4); color: var(--text-primary); border-radius: 2px; padding: 0 2px; }
+[data-theme="dark"] .search-highlight { background: rgba(102,126,234,0.3); color: #c4b5fd; }
 .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--text-muted); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
