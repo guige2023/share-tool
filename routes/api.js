@@ -77,7 +77,14 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
   // GET /api/token/current
   if (pathname === '/api/token/current') {
     if (!SHARE_TOKEN) return sendJson(res, { success: true, token: null });
-    sendJson(res, { success: true, token: SHARE_TOKEN });
+    // 检查是否是设备 token（有过期时间）
+    let expiresAt = null;
+    try {
+      const rawDb = db.getDb();
+      const tokenRow = rawDb.prepare('SELECT expires_at FROM tokens WHERE token = ?').get(SHARE_TOKEN);
+      if (tokenRow) expiresAt = tokenRow.expires_at;
+    } catch (_) {}
+    sendJson(res, { success: true, token: SHARE_TOKEN, expiresAt });
     return true;
   }
 

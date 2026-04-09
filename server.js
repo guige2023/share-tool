@@ -3300,12 +3300,46 @@ async function refreshToken() {
     if (data.success) {
       AUTH_TOKEN = data.token;
       localStorage.setItem('sharetool_token', AUTH_TOKEN);
-      document.getElementById('currentTokenDisplay').textContent = AUTH_TOKEN;
+      updateTokenDisplay(AUTH_TOKEN, data.expiresAt);
       showToast('Token 已刷新');
     } else {
       showToast('刷新失败: ' + (data.error || ''));
     }
   } catch (e) { showToast('刷新失败'); }
+}
+
+function updateTokenDisplay(token, expiresAt) {
+  const el = document.getElementById('currentTokenDisplay');
+  if (!el) return;
+  if (!token) { el.textContent = '(无)'; el.style.color = 'var(--text-muted)'; return; }
+  el.textContent = token;
+  el.style.color = '';
+  // 如果有过期时间，显示剩余天数
+  const expEl = document.getElementById('tokenExpiresAt');
+  if (expiresAt && expiresAt !== 32503680000) {
+    const now = Date.now();
+    if (expiresAt > now) {
+      const daysLeft = Math.ceil((expiresAt - now) / 86400000);
+      const expText = '剩余 ' + daysLeft + ' 天';
+      if (expEl) { expEl.textContent = expText; expEl.style.color = daysLeft <= 7 ? 'var(--warning)' : 'var(--text-muted)'; }
+      else {
+        const span = document.createElement('span');
+        span.id = 'tokenExpiresAt';
+        span.style.cssText = 'font-size:11px;margin-left:8px;color:var(--text-muted);';
+        span.textContent = expText;
+        el.parentNode.insertBefore(span, el.nextSibling);
+      }
+    } else {
+      if (expEl) expEl.textContent = '已过期';
+      else {
+        const span = document.createElement('span');
+        span.id = 'tokenExpiresAt';
+        span.style.cssText = 'font-size:11px;margin-left:8px;color:var(--danger);';
+        span.textContent = '已过期';
+        el.parentNode.insertBefore(span, el.nextSibling);
+      }
+    }
+  } else if (expEl) { expEl.remove(); }
 }
 
 async function doSetToken() {
@@ -3320,7 +3354,7 @@ async function doSetToken() {
     if (data.success) {
       AUTH_TOKEN = data.token;
       localStorage.setItem('sharetool_token', AUTH_TOKEN);
-      document.getElementById('currentTokenDisplay').textContent = AUTH_TOKEN;
+      updateTokenDisplay(AUTH_TOKEN, null); // static token has no expiry
       closeTokenModal();
       showToast('Token 更新成功');
     } else {
@@ -4646,6 +4680,8 @@ async function init() {
     const res = await fetch(API + '/api/token/current');
     const data = await res.json();
     if (data.token) AUTH_TOKEN = data.token;
+    // 更新 Token 显示（含过期时间）
+    updateTokenDisplay(AUTH_TOKEN, data.expiresAt);
   } catch (e) {}
 
   initTheme();
