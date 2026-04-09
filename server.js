@@ -3179,6 +3179,8 @@ function handleFileItemClick(event, filename, isImage) {
   if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'SPAN' || event.target.closest('input') || event.target.closest('button')) return;
   if (isImage) return; // images already have their own click handler (thumbnail)
   if (isCodeFile(filename)) { openCodeModal(filename); return; }
+  if (isAudioFile(filename) || isVideoFile(filename)) { openMediaModal(filename); return; }
+  if (isPdfFile(filename)) { openPdfModal(filename); return; }
   openFileModal(filename);
 }
 
