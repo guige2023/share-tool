@@ -1672,7 +1672,6 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,0.7); }
 [data-theme="dark"] .modal-close { color: var(--text-muted); }
 [data-theme="dark"] .modal-close:hover { color: var(--text-primary); }
-[data-theme="dark"] .qr-modal-overlay { background: rgba(0,0,0,0.9); }
 [data-theme="dark"] select { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); }
 [data-theme="dark"] ::-webkit-scrollbar { background: var(--bg-secondary); }
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); }
@@ -1884,9 +1883,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
 .pagination button.active { background: rgba(102,126,234,0.2); border-color: var(--accent-primary); color: var(--accent-primary); }
 .pagination .page-info { font-size: 12px; color: var(--text-muted); padding: 0 8px; }
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 300; display: none; align-items: center; justify-content: center; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-.modal-overlay.show { display: flex; }
-.modal-content { background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px; max-width: 700px; width: 90%; max-height: 80vh; overflow: auto; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+
 .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .modal-title { font-size: 16px; font-weight: 600; color: var(--text-primary); word-break: break-all; }
 .modal-close { background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; }
@@ -1949,7 +1946,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <button onclick="copyShareLink()">复制链接</button>
       <button onclick="showShareQRModal()">📷 二维码</button>
     </div>
-    <div class="qr-modal-overlay" id="qrModal" onclick="if(event.target===this)closeShareQRModal()" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+    <div class="qr-modal-overlay" id="qrModal" onclick="if(event.target===this)closeShareQRModal()">
       <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:360px;width:90%;text-align:center;">
         <div style="font-size:18px;font-weight:600;margin-bottom:16px;">分享二维码</div>
         <div id="qrModalContent" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
