@@ -916,16 +916,21 @@ async function startHttpServer() {
       // PWA Manifest
       if (pathname === '/manifest.json') {
         const manifest = {
+          id: 'sharetool',
           name: 'ShareTool - 局域网文件分享',
           short_name: 'ShareTool',
           description: '局域网文件/文字分享服务，支持多设备同步',
           start_url: '/',
+          scope: '/',
           display: 'standalone',
+          orientation: 'any',
           background_color: '#0f172a',
           theme_color: '#667eea',
           icons: [
             { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+            { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
           ],
           categories: ['productivity', 'utilities'],
           lang: 'zh-CN'
@@ -3524,6 +3529,10 @@ async function uploadFiles(files) {
   const progressBar = document.getElementById('uploadProgressBar');
   const progressFill = document.getElementById('uploadProgressFill');
   const uploadQueue = document.getElementById('uploadQueue');
+
+  // Store failed file objects for retry
+  window._failedUploads = [];
+
   if (progressBar) progressBar.style.display = 'block';
   if (uploadQueue) {
     uploadQueue.innerHTML = '';
@@ -3569,6 +3578,16 @@ async function uploadFiles(files) {
           if (queueItem) {
             queueItem.classList.add(data.success ? 'done' : 'fail');
             queueItem.querySelector('.status').textContent = data.success ? '✓' : '✗';
+            if (!data.success) {
+              window._failedUploads.push({ file, filename, index: i });
+              // Add retry button
+              const retryBtn = document.createElement('button');
+              retryBtn.className = 'retry-btn';
+              retryBtn.textContent = '重试';
+              retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;';
+              retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
+              queueItem.querySelector('.status').after(retryBtn);
+            }
           }
           if (data.success) {
             successCount++;
@@ -3586,6 +3605,13 @@ async function uploadFiles(files) {
           if (queueItem) {
             queueItem.classList.add('fail');
             queueItem.querySelector('.status').textContent = '✗';
+            window._failedUploads.push({ file, filename, index: i });
+            const retryBtn = document.createElement('button');
+            retryBtn.className = 'retry-btn';
+            retryBtn.textContent = '重试';
+            retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;';
+            retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
+            queueItem.querySelector('.status').after(retryBtn);
           }
           showAlert('uploadAlert', '失败: ' + e.message, 'error');
         }
@@ -3597,6 +3623,13 @@ async function uploadFiles(files) {
         if (queueItem) {
           queueItem.classList.add('fail');
           queueItem.querySelector('.status').textContent = '✗';
+          window._failedUploads.push({ file, filename, index: i });
+          const retryBtn = document.createElement('button');
+          retryBtn.className = 'retry-btn';
+          retryBtn.textContent = '重试';
+          retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;';
+          retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
+          queueItem.querySelector('.status').after(retryBtn);
         }
         resolve();
       };
@@ -3604,14 +3637,80 @@ async function uploadFiles(files) {
     });
   }
 
-  setTimeout(() => {
-    if (progressBar) progressBar.style.display = 'none';
-    if (progressFill) progressFill.style.width = '0%';
-    if (uploadQueue) uploadQueue.classList.remove('show');
-  }, 2000);
+  // Only auto-hide if all succeeded; otherwise keep queue visible with retry controls
+  if (failCount === 0) {
+    setTimeout(() => {
+      if (progressBar) progressBar.style.display = 'none';
+      if (progressFill) progressFill.style.width = '0%';
+      if (uploadQueue) uploadQueue.classList.remove('show');
+    }, 2000);
+  } else {
+    // Show retry bar at bottom
+    if (uploadQueue) {
+      const retryBar = document.createElement('div');
+      retryBar.style.cssText = 'display:flex;gap:8px;align-items:center;padding-top:8px;border-top:1px solid var(--border-color);margin-top:4px;';
+      retryBar.innerHTML = '<span style="color:var(--danger-fg,var(--danger));font-size:12px;">' + failCount + ' 个文件失败</span><button id="retryAllBtn" style="padding:4px 12px;background:var(--accent-primary);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">重试全部</button><button id="dismissQueueBtn" style="padding:4px 12px;background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border-color);border-radius:4px;font-size:12px;cursor:pointer;">关闭</button>';
+      uploadQueue.appendChild(retryBar);
+      retryBar.querySelector('#retryAllBtn').onclick = () => retryAllFailed();
+      retryBar.querySelector('#dismissQueueBtn').onclick = () => {
+        if (uploadQueue) { uploadQueue.innerHTML = ''; uploadQueue.classList.remove('show'); }
+        if (progressBar) progressBar.style.display = 'none';
+        if (progressFill) progressFill.style.width = '0%';
+        window._failedUploads = [];
+      };
+    }
+  }
 
   if (successCount > 0) {
     showAlert('uploadAlert', '已上传 ' + successCount + ' 个文件' + (failCount > 0 ? '，失败 ' + failCount : ''), failCount > 0 ? 'error' : 'success');
+  }
+}
+
+async function retryUploadItem(idx) {
+  if (!window._failedUploads || !window._failedUploads[idx]) return;
+  const { file, filename } = window._failedUploads[idx];
+  // Remove from failed list
+  window._failedUploads.splice(idx, 1);
+  // Re-trigger the upload by re-using file object
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const base64 = reader.result.split(',')[1];
+    try {
+      const res = await fetch(API + '/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ filename, content: base64, type: 'file' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('✓ ' + filename + ' 上传成功');
+        loadFiles();
+        broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
+      } else {
+        showAlert('uploadAlert', '重试失败: ' + data.error, 'error');
+        window._failedUploads.push({ file, filename });
+      }
+    } catch (e) {
+      showAlert('uploadAlert', '重试失败: ' + e.message, 'error');
+      window._failedUploads.push({ file, filename });
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function retryAllFailed() {
+  const failed = [...(window._failedUploads || [])];
+  window._failedUploads = [];
+  if (failed.length === 0) return;
+  const uploadQueue = document.getElementById('uploadQueue');
+  if (uploadQueue) { uploadQueue.innerHTML = ''; uploadQueue.classList.remove('show'); }
+  // Re-use the file list to trigger new upload
+  const fileInput = document.getElementById('fileInput');
+  if (fileInput) {
+    const dt = new DataTransfer();
+    failed.forEach(({ file }) => dt.items.add(file));
+    fileInput.files = dt.files;
+    await uploadFiles(dt.files);
   }
 }
 
