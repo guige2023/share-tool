@@ -587,31 +587,6 @@ function getCertExpiryInfo(certPath) {
   }
 }
 
-function getCertInfo() {
-  const certPath = path.join(SSL_DIR, 'cert.pem');
-  const keyPath = path.join(SSL_DIR, 'key.pem');
-  if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) return null;
-
-  try {
-    const stats = fs.statSync(certPath);
-    const keyStats = fs.statSync(keyPath);
-    const expiryInfo = getCertExpiryInfo(certPath);
-
-    return {
-      exists: true,
-      certPath,
-      keyPath,
-      createdAt: stats.ctimeMs,
-      expiresAt: expiryInfo?.expiresAt || null,
-      daysRemaining: expiryInfo?.daysRemaining || null,
-      valid: expiryInfo?.valid !== false,
-      note: expiryInfo?.note || null
-    };
-  } catch (e) {
-    return { exists: false, error: e.message };
-  }
-}
-
 async function ensureSslCertificates() {
   const certPath = path.join(SSL_DIR, 'cert.pem');
   const keyPath = path.join(SSL_DIR, 'key.pem');
@@ -700,7 +675,7 @@ async function renewCertificateIfNeeded(force = false) {
     return false;
   }
 
-  if (!force && info.daysRemaining > RENEW_BEFORE_DAYS) {
+  if (!force && !info.isExpired && info.daysRemaining > RENEW_BEFORE_DAYS) {
     logger.info(`[HTTPS] Certificate valid for ${info.daysRemaining} days, no renewal needed`);
     return false;
   }
@@ -1604,6 +1579,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   --code-fg: #4ade80;
   --danger: #dc2626;
   --warning: #d97706;
+  --text-inverse: #fff;
 }
 [data-theme="dark"] {
   --bg-primary: #0f172a;
@@ -1701,7 +1677,7 @@ h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667
 .hero-title { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
 .hero-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 8px; }
 .hero-features { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.hero-feature { background: rgba(102, 126, 234, 0.15); padding: 4px 10px; border-radius: 20px; font-size: 11px; color: #667eea; }
+.hero-feature { background: rgba(102, 126, 234, 0.15); padding: 4px 10px; border-radius: 20px; font-size: 11px; color: var(--accent-primary); }
 .card { background: var(--bg-secondary); border-radius: 16px; padding: 24px; margin-bottom: 20px; border: 1px solid var(--border-color); }
 .section-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
 .section-title::before { content: ''; width: 4px; height: 16px; background: linear-gradient(180deg, #667eea, #764ba2); border-radius: 2px; }
@@ -1753,7 +1729,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .file-name input.inline-rename { font-size: 14px; font-weight: 500; background: var(--bg-input); border: 1px solid var(--accent-primary); border-radius: 4px; color: var(--text-primary); padding: 2px 6px; outline: none; width: 100%; }
 .file-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-.file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: #667eea; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+.file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: var(--accent-primary); border-radius: 4px; cursor: pointer; transition: all 0.15s; }
 .file-tag:hover { opacity: 0.85; }
 .file-tag .remove-tag { margin-left: 4px; opacity: 0.6; }
 .file-tag .remove-tag:hover { opacity: 1; }
@@ -1817,7 +1793,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 
 .tag-filter-btn { cursor: pointer; transition: all 0.2s; }
 .search-highlight { background: rgba(102,126,234,0.4); color: var(--text-primary); border-radius: 2px; padding: 0 2px; }
-[data-theme="dark"] .search-highlight { background: rgba(102,126,234,0.3); color: #c4b5fd; }
+[data-theme="dark"] .search-highlight { background: rgba(102,126,234,0.4); color: var(--text-primary); }
 .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--text-muted); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -1900,7 +1876,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .view-toggle { display: flex; gap: 2px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 2px; margin-left: auto; }
 .view-toggle button { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-size: 13px; line-height: 1; transition: all 0.15s; }
 .view-toggle button:hover { color: var(--text-primary); }
-.view-toggle button.active { background: var(--accent-primary); color: #fff; }
+.view-toggle button.active { background: var(--accent-primary); color: var(--text-inverse, #fff); }
 .pagination { display: flex; gap: 4px; align-items: center; justify-content: center; margin-top: 16px; }
 .pagination button { padding: 6px 12px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-muted); cursor: pointer; font-size: 12px; }
 .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -1915,6 +1891,22 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .modal-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
 .kbd-hint { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 8px; }
 .kbd { display: inline-block; padding: 2px 6px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; }
+/* Markdown rendered content */
+.markdown-body { color: var(--text-primary); line-height: 1.7; }
+.markdown-body h1,.markdown-body h2,.markdown-body h3,.markdown-body h4 { color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 4px; margin-top: 1.5em; }
+.markdown-body h1 { font-size: 1.5em; } .markdown-body h2 { font-size: 1.25em; } .markdown-body h3 { font-size: 1.1em; }
+.markdown-body p { margin: 0.8em 0; }
+.markdown-body code { background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; font-family: monospace; color: var(--code-fg); }
+.markdown-body pre { background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; overflow-x: auto; margin: 1em 0; }
+.markdown-body pre code { background: none; padding: 0; color: var(--code-fg); }
+.markdown-body blockquote { border-left: 3px solid var(--accent-primary); margin: 1em 0; padding: 4px 12px; color: var(--text-muted); background: var(--bg-tertiary); border-radius: 0 4px 4px 0; }
+.markdown-body a { color: var(--accent-primary); }
+.markdown-body ul,.markdown-body ol { padding-left: 1.5em; margin: 0.8em 0; }
+.markdown-body table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+.markdown-body th,.markdown-body td { border: 1px solid var(--border-color); padding: 6px 12px; text-align: left; }
+.markdown-body th { background: var(--bg-tertiary); font-weight: 600; }
+.markdown-body hr { border: none; border-top: 1px solid var(--border-color); margin: 1.5em 0; }
+.markdown-body img { max-width: 100%; border-radius: 4px; }
 }
 </style>
 </head>
@@ -3075,7 +3067,7 @@ async function openMarkdownModal(filename) {
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     document.getElementById('modalBody').innerHTML =
-      '<div style="max-height:70vh;overflow-y:auto;padding:16px;background:var(--bg-secondary);border-radius:8px;font-size:14px;line-height:1.6;">' + html + '</div>';
+      '<div class="markdown-body" style="max-height:70vh;overflow-y:auto;padding:16px;background:var(--bg-secondary);border-radius:8px;font-size:14px;line-height:1.6;">' + html + '</div>';
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to render Markdown: ' + e.message); }
 }
@@ -3219,8 +3211,8 @@ function showAuditModal() {
       if (!data.success) { showToast('获取日志失败'); return; }
       const stats = data.stats || {};
       document.getElementById('auditStats').innerHTML =
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">今日操作</div><div style="font-size:20px;font-weight:600;color:#667eea">' + (stats.todayCount || 0) + '</div></div>' +
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">总操作</div><div style="font-size:20px;font-weight:600;color:#667eea">' + (stats.totalCount || 0) + '</div></div>' +
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">今日操作</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.todayCount || 0) + '</div></div>' +
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">总操作</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.totalCount || 0) + '</div></div>' +
         '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">最后操作</div><div style="font-size:12px;color:var(--text-secondary)">' + escapeHtml(stats.lastAction || '--') + '</div></div>';
 
       const logs = data.logs || [];
@@ -4421,7 +4413,7 @@ async function fetchSuggestions(q) {
 function renderSuggestions(suggestions) {
   const container = document.getElementById('searchSuggestions');
   container.innerHTML = suggestions.map(s => {
-    const tagStyle = s.color ? 'background:rgba(' + hexToRgb(s.color) + ',0.2);color:' + s.color + ';' : 'background:rgba(102,126,234,0.2);color:#667eea;';
+    const tagStyle = s.color ? 'background:rgba(' + hexToRgb(s.color) + ',0.2);color:' + s.color + ';' : 'background:rgba(102,126,234,0.2);color:var(--accent-primary);';
     const tagLabel = s.type === 'tag' ? '<span class="suggestion-tag" style="' + tagStyle + '">tag</span>' : '';
     return '<div class="search-suggestion" onclick="applySuggestion(\'' + escapeHtml(s.text).replace(/'/g, "\\'") + '\', \'' + s.type + '\')">' +
       '<span class="suggestion-icon">' + escapeHtml(s.icon || '') + '</span>' +
@@ -4549,7 +4541,7 @@ async function init() {
           if (data.https) {
             el.innerHTML = '<span style="color:var(--success-fg)">✅ HTTPS 已启用</span> <span style="color:var(--text-muted)">到期: ' + (data.expires || '未知') + '</span>';
           } else {
-            el.innerHTML = '<span style="color:#f59e0b">⚠️ HTTPS 未启用</span> <span style="color:var(--text-muted)">局域网可跳过</span>';
+            el.innerHTML = '<span style="color:var(--warning)">⚠️ HTTPS 未启用</span> <span style="color:var(--text-muted)">局域网可跳过</span>';
           }
         }
       }).catch(() => {

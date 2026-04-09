@@ -1,8 +1,12 @@
 {
   "name": "share-tool",
-  "version": "v2.45",
+  "version": "v2.51",
   "description": "本地局域网文件/文字分享工具，支持 Web UI 和命令行操作。",
+  "type": "module",
   "main": "server.js",
+  "bin": {
+    "share-tool-mcp": "./mcp-server.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
