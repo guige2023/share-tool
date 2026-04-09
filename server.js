@@ -915,6 +915,19 @@ async function startHttpServer() {
         return;
       }
 
+      // PWA manifest.json
+      if (pathname === '/manifest.json') {
+        const manifestPath = path.join(__dirname, 'public', 'manifest.json');
+        if (fs.existsSync(manifestPath)) {
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=86400' });
+          res.end(fs.readFileSync(manifestPath));
+        } else {
+          res.writeHead(404);
+          res.end('Not Found');
+        }
+        return;
+      }
+
       // PWA Service Worker
       if (pathname === '/sw.js') {
         const sw = `// ShareTool Service Worker v1.0
@@ -1539,6 +1552,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ShareTool">
 <link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="manifest" href="/manifest.json">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
