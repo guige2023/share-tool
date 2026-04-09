@@ -451,6 +451,7 @@ const I18N = {
     'ui.selectedN': '已选择 {n} 个文件',
     'ui.batchDownload': '下载',
     'ui.batchTag': '标签',
+    'ui.batchStar': '收藏',
     'ui.batchCopy': '复制',
     'ui.batchDelete': '删除',
     'ui.batchCancel': '取消',
@@ -3418,6 +3419,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span class="batch-count" id="batchCount">' + T('ui.selectedN').replace('{n}', '0') + '</span>
       <button onclick="batchDownload()">📦 ' + T('ui.batchDownload') + '</button>
       <button onclick="batchAddTag()">🏷 ' + T('ui.batchTag') + '</button>
+      <button onclick="batchStar()">⭐ ' + T('ui.batchStar') + '</button>
       <button onclick="batchCopy()">📋 ' + T('ui.batchCopy') + '</button>
       <button class="danger" onclick="batchDelete()">🗑 ' + T('ui.batchDelete') + '</button>
       <button class="danger" onclick="clearBatch()">✕ ' + T('ui.batchCancel') + '</button>
@@ -3471,6 +3473,15 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       </div>
     </div>
     <div class="pagination" id="pagination"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📈 Dashboard</div>
+    <div id="dashboardStats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:8px;"></div>
+    <div style="margin-top:8px;">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">📅 7天活动</div>
+      <div id="dashboardChart" style="display:flex;align-items:flex-end;gap:4px;height:40px;"></div>
+    </div>
   </div>
 
   <div class="card">
@@ -5181,6 +5192,65 @@ async function manualRenewCert() {
     }
   } catch (e) { showToast(T('admin.renewReqFailed'), 'error'); }
   if (btn) { btn.disabled = false; btn.textContent = '🔄 ' + T('admin.renew'); }
+}
+
+function formatBytes(b) {
+  if (b === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B','KB','MB','GB','TB'];
+  const i = Math.floor(Math.log(b) / Math.log(k));
+  return parseFloat((b / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+async function loadDashboard() {
+  const el = document.getElementById('dashboardStats');
+  const chartEl = document.getElementById('dashboardChart');
+  if (!el) return;
+  try {
+    const res = await fetch(API + '/api/dashboard', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.success) return;
+
+    const { files, storage, activity, shares, devices, tokens, sync } = data;
+    const f = files || {};
+    const s = storage || {};
+    const d = devices || {};
+    const sh = shares || {};
+    const tk = tokens || {};
+
+    const statCards = [
+      { label: '📁 文件', value: f.total || 0 },
+      { label: '💾 存储', value: formatBytes(s.total || 0) },
+      { label: '⭐ 收藏', value: f.starred || 0 },
+      { label: '🗑 回收站', value: f.trash || 0 },
+      { label: '🔗 分享', value: sh.active || 0 },
+      { label: '📡 设备', value: d.total || 0 },
+      { label: '🔐 Token', value: tk.active || 0 },
+      { label: '📊 同步', value: sync.unsynced || 0 },
+    ];
+
+    el.innerHTML = statCards.map(stat =>
+      '<div style="background:var(--bg-tertiary);padding:8px 12px;border-radius:8px;text-align:center;">' +
+      '<div style="font-size:16px;font-weight:600;">' + stat.value + '</div>' +
+      '<div style="font-size:10px;color:var(--text-muted);white-space:nowrap;">' + stat.label + '</div>' +
+      '</div>'
+    ).join('');
+
+    // 7-day bar chart
+    const daily = activity?.dailyNew || [];
+    const maxCount = Math.max(...daily.map(item => item.count), 1);
+    const barMaxH = 36;
+    chartEl.innerHTML = daily.map(item => {
+      const barH = Math.max(3, Math.round((item.count / maxCount) * barMaxH));
+      return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:2px;">' +
+        '<div style="width:100%;max-width:28px;background:var(--accent);border-radius:2px 2px 0 0;height:' + barH + 'px;" title="' + item.count + ' files"></div>' +
+        '<div style="font-size:8px;color:var(--text-muted);">' + item.date + '</div>' +
+        '</div>';
+    }).join('');
+
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">加载失败</div>';
+  }
 }
 
 async function loadRateLimitStatus() {
@@ -7050,6 +7120,7 @@ async function init() {
   initTheme();
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
   loadRateLimitStatus();
+  loadDashboard();
 
   const localDownloadDir = localStorage.getItem('shareTool_downloadDir') || '';
   document.getElementById('downloadDir').value = localDownloadDir;
