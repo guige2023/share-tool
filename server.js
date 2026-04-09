@@ -683,8 +683,70 @@ async function generateSelfSignedCert() {
   });
   
   logger.info(`[HTTPS] SANs: localhost, 127.0.0.1, ${ips.filter(ip => ip !== '127.0.0.1').join(', ')}`);
-  
+
   return { key: pems.private, cert: pems.cert };
+}
+
+// 自动续期阈值（30天）
+const RENEW_BEFORE_DAYS = 30;
+
+async function renewCertificateIfNeeded(force = false) {
+  const certPath = path.join(SSL_DIR, 'cert.pem');
+  const keyPath = path.join(SSL_DIR, 'key.pem');
+
+  const info = getCertInfo();
+  if (!info) {
+    logger.warn('[HTTPS] No certificate found, cannot renew');
+    return false;
+  }
+
+  if (!force && info.daysRemaining > RENEW_BEFORE_DAYS) {
+    logger.info(`[HTTPS] Certificate valid for ${info.daysRemaining} days, no renewal needed`);
+    return false;
+  }
+
+  logger.info(`[HTTPS] Certificate expires in ${info.daysRemaining} days (${info.validTo}), renewing...`);
+
+  try {
+    const pems = await generateSelfSignedCert();
+
+    // 先写临时文件，再原子替换
+    const tmpCertPath = certPath + '.new';
+    const tmpKeyPath = keyPath + '.new';
+    fs.writeFileSync(tmpCertPath, pems.cert, { mode: 0o644 });
+    fs.writeFileSync(tmpKeyPath, pems.key, { mode: 0o600 });
+    fs.renameSync(tmpCertPath, certPath);
+    fs.renameSync(tmpKeyPath, keyPath);
+
+    logger.info('[HTTPS] Certificate renewed successfully');
+
+    // 尝试热重载（如果不支持则下次启动生效）
+    if (global.httpServer && global.httpServer.setSecureContext) {
+      try {
+        global.httpServer.setSecureContext({
+          key: fs.readFileSync(keyPath),
+          cert: fs.readFileSync(certPath)
+        });
+        logger.info('[HTTPS] Hot-reloaded new certificate');
+      } catch (e) {
+        logger.warn({ err: e }, '[HTTPS] Hot-reload failed, will take effect on restart');
+      }
+    }
+
+    return true;
+  } catch (e) {
+    logger.error({ err: e }, '[HTTPS] Certificate renewal failed');
+    return false;
+  }
+}
+
+async function checkAndRenewCertificate(force = false) {
+  try {
+    return await renewCertificateIfNeeded(force);
+  } catch (e) {
+    logger.error({ err: e }, '[HTTPS] Certificate check/renew error');
+    return false;
+  }
 }
 
 function getCertInfo() {
@@ -977,7 +1039,7 @@ self.addEventListener('push', (event) => {
         db, config, sendJson, authRequired, getClientIp, broadcastChange,
         getUploadMaxSize, getFileIcon, isImageFile, archiver, crypto, cryptoModule,
         SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, LOCAL_IP, PORT,
-        saveConfig, ensureSslCertificates, getCertInfo, QRCode,
+        saveConfig, ensureSslCertificates, getCertInfo, checkAndRenewCertificate, QRCode,
         fs, path, createShareLink, validateShareCode
       };
 
@@ -1013,6 +1075,15 @@ self.addEventListener('push', (event) => {
     httpServer.listen(HTTPS_PORT, '0.0.0.0', () => {
       logger.info(`[HTTPS] Server listening on https://${LOCAL_IP}:${HTTPS_PORT}`);
     });
+
+    // 启动时检查证书是否需要续期
+    checkAndRenewCertificate().catch(() => {});
+
+    // 每日定时检查证书
+    setInterval(() => {
+      checkAndRenewCertificate().catch(() => {});
+    }, 24 * 60 * 60 * 1000);
+
     // 同时在 HTTP 端口运行 HTTP（重定向到 HTTPS）
     const redirectHandler = (req, res) => {
       const host = req.headers.host || `localhost:${PORT}`;

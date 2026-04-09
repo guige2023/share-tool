@@ -299,5 +299,22 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/admin/renew-cert — force renew HTTPS certificate
+  if (pathname === '/api/admin/renew-cert' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    Promise.resolve(checkAndRenewCertificate(true)).then(renewed => {
+      if (renewed) {
+        db.addAuditLog('cert_renew', 'HTTPS certificate renewed', getClientIp(req), authData.token);
+        sendJson(res, { success: true, message: 'Certificate renewed successfully' });
+      } else {
+        sendJson(res, { success: true, message: 'Certificate still valid, no renewal needed' });
+      }
+    }).catch(e => {
+      sendJson(res, { success: false, error: e.message }, 500);
+    });
+    return true;
+  }
+
   return false;
 };

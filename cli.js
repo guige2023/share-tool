@@ -316,6 +316,7 @@ async function main() {
     console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
     console.log('  history [--clear]  Show command history');
+    console.log('  renew-cert     Force renew HTTPS certificate');
     console.log('  config         Show all config');
     console.log('  config get <key>        Get a config value');
     console.log('  config set <key> <value> Set a config value');
@@ -692,6 +693,31 @@ async function main() {
           const d = new Date(h.ts).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
           console.log(`${String(i + 1).padStart(3, ' ')}  ${d}  ${h.cmd}`);
         });
+        break;
+      }
+
+      case 'renew-cert': {
+        const opts = {
+          hostname: parsed.hostname, port: parsed.port,
+          path: '/api/admin/renew-cert', method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Length': 0 }
+        };
+        const preq = https.request(opts, (pres) => {
+          let data = '';
+          pres.on('data', d => data += d);
+          pres.on('end', () => {
+            try {
+              const json = JSON.parse(data);
+              if (json.success) {
+                console.log(json.message);
+              } else {
+                printError(json.error || 'Renew failed');
+              }
+            } catch { printError('Invalid response'); }
+          });
+        });
+        preq.on('error', e => printError(`Request failed: ${e.message}`));
+        preq.end();
         break;
       }
 
