@@ -2516,16 +2516,28 @@ function getTagStyle(tagName) {
 async function loadFiles() {
   try {
     const sortRaw = localStorage.getItem('sharetool_sort') || 'created_at';
-    const sort = sortRaw === 'created_at' ? 'time' : sortRaw;
-    const order = localStorage.getItem('sharetool_order') || 'desc';
-    const res = await fetch(API + '/api/list?sort=' + sortRaw + '&order=' + order, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const sortOrder = localStorage.getItem('sharetool_order') || 'desc';
+    const res = await fetch(API + '/api/list?sort=' + sortRaw + '&order=' + sortOrder, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     currentFiles = data.files || [];
+    // Sync sort select UI
+    initSortSelect(sortRaw, sortOrder);
     renderFiles();
     updateTagFilterBar();
   } catch (e) {
     logger.error({ err: e }, 'Load files failed');
   }
+}
+
+function initSortSelect(sort, order) {
+  const sel = document.getElementById('sortSelect');
+  if (!sel) return;
+  const sortKey = sort === 'created_at' ? 'time' : sort;
+  const target = sortKey + '_' + order;
+  for (const opt of sel.options) {
+    opt.selected = opt.value === target;
+  }
+  currentSort = target;
 }
 
 function updateTagFilterBar() {
