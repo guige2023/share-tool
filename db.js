@@ -754,10 +754,19 @@ function searchFiles(query, tags = null, opts = {}) {
     return db.prepare(`SELECT ${FILE_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
   }
 
-  const queryTokens = tokenizeQuery(query);
+  // 解析 content: 搜索词（保留原始 query 给 filename/tag 搜索用）
+  let contentQuery = null;
+  let cleanQuery = query;
+  const contentMatch = query.match(/content:(\S+)/);
+  if (contentMatch) {
+    contentQuery = contentMatch[1];
+    cleanQuery = query.replace(/content:\S+/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  const queryTokens = tokenizeQuery(cleanQuery);
 
   // 如果没有查询词，只有标签过滤：直接用 SQLite
-  if (queryTokens.length === 0 && tags) {
+  if (queryTokens.length === 0 && tags && !contentQuery) {
     const tagList = tags.split(',').map(t => t.trim().toLowerCase());
     const tagConditions = tagList.map(() => `LOWER(tags) LIKE ?`).join(' AND ');
     const tagParams = tagList.map(t => `%${t}%`);
@@ -780,11 +789,16 @@ function searchFiles(query, tags = null, opts = {}) {
     candidateFiles = db.prepare(
       `SELECT ${FILE_FIELDS} FROM files WHERE ${conditions.join(' OR ')} LIMIT ?`
     ).all(...params, candidateLimit);
+  } else if (contentQuery && !queryTokens.length && !tags) {
+    // 只有 content: 搜索：搜所有 text 类型文件
+    candidateFiles = db.prepare(
+      `SELECT ${FILE_FIELDS} FROM files WHERE type = 'text' ORDER BY created_at DESC LIMIT ?`
+    ).all(limit);
   } else {
     candidateFiles = db.prepare(`SELECT ${FILE_FIELDS} FROM files`).all();
   }
 
-  if (queryTokens.length === 0 && !tags) {
+  if (queryTokens.length === 0 && !tags && !contentQuery) {
     return candidateFiles.slice(0, limit);
   }
 
@@ -793,6 +807,7 @@ function searchFiles(query, tags = null, opts = {}) {
     let score = 0;
     const filename = (f.filename || '').toLowerCase();
     const fileTags = (f.tags || '').toLowerCase();
+    const content = (f.content || '').toLowerCase();
 
     for (const token of queryTokens) {
       // Exact filename prefix match (highest)
@@ -823,6 +838,22 @@ function searchFiles(query, tags = null, opts = {}) {
       const hasAllTags = tagList.every(t => fileTags.includes(t));
       if (!hasAllTags) return null;
       score += 30; // tag filter bonus
+    }
+
+    // Content search: 文件内容包含匹配
+    if (contentQuery) {
+      const lcContentQuery = contentQuery.toLowerCase();
+      if (!content.includes(lcContentQuery)) {
+        return null; // 内容不匹配，直接过滤
+      }
+      // 内容匹配加分：精确匹配高分，模糊包含低分
+      if (content.startsWith(lcContentQuery)) {
+        score += 80;
+      } else if (content.includes(' ' + lcContentQuery) || content.includes('\n' + lcContentQuery)) {
+        score += 50;
+      } else {
+        score += 30;
+      }
     }
 
     if (score > 0) {

@@ -4525,8 +4525,12 @@ function renderFiles() {
           : (isImage
               ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><img class="file-thumb-img" id="' + thumbId + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')" /></div>'
               : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="' + T('file.dblclickRename') + '"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(displayName) + '</span></div>')) +
-        (!isVirtualFolder && tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+' + T('file.addTag') + '</button>' : '') +
+        (!isVirtualFolder && tags.length ? '<div class="file-tags">' + tags.map(t => {
+          const tagEsc = t.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          const tagHtml = escapeHtml(t.trim());
+          return '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + tagEsc + '\')">' + tagHtml + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + tagEsc + '\')">×</span></span>';
+        }).join('') + '</div>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + ((f.tags || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')">+' + T('file.addTag') + '</button>' : '') +
         (!isVirtualFolder ? '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' : '<div class="file-meta" style="color:var(--text-muted);">' + T('file.enterFolder') + '</div>') +
         (!isVirtualFolder && isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
         // Audio/Video/PDF inline player
@@ -6744,20 +6748,22 @@ function renderTagManagerItems(tags) {
   }
   list.innerHTML = tags.map(t => {
     const color = t.color || '#667eea';
-    const tagEsc = escapeHtml(t.tag);
+    const tagHtml = escapeHtml(t.tag);                              // HTML-safe for display
+    const tagJs = t.tag.replace(/\\/g, '\\\\').replace(/'/g, "\\'");  // JS-string-safe for onclick
+    const tagId = t.tag.replace(/[^a-zA-Z0-9]/g, '_');             // safe ID
     const contrastColor = getContrastColor(color);
     return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-tertiary);border-radius:12px;border:1px solid var(--border-color);transition:border-color 0.15s;">' +
-      '<div style="width:36px;height:36px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);" title="' + T('tag.clickChangeColor') + '" onclick="document.getElementById(\'colorPicker_' + tagEsc.replace(/[^a-zA-Z0-9]/g, '_') + '\').click()">' +
+      '<div style="width:36px;height:36px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);" title="' + T('tag.clickChangeColor') + '" onclick="document.getElementById(\'colorPicker_' + tagId + '\').click()">' +
         '<span style="font-size:16px;">🏷</span>' +
-        '<input type="color" id="colorPicker_' + tagEsc.replace(/[^a-zA-Z0-9]/g, '_') + '" value="' + color + '" style="position:absolute;width:0;height:0;opacity:0;" onchange="updateTagColor(\'' + tagEsc + '\', this.value); this.parentElement.style.background=this.value;">' +
+        '<input type="color" id="colorPicker_' + tagId + '" value="' + color + '" style="position:absolute;width:0;height:0;opacity:0;" onchange="updateTagColor(\'' + tagJs + '\', this.value); this.parentElement.style.background=this.value;">' +
       '</div>' +
       '<div style="flex:1;min-width:0;">' +
-        '<div style="font-size:14px;font-weight:500;color:var(--text-primary);cursor:pointer;" ondblclick="renameTag(\'' + tagEsc + '\')" title="' + T('tag.doubleClickRename') + '">' + tagEsc + '</div>' +
+        '<div style="font-size:14px;font-weight:500;color:var(--text-primary);cursor:pointer;" ondblclick="renameTag(\'' + tagJs + '\')" title="' + T('tag.doubleClickRename') + '">' + tagHtml + '</div>' +
         '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + t.count + ' ' + T('tag.count') + '</div>' +
       '</div>' +
       '<div style="display:flex;gap:6px;align-items:center;">' +
-        '<button class="btn btn-sm" style="font-size:11px;padding:6px 10px;min-height:32px;" onclick="renameTag(\'' + tagEsc + '\')" title="' + T('tag.rename') + '">✏️</button>' +
-        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:6px 10px;min-height:32px;" onclick="deleteTag(\'' + tagEsc + '\')" title="' + T('tag.delete') + '">🗑</button>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:6px 10px;min-height:32px;" onclick="renameTag(\'' + tagJs + '\')" title="' + T('tag.rename') + '">✏️</button>' +
+        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:6px 10px;min-height:32px;" onclick="deleteTag(\'' + tagJs + '\')" title="' + T('tag.delete') + '">🗑</button>' +
       '</div>' +
     '</div>';
   }).join('');
