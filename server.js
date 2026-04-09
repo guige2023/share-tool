@@ -1573,6 +1573,10 @@ const HTML_PAGE = `<!DOCTYPE html>
   --accent-primary: #667eea;
   --accent-secondary: #764ba2;
   --success: #22c55e;
+  --success-fg: #4ade80;
+  --danger-fg: #f87171;
+  --info-fg: #60a5fa;
+  --code-fg: #4ade80;
   --danger: #dc2626;
   --warning: #d97706;
 }
@@ -1589,6 +1593,10 @@ const HTML_PAGE = `<!DOCTYPE html>
   --accent-primary: #667eea;
   --accent-secondary: #764ba2;
   --success: #22c55e;
+  --success-fg: #4ade80;
+  --danger-fg: #f87171;
+  --info-fg: #60a5fa;
+  --code-fg: #4ade80;
   --danger: #dc2626;
   --warning: #d97706;
 }
@@ -1605,6 +1613,10 @@ const HTML_PAGE = `<!DOCTYPE html>
   --accent-primary: #667eea;
   --accent-secondary: #764ba2;
   --success: #22c55e;
+  --success-fg: #4ade80;
+  --danger-fg: #f87171;
+  --info-fg: #60a5fa;
+  --code-fg: #4ade80;
   --danger: #dc2626;
   --warning: #d97706;
 }
@@ -1614,9 +1626,49 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="search"], [data-theme="dark"] textarea { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-primary); }
 [data-theme="dark"] .file-item { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="dark"] .file-item:hover { border-color: var(--text-muted); }
-[data-theme="dark"] .code-box { background: #0f172a; border-color: #334155; color: #86efac; }
+[data-theme="dark"] .code-box { background: #0f172a; border-color: #334155; color: var(--code-fg); }
 [data-theme="dark"] .modal-content { background: var(--bg-secondary); border-color: var(--border-color); }
-[data-theme="dark"] .modal-overlay { background: rgba(0,0,0,0.85); }
+[data-theme="dark"] .modal-overlay,
+[data-theme="dark"] .qr-modal-overlay { background: rgba(0,0,0,0.85); }
+
+.modal-overlay,
+.qr-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+.modal-overlay.show,
+.qr-modal-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+.modal-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: auto;
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+  transform: scale(0.95) translateY(8px);
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  opacity: 0;
+}
+.modal-overlay.show .modal-content,
+.qr-modal-overlay.show .modal-content {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
 [data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,0.7); }
 [data-theme="dark"] .modal-close { color: var(--text-muted); }
 [data-theme="dark"] .modal-close:hover { color: var(--text-primary); }
@@ -1637,7 +1689,7 @@ h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667
 .subtitle { color: var(--text-muted); font-size: 14px; }
 .status-bar { display: flex; gap: 16px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
 .status-item { font-size: 12px; padding: 4px 12px; background: var(--bg-secondary); border-radius: 20px; border: 1px solid var(--border-color); }
-.status-item.connected { border-color: var(--success); color: #4ade80; }
+.status-item.connected { border-color: var(--success); color: var(--success); }
 .status-item.disconnected { border-color: var(--text-muted); color: var(--text-muted); }
 .hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-color); }
 .hero-content { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
@@ -1705,11 +1757,11 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
 .empty-text { font-size: 14px; }
 .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; display: none; }
-.alert-success { background: rgba(34, 197, 94, 0.15); border: 1px solid #22c55e; color: #4ade80; }
-.alert-error { background: rgba(220, 38, 38, 0.15); border: 1px solid #dc2626; color: #f87171; }
-.alert-info { background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: #60a5fa; }
+.alert-success { background: rgba(34, 197, 94, 0.15); border: 1px solid var(--success); color: var(--success-fg); }
+.alert-error { background: rgba(220, 38, 38, 0.15); border: 1px solid var(--danger); color: var(--danger-fg); }
+.alert-info { background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: var(--info-fg); }
 .alert.show { display: block; }
-.code-box { background: var(--bg-tertiary); padding: 14px; border-radius: 10px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: #4ade80; margin: 8px 0; overflow-x: auto; border: 1px solid var(--border-color); white-space: pre-wrap; word-break: break-all; }
+.code-box { background: var(--bg-tertiary); padding: 14px; border-radius: 10px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: var(--code-fg); margin: 8px 0; overflow-x: auto; border: 1px solid var(--border-color); white-space: pre-wrap; word-break: break-all; }
 .progress-bar { width: 100%; height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden; margin-top: 8px; }
 .progress-bar .fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.3s; }
 .batch-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -3024,10 +3076,10 @@ function showShareQRModalForCode(code) {
         if (qrData.success && qrData.dataUrl) {
           content.innerHTML = '<img src="' + qrData.dataUrl + '" style="border-radius:8px;max-width:256px;width:100%;" />';
         } else {
-          content.innerHTML = '<div style="color:#dc2626;">生成失败</div>';
+          content.innerHTML = '<div style="color:var(--danger-fg);">生成失败</div>';
         }
       })
-      .catch(e => { content.innerHTML = '<div style="color:#dc2626;">请求失败</div>'; });
+      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">请求失败</div>'; });
   }
 }
 
@@ -3432,10 +3484,10 @@ function showShareQRModal() {
         if (qrData.success && qrData.dataUrl) {
           content.innerHTML = '<img src="' + qrData.dataUrl + '" style="border-radius:8px;max-width:256px;width:100%;" />';
         } else {
-          content.innerHTML = '<div style="color:#dc2626;">生成失败: ' + escapeHtml(qrData.error || '未知错误') + '</div>';
+          content.innerHTML = '<div style="color:var(--danger-fg);">生成失败: ' + escapeHtml(qrData.error || '未知错误') + '</div>';
         }
       })
-      .catch(e => { content.innerHTML = '<div style="color:#dc2626;">请求失败: ' + escapeHtml(e.message) + '</div>'; });
+      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">请求失败: ' + escapeHtml(e.message) + '</div>'; });
   }
 }
 
@@ -4106,7 +4158,7 @@ async function init() {
         const el = document.getElementById('httpsStatus');
         if (el) {
           if (data.https) {
-            el.innerHTML = '<span style="color:#4ade80">✅ HTTPS 已启用</span> <span style="color:var(--text-muted)">到期: ' + (data.expires || '未知') + '</span>';
+            el.innerHTML = '<span style="color:var(--success-fg)">✅ HTTPS 已启用</span> <span style="color:var(--text-muted)">到期: ' + (data.expires || '未知') + '</span>';
           } else {
             el.innerHTML = '<span style="color:#f59e0b">⚠️ HTTPS 未启用</span> <span style="color:var(--text-muted)">局域网可跳过</span>';
           }
