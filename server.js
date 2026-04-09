@@ -326,6 +326,8 @@ const I18N = {
     'tag.doubleClickRename': '双击重命名',
     'tag.count': '个',
     'tag.manager': '标签管理',
+    'tag.inputHint': '输入标签，多个用逗号分隔',
+    'tag.color': '颜色',
     'tag.renamePrompt': '将标签 "{old}" 重命名为：',
     'tag.renameSuccess': '已重命名，更新了 {n} 个文件',
     'tag.renameFailed': '重命名失败',
@@ -733,6 +735,8 @@ const I18N = {
 
     // 标签
     'tag.manager': 'Tag management',
+    'tag.inputHint': 'Enter tags, comma separated',
+    'tag.color': 'Color',
     'tag.rename': 'Rename',
     'tag.delete': 'Delete',
     'tag.inputName': 'Enter tag name (multiple separated by comma):',
@@ -1059,6 +1063,8 @@ const I18N = {
 
     // 标签
     'tag.manager': 'Tag management',
+    'tag.inputHint': 'Enter tags, comma separated',
+    'tag.color': 'Color',
     'tag.rename': 'Rename',
     'tag.delete': 'Delete',
     'tag.inputName': 'Enter tag name (multiple separated by comma):',
@@ -3763,6 +3769,33 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   </div>
 </div>
 
+<!-- Tag Input Modal (mobile-friendly alternative to prompt()) -->
+<div class="modal-overlay" id="tagInputModal" onclick="if(event.target===this)closeTagInputModal()">
+  <div class="modal-content" style="max-width:400px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">🏷 <span id="tagInputModalTitle">' + T('file.addTag') + '</span></div>
+      <button class="modal-close" onclick="closeTagInputModal()">x</button>
+    </div>
+    <div style="padding:8px 0;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;" id="tagInputFileName"></div>
+      <!-- Existing tags as removable chips -->
+      <div id="tagInputExisting" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+      <!-- New tags input -->
+      <input type="text" id="tagInputField" placeholder="' + T('tag.inputHint') + '" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + T('tag.inputHint') + '</div>
+      <!-- Color picker for new tags -->
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:var(--text-muted);">' + T('tag.color') + ':</span>
+        <div id="tagInputColorPicker" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;">
+        <button class="btn" style="flex:1;" onclick="confirmTagInput()">' + T('ui.save') + '</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeTagInputModal()">' + T('ui.cancel') + '</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="favoritesModal" onclick="if(event.target===this)closeFavoritesManager()">
   <div class="modal-content" style="max-width:480px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
@@ -6218,11 +6251,69 @@ async function downloadFolder(folderName) {
 }
 
 async function addTag(filename, existingTags) {
-  const current = existingTags ? existingTags.split(',').filter(t => t.trim()).join(', ') : '';
-  const input = prompt(T('tag.inputPrompt') + ':', current);
-  if (input === null) return;
+  // Mobile-friendly tag input modal (replaces prompt())
+  const existing = existingTags ? existingTags.split(',').filter(t => t.trim()) : [];
+  _tagInputState = { filename, existingTags: [...existing] };
+
+  // Show filename
+  document.getElementById('tagInputFileName').textContent = decodeURIComponent(filename);
+
+  // Render existing tags as removable chips
+  const existingDiv = document.getElementById('tagInputExisting');
+  existingDiv.innerHTML = existing.map(t =>
+    '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(102,126,234,0.2);color:var(--accent-primary);border-radius:12px;font-size:12px;">' +
+    escapeHtml(t) +
+    '<span onclick="removeTagFromInput(\'' + t.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" style="cursor:pointer;opacity:0.7;margin-left:2px;">×</span></span>'
+  ).join('');
+
+  // Color picker (6 preset colors)
+  const colorPicker = document.getElementById('tagInputColorPicker');
+  const presetColors = ['#667eea','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4'];
+  colorPicker.innerHTML = presetColors.map(c =>
+    '<div onclick="selectTagInputColor(this, \'' + c + '\')" style="width:28px;height:28px;border-radius:50%;background:' + c + ';cursor:pointer;border:2px solid transparent;transition:border-color 0.15s;"></div>'
+  ).join('');
+
+  // Reset input
+  document.getElementById('tagInputField').value = '';
+
+  lockScroll();
+  document.getElementById('tagInputModal').classList.add('show');
+  document.getElementById('tagInputField').focus();
+}
+
+function removeTagFromInput(tag) {
+  _tagInputState.existingTags = _tagInputState.existingTags.filter(t => t !== tag);
+  const existingDiv = document.getElementById('tagInputExisting');
+  existingDiv.innerHTML = _tagInputState.existingTags.map(t =>
+    '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(102,126,234,0.2);color:var(--accent-primary);border-radius:12px;font-size:12px;">' +
+    escapeHtml(t) +
+    '<span onclick="removeTagFromInput(\'' + t.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" style="cursor:pointer;opacity:0.7;margin-left:2px;">×</span></span>'
+  ).join('');
+}
+
+function selectTagInputColor(el, color) {
+  el.parentElement.querySelectorAll('div').forEach(d => d.style.borderColor = 'transparent');
+  el.style.borderColor = color;
+  _tagInputState.selectedColor = color;
+}
+
+let _tagInputState = { filename: '', existingTags: [], selectedColor: '#667eea' };
+
+function closeTagInputModal() {
+  unlockScroll();
+  document.getElementById('tagInputModal').classList.remove('show');
+}
+
+async function confirmTagInput() {
+  const input = document.getElementById('tagInputField').value;
   const newTags = input.split(',').map(t => t.trim()).filter(t => t);
-  if (newTags.length === 0) return;
+  const allTags = [..._tagInputState.existingTags, ...newTags].join(',');
+  if (!allTags) {
+    closeTagInputModal();
+    return;
+  }
+
+  const filename = _tagInputState.filename;
 
   // 为新标签请求颜色
   for (const tag of newTags) {
@@ -6242,12 +6333,12 @@ async function addTag(filename, existingTags) {
     }
   }
 
-  const tags = newTags.join(',');
+  closeTagInputModal();
   try {
     const res = await fetch(API + '/api/file-tags/' + filename, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ tags })
+      body: JSON.stringify({ tags: allTags })
     });
     const data = await res.json();
     if (data.success) {
