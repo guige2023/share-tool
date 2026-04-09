@@ -2017,9 +2017,11 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div class="batch-bar" id="batchBar">
       <input type="checkbox" id="selectAllBatch" onchange="toggleSelectAll(this.checked)" style="width:18px;height:18px;cursor:pointer;">
       <span class="batch-count" id="batchCount">已选择 0 个文件</span>
-      <button onclick="batchDelete()">批量删除</button>
-      <button onclick="batchAddTag()">批量标签</button>
-      <button class="danger" onclick="clearBatch()">取消</button>
+      <button onclick="batchDownload()">📦 下载</button>
+      <button onclick="batchAddTag()">🏷 标签</button>
+      <button onclick="batchCopy()">📋 复制</button>
+      <button class="danger" onclick="batchDelete()">🗑 删除</button>
+      <button class="danger" onclick="clearBatch()">✕ 取消</button>
     </div>
 
     <div class="filter-tabs" id="tagFilterBar" style="margin-top:4px;">
@@ -2047,7 +2049,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
       <button class="btn btn-sm btn-warning" onclick="deleteOld(7)">删除1周前</button>
       <button class="btn btn-sm btn-warning" onclick="deleteOld(30)">删除1月前</button>
       <button class="btn btn-sm btn-danger" onclick="deleteAll()">删除所有</button>
-      <button class="btn btn-sm" onclick="batchDownload()" id="batchDownloadBtn" style="display:none;">📦 批量下载 (<span id="batchCount">0</span>)</button>
+      <button class="btn btn-sm" onclick="batchDownload()" id="batchDownloadBtn" style="display:none;">📦 批量下载 (<span id="batchCountDL">0</span>)</button>
     </div>
     <div class="setting-row">
       <label>下载目录:</label>
@@ -4087,6 +4089,9 @@ function updateBatchBar() {
   if (count) count.textContent = '已选择 ' + checked.length + ' 个文件';
   const selectAll = document.getElementById('selectAllBatch');
   if (selectAll) selectAll.checked = checked.length > 0 && checked.length === document.querySelectorAll('.batch-checkbox').length;
+  // Sync count to standalone batch download button if visible
+  const dlCount = document.getElementById('batchCountDL');
+  if (dlCount) dlCount.textContent = checked.length;
 }
 
 function clearBatch() {
@@ -4107,6 +4112,39 @@ async function batchDelete() {
     } catch (e) {}
   }
   showToast('已删除 ' + deleted + ' 个文件');
+  clearBatch();
+  loadFiles();
+}
+
+async function batchCopy() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  const destPrefix = prompt('请输入目标虚拟文件夹前缀（如 work/backup/）:\n选中的 ' + checked.length + ' 个文件将被复制到此目录下');
+  if (destPrefix === null) return; // cancelled
+  const cleanPrefix = destPrefix.trim();
+  if (!cleanPrefix) return;
+
+  let copied = 0;
+  let errors = 0;
+  for (const cb of checked) {
+    const filename = decodeURIComponent(cb.value);
+    const destName = cleanPrefix + filename.split('/').pop();
+    try {
+      const res = await fetch(API + '/api/file-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ sourceFilename: filename, newFilename: destName })
+      });
+      const data = await res.json();
+      if (data.success) copied++;
+      else errors++;
+    } catch (e) { errors++; }
+  }
+  if (errors > 0) {
+    showToast('已复制 ' + copied + ' 个文件，' + errors + ' 个失败');
+  } else {
+    showToast('已复制 ' + copied + ' 个文件到 ' + cleanPrefix);
+  }
   clearBatch();
   loadFiles();
 }
