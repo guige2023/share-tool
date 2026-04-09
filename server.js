@@ -1022,7 +1022,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v2.86',
+          version: 'v2.87',
         });
         return;
       }
@@ -3214,9 +3214,35 @@ async function openImageModal(filename) {
     const dataUrl = 'data:' + mime + ';base64,' + data.content;
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = 'Size: ' + formatSize(data.size || 0);
-    document.getElementById('modalBody').innerHTML = '<img src="' + dataUrl + '" style="max-width:100%;max-height:80vh;display:block;margin:0 auto;border-radius:8px;" />';
+    document.getElementById('modalBody').innerHTML = '<div id="imageLightbox" style="position:relative;text-align:center;"><button id="imgNavPrev" onclick="imageNav(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;display:none;">‹</button><img id="lightboxImg" src="' + dataUrl + '" style="max-width:100%;max-height:80vh;display:block;margin:0 auto;border-radius:8px;" /><button id="imgNavNext" onclick="imageNav(1)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;display:none;">›</button></div>';
+    // Collect image files for navigation
+    window._imageFiles = currentFiles.filter(f => !f.isVirtualFolder && isImageFile(f.name));
+    window._imageIndex = window._imageFiles.findIndex(f => f.name === filename);
+    updateImageNavButtons();
     document.getElementById('fileModal').classList.add('show');
+    // Arrow key navigation
+    document.getElementById('fileModal').dataset.imageMode = '1';
   } catch (e) { showToast('Failed to open image'); }
+}
+
+function updateImageNavButtons() {
+  const imgs = window._imageFiles || [];
+  const idx = window._imageIndex;
+  const prev = document.getElementById('imgNavPrev');
+  const next = document.getElementById('imgNavNext');
+  if (!prev || !next) return;
+  const show = imgs.length > 1;
+  prev.style.display = show && idx > 0 ? 'block' : 'none';
+  next.style.display = show && idx < imgs.length - 1 ? 'block' : 'none';
+}
+
+async function imageNav(dir) {
+  const imgs = window._imageFiles || [];
+  const idx = window._imageIndex;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= imgs.length) return;
+  window._imageIndex = newIdx;
+  await openImageModal(imgs[newIdx].name);
 }
 
 async function openMediaModal(filename) {
@@ -3656,6 +3682,19 @@ document.addEventListener('keydown', (e) => {
       const shareModal = document.getElementById('shareTextModal');
       if (shareModal) shareModal.classList.add('show');
       textarea.focus();
+    }
+  } else if (e.key === 'ArrowLeft') {
+    // Arrow keys for image lightbox navigation
+    const modal = document.getElementById('fileModal');
+    if (modal && modal.classList.contains('show') && modal.dataset.imageMode === '1') {
+      e.preventDefault();
+      imageNav(-1);
+    }
+  } else if (e.key === 'ArrowRight') {
+    const modal = document.getElementById('fileModal');
+    if (modal && modal.classList.contains('show') && modal.dataset.imageMode === '1') {
+      e.preventDefault();
+      imageNav(1);
     }
   } else if (e.key === 'j' || e.key === 'J') {
     // j: move focus down
