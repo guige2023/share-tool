@@ -273,11 +273,12 @@ function addFile(filename, content, type = 'file', hash = null, encrypted = fals
       VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())
     `);
     const result = stmt.run(filename, content || null, type, size, hash, encrypted ? 1 : 0, contentType);
-    
-    // 记录同步日志
-    addSyncLog(null, filename, 'create', hash, null, size);
-    
-    return { id: result.lastInsertRowid, filename, hash, size, encrypted };
+    const fileId = result.lastInsertRowid;
+
+    // 记录同步日志（使用真实的 fileId）
+    addSyncLog(fileId, filename, 'create', hash, null, size);
+
+    return { id: fileId, filename, hash, size, encrypted };
   } catch (e) {
     if (e.message.includes('UNIQUE constraint failed')) {
       // 文件已存在，更新
