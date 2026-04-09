@@ -3,7 +3,7 @@
  */
 
 module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
-  const { db, config, sendJson, authRequired, getClientIp, saveConfig, SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, fs, path, ensureSslCertificates, getCertInfo } = ctx;
+  const { db, config, sendJson, authRequired, getClientIp, saveConfig, SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, fs, path, ensureSslCertificates, getCertInfo, checkAndRenewCertificate } = ctx;
   const { method } = req;
   const parsed = { query };
 
