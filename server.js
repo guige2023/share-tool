@@ -2340,6 +2340,7 @@ const TAG_COLOR_PRESETS = ['#667eea','#f59e0b','#10b981','#ef4444','#3b82f6','#8
 let tagColors = {};  // { tagName: color } from server
 
 // PWA: Register Service Worker
+let deferredPrompt = null;
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
@@ -2348,6 +2349,42 @@ if ('serviceWorker' in navigator) {
       logger.info('[SW] registration failed:', err);
     });
   });
+}
+
+// PWA Install Prompt
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install prompt if not already installed
+  if (!window.matchMedia('(display-mode: standalone)').matches) {
+    const prompt = document.getElementById('pwaInstallPrompt');
+    if (prompt && !localStorage.getItem('pwaInstallDismissed')) {
+      prompt.style.display = 'block';
+    }
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  const prompt = document.getElementById('pwaInstallPrompt');
+  if (prompt) prompt.style.display = 'none';
+  deferredPrompt = null;
+});
+
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then((choice) => {
+    if (choice.outcome === 'accepted') {
+      logger.info('[PWA] installed');
+    }
+    deferredPrompt = null;
+  });
+}
+
+function dismissPWAInstall() {
+  const prompt = document.getElementById('pwaInstallPrompt');
+  if (prompt) prompt.style.display = 'none';
+  localStorage.setItem('pwaInstallDismissed', Date.now());
 }
 
 function toggleFavFilter() {
@@ -5137,6 +5174,19 @@ init();
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+
+<!-- PWA Install Prompt -->
+<div id="pwaInstallPrompt" style="display:none;position:fixed;bottom:max(90px,calc(90px + env(safe-area-inset-bottom)));right:24px;left:24px;background:var(--bg-secondary,#1e293b);border:1px solid var(--border,#334155);border-radius:12px;padding:12px 16px;z-index:99;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span style="font-size:24px;">📲</span>
+    <div style="flex:1;">
+      <div style="font-size:14px;font-weight:600;color:var(--text-primary);">安装 ShareTool App</div>
+      <div style="font-size:12px;color:var(--text-muted);">添加到主屏幕，离线也能访问</div>
+    </div>
+    <button onclick="installPWA()" style="background:var(--accent-primary);color:#fff;border:none;border-radius:8px;padding:6px 16px;font-size:13px;cursor:pointer;white-space:nowrap;">安装</button>
+    <button onclick="dismissPWAInstall()" style="background:transparent;color:var(--text-muted);border:none;font-size:18px;cursor:pointer;padding:4px;line-height:1;">✕</button>
+  </div>
+</div>
 
 <!-- FAB: Mobile-friendly upload button -->
 <div class="fab" id="fabMain" style="position:fixed;bottom:max(24px,env(safe-area-inset-bottom));right:24px;width:56px;height:56px;background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));border-radius:50%;box-shadow:0 4px 16px rgba(102,126,234,0.4);cursor:pointer;z-index:100;display:none;" onclick="fabClicked()">
