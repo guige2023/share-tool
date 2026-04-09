@@ -704,7 +704,7 @@ async function main() {
 
       case 'recent': {
         const limit = parseInt(args[0]) || 10;
-        const res = await request('GET', `/api/list?sort=updated&limit=${limit}`);
+        const res = await request('GET', `/api/list?sort=updated_at&order=desc&limit=${limit}`);
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
           process.exit(1);
@@ -715,9 +715,10 @@ async function main() {
         } else {
           console.log(`Recent ${files.length} file(s):`);
           files.forEach((f, i) => {
-            const date = new Date(f.updated_at * 1000).toLocaleString('zh-CN');
-            const size = f.size ? `${(f.size / 1024).toFixed(1)}KB` : '0KB';
-            console.log(`  ${i + 1}. ${f.filename} (${size}) - ${date}`);
+            const date = new Date((f.updatedAt || f.time) / 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+            const size = formatSize(f.size || 0);
+            const star = f.starred ? '⭐ ' : '   ';
+            console.log(`  ${star}${f.name} (${size}) - ${date}`);
           });
         }
         break;
@@ -756,7 +757,7 @@ async function main() {
           results.forEach((f, i) => {
             const score = f.score !== undefined ? ` [score:${f.score}]` : '';
             const tags = f.tags ? ` [${f.tags}]` : '';
-            console.log(`  ${i + 1}. ${f.filename}${tags}${score}`);
+            console.log(`  ${i + 1}. ${f.name || f.filename}${tags}${score}`);
           });
         }
         break;

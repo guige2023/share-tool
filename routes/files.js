@@ -330,7 +330,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // POST /api/batch-download - 流式 ZIP 打包（避免大文件内存溢出）
+// POST /api/batch-download - 流式 ZIP 打包（避免大文件内存溢出）
   if (pathname === '/api/batch-download' && method === 'POST') {
     const authData = authRequired(req, res);
     if (!authData) return true;
@@ -338,34 +338,46 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     req.on('data', d => body += d);
     req.on('end', () => {
       try {
-        const { filenames } = JSON.parse(body);
-        if (!Array.isArray(filenames) || filenames.length === 0) {
-          sendJson(res, { success: false, error: '需要提供文件名数组' }, 400);
-          return;
-        }
-        if (filenames.length > 100) {
-          sendJson(res, { success: false, error: '最多同时下载 100 个文件' }, 400);
-          return;
-        }
+        const { filenames, folder } = JSON.parse(body);
+        let fileMetas = [];
+        let zipName = 'sharetool_batch.zip';
 
-        // 收集文件元数据（不读 content）
-        const fileMetas = [];
-        for (const fn of filenames) {
-          const file = db.getFileByName(fn);
-          if (file) {
-            fileMetas.push({ filename: fn, content: file.content || '' });
+        // 模式1：文件夹打包
+        if (folder) {
+          const files = db.getFilesByPrefix(folder);
+          if (files.length === 0) {
+            sendJson(res, { success: false, error: '文件夹为空或不存在' }, 404);
+            return;
           }
+          fileMetas = files.map(f => ({ filename: f.filename, content: f.content || '' }));
+          zipName = folder.replace(/\/$/, '').replace(/\//g, '_') + '_folder.zip';
         }
-
-        if (fileMetas.length === 0) {
-          sendJson(res, { success: false, error: '没有找到任何文件' }, 404);
-          return;
+        // 模式2：指定文件列表
+        else {
+          if (!Array.isArray(filenames) || filenames.length === 0) {
+            sendJson(res, { success: false, error: '需要提供文件名数组或 folder 参数' }, 400);
+            return;
+          }
+          if (filenames.length > 100) {
+            sendJson(res, { success: false, error: '最多同时下载 100 个文件' }, 400);
+            return;
+          }
+          for (const fn of filenames) {
+            const file = db.getFileByName(fn);
+            if (file) {
+              fileMetas.push({ filename: fn, content: file.content || '' });
+            }
+          }
+          if (fileMetas.length === 0) {
+            sendJson(res, { success: false, error: '没有找到任何文件' }, 404);
+            return;
+          }
         }
 
         // 流式打包：直接 pipe 到 HTTP 响应，避免内存缓冲区
         res.writeHead(200, {
           'Content-Type': 'application/zip',
-          'Content-Disposition': 'attachment; filename="sharetool_batch.zip"',
+          'Content-Disposition': 'attachment; filename="' + zipName + '"',
           'Transfer-Encoding': 'chunked'
         });
 
@@ -383,7 +395,8 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
         }
         archive.finalize();
 
-        db.addAuditLog('batch_download', `${fileMetas.length} files`, getClientIp(req), authData.token);
+        const logMsg = folder ? `folder: ${folder} (${fileMetas.length} files)` : `${fileMetas.length} files`;
+        db.addAuditLog('batch_download', logMsg, getClientIp(req), authData.token);
       } catch (e) {
         sendJson(res, { success: false, error: e.message }, 400);
       }

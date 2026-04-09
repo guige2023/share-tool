@@ -4528,6 +4528,7 @@ function renderFiles() {
         (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 ' + T('file.preview') + '</button>' : '') +
       '</div>' +
       '<div class="file-actions">' +
+        (isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFolder(\'' + encodeURIComponent(f.name) + '\')">📦 ' + T('file.download') + '</button>' : '') +
         (!isVirtualFolder ? (isText || isCode ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">' + T('file.preview') + '</button>' : '') : '') +
         (!isVirtualFolder && (isAudio || isVideo) ? '<button class="btn btn-sm" onclick="openMediaModal(\'' + encodeURIComponent(f.name) + '\')">▶ ' + T('file.play') + '</button>' : '') +
         (!isVirtualFolder && isImage ? '<button class="btn btn-sm" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')">🖼 ' + T('file.view') + '</button>' : '') +
