@@ -294,6 +294,7 @@ const I18N = {
 
     // 收藏
     'fav.favorite': '收藏',
+    'fav.favorites': '收藏管理',
     'fav.addFav': '添加收藏',
     'fav.removeFav': '取消收藏',
 

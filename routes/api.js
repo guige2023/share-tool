@@ -226,25 +226,39 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // GET /api/search/suggest?q=xxx — 搜索建议（标签匹配）
+  // GET /api/search/suggest?q=xxx — 搜索建议（标签 + 文件名）
   if (pathname === '/api/search/suggest' && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const q = (parsed.query.q || '').toLowerCase().trim();
     if (!q) { sendJson(res, { success: true, suggestions: [] }); return true; }
 
-    // 标签建议
+    const suggestions = [];
+    const maxPerType = 4;
+
+    // 1. 标签建议
     const allTags = db.getAllTags();
-    const matchedTags = allTags.filter(t => t.toLowerCase().includes(q)).slice(0, 5);
+    const matchedTags = allTags.filter(t => t.toLowerCase().includes(q)).slice(0, maxPerType);
     const tagColors = db.getAllTagColors();
     const colorMap = {};
     tagColors.forEach(c => { colorMap[c.tag] = c.color; });
-
-    const suggestions = matchedTags.map(t => ({
+    matchedTags.forEach(t => suggestions.push({
       text: t,
       type: 'tag',
       icon: '🏷',
       color: colorMap[t] || null
+    }));
+
+    // 2. 文件名建议（搜索历史中的文件名前缀匹配）
+    const recentFiles = db.listFiles({ limit: 100 });
+    const matchedFiles = recentFiles
+      .filter(f => f.filename && f.filename.toLowerCase().startsWith(q))
+      .slice(0, maxPerType);
+    matchedFiles.forEach(f => suggestions.push({
+      text: f.filename,
+      type: 'filename',
+      icon: '📄',
+      color: null
     }));
 
     sendJson(res, { success: true, suggestions });
