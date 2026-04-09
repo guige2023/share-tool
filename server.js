@@ -2224,6 +2224,7 @@ let ws = null;
 let currentFiles = [];
 let config = {};
 let currentFilter = 'all';
+let currentFolder = null;  // null = root, 'work/docs' = inside folder
 let reconnectTimer = null;
 let reconnectDelay = 1000;
 let isConnected = false;
@@ -2786,7 +2787,7 @@ function renderFiles() {
 
     // Search highlight applied by applySearchHighlight() after render
 
-    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)">' +
+    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="handleFileItemClick(event, \'' + encodeURIComponent(f.name) + '\', ' + isImage + ')">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
         '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>标签</span></button>' +
         '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>删除</span></button>' +
@@ -3011,6 +3012,14 @@ async function openFileModal(filename) {
     document.getElementById('modalBody').textContent = data.content || '';
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open file'); }
+}
+
+function handleFileItemClick(event, filename, isImage) {
+  // Don't trigger if clicking interactive elements
+  const tag = event.target.tagName;
+  if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'SPAN' || event.target.closest('input') || event.target.closest('button')) return;
+  if (isImage) return; // images already have their own click handler (thumbnail)
+  openFileModal(filename);
 }
 
 function closeModal() {
