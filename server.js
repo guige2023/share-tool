@@ -108,6 +108,15 @@ const I18N = {
     'msg.noContent': '暂无分享内容',
     'msg.getFailed': '获取失败',
     'msg.tokenRefreshed': '已刷新',
+    'msg.linkCopied': '✓ 链接已复制',
+    'msg.createShareFailed': '创建分享链接失败',
+    'msg.invalidFilename': '文件名无效',
+    'msg.shareFailed': '分享失败',
+    'msg.deletedN': '已删除 {n} 个文件',
+    'msg.copiedN': '已复制 {n} 个文件',
+    'msg.copyFailedN': '已复制 {n} 个文件，{m} 个失败',
+    'msg.copiedTo': '已复制 {n} 个文件到 {dest}',
+    'file.invalidName': '文件名无效',
 
 
     // 文件状态
@@ -163,7 +172,7 @@ const I18N = {
     'device.online': '同步在线',
 
     // 同步
-    'sync.incSync': '增量同步',
+    'sync.incSync': '📥 增量同步 {n} 项',
     'sync.newFileReceived': '📤 收到新文件:',
     'sync.remoteDeleted': '🗑 远程删除了文件',
     'sync.remoteRenamed': '✏️ 远程重命名:',
@@ -201,7 +210,7 @@ const I18N = {
     'share.linkCopied': '✓ 链接已复制',
     'share.linkCopyFailed': '复制失败',
     'share.confirmDelete': '确定删除此分享链接？',
-    'share.deleted': '✓ 已删除',
+    'share.deleted': T('file.deleted'),
     'share.deleteFailed': '删除失败',
     'share.neverExpire': '永不过期',
     'share.expired': '已过期',
@@ -343,7 +352,7 @@ const I18N = {
     'search.noResults': '未找到结果',
     'search.found': '找到',
     'search.results': '个结果',
-    'search.failed': '搜索失败',
+    'search.failed': T('search.failed'),
     'search.inputContent': '请输入内容',
     'search.historyClear': '✕清除',
     'search.manage': '⚙管理',
@@ -390,6 +399,8 @@ const I18N = {
     'ui.searchPlaceholder': '搜索文件名...',
     'ui.filterByTag': '标签筛选',
     'ui.clearFilter': '清除筛选',
+    'ui.noFiles': '暂无分享内容',
+    'ui.noFilesHint': '上传文件或分享文字开始使用',
     'ui.selectAll': '全选',
     'ui.deleteSelected': '删除选中',
     'ui.noResults': '未找到匹配结果',
@@ -414,6 +425,42 @@ const I18N = {
     'ui.sortNameZA': '名称 Z-A',
     'ui.sortLargest': '最大优先',
     'ui.sortSmallest': '最小优先',
+    'ui.allFiles': '所有文件',
+    'ui.noResults': '未找到匹配结果',
+    'ui.tryOtherKeywords': '试试其他关键词或清除筛选',
+    'ui.shortcuts': '快捷键',
+    'ui.shortcutHelp': '? 查看快捷键',
+    'ui.shortcutNewUpload': 'N 上传文件',
+    'ui.shortcutSearch': 'F 搜索',
+    'ui.shortcutCopyLink': 'L 复制链接',
+    'ui.shortcutToggleFav': 'S 收藏',
+    'ui.shortcutToggleSelect': 'X 选中/取消',
+    'ui.shortcutRefresh': 'R 刷新',
+    'ui.shortcutClose': 'Esc 关闭',
+    'ui.shortcutMoveFocus': 'Tab 移动焦点',
+    'ui.shortcutDeleteFocused': 'Del 删除焦点项',
+    'ui.shortcutTextNote': 'T 文字笔记',
+    'ui.listView': '列表视图',
+    'ui.gridView': '网格视图',
+    'ui.resultsFound': '找到 {n} 个结果',
+    'ui.save': '保存',
+    'ui.downloadDir': '下载目录',
+    'ui.deleteAll': '删除全部',
+    'ui.delete1Week': '删除1周前',
+    'ui.delete1Month': '删除1月前',
+    'ui.confirmDeleteAll': '确定删除所有文件?',
+    'ui.confirmDeleteSelected': '确定删除选中的 {n} 个文件?',
+    'ui.confirmDeleteDays': '确定删除 {n} 天前的所有文件?',
+    'ui.unknown': '未知',
+    'pwa.installTitle': '安装应用',
+    'pwa.installDesc': '安装后可获得更好的使用体验',
+    'admin.checking': '检查中...',
+    'admin.daysLeft': '剩余 {n} 天',
+    'msg.failed': '失败',
+    'msg.inputRequired': '请输入内容',
+    'file.textShareSuccess': '文字分享成功',
+    'file.linkCopied': '链接已复制',
+    'share.createFailed': '创建分享失败',
   },
 
   en: {
@@ -710,6 +757,8 @@ const I18N = {
     'ui.searchPlaceholder': 'Search filenames...',
     'ui.filterByTag': 'Filter by tag',
     'ui.clearFilter': 'Clear filter',
+    'ui.noFiles': 'No shared content yet',
+    'ui.noFilesHint': 'Upload files or share text to get started',
     'ui.selectAll': 'Select all',
     'ui.deleteSelected': 'Delete selected',
     'ui.noResults': 'No matching results',
@@ -734,6 +783,40 @@ const I18N = {
     'ui.sortNameZA': 'Name Z-A',
     'ui.sortLargest': 'Largest first',
     'ui.sortSmallest': 'Smallest first',
+    'ui.allFiles': 'All files',
+    'ui.shortcuts': 'Shortcuts',
+    'ui.shortcutHelp': '? View shortcuts',
+    'ui.shortcutNewUpload': 'N Upload',
+    'ui.shortcutSearch': 'F Search',
+    'ui.shortcutCopyLink': 'L Copy link',
+    'ui.shortcutToggleFav': 'S Favorite',
+    'ui.shortcutToggleSelect': 'X Toggle select',
+    'ui.shortcutRefresh': 'R Refresh',
+    'ui.shortcutClose': 'Esc Close',
+    'ui.shortcutMoveFocus': 'Tab Move focus',
+    'ui.shortcutDeleteFocused': 'Del Delete',
+    'ui.shortcutTextNote': 'T Text note',
+    'ui.listView': 'List view',
+    'ui.gridView': 'Grid view',
+    'ui.resultsFound': '{n} results found',
+    'ui.save': 'Save',
+    'ui.downloadDir': 'Download dir',
+    'ui.deleteAll': 'Delete all',
+    'ui.delete1Week': 'Delete 1 week ago',
+    'ui.delete1Month': 'Delete 1 month ago',
+    'ui.confirmDeleteAll': 'Delete all files?',
+    'ui.confirmDeleteSelected': 'Delete {n} selected files?',
+    'ui.confirmDeleteDays': 'Delete all files older than {n} days?',
+    'ui.unknown': 'Unknown',
+    'pwa.installTitle': 'Install App',
+    'pwa.installDesc': 'Install for better experience',
+    'admin.checking': 'Checking...',
+    'admin.daysLeft': '{n} days left',
+    'msg.failed': 'Failed',
+    'msg.inputRequired': 'Please enter content',
+    'file.textShareSuccess': 'Text shared successfully',
+    'file.linkCopied': 'Link copied',
+    'share.createFailed': 'Failed to create share',
 
     // 文件状态
     'file.share': 'Share',
@@ -946,7 +1029,7 @@ const I18N = {
 };
 
 // 快速翻译别名
-function T(key) { return I18N.t(key); }
+function T(key, params) { return I18N.t(key, null, params); }
 
 // ============================================================
 // Token 配置（从环境变量或配置文件读取，无硬编码）
@@ -3052,20 +3135,20 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span id="fileCount" style="margin-left:auto;"></span>
       <span id="searchResultCount" style="display:none;color:var(--accent-primary);font-weight:500;margin-left:8px;"></span>
       <div class="view-toggle">
-        <button class="active" id="listViewBtn" onclick="setView('list')" title="列表视图">☰</button>
-        <button id="gridViewBtn" onclick="setView('grid')" title="网格视图">▦</button>
+        <button class="active" id="listViewBtn" onclick="setView('list')" title="' + T('ui.listView') + '">☰</button>
+        <button id="gridViewBtn" onclick="setView('grid')" title="' + T('ui.gridView') + '">▦</button>
       </div>
     </div>
     <div class="batch-actions">
-      <button class="btn btn-sm btn-warning" onclick="deleteOld(7)">删除1周前</button>
-      <button class="btn btn-sm btn-warning" onclick="deleteOld(30)">删除1月前</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteAll()">删除所有</button>
-      <button class="btn btn-sm" onclick="batchDownload()" id="batchDownloadBtn" style="display:none;">📦 批量下载 (<span id="batchCountDL">0</span>)</button>
+      <button class="btn btn-sm btn-warning" onclick="deleteOld(7)">' + T('ui.delete1Week') + '</button>
+      <button class="btn btn-sm btn-warning" onclick="deleteOld(30)">' + T('ui.delete1Month') + '</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteAll()">' + T('ui.deleteAll') + '</button>
+      <button class="btn btn-sm" onclick="batchDownload()" id="batchDownloadBtn" style="display:none;">' + T('ui.batchDownload') + ' ( (<span id="batchCountDL">0</span>)</button>
     </div>
     <div class="setting-row">
-      <label>下载目录:</label>
+      <label>' + T('ui.downloadDir') + ':</label>
       <input type="text" id="downloadDir" value="">
-      <button class="btn btn-sm" onclick="saveDownloadDir()">保存</button>
+      <button class="btn btn-sm" onclick="saveDownloadDir()">' + T('ui.save') + '</button>
     </div>
     <div id="downloadProgress" style="display:none;">
       <div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
@@ -3074,26 +3157,26 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div id="filesContainer">
       <div class="empty" id="emptyState">
         <div class="empty-icon">📭</div>
-        <div class="empty-text">暂无分享内容</div>
-        <div class="empty-text" style="font-size:12px;margin-top:8px;">上传文件或分享文字开始使用</div>
+        <div class="empty-text">' + T('ui.noFiles') + '</div>
+        <div class="empty-text" style="font-size:12px;margin-top:8px;">' + T('ui.noFilesHint') + '</div>
       </div>
     </div>
     <div class="pagination" id="pagination"></div>
   </div>
 
   <div class="card">
-    <div class="section-title">⚙️ 设置</div>
+    <div class="section-title">' + T('admin.settings') + '</div>
     <div style="margin-bottom: 12px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔐 访问 Token</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">' + T('admin.accessToken') + '</div>
       <div class="code-box" id="currentTokenDisplay" style="font-size:12px;padding:8px 12px;"></div>
-      <button class="btn btn-sm" style="margin-top:8px;" onclick="showTokenModal()">更换Token</button>
-      <button class="btn btn-sm btn-secondary" style="margin-top:8px;margin-left:4px;" onclick="refreshToken()">刷新</button>
+      <button class="btn btn-sm" style="margin-top:8px;" onclick="showTokenModal()">' + T('admin.changeToken') + '</button>
+      <button class="btn btn-sm btn-secondary" style="margin-top:8px;margin-left:4px;" onclick="refreshToken()">' + T('admin.refresh') + '</button>
     </div>
     <div style="margin-bottom: 12px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔒 HTTPS 状态</div>
-      <div id="httpsStatus" style="font-size:13px;color:var(--text-muted);">检测中...</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">' + T('admin.https') + '</div>
+      <div id="httpsStatus" style="font-size:13px;color:var(--text-muted);">' + T('admin.checking') + '</div>
       <div id="httpsRenewBtn" style="margin-top:6px;display:none;">
-        <button class="btn btn-sm" onclick="manualRenewCert()">🔄 手动续期</button>
+        <button class="btn btn-sm" onclick="manualRenewCert()">' + T('admin.renew') + '</button>
       </div>
     </div>
     <div>
@@ -3113,9 +3196,9 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   </div>
 
   <div class="card">
-    <div class="section-title">同步设备</div>
+    <div class="section-title">' + T('device.devices') + '</div>
     <div class="device-list" id="deviceList">
-      <div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">正在发现设备...</div></div>
+      <div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">' + T('device.discovering') + '</div></div>
     </div>
   </div>
 </div>
@@ -3211,21 +3294,21 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="shortcutModal" onclick="if(event.target===this)closeShortcutModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <div class="modal-title">键盘快捷键</div>
+      <div class="modal-title">' + T('ui.shortcuts') + '</div>
       <button class="modal-close" onclick="closeShortcutModal()">x</button>
     </div>
     <div class="shortcut-list">
-      <span class="shortcut-key">j / k</span><span class="shortcut-desc">上下移动文件焦点</span>
-      <span class="shortcut-key">x</span><span class="shortcut-desc">选中/取消选中文件</span>
-      <span class="shortcut-key">c</span><span class="shortcut-desc">复制选中文件链接</span>
-      <span class="shortcut-key">n</span><span class="shortcut-desc">新建上传</span>
-      <span class="shortcut-key">m</span><span class="shortcut-desc">快捷文字笔记</span>
-      <span class="shortcut-key">Delete</span><span class="shortcut-desc">删除焦点文件</span>
-      <span class="shortcut-key">f</span><span class="shortcut-desc">切换收藏筛选</span>
-      <span class="shortcut-key">r</span><span class="shortcut-desc">刷新文件列表</span>
-      <span class="shortcut-key">/</span><span class="shortcut-desc">聚焦搜索框</span>
-      <span class="shortcut-key">Esc</span><span class="shortcut-desc">关闭弹窗/取消搜索</span>
-      <span class="shortcut-key">?</span><span class="shortcut-desc">显示此帮助</span>
+      <span class="shortcut-key">j / k</span><span class="shortcut-desc">' + T('ui.shortcutMoveFocus') + '</span>
+      <span class="shortcut-key">x</span><span class="shortcut-desc">' + T('ui.shortcutToggleSelect') + '</span>
+      <span class="shortcut-key">c</span><span class="shortcut-desc">' + T('ui.shortcutCopyLink') + '</span>
+      <span class="shortcut-key">n</span><span class="shortcut-desc">' + T('ui.shortcutNewUpload') + '</span>
+      <span class="shortcut-key">m</span><span class="shortcut-desc">' + T('ui.shortcutTextNote') + '</span>
+      <span class="shortcut-key">Delete</span><span class="shortcut-desc">' + T('ui.shortcutDeleteFocused') + '</span>
+      <span class="shortcut-key">f</span><span class="shortcut-desc">' + T('ui.shortcutToggleFav') + '</span>
+      <span class="shortcut-key">r</span><span class="shortcut-desc">' + T('ui.shortcutRefresh') + '</span>
+      <span class="shortcut-key">/</span><span class="shortcut-desc">' + T('ui.shortcutSearch') + '</span>
+      <span class="shortcut-key">Esc</span><span class="shortcut-desc">' + T('ui.shortcutClose') + '</span>
+      <span class="shortcut-key">?</span><span class="shortcut-desc">' + T('ui.shortcutHelp') + '</span>
     </div>
   </div>
 </div>
@@ -3233,7 +3316,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="tagManagerModal" onclick="if(event.target===this)closeTagManager()">
   <div class="modal-content" style="max-width:480px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">🏷 标签管理</div>
+      <div class="modal-title">' + T('tag.manager') + '</div>
       <button class="modal-close" onclick="closeTagManager()">x</button>
     </div>
     <div id="tagManagerList" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -3347,8 +3430,8 @@ function showToast(msg, duration = 2500) {
 // 冲突解决弹窗
 function showConflictDialog(conflict) {
   const { action, filename, localHash, remoteHash, localTs, remoteTs } = conflict;
-  const localTime = localTs ? new Date(localTs * 1000).toLocaleString('zh-CN') : '未知';
-  const remoteTime = remoteTs ? new Date(remoteTs * 1000).toLocaleString('zh-CN') : '未知';
+  const localTime = localTs ? new Date(localTs * 1000).toLocaleString() : T('ui.unknown');
+  const remoteTime = remoteTs ? new Date(remoteTs * 1000).toLocaleString() : T('ui.unknown');
   const escapedName = escapeHtml(filename);
   const localHashDisplay = localHash ? localHash.substring(0, 12) + '...' : 'N/A';
   const remoteHashDisplay = remoteHash ? remoteHash.substring(0, 12) + '...' : 'N/A';
@@ -3519,10 +3602,10 @@ function updateWsStatus(connected) {
   const el = document.getElementById('wsStatus');
   if (connected) {
     el.className = 'status-item connected';
-    el.textContent = 'WS 已连接';
+    el.textContent = T('device.wsConnected');
   } else {
     el.className = 'status-item disconnected';
-    el.textContent = 'WS 未连接';
+    el.textContent = T('device.wsDisconnected');
   }
 }
 
@@ -3534,7 +3617,7 @@ function handleWsMessage(msg) {
       currentFiles = payload.files || [];
       renderFiles();
       renderDevices(payload.devices || []);
-      document.getElementById('syncStatus').textContent = '同步在线';
+      document.getElementById('syncStatus').textContent = T('device.syncOnline');
       updateTagFilterBar();
       // 加载标签颜色
       loadTagColors();
@@ -3592,7 +3675,7 @@ function handleWsMessage(msg) {
       }
       if (payload.changes && payload.changes.length > 0) {
         applyIncrementalChanges(payload.changes);
-        showToast('📥 增量同步 ' + payload.changes.length + ' 项');
+        showToast(T('sync.incSync', { n: payload.changes.length }));
       }
       logger.info('[Sync] sync_response:', payload.changes ? payload.changes.length : 0, 'changes');
       break;
@@ -3730,7 +3813,7 @@ function wsSend(type, payload) {
 
 function renderDevices(devices) {
   const container = document.getElementById('deviceList');
-  document.getElementById('deviceCount').textContent = '设备: ' + devices.length;
+  document.getElementById('deviceCount').textContent = T('device.device') + ': ' + devices.length;
   
   if (!devices.length) {
     container.innerHTML = '<div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">' + T('device.noOnlineDevices') + '</div></div>';
@@ -3784,7 +3867,7 @@ function renderBreadcrumb() {
     return;
   }
   const parts = currentFolder.split('/');
-  let html = '<span class="breadcrumb-item" onclick="navigateFolder(null)" style="cursor:pointer;color:var(--accent-primary);">📁 全部文件</span>';
+  let html = '<span class="breadcrumb-item" onclick="navigateFolder(null)" style="cursor:pointer;color:var(--accent-primary);">📁 T('ui.allFiles') + '</span>';
   let path = '';
   for (let i = 0; i < parts.length; i++) {
     path += (i > 0 ? '/' : '') + parts[i];
@@ -3846,9 +3929,9 @@ function updateTagFilterBar() {
   const currentQ = window.currentSearchQ || '';
   const activeTag = sorted.find(t => currentQ.includes('tag:' + t));
   const clearBtn = activeTag
-    ? '<span class="filter-tab" onclick="clearTagFilter()" style="font-size:11px;color:var(--text-muted);">✕清除</span>'
+    ? '<span class="filter-tab" onclick="clearTagFilter()" style="font-size:11px;color:var(--text-muted);">✕' + T('msg.clear') + '</span>'
     : '';
-  const manageBtn = '<span class="filter-tab" onclick="showTagManager()" style="font-size:11px;color:var(--text-muted);">⚙管理</span>';
+  const manageBtn = '<span class="filter-tab" onclick="showTagManager()" style="font-size:11px;color:var(--text-muted);">⚙' + T('tag.manager') + '</span>';
   bar.innerHTML = sorted.map(t => {
     const active = currentQ.includes('tag:' + t) ? 'active' : '';
     const style = getTagStyle(t) || '';
@@ -3919,7 +4002,7 @@ function renderFiles() {
 
   // Update count
   const countEl = document.getElementById('fileCount');
-  if (countEl) countEl.textContent = files.length + ' 个文件';
+  if (countEl) countEl.textContent = files.length + ' ' + T('file.numFiles');
   
   // Pagination
   const totalPages = Math.ceil(files.length / PAGE_SIZE) || 1;
@@ -3968,8 +4051,8 @@ function renderFiles() {
 
     return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
-        (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>标签</span></button>' : '') +
-        '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>删除</span></button>' +
+        (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>' + T('file.addTag') + '</span></button>' : '') +
+        '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>' + T('tag.delete') + '</span></button>' +
       '</div>' +
       '<div style="margin-right: 12px; display:flex; align-items:center;">' +
         (!isVirtualFolder ? '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" onchange="updateBatchBar()" style="width: 18px; height: 18px; cursor: pointer;">' : '<span style="font-size:20px;">📁</span>') +
@@ -3979,29 +4062,29 @@ function renderFiles() {
           ? '<div class="file-name" style="cursor:pointer;"><span class="file-type-icon">📁</span><span class="search-target" style="color:var(--accent-primary);">' + escapeHtml(f.name) + '</span></div>'
           : (isImage
               ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><img class="file-thumb-img" id="' + thumbId + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')" /></div>'
-              : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="双击重命名"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(displayName) + '</span></div>')) +
+              : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="' + T('file.dblclickRename') + '"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(displayName) + '</span></div>')) +
         (!isVirtualFolder && tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' : '') +
-        (!isVirtualFolder ? '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' : '<div class="file-meta" style="color:var(--text-muted);">点击进入文件夹</div>') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+' + T('file.addTag') + '</button>' : '') +
+        (!isVirtualFolder ? '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' : '<div class="file-meta" style="color:var(--text-muted);">' + T('file.enterFolder') + '</div>') +
         (!isVirtualFolder && isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
         // Audio/Video/PDF inline player
         (!isVirtualFolder && isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
         (!isVirtualFolder && isVideo ? '<div class="file-video-wrapper" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
-        (!isVirtualFolder && isPdf ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')">📕 预览PDF</button>' : '') +
-        (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 预览MD</button>' : '') +
-        (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 预览</button>' : '') +
+        (!isVirtualFolder && isPdf ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')">📕 ' + T('file.previewPdf') + '</button>' : '') +
+        (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 ' + T('file.previewMd') + '</button>' : '') +
+        (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 ' + T('file.preview') + '</button>' : '') +
       '</div>' +
       '<div class="file-actions">' +
-        (!isVirtualFolder ? (isText || isCode ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') : '') +
-        (!isVirtualFolder && (isAudio || isVideo) ? '<button class="btn btn-sm" onclick="openMediaModal(\'' + encodeURIComponent(f.name) + '\')">▶ 播放</button>' : '') +
-        (!isVirtualFolder && isImage ? '<button class="btn btn-sm" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')">🖼 查看</button>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">复制</button>' : '') +
-        '<button class="btn btn-sm" onclick="renameFile(\'' + encodeURIComponent(f.name) + '\')">重命名</button>' +
-        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">下载</button>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">分享</button>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="showFileVersions(\'' + encodeURIComponent(f.name) + '\')">历史</button>' : '') +
+        (!isVirtualFolder ? (isText || isCode ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">' + T('file.preview') + '</button>' : '') : '') +
+        (!isVirtualFolder && (isAudio || isVideo) ? '<button class="btn btn-sm" onclick="openMediaModal(\'' + encodeURIComponent(f.name) + '\')">▶ ' + T('file.play') + '</button>' : '') +
+        (!isVirtualFolder && isImage ? '<button class="btn btn-sm" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')">🖼 ' + T('file.view') + '</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">' + T('file.copy') + '</button>' : '') +
+        '<button class="btn btn-sm" onclick="renameFile(\'' + encodeURIComponent(f.name) + '\')">' + T('file.rename') + '</button>' +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">' + T('file.download') + '</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">' + T('file.share') + '</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="showFileVersions(\'' + encodeURIComponent(f.name) + '\')">' + T('file.history') + '</button>' : '') +
         (!isVirtualFolder ? '<span class="file-star" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">☆</span>' : '') +
-        '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">删除</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">' + T('tag.delete') + '</button>' +
       '</div>' +
     '</div>';
   }).join('') + '</div>';
@@ -4108,7 +4191,7 @@ async function loadPreview(filename, previewId) {
 // 懒加载图片缩略图：获取文件内容转为 data URL
 async function loadImageThumb(filename, thumbId) {
   const el = document.getElementById(thumbId);
-  if (!el || el.dataset.src) return; // 已有内容，跳过
+  if (!el || el.dataset.src) return; // T('file.skipAlreadyLoaded')
   try {
     const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
@@ -4139,7 +4222,7 @@ async function loadMediaPlayer(filename, playerId) {
     const mime = mimeMap[ext] || (isAudio ? 'audio/mpeg' : 'video/mp4');
     const dataUrl = 'data:' + mime + ';base64,' + data.content;
     if (isAudio) {
-      el.innerHTML = '<audio controls style="width:100%;height:36px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '音频</audio>';
+      // Audio inline player style="width:100%;height:36px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '音频</audio>';
     } else {
       el.innerHTML = '<video controls style="width:100%;max-height:200px;border-radius:8px;background:var(--bg-modal,#000);"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '视频</video>';
     }
@@ -4208,10 +4291,10 @@ async function openMediaModal(filename) {
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     if (isAudio) {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio controls autoplay style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持音频播放</audio></div>';
+        '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio controls style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">T('media.browserNotSupportAudio')</audio></div>';
     } else {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video controls autoplay style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频播放</video></div>';
+        '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video controls style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">T('media.browserNotSupportVideo')</video></div>';
     }
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
@@ -4227,7 +4310,7 @@ async function openPdfModal(filename) {
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     document.getElementById('modalBody').innerHTML =
-      '<iframe src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;background:var(--bg-tertiary);" title="PDF预览"></iframe>';
+      '<iframe title="' + T('file.preview') + '"  src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;background:var(--bg-tertiary);" title="PDF预览"></iframe>';
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open PDF: ' + e.message); }
@@ -4258,7 +4341,7 @@ async function openMarkdownModal(filename) {
     let tocHtml = '';
     if (tocEntries.length > 1) {
       tocHtml = '<div class="md-toc" style="background:var(--bg-tertiary);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;">' +
-        '<div style="color:var(--text-muted);margin-bottom:6px;font-weight:600;">目录</div>' +
+        '<div style="color:var(--text-muted);margin-bottom:6px;font-weight:600;">' + T('media.tableOfContents') + '</div>' +
         tocEntries.map(e =>
           '<div style="padding-left:' + ((e.level - 1) * 12) + 'px;color:var(--accent-primary);cursor:pointer;margin:2px 0;" onclick="document.getElementById(\'' + e.id + '\').scrollIntoView({behavior:\'smooth\'})">' + escapeHtml(e.text) + '</div>'
         ).join('') + '</div>';
@@ -4276,13 +4359,13 @@ async function openMarkdownModal(filename) {
       if (!code) return;
       const btn = document.createElement('button');
       btn.className = 'copy-btn';
-      btn.textContent = '复制';
+      btn.textContent = T('ui.copy');
       btn.onclick = (e) => {
         e.stopPropagation();
         navigator.clipboard.writeText(code.textContent).then(() => {
-          btn.textContent = '已复制!';
+          btn.textContent = T('file.copied') + '!';
           btn.classList.add('copied');
-          setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('copied'); }, 2000);
+          setTimeout(() => { btn.textContent = T('ui.copy'); btn.classList.remove('copied'); }, 2000);
         });
       };
       pre.appendChild(btn);
@@ -4462,17 +4545,17 @@ function showShareQRModalForCode(code) {
 }
 
 function deleteShareLink(code) {
-  if (!confirm('确定删除此分享链接？')) return;
+  if (!confirm(T('share.confirmDelete'))) return;
   fetch(API + '/api/share/delete/' + code, { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } })
     .then(r => r.json())
     .then(data => {
       if (data.success) {
-        showToast('✓ 已删除');
+        showToast('✓ ' + T('file.deleted'));
         showShareLinksModal(); // Refresh
       } else {
-        showToast('删除失败');
+        showToast(T('file.deleteFailed'));
       }
-    }).catch(() => showToast('删除失败'));
+    }).catch(() => showToast(T('file.deleteFailed')));
 }
 
 function showAuditModal() {
@@ -4545,10 +4628,10 @@ async function loadRateLimitStatus() {
       const c = data.config;
       document.getElementById('rateLimitStatus').textContent = 'maxAttempts=' + c.maxAttempts + ', window=' + c.windowSeconds + 's, lockout=' + c.lockoutSeconds + 's';
     } else {
-      document.getElementById('rateLimitStatus').innerHTML = '获取失败';
+      document.getElementById('rateLimitStatus').innerHTML = T('admin.getFailed');
     }
   } catch (e) {
-    document.getElementById('rateLimitStatus').innerHTML = '获取失败';
+    document.getElementById('rateLimitStatus').innerHTML = T('admin.getFailed');
   }
 }
 
@@ -4604,7 +4687,7 @@ function updateTokenDisplay(token, expiresAt) {
     const now = Date.now();
     if (expiresAt > now) {
       const daysLeft = Math.ceil((expiresAt - now) / 86400000);
-      const expText = '剩余 ' + daysLeft + ' 天';
+      const expText = T('admin.daysLeft', {n: daysLeft});
       if (expEl) { expEl.textContent = expText; expEl.style.color = daysLeft <= 7 ? 'var(--warning)' : 'var(--text-muted)'; }
       else {
         const span = document.createElement('span');
@@ -4614,12 +4697,12 @@ function updateTokenDisplay(token, expiresAt) {
         el.parentNode.insertBefore(span, el.nextSibling);
       }
     } else {
-      if (expEl) expEl.textContent = '已过期';
+      if (expEl) expEl.textContent = T('admin.expired');
       else {
         const span = document.createElement('span');
         span.id = 'tokenExpiresAt';
         span.style.cssText = 'font-size:11px;margin-left:8px;color:var(--danger);';
-        span.textContent = '已过期';
+        span.textContent = T('admin.expired');
         el.parentNode.insertBefore(span, el.nextSibling);
       }
     }
@@ -4678,7 +4761,7 @@ document.addEventListener('keydown', (e) => {
   } else if (e.key === 'r' || e.key === 'R') {
     e.preventDefault();
     loadFiles();
-    showToast('已刷新');
+    showToast(T('admin.refreshed');
   } else if (e.key === '?') {
     e.preventDefault();
     lockScroll();
@@ -4752,7 +4835,7 @@ document.addEventListener('keydown', (e) => {
     const items = getVisibleFileItems();
     if (items[focusedFileIndex]) {
       const fn = items[focusedFileIndex].dataset.filename;
-      if (fn && confirm('确定删除 ' + decodeURIComponent(fn) + '？')) {
+      if (fn && confirm(T('ui.confirmDelete') + ' ' + decodeURIComponent(fn) + '？')) {
         deleteFile(decodeURIComponent(fn));
       }
     }
@@ -4799,7 +4882,7 @@ async function removeTag(filename, tag) {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('已移除标签');
+      showToast(T('tag.removed'));
       loadFiles();
     }
   } catch (e) {}
@@ -4920,7 +5003,7 @@ function doSearch() {
       // Show result count in sort-bar area
       const countEl = document.getElementById('searchResultCount');
       if (countEl) {
-        countEl.textContent = currentFiles.length === 0 ? '未找到结果' : '找到 ' + currentFiles.length + ' 个结果';
+        countEl.textContent = currentFiles.length === 0 ? T('ui.noResults') : T('ui.resultsFound', {n: currentFiles.length});
         countEl.style.display = 'inline';
       }
       updateTagFilterBar();
@@ -4956,7 +5039,7 @@ document.getElementById('clearTextBtn').addEventListener('click', () => {
 async function shareText() {
   const content = document.getElementById('textContent').value;
   if (!content.trim()) {
-    showToast('请输入内容');
+    showToast(T('msg.inputRequired');
     return;
   }
   const filename = 'share_' + Date.now() + '.txt';
@@ -4968,7 +5051,7 @@ async function shareText() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('✓ 文字分享成功');
+      showToast('✓ ' + T('file.textShareSuccess'));
       document.getElementById('textContent').value = '';
       // Create share link for the file
       const shareRes = await fetch(API + '/api/share/create', {
@@ -4986,10 +5069,10 @@ async function shareText() {
       loadFiles();
       broadcastWs({ type: 'file_create', payload: { filename, content, type: 'text' } });
     } else {
-      showToast('失败: ' + data.error);
+      showToast(T('msg.failed') + ': ' + data.error;
     }
   } catch (e) {
-    showToast('失败: ' + e.message);
+    showToast(T('msg.failed') + ': ' + e.message;
   }
 }
 
@@ -4997,7 +5080,7 @@ function copyShareLink() {
   const input = document.getElementById('shareLinkInput');
   if (!input || !input.value) return;
   navigator.clipboard.writeText(input.value).then(() => {
-    showToast('✓ 链接已复制');
+    showToast('✓ ' + T('file.linkCopied'));
   }).catch(() => {
     input.select();
     document.execCommand('copy');
@@ -5017,7 +5100,7 @@ async function copyShareLinkByFilename(filename) {
     if (data.success) {
       const url = window.location.origin + '/s/' + data.code;
       navigator.clipboard.writeText(url).then(() => {
-        showToast('✓ 链接已复制到剪贴板');
+        showToast('✓ ' + T('file.linkCopied'));
       }).catch(() => {
         const ta = document.createElement('textarea');
         ta.value = url;
@@ -5028,7 +5111,7 @@ async function copyShareLinkByFilename(filename) {
         showToast('✓ 链接已复制到剪贴板');
       });
     } else {
-      showToast('创建分享链接失败');
+      showToast(T('share.createFailed'));
     }
   } catch {
     showToast('创建分享链接失败');
@@ -5068,7 +5151,7 @@ async function doCreateShareLink() {
         linkInput.value = shareUrl;
         linkBox.style.display = 'flex';
       }
-      showToast('✓ 分享链接已创建');
+      showToast('✓ ' + T('share.successCreated'));
     } else {
       showToast('分享失败: ' + data.error);
     }
@@ -5084,7 +5167,7 @@ function closeShareOptionsModal() {
 
 function showShareQRModal() {
   const linkInput = document.getElementById('shareLinkInput');
-  if (!linkInput || !linkInput.value) { showToast('请先生成分享链接'); return; }
+  if (!linkInput || !linkInput.value) { showToast(T('share.generateFirst')); return; }
   const url = linkInput.value;
   const modal = document.getElementById('qrModal');
   const content = document.getElementById('qrModalContent');
@@ -5327,7 +5410,7 @@ async function copyContent(filename) {
       catch (e) { prompt('复制内容:', data.content); }
       document.body.removeChild(textarea);
     }
-  } catch (e) { showToast('复制失败'); }
+  } catch (e) { showToast(T('msg.copy.failed'); }
 }
 
 function downloadFile(filename) {
@@ -5371,7 +5454,7 @@ async function addTag(filename, existingTags) {
       showAlert('listAlert', '标签已更新', 'success');
       loadFiles();
     } else {
-      showAlert('listAlert', '更新失败: ' + data.error, 'error');
+      showAlert('listAlert', T('msg.update.failed') + ': ' + data.error, 'error');
     }
   } catch (e) { showAlert('listAlert', '更新失败: ' + e.message, 'error'); }
 }
@@ -5443,7 +5526,7 @@ async function renameFile(oldFilename) {
 async function renameFile(oldFilename) {
   const isVirtual = oldFilename.includes('/');
   const promptMsg = isVirtual
-    ? '输入新文件夹名称:' : '输入新文件名:';
+    ? T('file.inputFolderName') : T('file.inputNewName');
   const newFilename = prompt(promptMsg, decodeURIComponent(oldFilename));
   if (!newFilename || newFilename === decodeURIComponent(oldFilename)) return;
   try {
@@ -5467,7 +5550,7 @@ async function renameFile(oldFilename) {
     }
     const data = await res.json();
     if (data.success) {
-      showToast('已重命名');
+      showToast(T('file.renamed'));
       loadFiles();
       broadcastWs({ type: 'file_rename', payload: { oldFilename: data.oldFilename || oldFilename, newFilename: data.newFilename || newFilename } });
     } else {
@@ -5515,7 +5598,7 @@ async function commitInlineRename(divEl, oldFilename, input) {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('已重命名: ' + data.newFilename);
+      showToast(T('file.renamed') + ': ' + data.newFilename);
       loadFiles();
       broadcastWs({ type: 'file_rename', payload: { oldFilename: data.oldFilename, newFilename: data.newFilename } });
     } else {
@@ -5545,7 +5628,7 @@ function cancelInlineRename(divEl, span, originalName) {
 }
 
 async function deleteOld(days) {
-  if (!confirm('删除 ' + days + ' 天前的文件?')) return;
+  if (!confirm(T('ui.confirmDeleteDays', {n: days}))) return;
   try {
     const res = await fetch(API + '/api/delete-old?days=' + days, { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
@@ -5559,7 +5642,7 @@ async function deleteOld(days) {
 }
 
 async function deleteAll() {
-  if (!confirm('确定删除所有文件?')) return;
+  if (!confirm(T('ui.confirmDeleteAll'))) return;
   try {
     const res = await fetch(API + '/api/delete-all', { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
@@ -5598,7 +5681,7 @@ function clearBatch() {
 async function batchDelete() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
-  if (!confirm('确定删除选中的 ' + checked.length + ' 个文件?')) return;
+  if (!confirm(T('ui.confirmDeleteSelected', {n: checked.length}))) return;
   let deleted = 0;
   for (const cb of checked) {
     const filename = cb.value;
@@ -6243,7 +6326,7 @@ async function init() {
 
   // Load HTTPS status + token display
   if (document.getElementById('currentTokenDisplay')) {
-    document.getElementById('currentTokenDisplay').textContent = AUTH_TOKEN || '(无)';
+    document.getElementById('currentTokenDisplay').textContent = AUTH_TOKEN || T('admin.none');
   }
   if (document.getElementById('httpsStatus')) {
     fetch(API + '/api/https/cert', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
@@ -6277,7 +6360,7 @@ async function fetchStorageInfo() {
     const max = data.maxSize || 10 * 1024 * 1024 * 1024;
     const pct = Math.round(used / max * 100);
     const el = document.getElementById('storageText');
-    if (el) el.textContent = '存储: ' + formatSize(used) + ' / 10GB (' + pct + '%)';
+    if (el) el.textContent = ' + T('file.storage') + ': ' + formatSize(used) + ' / 10GB (' + pct + '%)';
   } catch (e) {
     const el = document.getElementById('storageText');
     if (el) el.textContent = '存储: --';
@@ -6307,7 +6390,7 @@ function renderRecentSearches() {
   container.style.display = 'flex';
   container.innerHTML = searches.map(s =>
     '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + escapeHtml(s).replace(/'/g, "\\'") + '\';doSearch()">' + escapeHtml(s) + '</span>'
-  ).join('') + '<span class="recent-search-tag" style="color:var(--danger)" onclick="clearRecentSearches()">✕清除</span>';
+  ).join('') + '<span class="recent-search-tag" style="color:var(--danger)" onclick="clearRecentSearches()">' + T('ui.clearFilter') + '</span>';
 }
 
 function clearRecentSearches() {
@@ -6343,10 +6426,10 @@ init();
   <div style="display:flex;align-items:center;gap:12px;">
     <span style="font-size:24px;">📲</span>
     <div style="flex:1;">
-      <div style="font-size:14px;font-weight:600;color:var(--text-primary);">安装 ShareTool App</div>
-      <div style="font-size:12px;color:var(--text-muted);">添加到主屏幕，离线也能访问</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text-primary);">' + T('pwa.installTitle') + '</div>
+      <div style="font-size:12px;color:var(--text-muted);">' + T('pwa.installDesc') + '</div>
     </div>
-    <button onclick="installPWA()" style="background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:8px;padding:6px 16px;font-size:13px;cursor:pointer;white-space:nowrap;">安装</button>
+    <button onclick="installPWA()" style="background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:8px;padding:6px 16px;font-size:13px;cursor:pointer;white-space:nowrap;">' + T('pwa.install') + '</button>
     <button onclick="dismissPWAInstall()" style="background:transparent;color:var(--text-muted);border:none;font-size:18px;cursor:pointer;padding:4px;line-height:1;">✕</button>
   </div>
 </div>
@@ -6356,8 +6439,8 @@ init();
   <span style="font-size:24px;color:var(--text-inverse,#fff);">+</span>
 </div>
 <div class="fab-menu" id="fabMenu">
-  <button class="btn" onclick="fabUpload()" title="上传文件">📤</button>
-  <button class="btn" onclick="fabText()" title="分享文字">📝</button>
+  <button class="btn" onclick="fabUpload()" title="上传文件">' + T('file.upload') + '</button>
+  <button class="btn" onclick="fabText()" title="分享文字">' + T('file.textShare') + '</button>
 </div>
 
 <script>
