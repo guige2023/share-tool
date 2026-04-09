@@ -362,14 +362,16 @@ function getFile(id) {
   return db.prepare(`SELECT ${FILE_FIELDS} FROM files WHERE id = ?`).get(id);
 }
 
-function listFiles(limit = 100, offset = 0) {
+function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC') {
   const db = getDb();
+  const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+  const safeSort = ['created_at', 'updated_at', 'filename', 'size'].includes(sort) ? sort : 'created_at';
   const files = db.prepare(`
     SELECT ${FILE_FIELDS} FROM files
-    ORDER BY created_at DESC
+    ORDER BY ${safeSort} ${safeOrder}
     LIMIT ? OFFSET ?
   `).all(limit, offset);
-  
+
   const total = db.prepare('SELECT COUNT(*) as count FROM files').get().count;
   return { files, total };
 }

@@ -10,10 +10,15 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/list') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const { files, total } = db.listFiles();
-    db.addAuditLog('list_files', `Total: ${total}`, getClientIp(req), authData.token);
+    const limit = parseInt(query.limit) || 100;
+    const offset = parseInt(query.offset) || 0;
+    const sort = ['name', 'size', 'created_at', 'updated_at'].includes(query.sort) ? query.sort : 'created_at';
+    const order = query.order === 'asc' ? 'ASC' : 'DESC';
+    const { files, total } = db.listFiles(limit, offset, sort, order);
+    db.addAuditLog('list_files', `Total: ${total}, sort: ${sort} ${order}`, getClientIp(req), authData.token);
     sendJson(res, { success: true, files: files.map(f => ({
       id: f.id, name: f.filename, size: f.size, time: f.created_at * 1000,
+      updatedAt: f.updated_at * 1000,
       type: f.type, hash: f.hash, tags: f.tags
     }))});
     return true;
