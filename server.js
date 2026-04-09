@@ -2402,7 +2402,7 @@ function showConflictDialog(conflict) {
       '</div>' +
     '</div>' +
     '<div style="display:flex;flex-direction:column;gap:8px;">' +
-      '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--primary-color);color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">保留本地版本</button>' +
+      '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--primary-color);color:var(--text-inverse,#fff);border:none;border-radius:8px;cursor:pointer;font-size:14px;">保留本地版本</button>' +
       '<button id="conflict_keep_remote" style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-color);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:14px;">接受远程版本</button>' +
       '<button id="conflict_rename_both" disabled style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-muted);border:1px solid var(--border-color);border-radius:8px;cursor:not-allowed;font-size:14px;opacity:0.6;" title="需要服务器支持多版本存储">保留两个版本（后续支持）</button>' +
       '<button id="conflict_cancel" style="padding:10px 16px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-size:13px;">稍后处理</button>' +
@@ -4077,7 +4077,7 @@ async function uploadFiles(files) {
               const retryBtn = document.createElement('button');
               retryBtn.className = 'retry-btn';
               retryBtn.textContent = '重试';
-              retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;';
+              retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;cursor:pointer;';
               retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
               queueItem.querySelector('.status').after(retryBtn);
             }
@@ -4102,7 +4102,7 @@ async function uploadFiles(files) {
             const retryBtn = document.createElement('button');
             retryBtn.className = 'retry-btn';
             retryBtn.textContent = '重试';
-            retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;';
+            retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;cursor:pointer;';
             retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
             queueItem.querySelector('.status').after(retryBtn);
           }
@@ -4120,7 +4120,7 @@ async function uploadFiles(files) {
           const retryBtn = document.createElement('button');
           retryBtn.className = 'retry-btn';
           retryBtn.textContent = '重试';
-          retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:#fff;border:none;border-radius:4px;cursor:pointer;';
+          retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;cursor:pointer;';
           retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
           queueItem.querySelector('.status').after(retryBtn);
         }
@@ -4142,7 +4142,7 @@ async function uploadFiles(files) {
     if (uploadQueue) {
       const retryBar = document.createElement('div');
       retryBar.style.cssText = 'display:flex;gap:8px;align-items:center;padding-top:8px;border-top:1px solid var(--border-color);margin-top:4px;';
-      retryBar.innerHTML = '<span style="color:var(--danger-fg,var(--danger));font-size:12px;">' + failCount + ' 个文件失败</span><button id="retryAllBtn" style="padding:4px 12px;background:var(--accent-primary);color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;">重试全部</button><button id="dismissQueueBtn" style="padding:4px 12px;background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border-color);border-radius:4px;font-size:12px;cursor:pointer;">关闭</button>';
+      retryBar.innerHTML = '<span style="color:var(--danger-fg,var(--danger));font-size:12px;">' + failCount + ' 个文件失败</span><button id="retryAllBtn" style="padding:4px 12px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;font-size:12px;cursor:pointer;">重试全部</button><button id="dismissQueueBtn" style="padding:4px 12px;background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border-color);border-radius:4px;font-size:12px;cursor:pointer;">关闭</button>';
       uploadQueue.appendChild(retryBar);
       retryBar.querySelector('#retryAllBtn').onclick = () => retryAllFailed();
       retryBar.querySelector('#dismissQueueBtn').onclick = () => {
@@ -5140,7 +5140,7 @@ init();
 
 <!-- FAB: Mobile-friendly upload button -->
 <div class="fab" id="fabMain" style="position:fixed;bottom:max(24px,env(safe-area-inset-bottom));right:24px;width:56px;height:56px;background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));border-radius:50%;box-shadow:0 4px 16px rgba(102,126,234,0.4);cursor:pointer;z-index:100;display:none;" onclick="fabClicked()">
-  <span style="font-size:24px;color:white;">+</span>
+  <span style="font-size:24px;color:var(--text-inverse,#fff);">+</span>
 </div>
 <div class="fab-menu" id="fabMenu">
   <button class="btn" onclick="fabUpload()" title="上传文件">📤</button>
