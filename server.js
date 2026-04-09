@@ -653,7 +653,7 @@ async function generateSelfSignedCert() {
   const pems = await selfsigned.generate(attrs, {
     algorithm: 'sha256',
     days: 365,
-    keySize: 2048,
+    keySize: 4096,
     extensions: [{ name: 'subjectAltName', altNames }]
   });
   
@@ -662,8 +662,8 @@ async function generateSelfSignedCert() {
   return { key: pems.private, cert: pems.cert };
 }
 
-// 自动续期阈值（30天）
-const RENEW_BEFORE_DAYS = 30;
+// 自动续期阈值（60天，给足够缓冲时间）
+const RENEW_BEFORE_DAYS = 60;
 
 async function renewCertificateIfNeeded(force = false) {
   const certPath = path.join(SSL_DIR, 'cert.pem');
