@@ -7230,9 +7230,9 @@ function toggleTheme() {
   html.setAttribute('data-theme', next);
   localStorage.setItem('shareTool_theme', next);
   document.getElementById('themeToggle').textContent = next === 'light' ? '☀️' : '🌙';
-  // 更新 theme-color meta
-  const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.content = next === 'light' ? '#667eea' : '#0f172a';
+  // 更新所有 theme-color meta（确保状态栏反映用户选择）
+  const themeColor = next === 'light' ? '#667eea' : '#0f172a';
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = themeColor; });
 }
 
 function initTheme() {
@@ -7240,8 +7240,8 @@ function initTheme() {
   const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.documentElement.setAttribute('data-theme', theme);
   document.getElementById('themeToggle').textContent = theme === 'light' ? '☀️' : '🌙';
-  const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.content = theme === 'light' ? '#667eea' : '#0f172a';
+  const themeColor = theme === 'light' ? '#667eea' : '#0f172a';
+  document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = themeColor; });
 }
 
 // 初始化
