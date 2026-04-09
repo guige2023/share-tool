@@ -362,17 +362,20 @@ function getFile(id) {
   return db.prepare(`SELECT ${FILE_FIELDS} FROM files WHERE id = ?`).get(id);
 }
 
-function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC') {
+function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null) {
   const db = getDb();
   const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   const safeSort = ['created_at', 'updated_at', 'filename', 'size'].includes(sort) ? sort : 'created_at';
   const files = db.prepare(`
     SELECT ${FILE_FIELDS} FROM files
+    ${folder ? 'WHERE filename LIKE ? ESCAPE ?' : ''}
     ORDER BY ${safeSort} ${safeOrder}
     LIMIT ? OFFSET ?
-  `).all(limit, offset);
+  `).all(...(folder ? [folder + '/%', '\\'] : []), limit, offset);
 
-  const total = db.prepare('SELECT COUNT(*) as count FROM files').get().count;
+  const total = db.prepare(
+    `SELECT COUNT(*) as count FROM files ${folder ? 'WHERE filename LIKE ? ESCAPE ?' : ''}`
+  ).get(...(folder ? [folder + '/%', '\\'] : [])).count;
   return { files, total };
 }
 
@@ -471,6 +474,30 @@ function renameFile(oldFilename, newFilename) {
   }
   
   return { success: true, oldFilename, newFilename, hash: updated ? updated.hash : null };
+}
+
+// 前缀删除（用于虚拟文件夹删除）
+function deleteFilesByPrefix(prefix) {
+  const db = getDb();
+  const pattern = prefix.endsWith('/') ? prefix + '%' : prefix + '/%';
+  const result = db.prepare("DELETE FROM files WHERE filename LIKE ?").run(pattern);
+  return { deleted: result.changes };
+}
+
+// 前缀重命名（用于虚拟文件夹重命名）
+function renameFilesByPrefix(oldPrefix, newPrefix) {
+  const db = getDb();
+  const oldPattern = oldPrefix.endsWith('/') ? oldPrefix + '%' : oldPrefix + '/%';
+  const newPatternPrefix = newPrefix.endsWith('/') ? newPrefix : newPrefix + '/';
+  // Find all matching files
+  const files = db.prepare("SELECT id, filename FROM files WHERE filename LIKE ?").all(oldPattern);
+  let renamed = 0;
+  for (const f of files) {
+    const newFilename = newPatternPrefix + f.filename.slice(oldPrefix.endsWith('/') ? oldPrefix.length : (oldPrefix.length + 1));
+    db.prepare("UPDATE files SET filename = ? WHERE id = ?").run(newFilename, f.id);
+    renamed++;
+  }
+  return { renamed };
 }
 
 function deleteFile(id) {
@@ -1264,6 +1291,7 @@ module.exports = {
   // 文件
   addFile, getFile, getFileByName, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
+  deleteFilesByPrefix, renameFilesByPrefix,
   searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,

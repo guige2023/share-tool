@@ -2021,6 +2021,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     <div class="filter-tabs" id="tagFilterBar" style="margin-top:4px;">
       <!-- Dynamic tags will be injected here -->
     </div>
+    <div id="breadcrumbBar" style="display:none;padding:6px 0;font-size:12px;margin-bottom:4px;"></div>
     <div class="sort-bar">
       <span>排序:</span>
       <select id="sortSelect" onchange="setSort(this.value)">
@@ -2681,16 +2682,47 @@ function getTagStyle(tagName) {
   return '';
 }
 
-async function loadFiles() {
+function navigateFolder(folder) {
+  loadFiles(folder);
+}
+
+function renderBreadcrumb() {
+  const bar = document.getElementById('breadcrumbBar');
+  if (!bar) return;
+  if (!currentFolder) {
+    bar.innerHTML = '';
+    bar.style.display = 'none';
+    return;
+  }
+  const parts = currentFolder.split('/');
+  let html = '<span class="breadcrumb-item" onclick="navigateFolder(null)" style="cursor:pointer;color:var(--accent-primary);">📁 全部文件</span>';
+  let path = '';
+  for (let i = 0; i < parts.length; i++) {
+    path += (i > 0 ? '/' : '') + parts[i];
+    html += ' <span style="color:var(--text-muted);">/</span> ';
+    if (i === parts.length - 1) {
+      html += '<span class="breadcrumb-item" style="color:var(--text-secondary);font-weight:500;">' + escapeHtml(parts[i]) + '</span>';
+    } else {
+      html += '<span class="breadcrumb-item" onclick="navigateFolder(\'' + escapeHtml(path) + '\')" style="cursor:pointer;color:var(--accent-primary);">' + escapeHtml(parts[i]) + '</span>';
+    }
+  }
+  bar.innerHTML = html;
+  bar.style.display = 'block';
+}
+
+async function loadFiles(folder = null) {
   try {
     const sortRaw = localStorage.getItem('sharetool_sort') || 'created_at';
     const sortOrder = localStorage.getItem('sharetool_order') || 'desc';
-    const res = await fetch(API + '/api/list?sort=' + sortRaw + '&order=' + sortOrder, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const folderParam = folder ? '&folder=' + encodeURIComponent(folder) : '';
+    const res = await fetch(API + '/api/list?sort=' + sortRaw + '&order=' + sortOrder + folderParam, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     currentFiles = data.files || [];
+    currentFolder = folder;
     // Sync sort select UI
     initSortSelect(sortRaw, sortOrder);
     renderFiles();
+    renderBreadcrumb();
     updateTagFilterBar();
   } catch (e) {
     logger.error({ err: e }, 'Load files failed');
@@ -2741,6 +2773,40 @@ function renderFiles() {
   // Apply favorites filter
   files = applyFavoritesFilter(files);
 
+  // Folder navigation: show subfolders and files directly in current folder
+  if (currentFolder !== null) {
+    const prefix = currentFolder + '/';
+    const folderSet = new Set();
+    const inFolderFiles = [];
+
+    for (const f of files) {
+      if (f.name.startsWith(prefix)) {
+        const rest = f.name.slice(prefix.length);
+        if (rest.includes('/')) {
+          // Subfolder: extract first path component
+          const subfolder = rest.split('/')[0];
+          folderSet.add(subfolder);
+        } else {
+          // Direct file in this folder
+          inFolderFiles.push({ ...f, displayName: rest });
+        }
+      }
+    }
+
+    // Build virtual folder items + direct files
+    const folderItems = [...folderSet].map(name => ({
+      name,
+      displayName: name,
+      type: 'folder',
+      size: 0,
+      time: 0,
+      tags: '',
+      isVirtualFolder: true
+    }));
+    files = [...folderItems, ...inFolderFiles];
+    currentPage = 1; // reset to page 1 on folder change
+  }
+
   // Apply sorting
   files = applySort(files);
 
@@ -2774,65 +2840,72 @@ function renderFiles() {
   }
 
   container.innerHTML = '<div class="file-list">' + pagedFiles.map(f => {
-    const isText = f.type === 'text';
-    const isImage = isImageFile(f.name);
-    const isAudio = isAudioFile(f.name);
-    const isVideo = isVideoFile(f.name);
-    const isPdf = isPdfFile(f.name);
-    const isMarkdown = /\.(md|markdown|txt|text)$/i.test(f.name) && f.type === 'text';
+    const isVirtualFolder = f.isVirtualFolder;
+    const displayName = isVirtualFolder ? f.name : (f.displayName || f.name);
+    const isText = !isVirtualFolder && f.type === 'text';
+    const isImage = !isVirtualFolder && isImageFile(f.name);
+    const isAudio = !isVirtualFolder && isAudioFile(f.name);
+    const isVideo = !isVirtualFolder && isVideoFile(f.name);
+    const isPdf = !isVirtualFolder && isPdfFile(f.name);
+    const isMarkdown = !isVirtualFolder && /\.(md|markdown|txt|text)$/i.test(f.name) && f.type === 'text';
     const previewId = 'preview-' + btoaSafe(f.name).substring(0, 20);
     const thumbId = 'thumb-' + btoaSafe(f.name).substring(0, 20);
     const tags = f.tags ? f.tags.split(',').filter(t => t.trim()) : [];
     const searchQ = (window.currentSearchQ || '').trim();
+    const itemOnclick = isVirtualFolder
+      ? 'handleFolderItemClick(\'' + encodeURIComponent(f.name) + '\')'
+      : 'handleFileItemClick(event, \'' + encodeURIComponent(f.name) + '\', ' + isImage + ')';
 
     // Search highlight applied by applySearchHighlight() after render
 
-    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="handleFileItemClick(event, \'' + encodeURIComponent(f.name) + '\', ' + isImage + ')">' +
+    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
-        '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>标签</span></button>' +
+        (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>标签</span></button>' : '') +
         '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>删除</span></button>' +
       '</div>' +
       '<div style="margin-right: 12px; display:flex; align-items:center;">' +
-        '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" onchange="updateBatchBar()" style="width: 18px; height: 18px; cursor: pointer;">' +
+        (!isVirtualFolder ? '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" onchange="updateBatchBar()" style="width: 18px; height: 18px; cursor: pointer;">' : '<span style="font-size:20px;">📁</span>') +
       '</div>' +
       '<div class="file-content">' +
-        (isImage
-          ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><img class="file-thumb-img" id="' + thumbId + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')" /></div>'
-          : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="双击重命名"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(f.name) + '</span></div>') +
-        (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
-        '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' +
-        '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' +
-        (isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
+        (isVirtualFolder
+          ? '<div class="file-name" style="cursor:pointer;"><span class="file-type-icon">📁</span><span class="search-target" style="color:var(--accent-primary);">' + escapeHtml(f.name) + '</span></div>'
+          : (isImage
+              ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><img class="file-thumb-img" id="' + thumbId + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')" /></div>'
+              : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="双击重命名"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(displayName) + '</span></div>')) +
+        (!isVirtualFolder && tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' : '') +
+        (!isVirtualFolder ? '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' : '<div class="file-meta" style="color:var(--text-muted);">点击进入文件夹</div>') +
+        (!isVirtualFolder && isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
         // Audio/Video/PDF inline player
-        (isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
-        (isVideo ? '<div class="file-video-wrapper" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
-        (isPdf ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')">📕 预览PDF</button>' : '') +
-        (isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 预览MD</button>' : '') +
+        (!isVirtualFolder && isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
+        (!isVirtualFolder && isVideo ? '<div class="file-video-wrapper" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
+        (!isVirtualFolder && isPdf ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')">📕 预览PDF</button>' : '') +
+        (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 预览MD</button>' : '') +
       '</div>' +
       '<div class="file-actions">' +
-        (isText ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') +
-        (isAudio || isVideo ? '<button class="btn btn-sm" onclick="openMediaModal(\'' + encodeURIComponent(f.name) + '\')">▶ 播放</button>' : '') +
-        (isImage ? '<button class="btn btn-sm" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')">🖼 查看</button>' : '') +
-        '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">复制</button>' +
+        (!isVirtualFolder ? (isText ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') : '') +
+        (!isVirtualFolder && (isAudio || isVideo) ? '<button class="btn btn-sm" onclick="openMediaModal(\'' + encodeURIComponent(f.name) + '\')">▶ 播放</button>' : '') +
+        (!isVirtualFolder && isImage ? '<button class="btn btn-sm" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')">🖼 查看</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">复制</button>' : '') +
         '<button class="btn btn-sm" onclick="renameFile(\'' + encodeURIComponent(f.name) + '\')">重命名</button>' +
-        '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">下载</button>' +
-        '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">分享</button>' +
-        '<span class="file-star" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">☆</span>' +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">下载</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">分享</button>' : '') +
+        (!isVirtualFolder ? '<span class="file-star" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">☆</span>' : '') +
         '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">删除</button>' +
       '</div>' +
     '</div>';
   }).join('') + '</div>';
 
-  // 加载文本预览
+  // 加载文本预览（跳过虚拟文件夹）
   for (const f of pagedFiles) {
-    if (f.type === 'text' && f.size < 50000) {
+    if (!f.isVirtualFolder && f.type === 'text' && f.size < 50000) {
       loadPreview(f.name, 'preview-' + btoaSafe(f.name).substring(0, 20));
     }
   }
 
   // 懒加载图片缩略图（仅 jpg/png/gif/webp，限制大小 2MB）
   for (const f of pagedFiles) {
-    if (isImageFile(f.name) && f.size > 0 && f.size < 2 * 1024 * 1024) {
+    if (!f.isVirtualFolder && isImageFile(f.name) && f.size > 0 && f.size < 2 * 1024 * 1024) {
       loadImageThumb(f.name, 'thumb-' + btoaSafe(f.name).substring(0, 20));
     }
   }
@@ -3020,6 +3093,11 @@ function handleFileItemClick(event, filename, isImage) {
   if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'SPAN' || event.target.closest('input') || event.target.closest('button')) return;
   if (isImage) return; // images already have their own click handler (thumbnail)
   openFileModal(filename);
+}
+
+function handleFolderItemClick(folderName) {
+  const targetFolder = currentFolder ? currentFolder + '/' + folderName : folderName;
+  navigateFolder(targetFolder);
 }
 
 function closeModal() {
@@ -3789,34 +3867,99 @@ async function addTag(filename, existingTags) {
 }
 
 async function deleteFile(filename) {
-  if (!confirm('确定删除?')) return;
+  const isVirtual = filename.includes('/');
+  var msg = isVirtual
+    ? "Confirm delete folder [" + filename + "] and all contents?"
+    : "Confirm delete?";
+  if (!confirm(msg)) return;
   try {
-    const res = await fetch(API + '/api/file/' + filename + '?filename=' + encodeURIComponent(filename), { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
-    const data = await res.json();
-    if (data.success) {
-      showAlert('listAlert', '已删除', 'success');
-      loadFiles();
-      broadcastWs({ type: 'file_delete', payload: { filename: decodeURIComponent(filename) } });
+    var res;
+    if (isVirtual) {
+      res = await fetch(API + "/api/folder/" + encodeURIComponent(filename) + "/delete", {
+        method: "DELETE",
+        headers: { "x-auth-token": AUTH_TOKEN || "" }
+      });
     } else {
-      showAlert('listAlert', '删除失败', 'error');
+      res = await fetch(API + "/api/file/" + filename + "?filename=" + encodeURIComponent(filename), {
+        method: "DELETE",
+        headers: { "x-auth-token": AUTH_TOKEN || "" }
+      });
     }
-  } catch (e) { showAlert('listAlert', '删除失败: ' + e.message, 'error'); }
+    var data = await res.json();
+    if (data.success) {
+      showAlert("listAlert", "Deleted", "success");
+      loadFiles();
+      broadcastWs({ type: "file_delete", payload: { filename: decodeURIComponent(filename) } });
+    } else {
+      showAlert("listAlert", "Delete failed", "error");
+    }
+  } catch (e) { showAlert("listAlert", "Delete failed: " + e.message, "error"); }
 }
 
 async function renameFile(oldFilename) {
-  const newFilename = prompt('输入新文件名:', decodeURIComponent(oldFilename));
+  var isVirtual = oldFilename.includes("/");
+  var promptMsg = isVirtual ? "Enter new folder name:" : "Enter new filename:";
+  var newFilename = prompt(promptMsg, decodeURIComponent(oldFilename));
   if (!newFilename || newFilename === decodeURIComponent(oldFilename)) return;
   try {
-    const res = await fetch(API + '/api/file-rename/' + oldFilename, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ newFilename: newFilename.trim() })
-    });
+    var res;
+    if (isVirtual) {
+      var parts = oldFilename.split("/");
+      parts[parts.length - 1] = newFilename.trim();
+      var newPath = parts.join("/");
+      res = await fetch(API + "/api/folder/rename", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-auth-token": AUTH_TOKEN || "" },
+        body: JSON.stringify({ oldPath: oldFilename, newPath: newPath })
+      });
+    } else {
+      res = await fetch(API + "/api/file-rename/" + oldFilename, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-auth-token": AUTH_TOKEN || "" },
+        body: JSON.stringify({ newFilename: newFilename.trim() })
+      });
+    }
+    var data = await res.json();
+    if (data.success) {
+      showToast("Renamed");
+      loadFiles();
+      broadcastWs({ type: "file_rename", payload: { oldFilename: oldFilename, newFilename: newFilename } });
+    } else {
+      showAlert("listAlert", "Rename failed: " + (data.error || "Unknown"), "error");
+    }
+  } catch (e) { showAlert("listAlert", "Rename failed: " + e.message, "error"); }
+}
+
+async function renameFile(oldFilename) {
+  const isVirtual = oldFilename.includes('/');
+  const promptMsg = isVirtual
+    ? '输入新文件夹名称:' : '输入新文件名:';
+  const newFilename = prompt(promptMsg, decodeURIComponent(oldFilename));
+  if (!newFilename || newFilename === decodeURIComponent(oldFilename)) return;
+  try {
+    let res;
+    if (isVirtual) {
+      // Virtual folder rename: compute new path
+      const parts = oldFilename.split('/');
+      parts[parts.length - 1] = newFilename.trim();
+      const newPath = parts.join('/');
+      res = await fetch(API + '/api/folder/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ oldPath: oldFilename, newPath })
+      });
+    } else {
+      res = await fetch(API + '/api/file-rename/' + oldFilename, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ newFilename: newFilename.trim() })
+      });
+    }
     const data = await res.json();
     if (data.success) {
-      showToast('已重命名: ' + data.newFilename);
+      showToast('已重命名');
       loadFiles();
-      broadcastWs({ type: 'file_rename', payload: { oldFilename: data.oldFilename, newFilename: data.newFilename } });
+      broadcastWs({ type: 'file_rename', payload: { oldFilename: data.oldFilename || oldFilename, newFilename: data.newFilename || newFilename } });
     } else {
       showAlert('listAlert', '重命名失败: ' + (data.error || '未知错误'), 'error');
     }

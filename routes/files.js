@@ -14,8 +14,9 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     const offset = parseInt(query.offset) || 0;
     const sort = ['name', 'size', 'created_at', 'updated_at'].includes(query.sort) ? query.sort : 'created_at';
     const order = query.order === 'asc' ? 'ASC' : 'DESC';
-    const { files, total } = db.listFiles(limit, offset, sort, order);
-    db.addAuditLog('list_files', `Total: ${total}, sort: ${sort} ${order}`, getClientIp(req), authData.token);
+    const folder = query.folder || null;
+    const { files, total } = db.listFiles(limit, offset, sort, order, folder);
+    db.addAuditLog('list_files', `Total: ${total}, sort: ${sort} ${order}${folder ? ', folder: ' + folder : ''}`, getClientIp(req), authData.token);
     sendJson(res, { success: true, files: files.map(f => ({
       id: f.id, name: f.filename, size: f.size, time: f.created_at * 1000,
       updatedAt: f.updated_at * 1000,
@@ -259,6 +260,46 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     broadcastChange({ type: 'bulk_delete', count: result.deleted });
     db.addAuditLog('delete_old', `Deleted ${result.deleted} files older than ${days} days`, getClientIp(req), authData.token);
     sendJson(res, { success: true, deleted: result.deleted });
+    return true;
+  }
+
+  // DELETE /api/folder/ - delete all files in a virtual folder (prefix)
+  if (pathname.startsWith('/api/folder/') && pathname.endsWith('/delete') && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const folderPath = decodeURIComponent(pathname.slice(12, -7)); // /api/folder/{path}/delete
+    if (!folderPath || folderPath === 'undefined') {
+      sendJson(res, { success: false, error: 'Invalid folder path' }, 400);
+      return true;
+    }
+    const result = db.deleteFilesByPrefix(folderPath);
+    broadcastChange({ type: 'bulk_delete', count: result.deleted, folder: folderPath });
+    db.addAuditLog('delete_folder', `Deleted ${result.deleted} files in folder: ${folderPath}`, getClientIp(req), authData.token);
+    sendJson(res, { success: true, deleted: result.deleted });
+    return true;
+  }
+
+  // POST /api/folder/rename - rename virtual folder (all files with prefix)
+  if (pathname.startsWith('/api/folder/rename') && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { oldPath, newPath } = JSON.parse(body);
+        if (!oldPath || !newPath) {
+          sendJson(res, { success: false, error: 'oldPath and newPath required' }, 400);
+          return;
+        }
+        const result = db.renameFilesByPrefix(oldPath, newPath);
+        broadcastChange({ type: 'bulk_rename', oldPath, newPath, count: result.renamed });
+        db.addAuditLog('rename_folder', `Renamed ${result.renamed} files from ${oldPath} to ${newPath}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, renamed: result.renamed });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
     return true;
   }
 
