@@ -9,7 +9,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
-const DB_PATH = path.join(os.homedir(), '.share-tool', 'share-tool.db');
+const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
 const SCHEMA_VERSION = 4; // 当前 Schema 版本
 
 let db = null;
@@ -65,6 +65,17 @@ function initDatabase() {
     )
   `);
 
+  // 如果是全新数据库（version=1 且无任何表），初始化 v1 基础结构
+  // 必须在迁移之前做，避免对空表执行 ALTER
+  const tableCount = db.prepare("SELECT COUNT(*) as c FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").get().c;
+  if (tableCount <= 1) {
+    initSchemaV1(db);
+    initSchemaV2(db);
+    db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
+    console.log('[DB] Fresh database initialized (v1+v2 schema)');
+    return;
+  }
+
   // 获取当前 Schema 版本
   const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version');
   let currentVersion = row ? parseInt(row.value, 10) : 1;
@@ -76,14 +87,6 @@ function initDatabase() {
     runMigrations(db, currentVersion);
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
     currentVersion = SCHEMA_VERSION;
-  }
-
-  // 如果是全新数据库（version=1 且无任何表），初始化 v1 基础结构
-  const tableCount = db.prepare("SELECT COUNT(*) as c FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").get().c;
-  if (tableCount <= 1) {
-    initSchemaV1(db);
-    initSchemaV2(db);
-    db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
   } else if (currentVersion === 1) {
     // 已有旧数据但未迁移，补齐 v2 字段
     initSchemaV2(db);

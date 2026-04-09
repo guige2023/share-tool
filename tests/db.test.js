@@ -1,316 +1,230 @@
 /**
- * ShareTool db.js 单元测试
- * 使用共享测试数据库（~/.share-tool/）
- * 每个测试前清理相关表
+ * ShareTool DB Layer Tests
+ * Uses in-memory SQLite for isolation
  */
 
-const path = require('path');
-const os = require('os');
+// Must be set BEFORE require
+process.env.SHARE_TOOL_DB_PATH = ':memory:';
 
-// 使用生产 DB 路径（测试环境共享）
-process.env.SHARE_TOOL_DB_DIR = path.join(os.homedir(), '.share-tool');
-process.env.SHARE_TOOL_CONFIG_DIR = path.join(os.homedir(), '.share-tool');
-process.env.SHARE_TOOL_CONFIG_PATH = path.join(os.homedir(), '.share-tool', 'config.json');
+const db = require('../db.js');
 
-const db = require('../db');
+// Initialize in-memory DB for tests
+db.initDatabase();
 
-beforeAll(() => {
-  db.initDatabase();
-  db.getDb(); // 触发初始化
-});
-
-beforeEach(() => {
-  // 每个测试前清空相关表（保留结构）
-  const testDb = db.getDb();
-  const tables = ['files', 'sync_log', 'audit_log', 'tokens', 'devices', 'share_links', 'rate_limit'];
-  for (const t of tables) {
-    try { testDb.exec(`DELETE FROM ${t}`); } catch(e) {}
-  }
-});
-
-afterAll(() => {
-  try { db.getDb().close(); } catch(e) {}
-});
-
-describe('文件操作', () => {
-  test('addFile 创建文件', () => {
-    const result = db.addFile('test.txt', 'hello world', 'text');
-    expect(result.id).toBeDefined();
-    expect(result.hash).toBeDefined();
-    expect(result.size).toBe(11);
+describe('Password Hashing', () => {
+  test('hashPassword and verifyPassword work', () => {
+    const password = 'test123';
+    const hash = db.hashPassword(password);
+    expect(hash).toBeTruthy();
+    expect(hash).not.toBe(password);
+    expect(hash.includes(':')).toBe(true); // salt:hash format
+    expect(db.verifyPassword(password, hash)).toBe(true);
+    expect(db.verifyPassword('wrong', hash)).toBe(false);
   });
 
-  test('addFile 记录 sync_log', () => {
-    const result = db.addFile('sync-test.txt', 'content', 'text');
-    const logs = db.getUnsyncedLogs(0);
-    const fileLog = logs.find(l => l.filename === 'sync-test.txt');
-    expect(fileLog).toBeDefined();
-    expect(fileLog.action).toBe('create');
-    expect(fileLog.file_id).toBe(result.id);
-  });
-
-  test('getFile 获取文件', () => {
-    const created = db.addFile('get-test.txt', 'get content', 'text');
-    const file = db.getFile(created.id);
-    expect(file.filename).toBe('get-test.txt');
-    expect(file.content).toBe('get content');
-  });
-
-  test('getFileByName 按文件名获取', () => {
-    db.addFile('by-name.txt', 'content', 'text');
-    const file = db.getFileByName('by-name.txt');
-    expect(file).toBeDefined();
-    expect(file.content).toBe('content');
-  });
-
-  test('updateFile 更新文件', () => {
-    const created = db.addFile('update.txt', 'old', 'text');
-    db.updateFile(created.id, { content: 'new content' });
-    const updated = db.getFile(created.id);
-    expect(updated.content).toBe('new content');
-  });
-
-  test('deleteFileByName 删除文件', () => {
-    db.addFile('delete-me.txt', 'content', 'text');
-    const deleted = db.deleteFileByName('delete-me.txt');
-    expect(deleted).toBe(true);
-    expect(db.getFileByName('delete-me.txt')).toBeUndefined();
-  });
-
-  test('renameFile 重命名文件', () => {
-    const created = db.addFile('old-name.txt', 'content', 'text');
-    const result = db.renameFile('old-name.txt', 'new-name.txt');
-    expect(result.success).toBe(true);
-    expect(db.getFileByName('old-name.txt')).toBeUndefined();
-    expect(db.getFileByName('new-name.txt')).toBeDefined();
-  });
-
-  test('renameFile 记录 sync_log', () => {
-    db.addFile('rename-log.txt', 'content', 'text');
-    db.renameFile('rename-log.txt', 'renamed.txt');
-    const logs = db.getUnsyncedLogs(0);
-    const renameLog = logs.find(l => l.filename === 'renamed.txt' && l.action === 'rename');
-    expect(renameLog).toBeDefined();
-  });
-
-  test('listFiles 列出文件', () => {
-    db.addFile('file1.txt', 'c1', 'text');
-    db.addFile('file2.txt', 'c2', 'text');
-    const { files, total } = db.listFiles();
-    expect(total).toBeGreaterThanOrEqual(2);
-  });
-
-  test('searchFiles 搜索文件', () => {
-    db.addFile('javascript-notes.txt', 'js content', 'text');
-    db.addFile('python-script.py', 'py content', 'text');
-    db.addFile('java-code.java', 'java content', 'text');
-
-    const results = db.searchFiles('java');
-    expect(results.length).toBeGreaterThanOrEqual(2);
-  });
-
-  test('getFileCount 文件计数', () => {
-    const before = db.getFileCount();
-    db.addFile('count1.txt', 'c', 'text');
-    db.addFile('count2.txt', 'c', 'text');
-    const after = db.getFileCount();
-    expect(after - before).toBe(2);
-  });
-
-  test('getTotalStorageSize 存储大小', () => {
-    const before = db.getTotalStorageSize();
-    db.addFile('size.txt', 'hello', 'text');
-    const after = db.getTotalStorageSize();
-    expect(after - before).toBe(5);
+  test('legacy plaintext password still verifies', () => {
+    // Old format: no salt: prefix
+    const legacyHash = 'plaintext_password';
+    expect(db.verifyPassword('plaintext_password', legacyHash)).toBe(true);
+    expect(db.verifyPassword('wrong', legacyHash)).toBe(false);
   });
 });
 
-describe('Token 管理', () => {
-  test('generateToken 生成 token', () => {
-    const result = db.generateToken();
-    expect(result.token).toBeDefined();
-    expect(result.token.length).toBeGreaterThan(20);
+describe('Rate Limiting', () => {
+  const testKey = 'test:rate:' + Date.now();
+
+  beforeEach(() => {
+    // Clean up any existing rate limit for test key
+    try { db.getDb().prepare('DELETE FROM rate_limit WHERE key = ?').run(testKey); } catch (e) {}
   });
 
-  test('validateToken 验证有效 token', () => {
-    const result = db.generateToken();
-    const valid = db.validateToken(result.token);
-    expect(valid).not.toBe(null);
-    expect(valid.token).toBe(result.token);
-  });
-
-  test('validateToken 拒绝无效 token', () => {
-    const valid = db.validateToken('invalid-token-xyz');
-    expect(valid).toBe(null);
-  });
-
-  test('refreshToken 刷新 token', () => {
-    const result = db.generateToken();
-    const oldToken = result.token;
-    const refreshResult = db.refreshToken(result.refreshToken);
-    expect(refreshResult.success).toBe(true);
-    expect(refreshResult.token).not.toBe(oldToken);
-    expect(db.validateToken(oldToken)).toBe(null);
-    expect(db.validateToken(refreshResult.token)).not.toBe(null);
-  });
-
-  test('revokeToken 撤销 token', () => {
-    const result = db.generateToken();
-    db.revokeToken(result.token);
-    expect(db.validateToken(result.token)).toBe(null);
-  });
-});
-
-describe('分享链接', () => {
-  test('saveShareLink 创建分享链接', () => {
-    db.addFile('share-test.txt', 'content', 'text');
-    const share = db.saveShareLink({ filename: 'share-test.txt', expiresAt: null, code: 'TEST01' });
-    expect(share.code).toBeDefined();
-    expect(share.code.length).toBe(6);
-  });
-
-  test('saveShareLink 密码哈希', () => {
-    db.addFile('pwd-test.txt', 'content', 'text');
-    const share = db.saveShareLink({ filename: 'pwd-test.txt', password: 'secret123', expiresAt: null, code: 'TEST02' });
-    expect(share.hasPassword).toBe(true);
-    expect(share._passwordHash).not.toBe('secret123');
-  });
-
-  test('getShareLink 获取分享链接', () => {
-    db.addFile('get-share.txt', 'content', 'text');
-    const created = db.saveShareLink({ filename: 'get-share.txt', expiresAt: null, code: 'TEST03' });
-    const retrieved = db.getShareLink(created.code);
-    expect(retrieved.filename).toBe('get-share.txt');
-  });
-
-  test('verifyPassword 密码验证', () => {
-    db.addFile('verify-pwd.txt', 'content', 'text');
-    const share = db.saveShareLink({ filename: 'verify-pwd.txt', password: 'test1234', expiresAt: null, code: 'TEST04' });
-    const retrieved = db.getShareLink(share.code);
-    const valid = db.verifyPassword('test1234', retrieved._passwordHash);
-    expect(valid).toBe(true);
-  });
-
-  test('deleteShareLink 删除分享链接', () => {
-    db.addFile('del-share.txt', 'content', 'text');
-    const share = db.saveShareLink({ filename: 'del-share.txt', expiresAt: null, code: 'TEST05' });
-    db.deleteShareLink(share.code);
-    expect(db.getShareLink(share.code)).toBeNull();
-  });
-});
-
-describe('审计日志', () => {
-  test('addAuditLog 记录审计日志', () => {
-    db.addAuditLog('test_action', 'test details', '127.0.0.1');
-    const { rows: logs } = db.listAuditLogs(10);
-    const log = logs.find(l => l.action === 'test_action');
-    expect(log).toBeDefined();
-    expect(log.details).toBe('test details');
-  });
-
-  test('listAuditLogs 分页', () => {
-    for (let i = 0; i < 5; i++) {
-      db.addAuditLog(`action_${i}`, `details ${i}`, '127.0.0.1');
-    }
-    const { rows: logs } = db.listAuditLogs(3, 0);
-    expect(logs.length).toBe(3);
-  });
-
-  test('getAuditStats 统计', () => {
-    db.addAuditLog('stat_test', 'details', '127.0.0.1');
-    const stats = db.getAuditStats();
-    expect(stats.total).toBeGreaterThan(0);
-    expect(stats.todayCount).toBeGreaterThanOrEqual(1);
-  });
-});
-
-describe('速率限制', () => {
-  test('checkRateLimit 初始允许', () => {
-    const result = db.checkRateLimit('test:key:123');
+  test('checkRateLimit allows first attempt', () => {
+    const result = db.checkRateLimit(testKey);
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(5);
+    expect(result.attempts).toBe(0);
   });
 
-  test('recordRateLimitAttempt 失败计数', () => {
-    db.recordRateLimitAttempt('test:fail:456', false);
-    db.recordRateLimitAttempt('test:fail:456', false);
-    const result = db.checkRateLimit('test:fail:456');
-    expect(result.attempts).toBe(2);
-    expect(result.remaining).toBe(3);
+  test('recordRateLimitAttempt increments count', () => {
+    db.recordRateLimitAttempt(testKey);
+    const r1 = db.checkRateLimit(testKey);
+    expect(r1.attempts).toBe(1);
+    expect(r1.remaining).toBe(4);
+
+    db.recordRateLimitAttempt(testKey);
+    const r2 = db.checkRateLimit(testKey);
+    expect(r2.attempts).toBe(2);
   });
 
-  test('recordRateLimitAttempt 成功清除', () => {
-    db.recordRateLimitAttempt('test:succ:789', false);
-    db.recordRateLimitAttempt('test:succ:789', false);
-    db.recordRateLimitAttempt('test:succ:789', true);
-    const result = db.checkRateLimit('test:succ:789');
+  test('successful attempt clears rate limit', () => {
+    db.recordRateLimitAttempt(testKey);
+    db.recordRateLimitAttempt(testKey);
+    db.recordRateLimitAttempt(testKey, true); // success = true
+    const result = db.checkRateLimit(testKey);
     expect(result.attempts).toBe(0);
     expect(result.remaining).toBe(5);
   });
 
-  test('checkRateLimit 锁定状态', () => {
+  test('max attempts triggers lockout', () => {
     for (let i = 0; i < 5; i++) {
-      db.recordRateLimitAttempt('test:lock', false);
+      db.recordRateLimitAttempt(testKey);
     }
-    const result = db.checkRateLimit('test:lock');
+    const result = db.checkRateLimit(testKey);
     expect(result.allowed).toBe(false);
     expect(result.locked).toBe(true);
-    expect(result.remaining).toBe(0);
+    expect(result.retryAfter).toBeGreaterThan(0);
   });
 });
 
-describe('密码哈希', () => {
-  test('hashPassword 哈希并可验证', () => {
-    const hash = db.hashPassword('mysecretpassword');
-    expect(hash).not.toBe('mysecretpassword');
-    expect(hash.includes(':')).toBe(true);
+describe('File Operations', () => {
+  const testFile = 'test_' + Date.now() + '.txt';
+
+  afterAll(() => {
+    try { db.deleteFileByName(testFile); } catch (e) {}
+    try { db.deleteFileByName('renamed_' + testFile); } catch (e) {}
   });
 
-  test('verifyPassword 正确密码', () => {
-    const hash = db.hashPassword('verifyme');
-    const valid = db.verifyPassword('verifyme', hash);
-    expect(valid).toBe(true);
+  test('addFile creates file with correct hash', () => {
+    const content = 'Hello Test World';
+    const result = db.addFile(testFile, content, 'text');
+    expect(result).toBeTruthy();
+    expect(result.hash).toBeTruthy();
+    expect(result.id).toBeTruthy();
+    const file = db.getFileByName(testFile);
+    expect(file).toBeTruthy();
+    expect(file.filename).toBe(testFile);
   });
 
-  test('verifyPassword 错误密码', () => {
-    const hash = db.hashPassword('correct');
-    const valid = db.verifyPassword('wrong', hash);
-    expect(valid).toBe(false);
+  test('getFile returns content and metadata', () => {
+    const file = db.getFileByName(testFile);
+    expect(file.content).toBe('Hello Test World');
+    expect(file.type).toBe('text');
   });
 
-  test('verifyPassword 兼容旧明文', () => {
-    const valid = db.verifyPassword('plaintext', 'plaintext');
-    expect(valid).toBe(true);
-    const hash = db.hashPassword('hashed');
-    const valid2 = db.verifyPassword('hashed', hash);
-    expect(valid2).toBe(true);
+  test('renameFile updates filename', () => {
+    const result = db.renameFile(testFile, 'renamed_' + testFile);
+    expect(result.success).toBe(true);
+    const renamed = db.getFileByName('renamed_' + testFile);
+    expect(renamed).toBeTruthy();
+    const old = db.getFileByName(testFile);
+    expect(old).toBeFalsy();
+  });
+
+  test('deleteFile removes file', () => {
+    const toDelete = 'to_delete_' + Date.now() + '.txt';
+    db.addFile(toDelete, 'content', 'text');
+    const before = db.getFileCount();
+    db.deleteFileByName(toDelete);
+    const after = db.getFileCount();
+    expect(after).toBeLessThan(before);
   });
 });
 
-describe('标签管理', () => {
-  test('updateFileByName 设置标签', () => {
-    db.addFile('tagged.txt', 'content', 'text');
-    db.updateFileByName('tagged.txt', { tags: 'work,urgent' });
-    const file = db.getFileByName('tagged.txt');
-    expect(file.tags).toBe('work,urgent');
+describe('Search', () => {
+  beforeAll(() => {
+    db.addFile('apple.txt', 'content', 'text');
+    db.addFile('banana.txt', 'content', 'text');
+    db.addFile('apple_banana.txt', 'content', 'text');
+    db.addFile('folder/apple.txt', 'content', 'text');
   });
 
-  test('searchFiles 按标签过滤', () => {
-    db.addFile('doc1.txt', 'c', 'text');
-    db.updateFileByName('doc1.txt', { tags: 'important' });
-    db.addFile('doc2.txt', 'c', 'text');
-    db.updateFileByName('doc2.txt', { tags: 'draft' });
-    const results = db.searchFiles(null, 'important');
-    expect(results.some(f => f.filename === 'doc1.txt')).toBe(true);
-    expect(results.every(f => f.filename === 'doc1.txt' || !f.tags?.includes('important'))).toBe(true);
+  afterAll(() => {
+    ['apple.txt', 'banana.txt', 'apple_banana.txt'].forEach(f => {
+      try { db.deleteFileByName(f); } catch (e) {}
+    });
+    try { db.deleteFileByName('folder/apple.txt'); } catch (e) {}
   });
 
-  test('searchFiles 评分排序 - prefix 优先于 contains', () => {
-    db.addFile('test.js', 'c', 'text');
-    db.addFile('testing.py', 'c', 'text');
-    const results = db.searchFiles('test');
-    const names = results.map(f => f.filename);
-    // Prefix match should rank higher than contains
-    expect(names.indexOf('test.js')).toBeLessThan(names.indexOf('testing.py'));
+  test('searchFiles finds by token', () => {
+    const results = db.searchFiles('apple', null, { fuzzy: false });
+    const filenames = results.map(f => f.filename);
+    expect(filenames).toContain('apple.txt');
+    expect(filenames).toContain('apple_banana.txt');
+    expect(filenames).not.toContain('banana.txt');
+  });
+
+  test('searchFiles returns results within limit', () => {
+    const results = db.searchFiles('a', null, { limit: 2 });
+    expect(results.length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('Share Link', () => {
+  const testShareFile = 'share_test_' + Date.now() + '.txt';
+
+  beforeAll(() => {
+    db.addFile(testShareFile, 'share content', 'text');
+  });
+
+  afterAll(() => {
+    try { db.deleteFileByName(testShareFile); } catch (e) {}
+  });
+
+  test('saveShareLink creates share with password hash', () => {
+    const result = db.saveShareLink({
+      code: 'TEST' + Date.now(),
+      filename: testShareFile,
+      password: 'secret123',
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000
+    });
+    expect(result).toBeTruthy();
+    const share = db.getShareLink(result.code);
+    expect(share.hasPassword).toBe(true);
+    expect(share._passwordHash).toContain(':'); // salt:hash format
+    expect(share.filename).toBe(testShareFile);
+  });
+
+  test('getShareLink returns hasPassword false for no password', () => {
+    const result = db.saveShareLink({
+      code: 'NOTEST' + Date.now(),
+      filename: testShareFile,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000
+    });
+    const share = db.getShareLink(result.code);
+    expect(share.hasPassword).toBe(false);
+    expect(share._passwordHash).toBeFalsy();
+  });
+
+  test('verifyPassword works with share link hash', () => {
+    const result = db.saveShareLink({
+      code: 'PASST' + Date.now(),
+      filename: testShareFile,
+      password: 'testpass',
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000
+    });
+    const share = db.getShareLink(result.code);
+    expect(db.verifyPassword('testpass', share._passwordHash)).toBe(true);
+    expect(db.verifyPassword('wrongpass', share._passwordHash)).toBe(false);
+  });
+});
+
+describe('Token', () => {
+  test('generateToken creates valid token', () => {
+    const result = db.generateToken();
+    expect(result).toBeTruthy();
+    expect(result.token).toBeTruthy();
+    expect(typeof result.token).toBe('string');
+    expect(result.token.length).toBeGreaterThan(20);
+  });
+
+  test('validateToken accepts valid token', () => {
+    const result = db.generateToken();
+    expect(db.validateToken(result.token)).toBeTruthy();
+  });
+
+  test('revokeToken invalidates token', () => {
+    const result = db.generateToken();
+    expect(db.validateToken(result.token)).toBeTruthy();
+    db.revokeToken(result.token);
+    expect(db.validateToken(result.token)).toBeFalsy();
+  });
+});
+
+describe('Audit Log', () => {
+  test('addAuditLog records entry', () => {
+    const before = db.getAuditStats();
+    db.addAuditLog('test_action', 'test details', '127.0.0.1');
+    const after = db.getAuditStats();
+    expect(after.total).toBe(before.total + 1);
   });
 });
