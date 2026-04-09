@@ -9,8 +9,10 @@ const readline = require('readline');
 const crypto = require('crypto');
 
 const CONFIG_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'config.json');
+const HISTORY_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'history');
 const DEFAULT_URL = 'http://localhost:18790';
 const CHUNK_SIZE = 512 * 1024; // 512KB per chunk
+const MAX_HISTORY = 500;
 
 function getConfig() {
   try {
@@ -33,6 +35,38 @@ function saveConfig(updates) {
   }
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2), 'utf8');
   return merged;
+}
+
+function loadHistory() {
+  try {
+    if (fs.existsSync(HISTORY_PATH)) {
+      const data = fs.readFileSync(HISTORY_PATH, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveHistory(history) {
+  const dir = path.dirname(HISTORY_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(HISTORY_PATH, JSON.stringify(history, null, 2), 'utf8');
+}
+
+function addHistory(cmd) {
+  const history = loadHistory();
+  // Deduplicate: remove if already exists
+  const filtered = history.filter(h => h.cmd !== cmd);
+  filtered.unshift({ cmd, ts: Date.now() });
+  // Keep max
+  if (filtered.length > MAX_HISTORY) filtered.length = MAX_HISTORY;
+  saveHistory(filtered);
+}
+
+function getHistory() {
+  return loadHistory();
 }
 
 function getServerUrl() {
@@ -281,12 +315,18 @@ async function main() {
     console.log('  stats          Show storage stats');
     console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
+    console.log('  history [--clear]  Show command history');
     console.log('  config         Show all config');
     console.log('  config get <key>        Get a config value');
     console.log('  config set <key> <value> Set a config value');
     console.log('  config unset <key>       Remove a config value');
     console.log('  config reset             Reset all config');
     process.exit(1);
+  }
+
+  // Record command in history (skip 'history' itself)
+  if (command !== 'history') {
+    addHistory(process.argv.slice(2).join(' '));
   }
 
   try {
@@ -365,7 +405,7 @@ async function main() {
           printError('Search query required');
           process.exit(1);
         }
-        const res = await request('GET', `/search?q=${encodeURIComponent(query)}`);
+        const res = await request('GET', `/api/search?q=${encodeURIComponent(query)}`);
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
           printJson(res.data);
@@ -391,8 +431,8 @@ async function main() {
           printError('Text required to share');
           process.exit(1);
         }
-        const res = await request('POST', '/share', {
-          body: JSON.stringify({ text }),
+        const res = await request('POST', '/api/share/create', {
+          body: JSON.stringify({ content: text, isText: true }),
           contentType: 'application/json'
         });
         if (res.status >= 400) {
@@ -620,6 +660,24 @@ async function main() {
             printError(`Unknown config subcommand: ${subCommand}`);
             process.exit(1);
         }
+        break;
+      }
+
+      case 'history': {
+        if (args.includes('--clear')) {
+          saveHistory([]);
+          console.log('History cleared.');
+          break;
+        }
+        const hist = getHistory();
+        if (hist.length === 0) {
+          console.log('No history yet.');
+          break;
+        }
+        hist.forEach((h, i) => {
+          const d = new Date(h.ts).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+          console.log(`${String(i + 1).padStart(3, ' ')}  ${d}  ${h.cmd}`);
+        });
         break;
       }
 
