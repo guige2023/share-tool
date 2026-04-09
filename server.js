@@ -5176,6 +5176,7 @@ async function init() {
 
   initTheme();
   document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+  loadRateLimitStatus();
 
   const localDownloadDir = localStorage.getItem('shareTool_downloadDir') || '';
   document.getElementById('downloadDir').value = localDownloadDir;

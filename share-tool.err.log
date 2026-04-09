@@ -1,2 +1,98 @@
 (node:88410) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
 (Use `node --trace-deprecation ...` to show where the warning was created)
+/Users/guige/share-tool/server.js:3621
+        `允许 ${c.maxAttempts} 次错误 / ${c.windowSeconds}s 窗口，锁定 ${c.lockoutSeconds}s`;
+         ^^
+
+SyntaxError: Unexpected identifier '允许'
+    at wrapSafe (node:internal/modules/cjs/loader:1637:18)
+    at Module._compile (node:internal/modules/cjs/loader:1679:20)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Module._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2
+/Users/guige/share-tool/server.js:3621
+        `允许 ${c.maxAttempts} 次错误 / ${c.windowSeconds}s 窗口，锁定 ${c.lockoutSeconds}s`;
+         ^^
+
+SyntaxError: Unexpected identifier '允许'
+    at wrapSafe (node:internal/modules/cjs/loader:1637:18)
+    at Module._compile (node:internal/modules/cjs/loader:1679:20)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Module._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2
+/Users/guige/share-tool/server.js:3621
+        `允许 ${c.maxAttempts} 次错误 / ${c.windowSeconds}s 窗口，锁定 ${c.lockoutSeconds}s`;
+         ^^
+
+SyntaxError: Unexpected identifier '允许'
+    at wrapSafe (node:internal/modules/cjs/loader:1637:18)
+    at Module._compile (node:internal/modules/cjs/loader:1679:20)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Module._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2
+/Users/guige/share-tool/server.js:3621
+        `允许 ${c.maxAttempts} 次错误 / ${c.windowSeconds}s 窗口，锁定 ${c.lockoutSeconds}s`;
+         ^^
+
+SyntaxError: Unexpected identifier '允许'
+    at wrapSafe (node:internal/modules/cjs/loader:1637:18)
+    at Module._compile (node:internal/modules/cjs/loader:1679:20)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Module._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2
+/Users/guige/share-tool/server.js:3636
+      <div style="display:flex;flex-direction:column;gap:16px;">
+           ^^^^^
+
+SyntaxError: Unexpected identifier 'style'
+    at wrapSafe (node:internal/modules/cjs/loader:1637:18)
+    at Module._compile (node:internal/modules/cjs/loader:1679:20)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Module._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2
+/Users/guige/share-tool/server.js:3636
+      <div style="display:flex;flex-direction:column;gap:16px;">
+           ^^^^^
+
+SyntaxError: Unexpected identifier 'style'
+    at wrapSafe (node:internal/modules/cjs/loader:1637:18)
+    at Module._compile (node:internal/modules/cjs/loader:1679:20)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1838:10)
+    at Module.load (node:internal/modules/cjs/loader:1441:32)
+    at Module._load (node:internal/modules/cjs/loader:1263:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:36:49
+
+Node.js v22.22.2
