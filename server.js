@@ -121,6 +121,7 @@ const I18N = {
     'file.storage': '存储',
     'file.httpsDisabled': 'HTTPS 未启用',
     'file.httpsLanSkip': '局域网可跳过',
+    'file.checkFailed': '检测失败',
 
 
     // 文件状态
@@ -6357,7 +6358,7 @@ async function init() {
         }
       }).catch(() => {
         const el = document.getElementById('httpsStatus');
-        if (el) el.textContent = '检测失败';
+        if (el) el.textContent = T('file.checkFailed');
       });
   }
 }
