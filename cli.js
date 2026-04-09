@@ -572,6 +572,34 @@ async function main() {
         break;
       }
 
+      case 'batch-rename': {
+        // Parse: rename <old1> <new1> [old2 new2 ...]
+        const names = args.slice(1);
+        if (names.length < 2 || names.length % 2 !== 0) {
+          printError('Usage: batch-rename <old1> <new1> [old2 new2 ...]');
+          process.exit(1);
+        }
+        const renames = [];
+        for (let i = 0; i < names.length; i += 2) {
+          renames.push({ oldFilename: names[i], newFilename: names[i + 1] });
+        }
+        const res = await request('POST', '/api/file-rename-batch', {
+          body: JSON.stringify({ renames })
+        });
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          printJson(res.data);
+          process.exit(1);
+        }
+        const { success, failed, results, errors } = res.data;
+        console.log(`Renamed ${success.length} file(s), ${errors.length} failed`);
+        if (errors.length > 0) {
+          errors.forEach(e => console.log(`  FAIL: ${e.oldFilename} - ${e.error}`));
+        }
+        process.exit(errors.length > 0 ? 1 : 0);
+        break;
+      }
+
       case 'batch-delete': {
         const names = args.slice(1);
         if (names.length === 0) {

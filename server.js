@@ -6263,7 +6263,7 @@ async function batchDelete() {
 async function batchCopy() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
-  const destPrefix = prompt(T('file.inputFolderPrefix')（如 work/backup/）:\n选中的 ' + checked.length + ' 个文件将被复制到此目录下');
+  const destPrefix = prompt(T('file.inputFolderPrefix') + '（如 work/backup/）:\n选中的 ' + checked.length + ' 个文件将被复制到此目录下');
   if (destPrefix === null) return; // cancelled
   const cleanPrefix = destPrefix.trim();
   if (!cleanPrefix) return;
