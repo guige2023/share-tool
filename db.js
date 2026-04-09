@@ -322,6 +322,28 @@ function initSchemaV4(db) {
   }
 }
 
+function initSchemaV5(db) {
+  // v5 新增：回收站表
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS trash (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_id     INTEGER NOT NULL,
+        filename    TEXT    NOT NULL,
+        content     TEXT,
+        size        INTEGER NOT NULL DEFAULT 0,
+        type        TEXT    NOT NULL DEFAULT 'file',
+        hash        TEXT,
+        deleted_at  INTEGER NOT NULL DEFAULT (unixepoch()),
+        expires_at  INTEGER NOT NULL DEFAULT (unixepoch() + 2592000)
+      )
+    `);
+    console.log('[DB] Migrated: trash table');
+  } catch (e) {
+    if (!e.message.includes('duplicate table')) throw e;
+  }
+}
+
 function runMigrations(db, fromVersion) {
   console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
   for (let v = fromVersion + 1; v <= SCHEMA_VERSION; v++) {
@@ -331,6 +353,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV3(db);
     } else if (v === 4) {
       initSchemaV4(db);
+    } else if (v === 5) {
+      initSchemaV5(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
