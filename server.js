@@ -2073,7 +2073,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v2.93',
+          version: 'v2.99',
         });
         return;
       }
@@ -4922,7 +4922,7 @@ function applySearchHighlight(q) {
   if (!q || !q.trim()) return;
   const targets = document.querySelectorAll('.search-target');
   // Escape regex special chars for safe text matching
-  var s = q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  var s = q.trim().replace(/[\[\\\]\\*\.\+\?\^\$\{\}\(\)\|\-]/g, '\\\\$&');
   try {
     const regex = new RegExp('(' + s + ')', 'gi');
     targets.forEach(el => {
