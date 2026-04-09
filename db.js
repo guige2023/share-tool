@@ -654,6 +654,44 @@ function renameFilesByPrefix(oldPrefix, newPrefix) {
   return { renamed };
 }
 
+// 移动文件到新路径（不生成副本，类似 rename 但保持 ID 和 created_at）
+function moveFile(sourceFilename, destFilename) {
+  const db = getDb();
+  const source = getFileByName(sourceFilename);
+  if (!source) return { success: false, error: '源文件不存在' };
+
+  // 检查目标是否已存在
+  const conflict = getFileByName(destFilename);
+  if (conflict) return { success: false, error: '目标文件名已存在' };
+
+  const now = Math.floor(Date.now() / 1000);
+  db.prepare('UPDATE files SET filename = ?, updated_at = ? WHERE filename = ?').run(destFilename, now, sourceFilename);
+
+  // 记录同步日志
+  const updated = getFileByName(destFilename);
+  if (updated) {
+    addSyncLog(updated.id, destFilename, 'rename', updated.hash, null, updated.size);
+  }
+
+  return { success: true, oldFilename: sourceFilename, newFilename: destFilename, hash: source.hash, size: source.size };
+}
+
+// 前缀移动（用于虚拟文件夹移动）
+function moveFilesByPrefix(sourcePrefix, destPrefix) {
+  const db = getDb();
+  const oldPattern = sourcePrefix.endsWith('/') ? sourcePrefix + '%' : sourcePrefix + '/%';
+  const newPatternPrefix = destPrefix.endsWith('/') ? destPrefix : destPrefix + '/';
+  const oldPrefixLen = sourcePrefix.endsWith('/') ? sourcePrefix.length : sourcePrefix.length + 1;
+  const files = db.prepare("SELECT id, filename FROM files WHERE filename LIKE ?").all(oldPattern);
+  let moved = 0;
+  for (const f of files) {
+    const newFilename = newPatternPrefix + f.filename.slice(oldPrefixLen);
+    db.prepare("UPDATE files SET filename = ?, updated_at = unixepoch() WHERE id = ?").run(newFilename, f.id);
+    moved++;
+  }
+  return { moved };
+}
+
 // 复制文件（生成新副本，不修改原文件）
 function copyFile(sourceFilename, newFilename) {
   const db = getDb();
@@ -1775,7 +1813,7 @@ module.exports = {
   // 文件
   addFile, getFile, getFileByName, toggleStar, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
-  deleteFilesByPrefix, renameFilesByPrefix, copyFile, copyFilesByPrefix, getFilesByPrefix,
+  deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, getFilesByPrefix,
   searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,

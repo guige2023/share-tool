@@ -98,6 +98,9 @@ const I18N = {
     'msg.uploadFail': '，失败',
     'msg.contentCopied': '内容已复制',
     'msg.copyContent': '复制内容:',
+    'msg.movedTo': '已移动 {n} 个文件到 {dest}',
+    'msg.moveFailedN': '移动失败 {n} 个文件',
+    'file.inputMoveFolderPrefix': '请输入目标虚拟文件夹前缀（如 work/docs/）：\n选中的 {n} 个文件将被移动到此目录下',
     'msg.pasted': '✓ 图片已粘贴上传:',
     'msg.noFileSelected': '请先选择文件',
     'msg.batchPackUnavailable': '批量打包不可用，正在逐个打开下载...',
@@ -184,6 +187,7 @@ const I18N = {
     'sync.newFileReceived': '📤 收到新文件:',
     'sync.remoteDeleted': '🗑 远程删除了文件',
     'sync.remoteRenamed': '✏️ 远程重命名:',
+    'sync.remoteMoved': '📁 远程移动了文件:',
     'sync.syncSuccess': '✅ 同步成功:',
     'sync.conflictResolved': '🔄 冲突解决: 已重命名文件保留双方版本',
     'sync.discovered': '📡 发现',
@@ -459,6 +463,7 @@ const I18N = {
     'ui.batchStar': '收藏',
     'ui.batchRename': '重命名',
     'ui.batchCopy': '复制',
+    'ui.batchMove': '移动',
     'ui.batchDelete': '删除',
     'ui.batchCancel': '取消',
     'ui.sortBy': '排序',
@@ -877,6 +882,7 @@ const I18N = {
     'ui.batchStar': 'Star',
     'ui.batchRename': 'Rename',
     'ui.batchCopy': 'Copy',
+    'ui.batchMove': 'Move',
     'ui.batchDelete': 'Delete',
     'ui.batchCancel': 'Cancel',
     'ui.sortBy': 'Sort',
@@ -1159,6 +1165,9 @@ const I18N = {
     'msg.contentCopied': 'Content copied',
     'msg.copiedToClipboard': 'Link copied to clipboard',
     'msg.copyContent': 'Copy content:',
+    'msg.movedTo': 'Moved {n} files to {dest}',
+    'msg.moveFailedN': '{n} files failed to move',
+    'file.inputMoveFolderPrefix': 'Enter target virtual folder prefix (e.g. work/docs/):\n{n} files will be moved to this directory',
     'msg.noContent': 'No content',
     'msg.getFailed': 'Failed to get',
     'msg.uploadSuccess': 'Upload successful',
@@ -2265,7 +2274,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v3.38',
+          version: 'v3.39',
         });
         return;
       }
@@ -2659,7 +2668,19 @@ function handleWsMessage(ws, msg) {
       }
       break;
     }
-    
+
+    case 'file_move': {
+      const { sourceFilename, destFilename } = payload;
+      const result = db.moveFile(sourceFilename, destFilename);
+      if (result.success) {
+        broadcastChange({ type: 'file_move', oldFilename: sourceFilename, newFilename: destFilename }, ws.deviceId);
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_move', sourceFilename, destFilename, status: 'ok' } }));
+      } else {
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_move', sourceFilename, destFilename, status: 'error', error: result.error } }));
+      }
+      break;
+    }
+
     case 'ping': {
       ws.send(JSON.stringify({ type: 'pong' }));
       if (ws.deviceId) db.touchDevice(ws.deviceId);
@@ -3567,6 +3588,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button onclick="batchAddTag()">🏷 ' + T('ui.batchTag') + '</button>
       <button onclick="batchStar()">⭐ ' + T('ui.batchStar') + '</button>
       <button onclick="batchCopy()">📋 ' + T('ui.batchCopy') + '</button>
+      <button onclick="batchMove()">📁 ' + T('ui.batchMove') + '</button>
       <button onclick="showBatchRenameModal()">✏️ ' + T('ui.batchRename') + '</button>
       <button class="danger" onclick="batchDelete()">🗑 ' + T('ui.batchDelete') + '</button>
       <button class="danger" onclick="clearBatch()">✕ ' + T('ui.batchCancel') + '</button>
@@ -4197,7 +4219,9 @@ function handleWsMessage(msg) {
     case 'change':
     case 'file_create':
     case 'file_update':
-    case 'file_delete': {
+    case 'file_delete':
+    case 'file_rename':
+    case 'file_move': {
       if (type === 'change' && payload.type === 'bulk_update') {
         loadFiles();
       } else if (type === 'change' && payload.type === 'bulk_delete') {
@@ -4213,6 +4237,8 @@ function handleWsMessage(msg) {
         showToast(T('sync.remoteDeleted'));
       } else if (type === 'file_rename') {
         showToast(T('sync.remoteRenamed') + ' ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
+      } else if (type === 'file_move') {
+        showToast(T('sync.remoteMoved') + ' ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
       } else if (type === 'change' && payload.type === 'create') {
         showToast(T('sync.newFileReceived') + ' ' + (payload.filename || '').substring(0, 30));
       } else if (type === 'change' && payload.type === 'rename') {
@@ -6820,6 +6846,40 @@ async function batchCopy() {
     showToast(T('msg.copiedTo', { n: copied, dest: cleanPrefix }));
   }
   clearBatch();
+}
+
+async function batchMove() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  const destPrefix = prompt(T('file.inputMoveFolderPrefix').replace('{n}', checked.length));
+  if (destPrefix === null) return;
+  const cleanPrefix = destPrefix.trim();
+  if (!cleanPrefix) return;
+
+  let moved = 0;
+  let errors = 0;
+  for (const cb of checked) {
+    const filename = decodeURIComponent(cb.value);
+    const destName = cleanPrefix + filename.split('/').pop();
+    try {
+      const res = await fetch(API + '/api/file-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ sourceFilename: filename, destFilename: destName })
+      });
+      const data = await res.json();
+      if (data.success) moved++;
+      else errors++;
+    } catch (e) { errors++; }
+  }
+  if (errors > 0) {
+    showToast(T('msg.moveFailedN', { n: errors }));
+  } else {
+    showToast(T('msg.movedTo', { n: moved, dest: cleanPrefix }));
+  }
+  clearBatch();
+  await loadFiles();
+}
 
 async function batchStar() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
