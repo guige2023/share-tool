@@ -3198,6 +3198,8 @@ async function openMarkdownModal(filename) {
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     document.getElementById('modalBody').innerHTML =
       '<div class="markdown-body" style="max-height:70vh;overflow-y:auto;padding:16px;background:var(--bg-secondary);border-radius:8px;font-size:14px;line-height:1.6;">' + safeHtml + '</div>';
+    // Apply syntax highlighting to code blocks
+    if (typeof hljs !== 'undefined') hljs.highlightAll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to render Markdown: ' + e.message); }
 }
@@ -4550,27 +4552,23 @@ async function batchAddTag() {
     }
   }
 
-  let tagged = 0;
-  for (const cb of checked) {
-    const filename = cb.value;
-    try {
-      // Get current file tags to append
-      const file = currentFiles.find(f => encodeURIComponent(f.name) === filename);
-      const existingTags = file && file.tags ? file.tags.split(',').map(t => t.trim()).filter(t => t) : [];
-      // Merge: append new tags not already present
-      const allTags = [...existingTags];
-      for (const t of newTags) {
-        if (!allTags.includes(t)) allTags.push(t);
-      }
-      const res = await fetch(API + '/api/file-tags/' + filename, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-        body: JSON.stringify({ tags: allTags.join(',') })
-      });
-      if (res.ok) tagged++;
-    } catch (e) {}
+  // Use batch API - single call for all files
+  const files = Array.from(checked).map(cb => cb.value);
+  try {
+    const res = await fetch(API + '/api/file-tags/batch', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ files, action: 'add', tags: newTags })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('已为 ' + data.updated + ' 个文件添加标签');
+    } else {
+      showToast('批量添加失败: ' + (data.error || '未知错误'), 'error');
+    }
+  } catch (e) {
+    showToast('批量添加失败: ' + e.message, 'error');
   }
-  showToast('已为 ' + tagged + ' 个文件添加标签');
   clearBatch();
   loadFiles();
 }
