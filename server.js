@@ -1219,15 +1219,80 @@ const DEVICE_NAME = os.hostname();
 function getFileIcon(filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   const icons = {
-    pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗',
-    ppt: '📙', pptx: '📙', txt: '📄', md: '📝', json: '📋',
+    // Documents
+    pdf: '📕', doc: '📘', docx: '📘', rtf: '📘', odt: '📘',
+    xls: '📗', xlsx: '📗', csv: '📊', ods: '📗',
+    ppt: '📙', pptx: '📙', odp: '📙',
+    txt: '📄', log: '📄', ini: '📄', cfg: '📄', conf: '📄',
+    md: '📝', markdown: '📝', rst: '📝',
+    // Config & Data
+    json: '📋', jsonc: '📋', toml: '⚙️', yaml: '⚙️', yml: '⚙️',
+    xml: '🌐', html: '🌐', htm: '🌐', xhtml: '🌐',
+    css: '🎨', scss: '🎨', sass: '🎨', less: '🎨',
+    // Code - Web & Script
+    js: '💻', mjs: '💻', cjs: '💻', ts: '💻',
+    jsx: '⚛️', tsx: '⚛️',
+    vue: '💚', svelte: '🧡',
+    py: '🐍', pyw: '🐍',
+    rb: '💎', erb: '💎',
+    php: '🐘',
+    pl: '🐪', pm: '🐪',
+    lua: '🌙',
+    go: '🔵', rs: '🦀', zig: '⚡',
+    java: '☕', class: '☕', jar: '☕', kotlin: '🟣',
+    swift: '🍎', objectivec: 'Ⓜ️',
+    cs: '🔷', fs: '🔷',
+    c: '🔧', cpp: '🔧', cc: '🔧', cxx: '🔧', h: '🔧', hpp: '🔧',
+    scala: '🔴', clj: '🍃', hs: '🟣', elm: '🟢', elixir: '💜', ex: '💜', exs: '💜',
+    erl: '🔵', hrl: '🔵', lfe: '🔵',
+    r: '📊', R: '📊',
+    dart: '🎯', julia: '🔴', jl: '🔴',
+    stata: '📊', sas: '📊',
+    // Shell & DevOps
+    sh: '🖥️', bash: '🖥️', zsh: '🖥️', fish: '🐟',
+    ps1: '🟦', psm1: '🟦',
+    bat: '🟩', cmd: '🟩',
+    dockerfile: '🐳', dockerignore: '🐳',
+    makefile: '🔨', mk: '🔨',
+    terraform: '🏗️', tf: '🏗️', tfvars: '🏗️',
+    // Images
     jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️',
-    mp3: '🎵', wav: '🎵', flac: '🎵', aac: '🎵',
+    bmp: '🖼️', tiff: '🖼️', tif: '🖼️', ico: '🖼️', heic: '🖼️', avif: '🖼️',
+    // Audio
+    mp3: '🎵', wav: '🎵', flac: '🎵', aac: '🎵', ogg: '🎵',
+    m4a: '🎵', opus: '🎵', wma: '🎵', alac: '🎵',
+    // Video
     mp4: '🎬', mkv: '🎬', avi: '🎬', mov: '🎬', webm: '🎬',
+    flv: '🎬', wmv: '🎬', m4v: '🎬', mpg: '🎬', mpeg: '🎬',
+    // Archives
     zip: '📦', rar: '📦', '7z': '📦', tar: '📦', gz: '📦',
-    js: '💻', ts: '💻', py: '💻', java: '💻', c: '💻', cpp: '💻', h: '💻',
-    css: '🎨', html: '🌐', xml: '🌐', yml: '⚙️', yaml: '⚙️',
-    exe: '⚙️', dmg: '⚙️', deb: '⚙️', rpm: '⚙️',
+    bz2: '📦', xz: '📦', zst: '📦', lz4: '📦',
+    tgz: '📦', tbz2: '📦', txz: '📦',
+    dmg: '📦', pkg: '📦', deb: '📦', rpm: '📦', apk: '📦',
+    // Executables & System
+    exe: '⚙️', msi: '⚙️', msc: '⚙️',
+    dll: '⚙️', so: '⚙️', dylib: '⚙️', a: '⚙️', o: '⚙️',
+    // Fonts
+    ttf: '🔤', otf: '🔤', woff: '🔤', woff2: '🔤', eot: '🔤',
+    // Database
+    sql: '🗃️', db: '🗃️', sqlite: '🗃️', mdb: '🗃️', accdb: '🗃️',
+    // Certificate & Key
+    pem: '🔐', crt: '🔐', cer: '🔐', der: '🔐', p12: '🔐', pfx: '🔐', key: '🔐',
+    env: '🔑', gitignore: '🔑', gitattributes: '🔑',
+    // Book & Notes
+    epub: '📚', mobi: '📚', azw: '📚', azw3: '📚',
+    fb2: '📚', djvu: '📚', oxps: '📚', xps: '📚',
+    // Design
+    psd: '🎨', ai: '🎨', sketch: '🎨', fig: '🎨',
+    xd: '🎨', indd: '🎨',
+    // 3D
+    obj: '📐', fbx: '📐', stl: '📐', gltf: '📐', glb: '📐', blend: '📐',
+    // Binary & Disk
+    bin: '💾', img: '💾', iso: '💾', vdi: '💾', vmdk: '💾',
+    // Torrent
+    torrent: '📡',
+    // Shortcut
+    lnk: '🔗', url: '🔗',
   };
   return icons[ext] || '📄';
 }
@@ -7267,15 +7332,80 @@ function clearRecentSearches() {
 function getFileIcon(filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   const icons = {
-    pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗',
-    ppt: '📙', pptx: '📙', txt: '📄', md: '📝', json: '📋',
+    // Documents
+    pdf: '📕', doc: '📘', docx: '📘', rtf: '📘', odt: '📘',
+    xls: '📗', xlsx: '📗', csv: '📊', ods: '📗',
+    ppt: '📙', pptx: '📙', odp: '📙',
+    txt: '📄', log: '📄', ini: '📄', cfg: '📄', conf: '📄',
+    md: '📝', markdown: '📝', rst: '📝',
+    // Config & Data
+    json: '📋', jsonc: '📋', toml: '⚙️', yaml: '⚙️', yml: '⚙️',
+    xml: '🌐', html: '🌐', htm: '🌐', xhtml: '🌐',
+    css: '🎨', scss: '🎨', sass: '🎨', less: '🎨',
+    // Code - Web & Script
+    js: '💻', mjs: '💻', cjs: '💻', ts: '💻',
+    jsx: '⚛️', tsx: '⚛️',
+    vue: '💚', svelte: '🧡',
+    py: '🐍', pyw: '🐍',
+    rb: '💎', erb: '💎',
+    php: '🐘',
+    pl: '🐪', pm: '🐪',
+    lua: '🌙',
+    go: '🔵', rs: '🦀', zig: '⚡',
+    java: '☕', class: '☕', jar: '☕', kotlin: '🟣',
+    swift: '🍎', objectivec: 'Ⓜ️',
+    cs: '🔷', fs: '🔷',
+    c: '🔧', cpp: '🔧', cc: '🔧', cxx: '🔧', h: '🔧', hpp: '🔧',
+    scala: '🔴', clj: '🍃', hs: '🟣', elm: '🟢', elixir: '💜', ex: '💜', exs: '💜',
+    erl: '🔵', hrl: '🔵', lfe: '🔵',
+    r: '📊', R: '📊',
+    dart: '🎯', julia: '🔴', jl: '🔴',
+    stata: '📊', sas: '📊',
+    // Shell & DevOps
+    sh: '🖥️', bash: '🖥️', zsh: '🖥️', fish: '🐟',
+    ps1: '🟦', psm1: '🟦',
+    bat: '🟩', cmd: '🟩',
+    dockerfile: '🐳', dockerignore: '🐳',
+    makefile: '🔨', mk: '🔨',
+    terraform: '🏗️', tf: '🏗️', tfvars: '🏗️',
+    // Images
     jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️',
-    mp3: '🎵', wav: '🎵', flac: '🎵', aac: '🎵',
+    bmp: '🖼️', tiff: '🖼️', tif: '🖼️', ico: '🖼️', heic: '🖼️', avif: '🖼️',
+    // Audio
+    mp3: '🎵', wav: '🎵', flac: '🎵', aac: '🎵', ogg: '🎵',
+    m4a: '🎵', opus: '🎵', wma: '🎵', alac: '🎵',
+    // Video
     mp4: '🎬', mkv: '🎬', avi: '🎬', mov: '🎬', webm: '🎬',
+    flv: '🎬', wmv: '🎬', m4v: '🎬', mpg: '🎬', mpeg: '🎬',
+    // Archives
     zip: '📦', rar: '📦', '7z': '📦', tar: '📦', gz: '📦',
-    js: '💻', ts: '💻', py: '💻', java: '💻', c: '💻', cpp: '💻', h: '💻',
-    css: '🎨', html: '🌐', xml: '🌐', yml: '⚙️', yaml: '⚙️',
-    exe: '⚙️', dmg: '⚙️', deb: '⚙️', rpm: '⚙️',
+    bz2: '📦', xz: '📦', zst: '📦', lz4: '📦',
+    tgz: '📦', tbz2: '📦', txz: '📦',
+    dmg: '📦', pkg: '📦', deb: '📦', rpm: '📦', apk: '📦',
+    // Executables & System
+    exe: '⚙️', msi: '⚙️', msc: '⚙️',
+    dll: '⚙️', so: '⚙️', dylib: '⚙️', a: '⚙️', o: '⚙️',
+    // Fonts
+    ttf: '🔤', otf: '🔤', woff: '🔤', woff2: '🔤', eot: '🔤',
+    // Database
+    sql: '🗃️', db: '🗃️', sqlite: '🗃️', mdb: '🗃️', accdb: '🗃️',
+    // Certificate & Key
+    pem: '🔐', crt: '🔐', cer: '🔐', der: '🔐', p12: '🔐', pfx: '🔐', key: '🔐',
+    env: '🔑', gitignore: '🔑', gitattributes: '🔑',
+    // Book & Notes
+    epub: '📚', mobi: '📚', azw: '📚', azw3: '📚',
+    fb2: '📚', djvu: '📚', oxps: '📚', xps: '📚',
+    // Design
+    psd: '🎨', ai: '🎨', sketch: '🎨', fig: '🎨',
+    xd: '🎨', indd: '🎨',
+    // 3D
+    obj: '📐', fbx: '📐', stl: '📐', gltf: '📐', glb: '📐', blend: '📐',
+    // Binary & Disk
+    bin: '💾', img: '💾', iso: '💾', vdi: '💾', vmdk: '💾',
+    // Torrent
+    torrent: '📡',
+    // Shortcut
+    lnk: '🔗', url: '🔗',
   };
   return icons[ext] || '📄';
 }
