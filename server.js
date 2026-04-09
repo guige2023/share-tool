@@ -2633,6 +2633,7 @@ function renderFiles() {
     const isAudio = isAudioFile(f.name);
     const isVideo = isVideoFile(f.name);
     const isPdf = isPdfFile(f.name);
+    const isMarkdown = /\.(md|markdown|txt|text)$/i.test(f.name) && f.type === 'text';
     const previewId = 'preview-' + btoaSafe(f.name).substring(0, 20);
     const thumbId = 'thumb-' + btoaSafe(f.name).substring(0, 20);
     const tags = f.tags ? f.tags.split(',').filter(t => t.trim()) : [];
@@ -2660,6 +2661,7 @@ function renderFiles() {
         (isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
         (isVideo ? '<div class="file-video-wrapper" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
         (isPdf ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')">📕 预览PDF</button>' : '') +
+        (isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 预览MD</button>' : '') +
       '</div>' +
       '<div class="file-actions">' +
         (isText ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">预览</button>' : '') +
@@ -2826,6 +2828,23 @@ async function openPdfModal(filename) {
       '<iframe src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;background:var(--bg-tertiary);" title="PDF预览"></iframe>';
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open PDF: ' + e.message); }
+}
+
+async function openMarkdownModal(filename) {
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.content) return;
+    // Decode base64 content
+    const content = atob(data.content);
+    // Render markdown using marked (server-preparsed)
+    const html = marked.parse(content);
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
+    document.getElementById('modalBody').innerHTML =
+      '<div style="max-height:70vh;overflow-y:auto;padding:16px;background:var(--bg-secondary);border-radius:8px;font-size:14px;line-height:1.6;">' + html + '</div>';
+    document.getElementById('fileModal').classList.add('show');
+  } catch (e) { showToast('Failed to render Markdown: ' + e.message); }
 }
 
 function togglePreview(filename, previewId) {
