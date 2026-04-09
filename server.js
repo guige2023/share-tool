@@ -1362,7 +1362,7 @@ function handleWsMessage(ws, msg) {
             db.addFile(filename, content, type || 'file', hash);
           }
         }
-        broadcastChange({ type: 'update', filename, hash }, ws.deviceId);
+        broadcastChange({ type: 'file_update', filename, hash }, ws.deviceId);
         logger.info(`[Conflict] Resolved force_remote: ${filename}`);
       } else if (resolution === 'force_local') {
         // 通知其他设备以本地为准（不需要做什么，因为本地没变）
@@ -1374,8 +1374,8 @@ function handleWsMessage(ws, msg) {
         const newName = `${filename}.conflict_${ts}`;
         db.renameFile(filename, newName);
         db.addFile(filename, content, type || 'file', hash);
-        broadcastChange({ type: 'rename', oldFilename: filename, newFilename: newName }, ws.deviceId);
-        broadcastChange({ type: 'create', filename, hash }, ws.deviceId);
+        broadcastChange({ type: 'file_rename', oldFilename: filename, newFilename: newName }, ws.deviceId);
+        broadcastChange({ type: 'file_create', filename, hash }, ws.deviceId);
         ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'conflict_resolve', filename, status: 'renamed', newFilename: filename } }));
         logger.info(`[Conflict] Resolved rename_both: ${filename} → ${newName}`);
       }
@@ -2311,6 +2311,7 @@ function showConflictDialog(conflict) {
     '<div style="display:flex;flex-direction:column;gap:8px;">' +
       '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--primary-color);color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;">保留本地版本</button>' +
       '<button id="conflict_keep_remote" style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-color);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:14px;">接受远程版本</button>' +
+      '<button id="conflict_rename_both" disabled style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-muted);border:1px solid var(--border-color);border-radius:8px;cursor:not-allowed;font-size:14px;opacity:0.6;" title="需要服务器支持多版本存储">保留两个版本（后续支持）</button>' +
       '<button id="conflict_cancel" style="padding:10px 16px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-size:13px;">稍后处理</button>' +
     '</div>' +
   '</div>';
