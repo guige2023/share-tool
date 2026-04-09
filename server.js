@@ -4675,14 +4675,17 @@ async function init() {
     ['dragleave','drop'].forEach(evt => {
       el.addEventListener(evt, (e) => { e.preventDefault(); el.classList.remove('drag-over'); });
     });
+    el.addEventListener('drop', (e) => {
+      const files = e.dataTransfer.files;
+      if (files.length > 0) { uploadFiles(files); }
+    });
   });
 
   if (dropZone) {
     dropZone.addEventListener('drop', (e) => {
       const files = e.dataTransfer.files;
       if (files.length > 0) {
-        document.getElementById('fileInput').files = files;
-        uploadFiles();
+        uploadFiles(files);
       }
     });
   }
