@@ -557,7 +557,10 @@ function searchFiles(query, tags = null, opts = {}) {
     }
     return null;
   }).filter(Boolean);
-    if (b._score !== a._score) return b._score - a._score;
+
+  // Sort: score desc, then time desc
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
     return b.created_at - a.created_at;
   });
 
