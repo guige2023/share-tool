@@ -200,10 +200,11 @@ function initSchemaV1(db) {
     )
   `);
 
-  // 索引
+  // 添加索引：文件名（搜索）、创建时间（排序）
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_files_hash ON files(hash);
     CREATE INDEX IF NOT EXISTS idx_files_created ON files(created_at);
+    CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename);
     CREATE INDEX IF NOT EXISTS idx_sync_log_timestamp ON sync_log(timestamp);
     CREATE INDEX IF NOT EXISTS idx_sync_log_synced ON sync_log(synced);
     CREATE INDEX IF NOT EXISTS idx_tokens_token ON tokens(token);
@@ -481,14 +482,41 @@ function searchFiles(query, tags = null, opts = {}) {
   }
 
   const queryTokens = tokenizeQuery(query);
-  const allFiles = db.prepare(`SELECT ${FILE_FIELDS} FROM files`).all();
 
-  if (queryTokens.length === 0 && !tags) {
-    return allFiles.slice(0, limit);
+  // 如果没有查询词，只有标签过滤：直接用 SQLite
+  if (queryTokens.length === 0 && tags) {
+    const tagList = tags.split(',').map(t => t.trim().toLowerCase());
+    const tagConditions = tagList.map(() => `LOWER(tags) LIKE ?`).join(' AND ');
+    const tagParams = tagList.map(t => `%${t}%`);
+    return db.prepare(`SELECT ${FILE_FIELDS} FROM files WHERE ${tagConditions} ORDER BY created_at DESC LIMIT ?`)
+      .all(...tagParams, limit);
   }
 
-  // Score each file
-  const scored = allFiles.map(f => {
+  // 有查询词：先用 SQLite LIKE 过滤候选集（避免全表扫描）
+  // 对每个 token 构建 OR 条件，减少内存中处理的文件数
+  let candidateFiles;
+  if (queryTokens.length > 0) {
+    // 构建 OR 条件：任一 token 匹配即入选（宽泛初筛）
+    const conditions = queryTokens.flatMap(token => [
+      `LOWER(filename) LIKE ?`,
+      `LOWER(tags) LIKE ?`
+    ]);
+    const params = queryTokens.flatMap(token => [`%${token}%`, `%${token}%`]);
+    // 限制候选集上限，避免 LIKE %% 全表扫描返回过多结果
+    const candidateLimit = 500;
+    candidateFiles = db.prepare(
+      `SELECT ${FILE_FIELDS} FROM files WHERE ${conditions.join(' OR ')} LIMIT ?`
+    ).all(...params, candidateLimit);
+  } else {
+    candidateFiles = db.prepare(`SELECT ${FILE_FIELDS} FROM files`).all();
+  }
+
+  if (queryTokens.length === 0 && !tags) {
+    return candidateFiles.slice(0, limit);
+  }
+
+  // Score each candidate
+  const scored = candidateFiles.map(f => {
     let score = 0;
     const filename = (f.filename || '').toLowerCase();
     const fileTags = (f.tags || '').toLowerCase();
@@ -524,11 +552,11 @@ function searchFiles(query, tags = null, opts = {}) {
       score += 30; // tag filter bonus
     }
 
-    return score > 0 ? { ...f, _score: score } : null;
+    if (score > 0) {
+      return { ...f, score };
+    }
+    return null;
   }).filter(Boolean);
-
-  // Sort: score desc, then time desc
-  scored.sort((a, b) => {
     if (b._score !== a._score) return b._score - a._score;
     return b.created_at - a.created_at;
   });
