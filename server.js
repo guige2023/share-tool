@@ -4756,15 +4756,16 @@ async function openImageModal(filename) {
     const data = await res.json();
     if (!data.content) return;
     const ext = filename.split('.').pop().toLowerCase();
-    const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
+    const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp' };
     const mime = mimeMap[ext] || 'image/jpeg';
     const dataUrl = 'data:' + mime + ';base64,' + data.content;
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = 'Size: ' + formatSize(data.size || 0);
-    document.getElementById('modalBody').innerHTML = '<div id="imageLightbox" style="position:relative;text-align:center;"><button id="imgNavPrev" onclick="imageNav(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:var(--text-inverse);border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;display:none;">‹</button><img id="lightboxImg" src="' + dataUrl + '" style="max-width:100%;max-height:80vh;display:block;margin:0 auto;border-radius:8px;" /><button id="imgNavNext" onclick="imageNav(1)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:var(--text-inverse);border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;display:none;">›</button></div>';
+    document.getElementById('modalBody').innerHTML = '<div id="imageLightbox" style="position:relative;text-align:center;min-height:60px;"><button id="imgNavPrev" onclick="imageNav(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;z-index:2;display:none;">‹</button><img id="lightboxImg" src="' + dataUrl + '" style="max-width:100%;max-height:80vh;display:block;margin:0 auto;border-radius:8px;" /><button id="imgNavNext" onclick="imageNav(1)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;z-index:2;display:none;">›</button><div id="imgCounter" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;display:none;"></div><button id="imgDownloadBtn" onclick="downloadCurrentImage()" style="position:absolute;top:8px;right:56px;background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:6px;width:36px;height:36px;font-size:16px;cursor:pointer;z-index:2;" title="Download">⬇</button></div>';
     // Collect image files for navigation
     window._imageFiles = currentFiles.filter(f => !f.isVirtualFolder && isImageFile(f.name));
     window._imageIndex = window._imageFiles.findIndex(f => f.name === filename);
+    window._imageDataUrl = dataUrl;
     updateImageNavButtons();
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
@@ -4773,15 +4774,27 @@ async function openImageModal(filename) {
   } catch (e) { showToast('Failed to open image'); }
 }
 
+function downloadCurrentImage() {
+  const a = document.createElement('a');
+  a.href = window._imageDataUrl || '';
+  a.download = document.getElementById('modalTitle').textContent || 'image';
+  a.click();
+}
+
 function updateImageNavButtons() {
   const imgs = window._imageFiles || [];
   const idx = window._imageIndex;
   const prev = document.getElementById('imgNavPrev');
   const next = document.getElementById('imgNavNext');
+  const counter = document.getElementById('imgCounter');
   if (!prev || !next) return;
   const show = imgs.length > 1;
   prev.style.display = show && idx > 0 ? 'block' : 'none';
   next.style.display = show && idx < imgs.length - 1 ? 'block' : 'none';
+  if (counter) {
+    counter.style.display = show ? 'block' : 'none';
+    counter.textContent = (idx + 1) + ' / ' + imgs.length;
+  }
 }
 
 async function imageNav(dir) {
