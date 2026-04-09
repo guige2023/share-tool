@@ -2070,10 +2070,15 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 
 <script>
 const API = '';
-let AUTH_TOKEN = '';
+let AUTH_TOKEN='${AUTH_TOKEN}';
 const WS_URL = 'ws://' + location.hostname + ':${WS_PORT}';
 const DEVICE_ID = '${DEVICE_ID}';
 const DEVICE_NAME = navigator.platform || 'Unknown';
+
+// Configure marked for safe rendering
+if (typeof marked !== 'undefined') {
+  marked.setOptions({ breaks: true, gfm: true });
+}
 
 let ws = null;
 let currentFiles = [];
@@ -4103,6 +4108,7 @@ function getFileIcon(filename) {
 
 init();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </body>
 </html>`;
 
