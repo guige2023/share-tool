@@ -412,20 +412,26 @@ function getFile(id) {
   return db.prepare(`SELECT ${FILE_FIELDS} FROM files WHERE id = ?`).get(id);
 }
 
-function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null) {
+function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null, starred = false) {
   const db = getDb();
   const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type', 'tags'].includes(sort) ? sort : 'created_at';
+
+  // Build WHERE clause
+  const conditions = [];
+  const params = [];
+  if (folder) { conditions.push('filename LIKE ? ESCAPE ?'); params.push(folder + '/%', '\\'); }
+  if (starred) { conditions.push('starred = 1'); }
+
+  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
   const files = db.prepare(`
     SELECT ${FILE_FIELDS} FROM files
-    ${folder ? 'WHERE filename LIKE ? ESCAPE ?' : ''}
+    ${where}
     ORDER BY ${safeSort} ${safeOrder}
     LIMIT ? OFFSET ?
-  `).all(...(folder ? [folder + '/%', '\\'] : []), limit, offset);
+  `).all(...params, limit, offset);
 
-  const total = db.prepare(
-    `SELECT COUNT(*) as count FROM files ${folder ? 'WHERE filename LIKE ? ESCAPE ?' : ''}`
-  ).get(...(folder ? [folder + '/%', '\\'] : [])).count;
+  const total = db.prepare(`SELECT COUNT(*) as count FROM files ${where}`).get(...params).count;
   return { files, total };
 }
 

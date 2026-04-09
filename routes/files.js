@@ -15,12 +15,13 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     const sort = ['name', 'size', 'created_at', 'updated_at'].includes(query.sort) ? query.sort : 'created_at';
     const order = query.order === 'asc' ? 'ASC' : 'DESC';
     const folder = query.folder || null;
-    const { files, total } = db.listFiles(limit, offset, sort, order, folder);
-    db.addAuditLog('list_files', `Total: ${total}, sort: ${sort} ${order}${folder ? ', folder: ' + folder : ''}`, getClientIp(req), authData.token);
+    const starred = query.starred === '1' || query.starred === 'true';
+    const { files, total } = db.listFiles(limit, offset, sort, order, folder, starred);
+    db.addAuditLog('list_files', `Total: ${total}, sort: ${sort} ${order}${folder ? ', folder: ' + folder : ''}${starred ? ', starred: true' : ''}`, getClientIp(req), authData.token);
     sendJson(res, { success: true, files: files.map(f => ({
       id: f.id, name: f.filename, size: f.size, time: f.created_at * 1000,
       updatedAt: f.updated_at * 1000,
-      type: f.type, hash: f.hash, tags: f.tags
+      type: f.type, hash: f.hash, tags: f.tags, starred: f.starred
     }))});
     return true;
   }

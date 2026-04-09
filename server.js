@@ -445,6 +445,7 @@ const I18N = {
     'ui.of': '页，共',
     'ui.search': '搜索',
     'ui.filterAll': '全部',
+    'ui.filterStarred': '收藏',
     'ui.filterText': '文字',
     'ui.filterFile': '文件',
     'ui.selectedN': '已选择 {n} 个文件',
@@ -465,6 +466,18 @@ const I18N = {
     'ui.sortTagAZ': '标签 A-Z',
     'ui.sortTagZA': '标签 Z-A',
     'ui.allFiles': '所有文件',
+    'ui.trash': '回收站',
+    'ui.trashEmpty': '清空回收站',
+    'ui.trashRestore': '恢复',
+    'ui.trashPermanentDelete': '永久删除',
+    'ui.trashEmptyConfirm': '确定清空回收站？此操作不可恢复！',
+    'ui.trashEmptyTitle': '回收站（30天后自动清理）',
+    'ui.trashEmptyInfo': '选中项目将被永久删除',
+    'ui.trashEmptySuccess': '已清空回收站',
+    'ui.trashRestoreSuccess': '已恢复到: ',
+    'ui.trashRestoreFailed': '恢复失败',
+    'ui.trashDeleteSuccess': '已永久删除',
+    'ui.trashNoItems': '回收站为空',
     'ui.noResults': '未找到匹配结果',
     'ui.tryOtherKeywords': '试试其他关键词或清除筛选',
     'ui.shortcuts': '快捷键',
@@ -841,6 +854,7 @@ const I18N = {
     'ui.of': 'of',
     'ui.search': 'Search',
     'ui.filterAll': 'All',
+    'ui.filterStarred': 'Starred',
     'ui.filterText': 'Text',
     'ui.filterFile': 'File',
     'ui.selectedN': '{n} files selected',
@@ -861,6 +875,18 @@ const I18N = {
     'ui.sortTagAZ': 'Tag A-Z',
     'ui.sortTagZA': 'Tag Z-A',
     'ui.allFiles': 'All files',
+    'ui.trash': 'Trash',
+    'ui.trashEmpty': 'Empty Trash',
+    'ui.trashRestore': 'Restore',
+    'ui.trashPermanentDelete': 'Delete Forever',
+    'ui.trashEmptyConfirm': 'Empty trash? This cannot be undone!',
+    'ui.trashEmptyTitle': 'Trash (auto-cleanup after 30 days)',
+    'ui.trashEmptyInfo': 'Selected items will be permanently deleted',
+    'ui.trashEmptySuccess': 'Trash emptied',
+    'ui.trashRestoreSuccess': 'Restored: ',
+    'ui.trashRestoreFailed': 'Restore failed',
+    'ui.trashDeleteSuccess': 'Permanently deleted',
+    'ui.trashNoItems': 'Trash is empty',
     'ui.shortcuts': 'Shortcuts',
     'ui.shortcutHelp': '? View shortcuts',
     'ui.shortcutNewUpload': 'N Upload',
@@ -3335,6 +3361,16 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <div id="versionsContent" style="font-size:13px;"></div>
       </div>
     </div>
+
+    <div class="qr-modal-overlay" id="trashModal" onclick="if(event.target===this)closeTrashModal()">
+      <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:560px;width:90%;max-height:80vh;overflow-y:auto;text-align:left;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <div style="font-size:18px;font-weight:600;">' + T('ui.trashEmptyTitle') + '</div>
+          <button class="btn btn-sm" onclick="closeTrashModal()">✕</button>
+        </div>
+        <div id="trashContent" style="font-size:13px;"></div>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -3360,6 +3396,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div id="listAlert" class="alert"></div>
     <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ ' + T('fav.favorite') + '</button>
     <button class="fav-filter-btn" onclick="showFavoritesManager()">☰ ' + T('fav.favorites') + '</button>
+    <button class="fav-filter-btn" onclick="showTrashModal()">🗑 ' + T('ui.trash') + '</button>
 
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-wrapper">
@@ -3372,6 +3409,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <div class="filter-tabs">
       <span class="filter-tab active" data-filter="all">' + T('ui.filterAll') + '</span>
+      <span class="filter-tab" data-filter="starred">' + T('ui.filterStarred') + '</span>
       <span class="filter-tab" data-filter="text">' + T('ui.filterText') + '</span>
       <span class="filter-tab" data-filter="file">' + T('ui.filterFile') + '</span>
     </div>
@@ -6334,6 +6372,81 @@ async function showFileVersions(filename) {
 function closeVersionsModal() {
   document.getElementById('versionsModal').classList.remove('show');
   window._versionsFilename = null;
+}
+
+async function showTrashModal() {
+  const res = await fetch(API + '/api/trash', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+  const data = await res.json();
+  if (!data.success) {
+    showToast(T('ui.trashRestoreFailed'), 'error');
+    return;
+  }
+  const trash = data.trash || [];
+  let html = '';
+  if (trash.length === 0) {
+    html = '<div style="color:var(--text-muted);text-align:center;padding:20px;">' + T('ui.trashNoItems') + '</div>';
+  } else {
+    html = '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">';
+    for (const item of trash) {
+      const ts = new Date(item.deleted_at * 1000).toLocaleString('zh-CN');
+      const size = item.size > 0 ? (item.size / 1024).toFixed(1) + ' KB' : '';
+      const expiresIn = Math.max(0, Math.ceil((item.expires_at - Math.floor(Date.now() / 1000)) / 86400));
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg-secondary);border-radius:8px;">' +
+        '<div style="flex:1;min-width:0;">' +
+        '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(item.filename) + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);">' + ts + (size ? ' · ' + size : '') + ' · ' + T('ui.trash').replace('回收站', '') + expiresIn + '天后自动删除</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-shrink:0;">' +
+        '<button class="btn btn-sm" onclick="restoreTrashItem(' + item.id + ')">' + T('ui.trashRestore') + '</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="permanentDeleteTrashItem(' + item.id + ')">' + T('ui.trashPermanentDelete') + '</button>' +
+        '</div>' +
+        '</div>';
+    }
+    html += '</div>';
+    html += '<div style="text-align:center;margin-top:12px;"><button class="btn btn-sm btn-danger" onclick="emptyTrash()">' + T('ui.trashEmpty') + '</button></div>';
+  }
+  document.getElementById('trashContent').innerHTML = html;
+  document.getElementById('trashModal').classList.add('show');
+}
+
+function closeTrashModal() {
+  document.getElementById('trashModal').classList.remove('show');
+}
+
+async function restoreTrashItem(id) {
+  const res = await fetch(API + '/api/trash/' + id + '/restore', { method: 'POST', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+  const data = await res.json();
+  if (data.success) {
+    showToast(T('ui.trashRestoreSuccess') + data.filename);
+    showTrashModal();
+    loadFiles();
+  } else {
+    showToast(T('ui.trashRestoreFailed') + ': ' + (data.error || ''), 'error');
+  }
+}
+
+async function permanentDeleteTrashItem(id) {
+  if (!confirm(T('ui.trashEmptyConfirm'))) return;
+  const res = await fetch(API + '/api/trash/' + id, { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+  const data = await res.json();
+  if (data.success) {
+    showToast(T('ui.trashDeleteSuccess'));
+    showTrashModal();
+  } else {
+    showToast(T('ui.trashRestoreFailed'), 'error');
+  }
+}
+
+async function emptyTrash() {
+  if (!confirm(T('ui.trashEmptyConfirm'))) return;
+  const res = await fetch(API + '/api/trash', { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+  const data = await res.json();
+  if (data.success) {
+    showToast(T('ui.trashEmptySuccess'));
+    closeTrashModal();
+  } else {
+    showToast(T('ui.trashRestoreFailed'), 'error');
+  }
 }
 
 async function previewVersion(versionId) {
