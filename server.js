@@ -1832,10 +1832,17 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 
 @media (max-width: 500px) {
   .container { padding: 12px; padding-bottom: max(100px, calc(100px + env(safe-area-inset-bottom))); }
+  .hero { padding: 16px; }
+  .hero-content { display: none; /* hide marketing text on mobile, just show title */ }
+  .hero-title { font-size: 15px; }
+  .hero-features { display: none; }
+  .hero-desc { display: none; }
+  .fab-menu { bottom: max(90px, calc(90px + env(safe-area-inset-bottom))); right: 16px; }
   .actions { flex-direction: column; }
   .btn { width: 100%; text-align: center; min-height: 44px; /* touch target */ }
   .file-actions { justify-content: flex-start; flex-wrap: wrap; }
-  .file-item { flex-direction: column; min-height: 60px; }
+  .file-item { flex-direction: column; min-height: 60px; padding: 16px; }
+  .file-item .file-name { font-size: 15px; }
   .file-actions .btn { width: auto; flex: 1; min-width: 60px; text-align: center; font-size: 12px; padding: 10px 10px; min-height: 44px; /* touch target */ }
   .setting-row { flex-direction: column; align-items: stretch; }
   .setting-row label { min-width: auto; }
@@ -4610,6 +4617,50 @@ function getFileIcon(filename) {
 init();
 </script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<!-- FAB: Mobile-friendly upload button -->
+<div class="fab" id="fabMain" style="position:fixed;bottom:max(24px,env(safe-area-inset-bottom));right:24px;width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;box-shadow:0 4px 16px rgba(102,126,234,0.4);cursor:pointer;z-index:100;display:none;" onclick="fabClicked()">
+  <span style="font-size:24px;color:white;">+</span>
+</div>
+<div class="fab-menu" id="fabMenu">
+  <button class="btn" onclick="fabUpload()" title="上传文件">📤</button>
+  <button class="btn" onclick="fabText()" title="分享文字">📝</button>
+</div>
+
+<script>
+// FAB for mobile - triggers file input on click
+function fabClicked() {
+  const menu = document.getElementById('fabMenu');
+  const isHidden = menu.style.display === 'none' || !menu.classList.contains('show');
+  if (isHidden) {
+    menu.classList.add('show');
+    document.getElementById('fabMain').style.transform = 'rotate(45deg)';
+  } else {
+    menu.classList.remove('show');
+    document.getElementById('fabMain').style.transform = '';
+  }
+}
+function fabUpload() {
+  document.getElementById('fileInput').click();
+  fabClicked(); // close menu
+}
+function fabText() {
+  document.getElementById('textContent').focus();
+  fabClicked(); // close menu
+}
+// Show FAB on mobile, hide on desktop
+function updateFabVisibility() {
+  const fab = document.getElementById('fabMain');
+  if (window.innerWidth <= 500) {
+    fab.style.display = 'flex';
+  } else {
+    fab.style.display = 'none';
+  }
+}
+window.addEventListener('resize', updateFabVisibility);
+window.addEventListener('DOMContentLoaded', updateFabVisibility);
+</script>
+
 </body>
 </html>`;
 

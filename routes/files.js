@@ -752,5 +752,61 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/file-copy - 复制单个文件
+  if (pathname === '/api/file-copy' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { sourceFilename, newFilename } = JSON.parse(body);
+        if (!sourceFilename || !newFilename) {
+          sendJson(res, { success: false, error: 'sourceFilename 和 newFilename 必填' }, 400);
+          return;
+        }
+        const result = db.copyFile(sourceFilename, newFilename);
+        if (!result.success) {
+          sendJson(res, { success: false, error: result.error }, 400);
+          return;
+        }
+        broadcastChange({ type: 'file_copy', filename: newFilename, hash: result.hash, size: result.size });
+        db.addAuditLog('copy', `${sourceFilename} → ${newFilename}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, filename: newFilename, hash: result.hash, size: result.size });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // POST /api/folder/copy - 复制虚拟文件夹（所有匹配前缀的文件）
+  if (pathname === '/api/folder/copy' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { sourcePrefix, destPrefix } = JSON.parse(body);
+        if (!sourcePrefix || !destPrefix) {
+          sendJson(res, { success: false, error: 'sourcePrefix 和 destPrefix 必填' }, 400);
+          return;
+        }
+        if (sourcePrefix === destPrefix) {
+          sendJson(res, { success: false, error: '目标路径不能与源路径相同' }, 400);
+          return;
+        }
+        const result = db.copyFilesByPrefix(sourcePrefix, destPrefix);
+        broadcastChange({ type: 'bulk_copy', sourcePrefix, destPrefix, count: result.copied });
+        db.addAuditLog('copy_folder', `Copied ${result.copied} files from ${sourcePrefix} to ${destPrefix}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, copied: result.copied });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };

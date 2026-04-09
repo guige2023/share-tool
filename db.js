@@ -513,8 +513,8 @@ function copyFile(sourceFilename, newFilename) {
   // 插入新记录，内容/哈希/size 相同，但 filename 和时间戳不同
   const now = Math.floor(Date.now() / 1000);
   const stmt = db.prepare(`
-    INSERT INTO files (filename, content, type, size, hash, created_at, updated_at, tags, starred, encrypted, share_count)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+    INSERT INTO files (filename, content, type, size, hash, created_at, updated_at, tags, encrypted, content_type)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
     newFilename,
@@ -525,8 +525,8 @@ function copyFile(sourceFilename, newFilename) {
     source.created_at,  // 保留源文件的创建时间
     now,                // 但更新时间是复制时刻
     source.tags,
-    source.starred || 0,
-    source.encrypted || 0
+    source.encrypted || 0,
+    source.content_type || 'application/octet-stream'
   );
 
   const newId = result.lastInsertRowid;

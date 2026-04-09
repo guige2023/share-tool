@@ -308,6 +308,7 @@ async function main() {
     console.log('  upload-dir <dir>  Upload all files in a directory');
     console.log('  download <name> [-o dir]  Download a file');
     console.log('  delete <name>  Delete a file');
+    console.log('  copy <src> <dest>  Copy a file to a new name');
     console.log('  batch-delete <name1> [name2] ...  Delete multiple files');
     console.log('  search <query> Search files');
     console.log('  share <text>   Share text snippet');
@@ -391,6 +392,25 @@ async function main() {
           process.exit(1);
         }
         const res = await request('DELETE', `/delete/${encodeURIComponent(name)}`);
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          printJson(res.data);
+          process.exit(1);
+        }
+        printJson(res.data);
+        break;
+      }
+
+      case 'copy': {
+        const source = args[1];
+        const dest = args[2];
+        if (!source || !dest) {
+          printError('Usage: copy <sourceFilename> <newFilename>');
+          process.exit(1);
+        }
+        const res = await request('POST', '/api/file-copy', {
+          body: JSON.stringify({ sourceFilename: source, newFilename: dest })
+        });
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
           printJson(res.data);
