@@ -802,5 +802,43 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/file-meta/:filename - 获取文件完整元数据
+  if (pathname.match(/^\/api\/file-meta\/[^/]+$/) && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(pathname.slice('/api/file-meta/'.length));
+    const file = db.getFileByName(filename);
+    if (!file) {
+      sendJson(res, { success: false, error: '文件不存在' }, 404);
+      return true;
+    }
+    const versionCount = db.getFileVersionCount(file.id);
+    // 检查是否有活跃的分享链接
+    const shareLinks = db.listShareLinks(file.filename);
+    const activeShare = shareLinks.filter(l => !l.expired);
+    sendJson(res, {
+      success: true,
+      meta: {
+        id: file.id,
+        filename: file.filename,
+        size: file.size,
+        hash: file.hash,
+        type: file.type,
+        tags: file.tags,
+        encrypted: file.encrypted,
+        createdAt: file.created_at * 1000,
+        updatedAt: file.updated_at * 1000,
+        versionCount,
+        shareCount: activeShare.length,
+        shareLinks: activeShare.map(l => ({
+          code: l.code,
+          expiresAt: l.expires_at,
+          hasPassword: l.hasPassword
+        }))
+      }
+    });
+    return true;
+  }
+
   return false;
 };

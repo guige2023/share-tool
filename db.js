@@ -757,6 +757,11 @@ function deleteFileVersion(versionId) {
   db.prepare('DELETE FROM file_versions WHERE id = ?').run(versionId);
 }
 
+function getFileVersionCount(fileId) {
+  const db = getDb();
+  return db.prepare('SELECT COUNT(*) as count FROM file_versions WHERE file_id = ?').get(fileId).count;
+}
+
 function pruneFileVersions(fileId, keepCount = 10) {
   // 保留最近 keepCount 个版本，删除更旧的
   const db = getDb();
@@ -1469,7 +1474,7 @@ module.exports = {
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, getAllTags,
   // 文件版本历史
-  saveFileVersion, listFileVersions, getFileVersion, deleteFileVersion, pruneFileVersions,
+  saveFileVersion, listFileVersions, getFileVersion, getFileVersionCount, deleteFileVersion, pruneFileVersions,
   // 分片上传
   initChunkUpload, getChunkUpload, addChunkReceived, getChunkUploadStatus, deleteChunkUpload, getIncompleteUpload
 };

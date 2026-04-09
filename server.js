@@ -138,6 +138,7 @@ const I18N = {
     'file.view': '查看',
     'file.play': '播放',
     'file.history': '历史',
+    'file.info': '详情',
     'file.addTag': '添加标签',
     'file.dblclickRename': '双击重命名',
     'file.enterFolder': '点击进入文件夹',
@@ -398,6 +399,23 @@ const I18N = {
     'ui.share': '分享',
     'ui.clear': '清空',
     'ui.close': '关闭',
+    'fileInfo.basic': '基本信息',
+    'fileInfo.tags': '标签',
+    'fileInfo.share': '分享链接',
+    'fileInfo.size': '大小',
+    'fileInfo.type': '类型',
+    'fileInfo.hash': '哈希',
+    'fileInfo.encrypted': '加密',
+    'fileInfo.created': '创建时间',
+    'fileInfo.updated': '修改时间',
+    'fileInfo.versions': '历史版本',
+    'fileInfo.shareCount': '活跃链接',
+    'fileInfo.noShares': '暂无分享链接',
+    'fileInfo.yes': '是',
+    'fileInfo.no': '否',
+    'fileInfo.loading': '加载中...',
+    'fileInfo.copyHash': '复制哈希',
+    'fileInfo.openVersions': '查看历史',
     'ui.copyLink': '复制链接',
     'ui.qrCode': '二维码',
     'ui.shareQR': '分享二维码',
@@ -765,6 +783,23 @@ const I18N = {
     'ui.share': 'Share',
     'ui.clear': 'Clear',
     'ui.close': 'Close',
+    'fileInfo.basic': 'Basic Info',
+    'fileInfo.tags': 'Tags',
+    'fileInfo.share': 'Share Links',
+    'fileInfo.size': 'Size',
+    'fileInfo.type': 'Type',
+    'fileInfo.hash': 'Hash',
+    'fileInfo.encrypted': 'Encrypted',
+    'fileInfo.created': 'Created',
+    'fileInfo.updated': 'Modified',
+    'fileInfo.versions': 'Version History',
+    'fileInfo.shareCount': 'Active Links',
+    'fileInfo.noShares': 'No share links',
+    'fileInfo.yes': 'Yes',
+    'fileInfo.no': 'No',
+    'fileInfo.loading': 'Loading...',
+    'fileInfo.copyHash': 'Copy Hash',
+    'fileInfo.openVersions': 'View History',
     'ui.confirmDelete': 'Confirm delete',
     'ui.copyLink': 'Copy Link',
     'ui.qrCode': 'QR Code',
@@ -2785,6 +2820,128 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .progress-bar { background: var(--bg-secondary); }
 [data-theme="dark"] .file-upload-area { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="dark"] .file-preview { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
+
+/* ============================================================ */
+/* File Info Side Panel */
+/* ============================================================ */
+#fileInfoPanel {
+  position: fixed;
+  top: 0; right: 0;
+  width: 320px;
+  max-width: 90vw;
+  height: 100dvh;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+  z-index: 400;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#fileInfoPanel.open {
+  transform: translateX(0);
+  box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+}
+.file-info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  flex-shrink: 0;
+}
+.file-info-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.file-info-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+  line-height: 1;
+}
+.file-info-close:hover { color: var(--text-primary); }
+.file-info-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+.file-info-section {
+  margin-bottom: 20px;
+}
+.file-info-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.file-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 12px;
+}
+.file-info-row:last-child { border-bottom: none; }
+.file-info-label { color: var(--text-muted); }
+.file-info-value {
+  color: var(--text-secondary);
+  font-family: monospace;
+  font-size: 11px;
+  text-align: right;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-info-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.file-info-share-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+.file-info-share-url {
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+.file-info-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+}
+
 /* iOS Safari 100vh fix: use 100dvh for dynamic viewport height */
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100dvh; overscroll-behavior: none; /* prevent pull-to-refresh on mobile */ -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
 /* iOS safe-area support for notch/Dynamic Island devices */
@@ -3956,6 +4113,16 @@ function getTagStyle(tagName) {
   return '';
 }
 
+function getContrastColor(hexColor) {
+  if (!hexColor || !hexColor.startsWith('#') || hexColor.length !== 7) return '#000';
+  const r = parseInt(hexColor.slice(1,3), 16);
+  const g = parseInt(hexColor.slice(3,5), 16);
+  const b = parseInt(hexColor.slice(5,7), 16);
+  // Relative luminance formula
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000' : '#fff';
+}
+
 function navigateFolder(folder) {
   loadFiles(folder);
 }
@@ -4188,6 +4355,7 @@ function renderFiles() {
         (!isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">' + T('file.download') + '</button>' : '') +
         (!isVirtualFolder ? '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">' + T('file.share') + '</button>' : '') +
         (!isVirtualFolder ? '<button class="btn btn-sm" onclick="showFileVersions(\'' + encodeURIComponent(f.name) + '\')">' + T('file.history') + '</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="openFileInfoPanel(\'' + encodeURIComponent(f.name) + '\')">ℹ️ ' + T('file.info') + '</button>' : '') +
         (!isVirtualFolder ? '<span class="file-star" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">☆</span>' : '') +
         '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">' + T('tag.delete') + '</button>' +
       '</div>' +
@@ -4558,6 +4726,123 @@ function handleFolderItemClick(folderName) {
   const targetFolder = currentFolder ? currentFolder + '/' + folderName : folderName;
   navigateFolder(targetFolder);
 }
+
+// ============================================================
+// File Info Side Panel
+// ============================================================
+let currentFileInfoPanel = null;
+
+function openFileInfoPanel(filename) {
+  currentFileInfoPanel = filename;
+  const panel = document.getElementById('fileInfoPanel');
+  const title = document.getElementById('fileInfoPanelTitle');
+  const body = document.getElementById('fileInfoBody');
+  if (!panel) return;
+
+  title.textContent = filename;
+  body.innerHTML = '<div class="file-info-loading">' + T('fileInfo.loading') + '</div>';
+  panel.classList.add('open');
+  lockScroll();
+
+  // Fetch metadata
+  fetch(API + '/api/file-meta/' + encodeURIComponent(filename), {
+    headers: { 'x-auth-token': AUTH_TOKEN || '' }
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) {
+        body.innerHTML = '<div style="color:var(--danger);padding:16px;">' + (data.error || 'Error') + '</div>';
+        return;
+      }
+      renderFileInfoContent(data.meta);
+    })
+    .catch(() => {
+      body.innerHTML = '<div style="color:var(--danger);padding:16px;">加载失败</div>';
+    });
+}
+
+function closeFileInfoPanel() {
+  const panel = document.getElementById('fileInfoPanel');
+  if (panel) panel.classList.remove('open');
+  unlockScroll();
+  currentFileInfoPanel = null;
+}
+
+function renderFileInfoContent(meta) {
+  const body = document.getElementById('fileInfoBody');
+  if (!body) return;
+
+  const tags = meta.tags ? meta.tags.split(',').filter(t => t.trim()) : [];
+  const createdDate = meta.createdAt ? new Date(meta.createdAt).toLocaleString() : '--';
+  const updatedDate = meta.updatedAt ? new Date(meta.updatedAt).toLocaleString() : '--';
+
+  let html = '';
+
+  // Basic info section
+  html += '<div class="file-info-section">';
+  html += '<div class="file-info-section-title">' + T('fileInfo.basic') + '</div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.size') + '</span><span class="file-info-value">' + formatSize(meta.size) + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.type') + '</span><span class="file-info-value">' + (meta.type || 'file') + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.encrypted') + '</span><span class="file-info-value">' + (meta.encrypted ? T('fileInfo.yes') : T('fileInfo.no')) + '</span></div>';
+  html += '<div class="file-info-row" style="flex-direction:column;align-items:flex-start;gap:4px;">';
+  html += '<span class="file-info-label" style="margin-bottom:2px;">' + T('fileInfo.hash') + '</span>';
+  html += '<span class="file-info-value" style="max-width:100%;font-size:10px;word-break:break-all;">' + (meta.hash || '--') + '</span>';
+  html += '</div>';
+  html += '</div>';
+
+  // Timestamps
+  html += '<div class="file-info-section">';
+  html += '<div class="file-info-section-title">' + T('fileInfo.versions') + '</div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.created') + '</span><span class="file-info-value" style="font-size:10px;">' + createdDate + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.updated') + '</span><span class="file-info-value" style="font-size:10px;">' + updatedDate + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.versions') + '</span><span class="file-info-value">' + meta.versionCount + ' <button class="btn btn-sm" style="margin-left:8px;font-size:10px;padding:2px 8px;" onclick="closeFileInfoPanel();showFileVersions(\'' + encodeURIComponent(meta.filename) + '\')">' + T('fileInfo.openVersions') + '</button></span></div>';
+  html += '</div>';
+
+  // Tags
+  if (tags.length > 0 || true) {
+    html += '<div class="file-info-section">';
+    html += '<div class="file-info-section-title">' + T('fileInfo.tags') + '</div>';
+    if (tags.length > 0) {
+      html += '<div class="file-info-tags">';
+      for (const tag of tags) {
+        const color = getTagColor(tag.trim());
+        html += '<span class="file-tag" style="background:' + color + ';color:' + getContrastColor(color) + ';padding:2px 8px;border-radius:10px;font-size:11px;">' + escapeHtml(tag.trim()) + '</span>';
+      }
+      html += '</div>';
+    } else {
+      html += '<div style="color:var(--text-muted);font-size:12px;">--</div>';
+    }
+    html += '</div>';
+  }
+
+  // Share links
+  html += '<div class="file-info-section">';
+  html += '<div class="file-info-section-title">' + T('fileInfo.share') + ' (' + meta.shareCount + ')</div>';
+  if (meta.shareLinks && meta.shareLinks.length > 0) {
+    for (const link of meta.shareLinks) {
+      const shareUrl = location.origin + '/s/' + link.code;
+      html += '<div class="file-info-share-item">';
+      html += '<div class="file-info-share-url" title="' + escapeHtml(shareUrl) + '">' + escapeHtml(shareUrl) + '</div>';
+      html += '<div style="display:flex;gap:4px;flex-shrink:0;">';
+      if (link.hasPassword) html += '<span style="font-size:10px;color:var(--warning);">🔑</span>';
+      html += '<button class="btn btn-sm" style="font-size:10px;padding:2px 6px;" onclick="copyText(\'' + escapeHtml(shareUrl) + '\')">📋</button>';
+      html += '</div></div>';
+    }
+  } else {
+    html += '<div style="color:var(--text-muted);font-size:12px;">' + T('fileInfo.noShares') + '</div>';
+  }
+  html += '</div>';
+
+  body.innerHTML = html;
+}
+
+// Click outside panel to close
+document.addEventListener('click', function(e) {
+  const panel = document.getElementById('fileInfoPanel');
+  if (panel && panel.classList.contains('open') && !panel.contains(e.target)) {
+    closeFileInfoPanel();
+  }
+});
 
 function closeModal() {
   unlockScroll();
@@ -6727,6 +7012,17 @@ function updateFabVisibility() {
 window.addEventListener('resize', updateFabVisibility);
 window.addEventListener('DOMContentLoaded', updateFabVisibility);
 </script>
+
+<!-- File Info Side Panel -->
+<div id="fileInfoPanel">
+  <div class="file-info-header">
+    <h3 id="fileInfoPanelTitle"></h3>
+    <button class="file-info-close" onclick="closeFileInfoPanel()">×</button>
+  </div>
+  <div class="file-info-body" id="fileInfoBody">
+    <div class="file-info-loading">加载中...</div>
+  </div>
+</div>
 
 </body>
 </html>`;
