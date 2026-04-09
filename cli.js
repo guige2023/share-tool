@@ -918,6 +918,39 @@ async function main() {
         break;
       }
 
+      case 'trash': {
+        // trash [list|restore|delete|empty]
+        const sub = args[1] || 'list';
+        if (sub === 'list') {
+          const res = await request('GET', '/api/trash');
+          if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
+          const { trash } = res.data;
+          if (!trash || trash.length === 0) { console.log('Trash is empty.'); break; }
+          console.log(`Trash (${trash.length} item(s)):`);
+          trash.forEach(t => {
+            const d = new Date(t.deleted_at * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+            const exp = new Date(t.expires_at * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+            console.log(`  [${t.id}] ${t.filename} — deleted ${d}, expires ${exp}`);
+          });
+        } else if (sub === 'empty') {
+          const res = await request('DELETE', '/api/trash');
+          if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
+          console.log('Trash emptied.');
+        } else if (sub === 'restore' || sub === 'delete') {
+          const id = parseInt(args[2]);
+          if (!id) { printError('Usage: share-tool trash ' + sub + ' <id>'); process.exit(1); }
+          const res = sub === 'restore'
+            ? await request('POST', '/api/trash/' + id + '/restore')
+            : await request('DELETE', '/api/trash/' + id);
+          if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
+          console.log(sub === 'restore' ? 'Restored.' : 'Deleted permanently.');
+        } else {
+          printError('Usage: share-tool trash [list|restore <id>|delete <id>|empty]');
+          process.exit(1);
+        }
+        break;
+      }
+
       case 'diff': {
         // Usage: share-tool diff <filename> [v1_timestamp] [v2_timestamp]
         // Without timestamps: shows version list to pick from
