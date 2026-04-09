@@ -122,3 +122,28 @@
 [ShareTool] WebSocket: ws://192.168.1.192:18791
 [ShareTool] Discovery: udp://192.168.1.192:18792
 [Discovery] UDP server on port 18792
+[DB] Schema version: 3 → 3
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T11:44:42.901Z","service":"sharetool","pid":21808,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T11:44:42.906Z","service":"sharetool","pid":21808,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T11:44:42.906Z","service":"sharetool","pid":21808,"msg":"[HTTP] Server listening on http://192.168.1.192:18790 (plain)"}
+{"level":30,"time":"2026-04-09T11:44:42.907Z","service":"sharetool","pid":21808,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T11:44:42.907Z","service":"sharetool","pid":21808,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T11:44:42.907Z","service":"sharetool","pid":21808,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T11:44:42.907Z","service":"sharetool","pid":21808,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T11:44:42.907Z","service":"sharetool","pid":21808,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T11:44:42.907Z","service":"sharetool","pid":21808,"msg":"[Discovery] UDP server on port 18792"}
+{"level":50,"time":"2026-04-09T11:45:03.600Z","service":"sharetool","pid":21808,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:915:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}
+[DB] Schema version: 3 → 3
+[DB] Database ready at /Users/guige/.share-tool/share-tool.db
+{"level":30,"time":"2026-04-09T11:45:16.024Z","service":"sharetool","pid":22037,"msg":"[HTTPS] Certificate valid for 365 days (expires: Apr  8 15:23:36 2027 GMT)"}
+{"level":30,"time":"2026-04-09T11:45:16.030Z","service":"sharetool","pid":22037,"msg":"[HTTPS] Server listening on https://192.168.1.192:18793"}
+{"level":30,"time":"2026-04-09T11:45:16.030Z","service":"sharetool","pid":22037,"msg":"[HTTP] Server listening on http://192.168.1.192:18790 (plain)"}
+{"level":30,"time":"2026-04-09T11:45:16.030Z","service":"sharetool","pid":22037,"msg":"[WS] WebSocket server on ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T11:45:16.030Z","service":"sharetool","pid":22037,"msg":"[ShareTool] Device ID: 214463885e7decb85420e0bd09127a83"}
+{"level":30,"time":"2026-04-09T11:45:16.030Z","service":"sharetool","pid":22037,"msg":"[ShareTool] HTTP: http://192.168.1.192:18790"}
+{"level":30,"time":"2026-04-09T11:45:16.030Z","service":"sharetool","pid":22037,"msg":"[ShareTool] WebSocket: ws://192.168.1.192:18791"}
+{"level":30,"time":"2026-04-09T11:45:16.030Z","service":"sharetool","pid":22037,"msg":"[ShareTool] Discovery: udp://192.168.1.192:18792"}
+{"level":30,"time":"2026-04-09T11:45:16.030Z","service":"sharetool","pid":22037,"msg":"[Discovery] UDP server on port 18792"}
+{"level":50,"time":"2026-04-09T11:45:17.532Z","service":"sharetool","pid":22037,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:931:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}
+{"level":50,"time":"2026-04-09T11:45:30.907Z","service":"sharetool","pid":22037,"err":{"type":"ReferenceError","message":"getFileIcon is not defined","stack":"ReferenceError: getFileIcon is not defined\n    at Server.requestHandler (/Users/guige/share-tool/server.js:931:27)\n    at Server.emit (node:events:519:28)\n    at parserOnIncoming (node:_http_server:1186:12)\n    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)"},"msg":"HTTP error"}

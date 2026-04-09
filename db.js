@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 2; // 当前 Schema 版本
+const SCHEMA_VERSION = 3; // 当前 Schema 版本
 
 let db = null;
 
@@ -257,11 +257,39 @@ function initSchemaV2(db) {
   }
 }
 
+function initSchemaV3(db) {
+  // v3 新增：rate_limit 表（暴力破解防护）
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS rate_limit (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        key           TEXT    NOT NULL UNIQUE,
+        attempts      INTEGER NOT NULL DEFAULT 0,
+        locked_until  INTEGER,
+        last_attempt  INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `);
+    console.log('[DB] Migrated: rate_limit table');
+  } catch (e) {
+    if (!e.message.includes('duplicate table')) throw e;
+  }
+
+  // v3 新增：idx_files_filename 索引（搜索优化）
+  try {
+    db.exec('CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename)');
+    console.log('[DB] Migrated: idx_files_filename index');
+  } catch (e) {
+    if (!e.message.includes('duplicate index')) throw e;
+  }
+}
+
 function runMigrations(db, fromVersion) {
   console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
   for (let v = fromVersion + 1; v <= SCHEMA_VERSION; v++) {
     if (v === 2) {
       initSchemaV2(db);
+    } else if (v === 3) {
+      initSchemaV3(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }

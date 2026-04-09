@@ -27,5 +27,8 @@
     "selfsigned": "^5.5.0",
     "uuid": "^13.0.0",
     "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0"
   }
 }

@@ -1,0 +1,47 @@
+# ShareTool Docker Compose
+# ========================
+# Usage:
+#   docker compose up -d          # Start in background
+#   docker compose logs -f        # View logs
+#   docker compose down            # Stop and remove
+#   docker compose up --build     # Rebuild after code changes
+
+version: "3.9"
+
+services:
+  sharetool:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sharetool:latest
+    container_name: sharetool
+    restart: unless-stopped
+    ports:
+      - "18790:18790"   # HTTP/HTTPS API
+      - "18791:18791"   # WebSocket sync
+    volumes:
+      # Persist SQLite database and uploads
+      sharetool-data:/data
+    environment:
+      SHARETOOL_PORT: 18790
+      SHARETOOL_WS_PORT: 18791
+      SHARETOOL_DB_PATH: /data/share-tool.db
+      SHARETOOL_LOG_LEVEL: info
+      SHARETOOL_HTTPS: "true"
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:18790/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - sharetool-net
+
+volumes:
+  sharetool-data:
+    driver: local
+
+networks:
+  sharetool-net:
+    driver: bridge
