@@ -24,6 +24,17 @@ function getConfig() {
   return {};
 }
 
+function saveConfig(updates) {
+  const config = getConfig();
+  const merged = { ...config, ...updates };
+  const dir = path.dirname(CONFIG_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2), 'utf8');
+  return merged;
+}
+
 function getServerUrl() {
   return process.env.SHARE_TOOL_URL || DEFAULT_URL;
 }
@@ -269,6 +280,11 @@ async function main() {
     console.log('  sync           Trigger sync push');
     console.log('  stats          Show storage stats');
     console.log('  token          Show current token');
+    console.log('  config         Show all config');
+    console.log('  config get <key>        Get a config value');
+    console.log('  config set <key> <value> Set a config value');
+    console.log('  config unset <key>       Remove a config value');
+    console.log('  config reset             Reset all config');
     process.exit(1);
   }
 
@@ -472,6 +488,77 @@ async function main() {
         console.log(`Tokens:   ${s.tokenCount || 0}`);
         console.log(`Shares:   ${s.shareCount || 0}`);
         console.log(`Devices:  ${s.deviceCount || 0}`);
+        break;
+      }
+
+      case 'config': {
+        const subCommand = args[1];
+        const config = getConfig();
+        if (!subCommand) {
+          // Show all config
+          console.log(`Config file: ${CONFIG_PATH}`);
+          if (Object.keys(config).length === 0) {
+            console.log('(no config set)');
+          } else {
+            console.log(JSON.stringify(config, null, 2));
+          }
+          break;
+        }
+        switch (subCommand) {
+          case 'get': {
+            const key = args[2];
+            if (!key) {
+              printError('Key required: config get <key>');
+              process.exit(1);
+            }
+            const val = config[key];
+            if (val === undefined) {
+              console.log(`${key}  (not set)`);
+            } else {
+              console.log(`${key} = ${val}`);
+            }
+            break;
+          }
+          case 'set': {
+            const key = args[2];
+            const value = args[3];
+            if (!key || value === undefined) {
+              printError('Usage: config set <key> <value>');
+              process.exit(1);
+            }
+            saveConfig({ [key]: value });
+            console.log(`${key} = ${value}`);
+            break;
+          }
+          case 'unset': {
+            const key = args[2];
+            if (!key) {
+              printError('Key required: config unset <key>');
+              process.exit(1);
+            }
+            const current = getConfig();
+            if (current[key] === undefined) {
+              console.log(`${key}  (not set, nothing to remove)`);
+            } else {
+              const { [key]: _, ...rest } = current;
+              const dir = path.dirname(CONFIG_PATH);
+              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+              fs.writeFileSync(CONFIG_PATH, JSON.stringify(rest, null, 2), 'utf8');
+              console.log(`Removed ${key}`);
+            }
+            break;
+          }
+          case 'reset': {
+            if (fs.existsSync(CONFIG_PATH)) {
+              fs.unlinkSync(CONFIG_PATH);
+            }
+            console.log('Config reset to empty');
+            break;
+          }
+          default:
+            printError(`Unknown config subcommand: ${subCommand}`);
+            process.exit(1);
+        }
         break;
       }
 
