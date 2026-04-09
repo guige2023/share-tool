@@ -13,9 +13,28 @@ import http from 'node:http';
 import https from 'node:https';
 import readline from 'node:readline';
 import { URL } from 'node:url';
+import { readFileSync, existsSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Configuration
-const SHARE_TOKEN = process.env.SHARE_TOKEN || '';
+// Try environment variable first, then fallback to config file
+let SHARE_TOKEN = process.env.SHARE_TOKEN || '';
+
+// Fallback: Read from ~/.share-tool/config.json
+if (!SHARE_TOKEN) {
+  const homeDir = process.env.HOME || dirname(fileURLToPath(import.meta.url));
+  const configPath = join(homeDir, '.share-tool', 'config.json');
+  if (existsSync(configPath)) {
+    try {
+      const config = JSON.parse(readFileSync(configPath, 'utf8'));
+      SHARE_TOKEN = config.shareToken || '';
+    } catch (e) {
+      // Ignore parse errors
+    }
+  }
+}
+
 const SHARE_HTTP_PORT = parseInt(process.env.SHARE_HTTP_PORT || '18790', 10);
 const SHARE_HTTPS_PORT = parseInt(process.env.SHARE_HTTPS_PORT || '18793', 10);
 const SHARE_HOST = process.env.SHARE_HOST || 'localhost';
@@ -120,11 +139,13 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_storage_info',
-    description: 'Get storage statistics (file count, total size)'
+    description: 'Get storage statistics (file count, total size)',
+    inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'list_share_links',
-    description: 'List all active share links'
+    description: 'List all active share links',
+    inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'delete_share_link',
@@ -139,7 +160,8 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_db_stats',
-    description: 'Get database statistics and health info'
+    description: 'Get database statistics and health info',
+    inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'get_audit_logs',
@@ -180,7 +202,8 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'list_tags',
-    description: 'List all tags with file counts'
+    description: 'List all tags with file counts',
+    inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'rename_file',
@@ -208,11 +231,13 @@ const TOOL_DEFINITIONS = [
   },
   {
     name: 'get_devices',
-    description: 'List all registered devices on the network'
+    description: 'List all registered devices on the network',
+    inputSchema: { type: 'object', properties: {} }
   },
   {
     name: 'get_sync_status',
-    description: 'Get synchronization status'
+    description: 'Get synchronization status',
+    inputSchema: { type: 'object', properties: {} }
   }
 ];
 
