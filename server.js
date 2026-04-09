@@ -1461,15 +1461,26 @@ const HTML_PAGE = `<!DOCTYPE html>
   --text-primary: #1e293b;
   --text-secondary: #475569;
   --text-muted: #64748b;
+  --accent-primary: #667eea;
+  --accent-secondary: #764ba2;
+  --success: #22c55e;
+  --danger: #dc2626;
+  --warning: #d97706;
 }
 [data-theme="dark"] {
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
+  --bg-hover: #1e293b;
   --border-color: #334155;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
+  --accent-primary: #667eea;
+  --accent-secondary: #764ba2;
+  --success: #22c55e;
+  --danger: #dc2626;
+  --warning: #d97706;
 }
 [data-theme="dark"] body { background: var(--bg-primary); }
 [data-theme="dark"] .card { background: var(--bg-secondary); border-color: var(--border-color); }
