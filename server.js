@@ -3135,7 +3135,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .file-name input.inline-rename { font-size: 14px; font-weight: 500; background: var(--bg-tertiary); border: 1px solid var(--accent-primary); border-radius: 4px; color: var(--text-primary); padding: 2px 6px; outline: none; width: 100%; }
 .file-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-.file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: var(--accent-primary); border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+.file-tag { font-size: 10px; padding: 4px 8px; background: rgba(102,126,234,0.2); color: var(--accent-primary); border-radius: 4px; cursor: pointer; transition: all 0.15s; min-height: 24px; /* touch target */ }
 .file-tag:hover { opacity: 0.85; }
 .file-tag .remove-tag { margin-left: 4px; opacity: 0.6; }
 .file-tag .remove-tag:hover { opacity: 1; }
