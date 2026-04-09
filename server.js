@@ -158,6 +158,62 @@ const I18N = {
     'err.reqFailed': '请求失败',
     'err.browserNotSupport': '您的浏览器不支持',
     'err.getLinkFailed': '获取分享链接失败',
+
+    // UI 状态文本
+    'ui.connecting': '连接中',
+    'ui.loading': '加载中...',
+    'ui.wsDisconnected': 'WS 未连接',
+    'ui.syncOffline': '同步离线',
+    'ui.devices': '设备',
+    'ui.heroTitle': '局域网文件/文字分享',
+    'ui.heroDesc': '同一 WiFi 网络下扫码访问，支持多设备同步。',
+    'ui.textShare': '文字分享',
+    'ui.fileUpload': '上传文件',
+    'ui.multiDeviceSync': '多设备同步',
+    'ui.searchFilter': '搜索过滤',
+    'ui.mobileAdapt': '移动适配',
+    'ui.pasteHint': '可直接 Ctrl+V 粘贴图片或文件',
+    'ui.share': '分享',
+    'ui.clear': '清空',
+    'ui.close': '关闭',
+    'ui.copyLink': '复制链接',
+    'ui.qrCode': '二维码',
+    'ui.shareQR': '分享二维码',
+    'ui.textareaPlaceholder': '输入文字、代码或粘贴内容...',
+    'ui.toggleTheme': '切换主题',
+    'ui.fileUpload': '上传文件',
+    'ui.dragDropHint': '拖拽文件到此处上传',
+    'ui.orUseButtons': '或继续使用下方按钮',
+    'ui.clickOrDrag': '点击或拖拽文件到此处',
+    'ui.supportFolderUpload': '支持文件和文件夹上传',
+    'ui.recentShares': '最近分享',
+    'ui.searchPlaceholder': '搜索文件名...',
+    'ui.filterByTag': '标签筛选',
+    'ui.clearFilter': '清除筛选',
+    'ui.selectAll': '全选',
+    'ui.deleteSelected': '删除选中',
+    'ui.noResults': '未找到匹配结果',
+    'ui.tryOtherKeywords': '尝试其他关键词或清除筛选',
+    'ui.items': '个文件',
+    'ui.page': '第',
+    'ui.of': '页，共',
+    'ui.search': '搜索',
+    'ui.filterAll': '全部',
+    'ui.filterText': '文字',
+    'ui.filterFile': '文件',
+    'ui.selectedN': '已选择 {n} 个文件',
+    'ui.batchDownload': '下载',
+    'ui.batchTag': '标签',
+    'ui.batchCopy': '复制',
+    'ui.batchDelete': '删除',
+    'ui.batchCancel': '取消',
+    'ui.sortBy': '排序',
+    'ui.sortNewest': '最新优先',
+    'ui.sortOldest': '最旧优先',
+    'ui.sortNameAZ': '名称 A-Z',
+    'ui.sortNameZA': '名称 Z-A',
+    'ui.sortLargest': '最大优先',
+    'ui.sortSmallest': '最小优先',
   },
 
   en: {
@@ -246,6 +302,62 @@ const I18N = {
     'err.reqFailed': 'Request failed',
     'err.browserNotSupport': 'Your browser does not support',
     'err.getLinkFailed': 'Failed to get share link',
+
+    // UI status texts
+    'ui.connecting': 'Connecting',
+    'ui.loading': 'Loading...',
+    'ui.wsDisconnected': 'WS Disconnected',
+    'ui.syncOffline': 'Sync offline',
+    'ui.devices': 'Devices',
+    'ui.heroTitle': 'LAN File & Text Sharing',
+    'ui.heroDesc': 'Scan QR code on the same WiFi network, multi-device sync supported.',
+    'ui.textShare': 'Text Share',
+    'ui.fileUpload': 'File Upload',
+    'ui.multiDeviceSync': 'Multi-device Sync',
+    'ui.searchFilter': 'Search & Filter',
+    'ui.mobileAdapt': 'Mobile Support',
+    'ui.pasteHint': 'Paste images or files with Ctrl+V',
+    'ui.share': 'Share',
+    'ui.clear': 'Clear',
+    'ui.close': 'Close',
+    'ui.copyLink': 'Copy Link',
+    'ui.qrCode': 'QR Code',
+    'ui.shareQR': 'Share QR Code',
+    'ui.textareaPlaceholder': 'Enter text, code or paste content...',
+    'ui.toggleTheme': 'Toggle theme',
+    'ui.fileUpload': 'File Upload',
+    'ui.dragDropHint': 'Drag & drop files here to upload',
+    'ui.orUseButtons': 'or use the buttons below',
+    'ui.clickOrDrag': 'Click or drag files here',
+    'ui.supportFolderUpload': 'Supports file and folder upload',
+    'ui.recentShares': 'Recent Shares',
+    'ui.searchPlaceholder': 'Search filenames...',
+    'ui.filterByTag': 'Filter by tag',
+    'ui.clearFilter': 'Clear filter',
+    'ui.selectAll': 'Select all',
+    'ui.deleteSelected': 'Delete selected',
+    'ui.noResults': 'No matching results',
+    'ui.tryOtherKeywords': 'Try other keywords or clear filter',
+    'ui.items': 'items',
+    'ui.page': 'Page',
+    'ui.of': 'of',
+    'ui.search': 'Search',
+    'ui.filterAll': 'All',
+    'ui.filterText': 'Text',
+    'ui.filterFile': 'File',
+    'ui.selectedN': '{n} files selected',
+    'ui.batchDownload': 'Download',
+    'ui.batchTag': 'Tag',
+    'ui.batchCopy': 'Copy',
+    'ui.batchDelete': 'Delete',
+    'ui.batchCancel': 'Cancel',
+    'ui.sortBy': 'Sort',
+    'ui.sortNewest': 'Newest first',
+    'ui.sortOldest': 'Oldest first',
+    'ui.sortNameAZ': 'Name A-Z',
+    'ui.sortNameZA': 'Name Z-A',
+    'ui.sortLargest': 'Largest first',
+    'ui.sortSmallest': 'Smallest first',
   },
 
   // 翻译函数
@@ -2240,43 +2352,43 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   <header>
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <h1>ShareTool<span class="conn-status"><span class="conn-dot" id="connDot"></span><span id="connText">连接中</span></span></h1>
-        <p class="subtitle">局域网文件/文字分享</p>
+        <h1>ShareTool<span class="conn-status"><span class="conn-dot" id="connDot"></span><span id="connText">' + T('ui.connecting') + '</span></span></h1>
+        <p class="subtitle">' + T('ui.heroTitle').replace('文件/文字', ' / ') + '</p>
       </div>
-      <button id="themeToggle" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px;" title="切换主题">🌙</button>
+      <button id="themeToggle" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px;" title="' + T('ui.toggleTheme') + '">🌙</button>
     </div>
     <div class="status-bar">
-      <span class="status-item disconnected" id="wsStatus">WS 未连接</span>
-      <span class="storage-text" id="storageText">加载中...</span>
-      <span class="status-item disconnected" id="syncStatus">同步离线</span>
-      <span class="status-item" id="deviceCount">设备: 0</span>
+      <span class="status-item disconnected" id="wsStatus">' + T('ui.wsDisconnected') + '</span>
+      <span class="storage-text" id="storageText">' + T('ui.loading') + '</span>
+      <span class="status-item disconnected" id="syncStatus">' + T('ui.syncOffline') + '</span>
+      <span class="status-item" id="deviceCount">' + T('ui.devices') + ': 0</span>
     </div>
   </header>
 
   <div class="hero">
     <div class="hero-content">
       <div class="hero-text">
-        <div class="hero-title">📡 局域网文件/文字分享</div>
-        <div class="hero-desc">同一 WiFi 网络下扫码访问，支持多设备同步。</div>
+        <div class="hero-title">📡 ' + T('ui.heroTitle') + '</div>
+        <div class="hero-desc">' + T('ui.heroDesc') + '</div>
         <div class="hero-features">
-          <span class="hero-feature">📝 文字分享</span>
-          <span class="hero-feature">📁 文件上传</span>
-          <span class="hero-feature">🔄 多设备同步</span>
-          <span class="hero-feature">🔍 搜索过滤</span>
-          <span class="hero-feature">📱 移动适配</span>
+          <span class="hero-feature">📝 ' + T('ui.textShare') + '</span>
+          <span class="hero-feature">📁 ' + T('ui.fileUpload') + '</span>
+          <span class="hero-feature">🔄 ' + T('ui.multiDeviceSync') + '</span>
+          <span class="hero-feature">🔍 ' + T('ui.searchFilter') + '</span>
+          <span class="hero-feature">📱 ' + T('ui.mobileAdapt') + '</span>
         </div>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <div class="section-title">分享文字</div>
+    <div class="section-title">' + T('ui.textShare') + '</div>
     <div id="textAlert" class="alert"></div>
-    <textarea id="textContent" placeholder="输入文字、代码或粘贴内容..."></textarea>
-    <div class="paste-hint" id="pasteHint">📋 可直接 Ctrl+V 粘贴图片或文件</div>
+    <textarea id="textContent" placeholder="' + T('ui.textareaPlaceholder') + '"></textarea>
+    <div class="paste-hint" id="pasteHint">📋 ' + T('ui.pasteHint') + '</div>
     <div class="actions">
-      <button class="btn" id="shareTextBtn">分享</button>
-      <button class="btn btn-secondary" id="clearTextBtn">清空</button>
+      <button class="btn" id="shareTextBtn">' + T('ui.share') + '</button>
+      <button class="btn btn-secondary" id="clearTextBtn">' + T('ui.clear') + '</button>
     </div>
     <div class="upload-progress-bar" id="uploadProgressBar">
       <div class="upload-progress-fill" id="uploadProgressFill" style="width:0%"></div>
@@ -2284,64 +2396,64 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="upload-queue" id="uploadQueue"></div>
     <div class="share-link-box" id="shareLinkBox" style="display:none;">
       <input type="text" id="shareLinkInput" readonly>
-      <button onclick="copyShareLink()">复制链接</button>
-      <button onclick="showShareQRModal()">📷 二维码</button>
+      <button onclick="copyShareLink()">' + T('ui.copyLink') + '</button>
+      <button onclick="showShareQRModal()">📷 ' + T('ui.qrCode') + '</button>
     </div>
     <div class="qr-modal-overlay" id="qrModal" onclick="if(event.target===this)closeShareQRModal()">
       <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:360px;width:90%;text-align:center;">
-        <div style="font-size:18px;font-weight:600;margin-bottom:16px;">分享二维码</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:16px;">' + T('ui.shareQR') + '</div>
         <div id="qrModalContent" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
         <div id="qrModalUrl" style="font-size:11px;color:var(--text-muted);word-break:break-all;margin-bottom:16px;font-family:monospace;"></div>
-        <button class="btn" onclick="closeShareQRModal()" style="width:100%;">关闭</button>
+        <button class="btn" onclick="closeShareQRModal()" style="width:100%;">' + T('ui.close') + '</button>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <div class="section-title">上传文件</div>
+    <div class="section-title">' + T('ui.fileUpload') + '</div>
     <div id="uploadAlert" class="alert"></div>
     <div class="drop-zone" id="dropZone">
       <div class="drop-zone-icon">📂</div>
-      <div>拖拽文件到此处上传</div>
-      <div style="font-size:12px;margin-top:4px;">或继续使用下方按钮</div>
+      <div>' + T('ui.dragDropHint') + '</div>
+      <div style="font-size:12px;margin-top:4px;">' + T('ui.orUseButtons') + '</div>
     </div>
 
     <label class="file-upload-area">
       <input type="file" id="fileInput" multiple webkitdirectory>
       <div class="icon">📁</div>
-      <div class="text">点击或拖拽文件到此处</div>
-      <div class="hint">支持文件和文件夹上传</div>
+      <div class="text">' + T('ui.clickOrDrag') + '</div>
+      <div class="hint">' + T('ui.supportFolderUpload') + '</div>
     </label>
     <div id="uploadList" class="file-list"></div>
   </div>
 
   <div class="card">
-    <div class="section-title">最近分享</div>
+    <div class="section-title">' + T('ui.recentShares') + '</div>
     <div id="listAlert" class="alert"></div>
-    <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ 收藏</button>
+    <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ ' + T('fav.favorite') + '</button>
 
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-wrapper">
     <div class="search-bar">
-      <input type="search" id="searchInput" placeholder="搜索文件名或内容..." autocomplete="off">
-      <button class="btn btn-sm" onclick="doSearch()">搜索</button>
+      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off">
+      <button class="btn btn-sm" onclick="doSearch()">' + T('ui.search') + '</button>
       <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
     </div>
     <div class="search-suggestions" id="searchSuggestions" style="display:none;"></div>
     </div>
     <div class="filter-tabs">
-      <span class="filter-tab active" data-filter="all">全部</span>
-      <span class="filter-tab" data-filter="text">文字</span>
-      <span class="filter-tab" data-filter="file">文件</span>
+      <span class="filter-tab active" data-filter="all">' + T('ui.filterAll') + '</span>
+      <span class="filter-tab" data-filter="text">' + T('ui.filterText') + '</span>
+      <span class="filter-tab" data-filter="file">' + T('ui.filterFile') + '</span>
     </div>
     <div class="batch-bar" id="batchBar">
       <input type="checkbox" id="selectAllBatch" onchange="toggleSelectAll(this.checked)" style="width:18px;height:18px;cursor:pointer;">
-      <span class="batch-count" id="batchCount">已选择 0 个文件</span>
-      <button onclick="batchDownload()">📦 下载</button>
-      <button onclick="batchAddTag()">🏷 标签</button>
-      <button onclick="batchCopy()">📋 复制</button>
-      <button class="danger" onclick="batchDelete()">🗑 删除</button>
-      <button class="danger" onclick="clearBatch()">✕ 取消</button>
+      <span class="batch-count" id="batchCount">' + T('ui.selectedN').replace('{n}', '0') + '</span>
+      <button onclick="batchDownload()">📦 ' + T('ui.batchDownload') + '</button>
+      <button onclick="batchAddTag()">🏷 ' + T('ui.batchTag') + '</button>
+      <button onclick="batchCopy()">📋 ' + T('ui.batchCopy') + '</button>
+      <button class="danger" onclick="batchDelete()">🗑 ' + T('ui.batchDelete') + '</button>
+      <button class="danger" onclick="clearBatch()">✕ ' + T('ui.batchCancel') + '</button>
     </div>
 
     <div class="filter-tabs" id="tagFilterBar" style="margin-top:4px;">
@@ -2349,14 +2461,14 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <div id="breadcrumbBar" style="display:none;padding:6px 0;font-size:12px;margin-bottom:4px;"></div>
     <div class="sort-bar">
-      <span>排序:</span>
-      <select id="sortSelect" onchange="setSort(this.value)">
-        <option value="time_desc">最新优先</option>
-        <option value="time_asc">最旧优先</option>
-        <option value="name_asc">名称 A-Z</option>
-        <option value="name_desc">名称 Z-A</option>
-        <option value="size_desc">最大优先</option>
-        <option value="size_asc">最小优先</option>
+      <span>' + T('ui.sortBy') + ':</span>
+      <select id="sortSelect" onchange="changeSort(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;">
+        <option value="time_desc">' + T('ui.sortNewest') + '</option>
+        <option value="time_asc">' + T('ui.sortOldest') + '</option>
+        <option value="name_asc">' + T('ui.sortNameAZ') + '</option>
+        <option value="name_desc">' + T('ui.sortNameZA') + '</option>
+        <option value="size_desc">' + T('ui.sortLargest') + '</option>
+        <option value="size_asc">' + T('ui.sortSmallest') + '</option>
       </select>
       <span id="fileCount" style="margin-left:auto;"></span>
       <span id="searchResultCount" style="display:none;color:var(--accent-primary);font-weight:500;margin-left:8px;"></span>
@@ -3246,8 +3358,8 @@ function renderFiles() {
     const searchMode = !!window.currentSearchQ;
     container.innerHTML = '<div class="empty" id="emptyState">' +
       '<div class="empty-icon">' + (searchMode ? '🔍' : '📭') + '</div>' +
-      '<div class="empty-text">' + (searchMode ? '未找到匹配结果' : T('file.noContent')) + '</div>' +
-      '<div class="empty-text" style="font-size:12px;margin-top:8px;">' + (searchMode ? '尝试其他关键词或清除筛选' : T('file.uploadOrShare')) + '</div>' +
+      '<div class="empty-text">' + (searchMode ? T('ui.noResults') : T('file.noContent')) + '</div>' +
+      '<div class="empty-text" style="font-size:12px;margin-top:8px;">' + (searchMode ? T('ui.tryOtherKeywords') : T('file.uploadOrShare')) + '</div>' +
       '</div>';
     container.classList.remove('file-list', 'file-grid');
     container.classList.add(currentView === 'grid' ? 'file-grid' : 'file-list');
@@ -4890,7 +5002,7 @@ function updateBatchBar() {
   const bar = document.getElementById('batchBar');
   const count = document.getElementById('batchCount');
   if (bar) bar.classList.toggle('show', checked.length > 0);
-  if (count) count.textContent = '已选择 ' + checked.length + ' 个文件';
+  if (count) count.textContent = T('ui.selectedN').replace('{n}', checked.length);
   const selectAll = document.getElementById('selectAllBatch');
   if (selectAll) selectAll.checked = checked.length > 0 && checked.length === document.querySelectorAll('.batch-checkbox').length;
   // Sync count to standalone batch download button if visible
