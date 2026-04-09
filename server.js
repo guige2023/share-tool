@@ -3591,7 +3591,7 @@ async function showTagManager() {
       const color = t.color || '#667eea';
       const tagEsc = escapeHtml(t.tag);
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;">' +
-        '<span style="width:12px;height:12px;border-radius:50%;background:' + color + ';flex-shrink:0;"></span>' +
+        '<input type="color" value="' + color + '" style="width:24px;height:24px;border:none;background:none;cursor:pointer;padding:0;border-radius:4px;" title="点击修改颜色" onchange="updateTagColor(\'' + tagEsc + '\', this.value)">' +
         '<span style="flex:1;font-size:13px;">' + tagEsc + '</span>' +
         '<span style="font-size:11px;color:var(--text-muted);">' + t.count + '个</span>' +
         '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="renameTag(\'' + tagEsc + '\')">重命名</button>' +
@@ -3637,6 +3637,27 @@ async function deleteTag(tag) {
     loadFiles();
   } else {
     showToast('删除失败');
+  }
+}
+
+async function updateTagColor(tag, color) {
+  const res = await fetch(API + '/api/tags/color', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ tag, color })
+  });
+  const data = await res.json();
+  if (data.success) {
+    tagColors[tag] = color;
+    // 更新当前页面所有该标签的颜色
+    document.querySelectorAll('.file-tag').forEach(el => {
+      if (el.textContent.trim().replace('×', '') === tag) {
+        el.style.background = color + '33';
+        el.style.color = color;
+        el.style.borderColor = color;
+      }
+    });
+    showToast('颜色已更新');
   }
 }
 
