@@ -667,6 +667,16 @@ function copyFilesByPrefix(sourcePrefix, destPrefix) {
   return { copied };
 }
 
+// 按前缀获取所有文件（用于文件夹打包下载）
+function getFilesByPrefix(prefix) {
+  const db = getDb();
+  const pattern = prefix.endsWith('/') ? prefix + '%' : prefix + '/%';
+  return db.prepare(
+    `SELECT filename, content, type, size, hash, created_at, tags, content_type
+     FROM files WHERE filename LIKE ? ORDER BY filename`
+  ).all(pattern);
+}
+
 function deleteFile(id) {
   const db = getDb();
   const existing = getFile(id);
@@ -1673,7 +1683,7 @@ module.exports = {
   // 文件
   addFile, getFile, getFileByName, toggleStar, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
-  deleteFilesByPrefix, renameFilesByPrefix, copyFile, copyFilesByPrefix,
+  deleteFilesByPrefix, renameFilesByPrefix, copyFile, copyFilesByPrefix, getFilesByPrefix,
   searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
