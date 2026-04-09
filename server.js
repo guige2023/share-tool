@@ -1594,10 +1594,21 @@ self.addEventListener('push', (event) => {
         }
         // 密码验证（使用哈希比对，兼容旧明文密码）
         if (shareData.hasPassword) {
+          const clientIp = getClientIp(req);
+          const rateKey = `share_verify:${clientIp}:${code}`;
+          const rate = db.checkRateLimit(rateKey);
+          if (!rate.allowed) {
+            res.setHeader('Retry-After', rate.retryAfter);
+            sendJson(res, { success: false, error: `密码错误次数过多，请 ${Math.ceil(rate.retryAfter / 60)} 分钟后重试`, retryAfter: rate.retryAfter }, 429);
+            return;
+          }
           if (!inputPwd || !db.verifyPassword(inputPwd, shareData._passwordHash)) {
+            db.recordRateLimitAttempt(rateKey);
             sendJson(res, { success: false, error: '此链接需要密码访问', requiresPassword: true }, 401);
             return;
           }
+          // 密码正确，清除限速记录
+          db.recordRateLimitAttempt(rateKey, true);
         }
         const file = db.getFileByName(shareData.filename);
         if (!file) {

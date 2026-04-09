@@ -164,6 +164,17 @@ function initSchemaV1(db) {
     )
   `);
 
+  // 速率限制表（防暴力破解）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS rate_limit (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      key           TEXT    NOT NULL UNIQUE,
+      attempts      INTEGER NOT NULL DEFAULT 0,
+      locked_until  INTEGER,
+      last_attempt  INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `);
+
   // 分享链接表
   db.exec(`
     CREATE TABLE IF NOT EXISTS share_links (
@@ -774,6 +785,75 @@ function getAuditStats() {
   return { total, todayCount, byAction };
 }
 
+// ============================================================
+// 速率限制（防暴力破解）
+// ============================================================
+// 策略：共享 token 限速（同一 IP/分享码组合）
+const RATE_LIMIT_CONFIG = {
+  maxAttempts: 5,      // 最多尝错次数
+  lockoutSeconds: 300, // 锁定时长（5分钟）
+  windowSeconds: 900   // 时间窗口（15分钟），超出后计数重置
+};
+
+function checkRateLimit(key) {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const row = db.prepare('SELECT * FROM rate_limit WHERE key = ?').get(key);
+  
+  if (!row) return { allowed: true, attempts: 0, remaining: RATE_LIMIT_CONFIG.maxAttempts };
+  
+  // 已锁定
+  if (row.locked_until && now < row.locked_until) {
+    return {
+      allowed: false,
+      locked: true,
+      attempts: row.attempts,
+      remaining: 0,
+      retryAfter: row.locked_until - now
+    };
+  }
+  
+  // 锁定已过期，重置计数
+  if (row.locked_until && now >= row.locked_until) {
+    db.prepare('UPDATE rate_limit SET attempts = 0, locked_until = NULL, last_attempt = ? WHERE key = ?').run(now, key);
+    return { allowed: true, attempts: 0, remaining: RATE_LIMIT_CONFIG.maxAttempts };
+  }
+  
+  // 窗口期外，重置计数
+  if (now - row.last_attempt > RATE_LIMIT_CONFIG.windowSeconds) {
+    db.prepare('UPDATE rate_limit SET attempts = 0, last_attempt = ? WHERE key = ?').run(now, key);
+    return { allowed: true, attempts: 0, remaining: RATE_LIMIT_CONFIG.maxAttempts };
+  }
+  
+  // 窗口期内
+  return {
+    allowed: row.attempts < RATE_LIMIT_CONFIG.maxAttempts,
+    attempts: row.attempts,
+    remaining: Math.max(0, RATE_LIMIT_CONFIG.maxAttempts - row.attempts)
+  };
+}
+
+function recordRateLimitAttempt(key, success = false) {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  
+  if (success) {
+    // 成功，清除记录
+    db.prepare('DELETE FROM rate_limit WHERE key = ?').run(key);
+    return;
+  }
+  
+  const row = db.prepare('SELECT * FROM rate_limit WHERE key = ?').get(key);
+  if (!row) {
+    db.prepare('INSERT INTO rate_limit (key, attempts, last_attempt) VALUES (?, 1, ?)').run(key, now);
+  } else {
+    const newAttempts = row.attempts + 1;
+    const lockedUntil = newAttempts >= RATE_LIMIT_CONFIG.maxAttempts ? now + RATE_LIMIT_CONFIG.lockoutSeconds : null;
+    db.prepare('UPDATE rate_limit SET attempts = ?, locked_until = ?, last_attempt = ? WHERE key = ?')
+      .run(newAttempts, lockedUntil, now, key);
+  }
+}
+
 function exportAuditLogsCSV(filters = {}) {
   const db = getDb();
   const conditions = [];
@@ -1043,6 +1123,8 @@ module.exports = {
   generateToken, validateToken, refreshToken, revokeToken, revokeAllTokens,
   // 审计
   addAuditLog, listAuditLogs, getAuditStats,
+  // 速率限制
+  checkRateLimit, recordRateLimitAttempt,
   // 分享链接
   saveShareLink, getShareLink, deleteShareLink, incrementShareLinkDownload,
   listShareLinks, cleanupExpiredShareLinks,
