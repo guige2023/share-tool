@@ -6183,6 +6183,31 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
   uploadFiles(e.target.files);
 });
 
+// Paste from clipboard to upload
+window.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('paste', (e) => {
+    const items = e.clipboardData ? Array.from(e.clipboardData.items) : [];
+    const files = [];
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      // Prefix pasted files with timestamp to make names unique
+      const timestamp = Date.now();
+      files.forEach((f, i) => {
+        const ext = f.name && f.name.includes('.') ? '.' + f.name.split('.').pop() : '';
+        Object.defineProperty(f, 'name', { value: 'paste_' + timestamp + '_' + i + ext, writable: false });
+      });
+      uploadFiles(files);
+      showToast('正在上传 ' + files.length + ' 个剪贴板文件…');
+    }
+  });
+});
+
 async function uploadFiles(files) {
   let successCount = 0;
   let failCount = 0;
@@ -7461,8 +7486,12 @@ async function batchDownload() {
 
 function saveDownloadDir() {
   const dir = document.getElementById('downloadDir').value.trim();
-  localStorage.setItem('shareTool_downloadDir', dir);
-  config.downloadDir = dir;
+  const resolved = path.isAbsolute(dir) ? dir : path.resolve(dir);
+  localStorage.setItem('shareTool_downloadDir', resolved);
+  config.downloadDir = resolved;
+  if (!fs.existsSync(resolved)) {
+    fs.mkdirSync(resolved, { recursive: true });
+  }
   showAlert('listAlert', T('msg.downloadDirSaved'), 'success');
 }
 
