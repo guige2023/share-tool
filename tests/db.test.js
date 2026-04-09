@@ -286,3 +286,31 @@ describe('密码哈希', () => {
     expect(valid2).toBe(true);
   });
 });
+
+describe('标签管理', () => {
+  test('updateFileByName 设置标签', () => {
+    db.addFile('tagged.txt', 'content', 'text');
+    db.updateFileByName('tagged.txt', { tags: 'work,urgent' });
+    const file = db.getFileByName('tagged.txt');
+    expect(file.tags).toBe('work,urgent');
+  });
+
+  test('searchFiles 按标签过滤', () => {
+    db.addFile('doc1.txt', 'c', 'text');
+    db.updateFileByName('doc1.txt', { tags: 'important' });
+    db.addFile('doc2.txt', 'c', 'text');
+    db.updateFileByName('doc2.txt', { tags: 'draft' });
+    const results = db.searchFiles(null, 'important');
+    expect(results.some(f => f.filename === 'doc1.txt')).toBe(true);
+    expect(results.every(f => f.filename === 'doc1.txt' || !f.tags?.includes('important'))).toBe(true);
+  });
+
+  test('searchFiles 评分排序 - prefix 优先于 contains', () => {
+    db.addFile('test.js', 'c', 'text');
+    db.addFile('testing.py', 'c', 'text');
+    const results = db.searchFiles('test');
+    const names = results.map(f => f.filename);
+    // Prefix match should rank higher than contains
+    expect(names.indexOf('test.js')).toBeLessThan(names.indexOf('testing.py'));
+  });
+});
