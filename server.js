@@ -1749,7 +1749,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .alert.show { display: block; }
 .code-box { background: var(--bg-tertiary); padding: 14px; border-radius: 10px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: var(--code-fg); margin: 8px 0; overflow-x: auto; border: 1px solid var(--border-color); white-space: pre-wrap; word-break: break-all; }
 .progress-bar { width: 100%; height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden; margin-top: 8px; }
-.progress-bar .fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.3s; }
+.progress-bar .fill { height: 100%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); transition: width 0.3s; }
 .batch-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .setting-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .setting-row label { color: var(--text-secondary); font-size: 14px; min-width: 80px; }
@@ -1846,7 +1846,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .share-link-box input { flex: 1; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 16px; font-family: monospace; min-height: 44px; /* prevent iOS zoom */ }
   .share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 14px; cursor: pointer; min-height: 44px; /* touch target */ }
   .upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
-  .upload-progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.3s; }
+  .upload-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); border-radius: 2px; transition: width 0.3s; }
   .upload-queue { display: none; margin-top: 8px; max-height: 120px; overflow-y: auto; }
   .upload-queue.show { display: block; }
   .upload-queue-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
