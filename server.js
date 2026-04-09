@@ -3067,12 +3067,13 @@ async function openMarkdownModal(filename) {
     if (!data.content) return;
     // Decode base64 content
     const content = atob(data.content);
-    // Render markdown using marked (server-preparsed)
-    const html = marked.parse(content);
+    // Render markdown using marked + DOMPurify sanitization
+    const rawHtml = marked.parse(content);
+    const safeHtml = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } }) : rawHtml;
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     document.getElementById('modalBody').innerHTML =
-      '<div class="markdown-body" style="max-height:70vh;overflow-y:auto;padding:16px;background:var(--bg-secondary);border-radius:8px;font-size:14px;line-height:1.6;">' + html + '</div>';
+      '<div class="markdown-body" style="max-height:70vh;overflow-y:auto;padding:16px;background:var(--bg-secondary);border-radius:8px;font-size:14px;line-height:1.6;">' + safeHtml + '</div>';
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to render Markdown: ' + e.message); }
 }
@@ -4689,6 +4690,7 @@ function getFileIcon(filename) {
 
 init();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 
 <!-- FAB: Mobile-friendly upload button -->
