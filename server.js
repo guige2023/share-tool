@@ -3199,7 +3199,7 @@ function renderDevices(devices) {
     '<div class="device-item">' +
       '<div class="indicator ' + (d.isOnline ? 'online' : '') + '"></div>' +
       '<div class="name">' + escapeHtml(d.deviceName || d.deviceId) + '</div>' +
-      '<div class="ip">' + d.ip + '</div>' +
+      '<div class="ip">' + escapeHtml(d.ip) + '</div>' +
     '</div>'
   ).join('');
 }
@@ -3473,7 +3473,7 @@ function showShareLinksModal() {
               '<span style="font-weight:600;">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
               '<span style="font-size:11px;color:' + (isExpired ? '#dc2626' : 'var(--text-muted)') + ';">' + (isExpired ? '已过期' : expires) + '</span>' +
             '</div>' +
-            '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + url + '</div>' +
+            '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
             '<div style="display:flex;gap:8px;margin-top:4px;">' +
               '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code + '\', \'' + escapeHtml(url) + '\')">复制链接</button>' +
               '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code + '\')">二维码</button>' +
@@ -3540,14 +3540,14 @@ function showAuditModal() {
       document.getElementById('auditStats').innerHTML =
         '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">今日操作</div><div style="font-size:20px;font-weight:600;color:#667eea">' + (stats.todayCount || 0) + '</div></div>' +
         '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">总操作</div><div style="font-size:20px;font-weight:600;color:#667eea">' + (stats.totalCount || 0) + '</div></div>' +
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">最后操作</div><div style="font-size:12px;color:var(--text-secondary)">' + (stats.lastAction || '--') + '</div></div>';
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">最后操作</div><div style="font-size:12px;color:var(--text-secondary)">' + escapeHtml(stats.lastAction || '--') + '</div></div>';
 
       const logs = data.logs || [];
       document.getElementById('auditLogList').innerHTML = logs.length ? logs.map(l =>
         '<div style="padding:8px 0;border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;gap:12px;">' +
           '<div><div style="color:var(--text-primary);">' + escapeHtml(l.action || '') + '</div><div style="color:var(--text-muted);font-size:11px;margin-top:2px;">' + escapeHtml(l.detail || '') + '</div></div>' +
           '<div style="text-align:right;flex-shrink:0;"><div style="color:var(--text-muted);font-size:11px;">' + formatTime((l.created_at || 0) * 1000) + '</div>' +
-          (l.ip ? '<div style="color:var(--text-muted);font-size:10px;font-family:monospace;">' + l.ip + '</div>' : '') +
+          (l.ip ? '<div style="color:var(--text-muted);font-size:10px;font-family:monospace;">' + escapeHtml(l.ip) + '</div>' : '') +
           '</div></div>'
       ).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无日志记录</div>';
       document.getElementById('auditModal').classList.add('show');
@@ -3907,10 +3907,10 @@ function showShareQRModal() {
         if (qrData.success && qrData.dataUrl) {
           content.innerHTML = '<img src="' + qrData.dataUrl + '" style="border-radius:8px;max-width:256px;width:100%;" />';
         } else {
-          content.innerHTML = '<div style="color:#dc2626;">生成失败: ' + (qrData.error || '未知错误') + '</div>';
+          content.innerHTML = '<div style="color:#dc2626;">生成失败: ' + escapeHtml(qrData.error || '未知错误') + '</div>';
         }
       })
-      .catch(e => { content.innerHTML = '<div style="color:#dc2626;">请求失败: ' + e.message + '</div>'; });
+      .catch(e => { content.innerHTML = '<div style="color:#dc2626;">请求失败: ' + escapeHtml(e.message) + '</div>'; });
   }
 }
 
@@ -4353,8 +4353,8 @@ function renderSuggestions(suggestions) {
   container.innerHTML = suggestions.map(s => {
     const tagStyle = s.color ? 'background:rgba(' + hexToRgb(s.color) + ',0.2);color:' + s.color + ';' : 'background:rgba(102,126,234,0.2);color:#667eea;';
     const tagLabel = s.type === 'tag' ? '<span class="suggestion-tag" style="' + tagStyle + '">tag</span>' : '';
-    return '<div class="search-suggestion" onclick="applySuggestion(\'' + s.text.replace(/'/g, "\\'") + '\', \'' + s.type + '\')">' +
-      '<span class="suggestion-icon">' + s.icon + '</span>' +
+    return '<div class="search-suggestion" onclick="applySuggestion(\'' + escapeHtml(s.text).replace(/'/g, "\\'") + '\', \'' + s.type + '\')">' +
+      '<span class="suggestion-icon">' + escapeHtml(s.icon || '') + '</span>' +
       '<span>' + escapeHtml(s.text) + '</span>' +
       tagLabel +
       '</div>';
@@ -4516,7 +4516,7 @@ function renderRecentSearches() {
   if (!searches.length) { container.style.display = 'none'; return; }
   container.style.display = 'flex';
   container.innerHTML = searches.map(s =>
-    '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + s.replace(/'/g, "\\'") + '\';doSearch()">' + s + '</span>'
+    '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + escapeHtml(s).replace(/'/g, "\\'") + '\';doSearch()">' + escapeHtml(s) + '</span>'
   ).join('') + '<span class="recent-search-tag" style="color:#dc2626" onclick="clearRecentSearches()">✕清除</span>';
 }
 
