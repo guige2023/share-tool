@@ -1022,7 +1022,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v2.67',
+          version: 'v2.68',
         });
         return;
       }
@@ -2958,6 +2958,13 @@ function renderFiles() {
     }
   }
 
+  // 懒加载音视频内联播放器
+  for (const f of pagedFiles) {
+    if (!f.isVirtualFolder && (isAudioFile(f.name) || isVideoFile(f.name))) {
+      loadMediaPlayer(f.name, 'player-' + btoaSafe(f.name).substring(0, 20));
+    }
+  }
+
   // Render pagination
   const allFiles = applySort(currentFilter !== 'all' ? currentFiles.filter(f => f.type === currentFilter) : [...currentFiles]);
   const totalPages = Math.ceil(allFiles.length / PAGE_SIZE) || 1;
@@ -3037,6 +3044,31 @@ async function loadImageThumb(filename, thumbId) {
       el.src = 'data:' + mime + ';base64,' + data.content;
       el.dataset.src = 'loaded';
     }
+  } catch (e) {}
+}
+
+// 懒加载音视频内联播放器
+async function loadMediaPlayer(filename, playerId) {
+  const el = document.getElementById(playerId);
+  if (!el || el.dataset.loaded) return;
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.content) return;
+    const ext = filename.split('.').pop().toLowerCase();
+    const isAudio = isAudioFile(filename);
+    const mimeMap = {
+      mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', aac: 'audio/aac', flac: 'audio/flac', m4a: 'audio/mp4',
+      mp4: 'video/mp4', webm: 'video/webm', avi: 'video/x-msvideo', mov: 'video/quicktime', mkv: 'video/x-matroska', mov: 'video/quicktime'
+    };
+    const mime = mimeMap[ext] || (isAudio ? 'audio/mpeg' : 'video/mp4');
+    const dataUrl = 'data:' + mime + ';base64,' + data.content;
+    if (isAudio) {
+      el.innerHTML = '<audio controls style="width:100%;height:36px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持音频</audio>';
+    } else {
+      el.innerHTML = '<video controls style="width:100%;max-height:200px;border-radius:8px;background:#000;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频</video>';
+    }
+    el.dataset.loaded = '1';
   } catch (e) {}
 }
 
