@@ -309,6 +309,7 @@ async function main() {
     console.log('  download <name> [-o dir]  Download a file');
     console.log('  delete <name>  Delete a file');
     console.log('  copy <src> <dest>  Copy a file to a new name');
+    console.log('  rename <old> <new>  Rename a file');
     console.log('  batch-delete <name1> [name2] ...  Delete multiple files');
     console.log('  batch-tag <tag> [files...]        Add tag to files (alias: share-tool batch-tag add <tag> [files])');
     console.log('  batch-tag remove <tag> [files]   Remove tag from files');
@@ -413,6 +414,25 @@ async function main() {
         }
         const res = await request('POST', '/api/file-copy', {
           body: JSON.stringify({ sourceFilename: source, newFilename: dest })
+        });
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          printJson(res.data);
+          process.exit(1);
+        }
+        printJson(res.data);
+        break;
+      }
+
+      case 'rename': {
+        const oldName = args[1];
+        const newName = args[2];
+        if (!oldName || !newName) {
+          printError('Usage: rename <oldFilename> <newFilename>');
+          process.exit(1);
+        }
+        const res = await request('POST', '/api/file-rename/' + encodeURIComponent(oldName), {
+          body: JSON.stringify({ newName })
         });
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
