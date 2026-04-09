@@ -1581,6 +1581,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   --bg-secondary: #f8fafc;
   --bg-tertiary: #f1f5f9;
   --bg-hover: #e2e8f0;
+  --bg-modal: #ffffff;
   --border-color: #cbd5e1;
   --text-primary: #1e293b;
   --text-secondary: #475569;
@@ -1596,6 +1597,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
   --bg-hover: #1e293b;
+  --bg-modal: #0f172a;
   --border-color: #334155;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
@@ -1654,9 +1656,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .btn { padding: 12px 20px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .btn:hover { opacity: 0.9; transform: translateY(-1px); }
 .btn:active { opacity: 0.8; transform: translateY(0); }
-.btn-secondary { background: var(--bg-secondary); }
-.btn-danger { background: #dc2626; }
-.btn-warning { background: #d97706; }
+.btn-secondary { background: var(--bg-secondary); color: var(--text-primary); }
+.btn-danger { background: var(--danger); }
+.btn-warning { background: var(--warning); }
 .btn-sm { padding: 8px 14px; font-size: 13px; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -1682,14 +1684,14 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-item .swipe-actions { position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 0; transform: translateX(100%); transition: transform 0.2s ease; }
 .file-item .swipe-actions.show { transform: translateX(0); }
 .file-item .swipe-btn { height: 100%; padding: 0 20px; border: none; color: white; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px; min-width: 60px; }
-.file-item .swipe-btn.delete { background: #dc2626; }
-.file-item .swipe-btn.tag { background: #d97706; }
+.file-item .swipe-btn.delete { background: var(--danger); }
+.file-item .swipe-btn.tag { background: var(--warning); }
 .file-item .swipe-btn .icon { font-size: 16px; }
 .file-content { flex: 1; min-width: 0; }
 .file-preview { background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-top: 8px; max-height: 150px; overflow: auto; white-space: pre-wrap; font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border-color); word-break: break-all; display: none; }
 .file-preview.show { display: block; }
 .file-audio-player audio { width: 100%; height: 36px; margin-top: 4px; }
-.file-video-wrapper video { width: 100%; max-height: 200px; border-radius: 8px; background: #000; margin-top: 4px; }
+.file-video-wrapper video { width: 100%; max-height: 200px; border-radius: 8px; background: var(--bg-secondary,#000); margin-top: 4px; }
 [data-theme="dark"] .file-audio-player audio { filter: invert(0.8); } /* improve contrast on dark bg */
 .file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .file-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
@@ -1716,8 +1718,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .setting-row input { flex: 1; margin-bottom: 0; }
 .device-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .device-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; }
-.device-item .indicator { width: 8px; height: 8px; border-radius: 50%; background: #64748b; }
-.device-item .indicator.online { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+.device-item .indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+.device-item .indicator.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
 .device-item .name { flex: 1; color: var(--text-primary); }
 .device-item .ip { color: var(--text-muted); font-family: monospace; }
 .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -1745,7 +1747,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .batch-bar.show { display: flex; }
 .batch-bar .batch-count { color: var(--text-muted); flex: 1; }
 .batch-bar button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
-.batch-bar button.danger { background: #e53935; }
+.batch-bar button.danger { background: var(--danger); }
 .drop-zone { border: 2px dashed var(--border-color); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 16px; transition: all 0.2s; color: var(--text-muted); font-size: 13px; }
 .drop-zone.drag-over { border-color: var(--accent-primary); background: rgba(102,126,234,0.1); color: var(--accent-primary); }
 .drop-zone-icon { font-size: 24px; margin-bottom: 8px; }
@@ -1983,7 +1985,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
     </div>
     <div id="downloadProgress" style="display:none;">
       <div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
-      <div id="progressText" style="font-size:12px;color:#64748b;margin-top:4px;"></div>
+      <div id="progressText" style="font-size:12px;color:var(--text-muted,#64748b);margin-top:4px;"></div>
     </div>
     <div id="filesContainer">
       <div class="empty" id="emptyState">
@@ -2887,7 +2889,7 @@ async function openMediaModal(filename) {
         '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio controls autoplay style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持音频播放</audio></div>';
     } else {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;background:#000;padding:10px;border-radius:8px;"><video controls autoplay style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频播放</video></div>';
+        '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video controls autoplay style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频播放</video></div>';
     }
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open media: ' + e.message); }
