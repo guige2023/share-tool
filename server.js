@@ -1406,7 +1406,8 @@ const HTML_PAGE = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ShareTool</title>
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#667eea">
+<meta name="theme-color" content="#667eea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="ShareTool">
@@ -1436,6 +1437,33 @@ const HTML_PAGE = `<!DOCTYPE html>
   --text-secondary: #475569;
   --text-muted: #64748b;
 }
+[data-theme="dark"] {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --border-color: #334155;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+}
+[data-theme="dark"] body { background: var(--bg-primary); }
+[data-theme="dark"] .card { background: var(--bg-secondary); border-color: var(--border-color); }
+[data-theme="dark"] .hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-color: #334155; }
+[data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="search"], [data-theme="dark"] textarea { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-primary); }
+[data-theme="dark"] .file-item { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .file-item:hover { border-color: var(--text-muted); }
+[data-theme="dark"] .code-box { background: #0f172a; border-color: #334155; color: #86efac; }
+[data-theme="dark"] .modal-content { background: var(--bg-secondary); border-color: var(--border-color); }
+[data-theme="dark"] .modal-backdrop { background: rgba(0,0,0,0.7); }
+[data-theme="dark"] select { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); }
+[data-theme="dark"] ::-webkit-scrollbar { background: var(--bg-secondary); }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); }
+[data-theme="dark"] .device-item { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .tag-item { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .status-item { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
+[data-theme="dark"] .progress-bar { background: var(--bg-secondary); }
+[data-theme="dark"] .file-upload-area { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .file-preview { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; overscroll-behavior: none; /* prevent pull-to-refresh on mobile */ -webkit-tap-highlight-color: transparent; }
 .container { max-width: 900px; margin: 0 auto; padding: 24px; }
 header { text-align: center; margin-bottom: 32px; }
@@ -3693,15 +3721,19 @@ function toggleTheme() {
   const next = current === 'light' ? 'dark' : 'light';
   html.setAttribute('data-theme', next);
   localStorage.setItem('shareTool_theme', next);
-  document.getElementById('themeToggle').textContent = next === 'light' ? '🌙' : '☀️';
+  document.getElementById('themeToggle').textContent = next === 'light' ? '☀️' : '🌙';
+  // 更新 theme-color meta
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.content = next === 'light' ? '#667eea' : '#0f172a';
 }
 
 function initTheme() {
   const saved = localStorage.getItem('shareTool_theme');
   if (saved) {
     document.documentElement.setAttribute('data-theme', saved);
-    document.getElementById('themeToggle').textContent = saved === 'light' ? '🌙' : '☀️';
-  }
+    document.getElementById('themeToggle').textContent = saved === 'light' ? '☀️' : '🌙';
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.content = theme === 'light' ? '#667eea' : '#0f172a';
 }
 
 // 初始化
