@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 // Configuration
 // Try environment variable first, then fallback to config file
-let SHARE_TOKEN = process.env.SHARE_TOKEN || '';
+let SHARE_TOKEN=process.env.SHARE_TOKEN || '';
 
 // Fallback: Read from ~/.share-tool/config.json
 if (!SHARE_TOKEN) {
