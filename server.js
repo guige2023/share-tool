@@ -359,6 +359,7 @@ function loadConfig() {
   }
   if (!config.deviceId) config.deviceId = DEVICE_ID;
   if (!config.uploadMaxSizeMB) config.uploadMaxSizeMB = 100;
+  if (!config.trustedOrigins) config.trustedOrigins = [];  // CORS 信任来源，默认空（仅本地）
   
   // 从环境变量或配置文件读取 token
   SHARE_TOKEN = process.env.SHARE_TOKEN || config.shareToken;
@@ -386,10 +387,28 @@ function saveConfig() {
   }
 }
 
-function setCors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function setCors(res, req) {
+  const origin = req?.headers['origin'];
+  const trusted = config.trustedOrigins || [];
+  
+  // 如果有 origin 且在信任列表中，使用具体 origin；否则不设置（或降级）
+  if (origin && (trusted.includes('*') || trusted.includes(origin) || isLocalhost(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    // 无 origin（CLI 请求）不设置 CORS，避免浏览器干扰
+  } else {
+    // 有 origin 但不在信任列表，降级为不设置，防止泄露敏感信息
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-auth-token, x-refresh-token, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-auth-token, x-refresh-token, Authorization, x-requested-with');
+  res.setHeader('Access-Control-Expose-Headers', 'x-requested-with');
+}
+
+function isLocalhost(origin) {
+  return /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+         /^https?:\/\/127\.(\d+)\.(\d+)\.(\d+)(:\d+)?$/.test(origin) ||
+         /^https?:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin) ||  // 局域网 IP
+         /^https?:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/.test(origin);    // 局域网 IP
 }
 
 function sendJson(res, data, status = 200) {
@@ -730,7 +749,7 @@ async function startHttpServer() {
   }
 
   const requestHandler = async (req, res) => {
-    setCors(res);
+    setCors(res, req);
 
     if (req.method === 'OPTIONS') {
       res.writeHead(204);
@@ -1573,9 +1592,9 @@ self.addEventListener('push', (event) => {
           sendJson(res, { success: false, error: '分享链接已过期或不存在' }, 404);
           return;
         }
-        // 密码验证
-        if (shareData.password) {
-          if (!inputPwd || inputPwd !== shareData.password) {
+        // 密码验证（使用哈希比对，兼容旧明文密码）
+        if (shareData.hasPassword) {
+          if (!inputPwd || !db.verifyPassword(inputPwd, shareData._passwordHash)) {
             sendJson(res, { success: false, error: '此链接需要密码访问', requiresPassword: true }, 401);
             return;
           }
@@ -3401,7 +3420,7 @@ function showShareLinksModal() {
         el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无分享链接</div>';
       } else {
         el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' + links.map(l => {
-          const url = l.password ? (location.origin + '/s/' + l.code + '?pwd=' + encodeURIComponent(l.password)) : (location.origin + '/s/' + l.code);
+          const url = location.origin + '/s/' + l.code + (l.password ? '?pwd=' : '');
           const isExpired = l.expiresAt && l.expiresAt !== MAX_TS && l.expiresAt < Date.now();
           const expires = (l.expiresAt === MAX_TS || !l.expiresAt) ? '永不过期' : (isExpired ? '已过期' : '剩余 ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' 天');
           return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +

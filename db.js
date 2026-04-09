@@ -29,6 +29,29 @@ function getDb() {
 }
 
 // ============================================================
+// 密码哈希（使用 scrypt 防暴力破解，比 SHA-256 更安全）
+// 存储格式: salt:hash（以冒号分隔）
+// ============================================================
+const PASSWORD_SALT_LEN = 16;
+const PASSWORD_HASH_LEN = 32;
+
+function hashPassword(password) {
+  if (!password) return null;
+  const salt = crypto.randomBytes(PASSWORD_SALT_LEN).toString('hex');
+  const hash = crypto.scryptSync(password, salt, PASSWORD_HASH_LEN).toString('hex');
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  if (!password || !stored) return false;
+  // 兼容旧明文密码（无冒号格式）
+  if (!stored.includes(':')) return password === stored;
+  const [salt, hash] = stored.split(':');
+  const inputHash = crypto.scryptSync(password, salt, PASSWORD_HASH_LEN).toString('hex');
+  return hash === inputHash;
+}
+
+// ============================================================
 // Schema 版本管理
 // ============================================================
 function initDatabase() {
@@ -789,6 +812,8 @@ function exportAuditLogsCSV(filters = {}) {
 // ============================================================
 function saveShareLink(shareData) {
   const db = getDb();
+  // 密码哈希存储（兼容无密码场景）
+  const hashedPassword = shareData.password ? hashPassword(shareData.password) : null;
   const stmt = db.prepare(`
     INSERT INTO share_links (code, filename, is_text, password, expires_at, max_downloads, download_count, description, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -797,7 +822,7 @@ function saveShareLink(shareData) {
     shareData.code,
     shareData.filename,
     shareData.isText ? 1 : 0,
-    shareData.password,
+    hashedPassword,
     Math.floor(shareData.expiresAt / 1000),
     shareData.maxDownloads,
     0,
@@ -815,13 +840,14 @@ function getShareLink(code) {
     code: row.code,
     filename: row.filename,
     isText: row.is_text === 1,
-    password: row.password,
+    hasPassword: !!row.password,  // 只返回是否有密码，不暴露哈希
     expiresAt: row.expires_at * 1000,
     maxDownloads: row.max_downloads,
     downloadCount: row.download_count,
     description: row.description || '',
     createdAt: row.created_at * 1000,
-    createdBy: row.created_by
+    createdBy: row.created_by,
+    _passwordHash: row.password  // 内部使用，验证时比对
   };
 }
 
@@ -1001,6 +1027,8 @@ function isTextFile(filename) {
 module.exports = {
   initDatabase,
   getDb,
+  // 密码
+  hashPassword, verifyPassword,
   // 文件
   addFile, getFile, getFileByName, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
