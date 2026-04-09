@@ -322,6 +322,7 @@ async function main() {
     console.log('  batch-tag <tag> [files...]        Add tag to files (alias: share-tool batch-tag add <tag> [files])');
     console.log('  batch-tag remove <tag> [files]   Remove tag from files');
     console.log('  batch-tag set <tag> [files]       Set (replace) tag on files');
+    console.log('  batch-rename <old1> <new1> [old2 new2...]  Batch rename files');
     console.log('  search <query> Search files');
     console.log('  cat <name>     Print file content to stdout');
     console.log('  find <query> [--tag=x] [--type=x] [--limit=n]  Advanced search');
@@ -329,6 +330,8 @@ async function main() {
     console.log('  sync           Trigger sync push');
     console.log('  stats          Show storage stats');
     console.log('  recent [n]     Show recently modified files (default: 10)');
+    console.log('  trash [list|restore <id>|delete <id>|empty]  Manage trash');
+    console.log('  diff <filename> [v1] [v2]  Compare file versions');
     console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
     console.log('  history [--clear]  Show command history');

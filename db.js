@@ -71,8 +71,11 @@ function initDatabase() {
   if (tableCount <= 1) {
     initSchemaV1(db);
     initSchemaV2(db);
+    initSchemaV3(db);
+    initSchemaV4(db);
+    initSchemaV5(db);
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
-    console.log('[DB] Fresh database initialized (v1+v2 schema)');
+    console.log('[DB] Fresh database initialized (v1-v5 schema)');
     return;
   }
 
@@ -433,6 +436,15 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
 
   const total = db.prepare(`SELECT COUNT(*) as count FROM files ${where}`).get(...params).count;
   return { files, total };
+}
+
+function toggleStar(filename) {
+  const db = getDb();
+  const file = db.prepare('SELECT id, starred FROM files WHERE filename = ?').get(filename);
+  if (!file) return { success: false, error: 'File not found' };
+  const newStarred = file.starred ? 0 : 1;
+  db.prepare('UPDATE files SET starred = ?, updated_at = unixepoch() WHERE id = ?').run(newStarred, file.id);
+  return { success: true, starred: newStarred };
 }
 
 function updateFileByName(filename, updates) {
