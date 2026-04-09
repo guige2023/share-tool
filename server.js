@@ -1843,8 +1843,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .storage-bar progress { width: 80px; height: 6px; accent-color: var(--accent-primary); }
   .storage-text { font-size: 11px; color: var(--text-muted); }
   .share-link-box { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-  .share-link-box input { flex: 1; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 14px; font-family: monospace; min-height: 36px; /* prevent iOS zoom */ }
-  .share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
+  .share-link-box input { flex: 1; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 16px; font-family: monospace; min-height: 44px; /* prevent iOS zoom */ }
+  .share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 14px; cursor: pointer; min-height: 44px; /* touch target */ }
   .upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
   .upload-progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 2px; transition: width 0.3s; }
   .upload-queue { display: none; margin-top: 8px; max-height: 120px; overflow-y: auto; }
@@ -1879,7 +1879,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .sort-bar select { padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 12px; }
 .sort-bar select:focus { outline: none; border-color: var(--accent-primary); }
 .view-toggle { display: flex; gap: 2px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 2px; margin-left: auto; }
-.view-toggle button { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-size: 13px; line-height: 1; transition: all 0.15s; }
+.view-toggle button { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px 10px; border-radius: 6px; font-size: 13px; line-height: 1; transition: all 0.15s; min-height: 36px; min-width: 36px; /* touch target */ }
 .view-toggle button:hover { color: var(--text-primary); }
 .view-toggle button.active { background: var(--accent-primary); color: var(--text-inverse, #fff); }
 .pagination { display: flex; gap: 4px; align-items: center; justify-content: center; margin-top: 16px; }
