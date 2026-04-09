@@ -332,7 +332,10 @@ const I18N = {
     'admin.configSaved': '配置已保存',
     'admin.saveFailed': '保存失败:',
     'admin.saveReqFailed': '保存请求失败',
-    'admin.none': '(无)',
+  function toggleSelectAll(checked) {
+  document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = checked);
+  updateBatchBar();
+ '(无)',
     'admin.tokenUpdated': 'Token 更新成功',
     'admin.updateFailed': '更新失败:',
     'admin.updateFail': '更新失败',
@@ -10578,9 +10581,6 @@ async function deleteAll() {
   } catch (e) { showAlert('listAlert', '删除失败: ' + e.message, 'error'); }
 }
 
-function toggleSelectAll(checked) {
-  document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = checked);
-  updateBatchBar();
 }
 
 function handleBatchCheckboxClick(event, checkbox) {
