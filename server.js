@@ -2494,12 +2494,18 @@ function handleWsMessage(msg) {
         loadFiles();
       }
       // Toast notification for remote changes
-      if (type === 'file_create') incrementBadge();
-      showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
-      else if (type === 'file_delete') showToast('🗑 远程删除了文件');
-      else if (type === 'file_rename') showToast('✏️ 远程重命名: ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
-      else if (type === 'change' && payload.type === 'create') showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
-      else if (type === 'change' && payload.type === 'rename') showToast('✏️ 远程重命名: ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
+      if (type === 'file_create') {
+        incrementBadge();
+        showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
+      } else if (type === 'file_delete') {
+        showToast('🗑 远程删除了文件');
+      } else if (type === 'file_rename') {
+        showToast('✏️ 远程重命名: ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
+      } else if (type === 'change' && payload.type === 'create') {
+        showToast('📤 收到新文件: ' + (payload.filename || '').substring(0, 30));
+      } else if (type === 'change' && payload.type === 'rename') {
+        showToast('✏️ 远程重命名: ' + (payload.oldFilename || '') + ' → ' + (payload.newFilename || ''));
+      }
       break;
     }
     case 'sync_response': {
