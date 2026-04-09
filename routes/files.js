@@ -384,13 +384,14 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     const q = (query.q || '').trim();
     if (q.length < 1) { sendJson(res, { success: true, suggestions: [] }); return true; }
     const suggestions = [];
-    const files = db.listFiles ? db.listFiles(10000, 0) : [];
-    const nameMatches = files.filter(f => f.filename.toLowerCase().includes(q.toLowerCase())).slice(0, 4);
-    nameMatches.forEach(f => {
+    // Use search engine instead of loading all files
+    const results = db.searchFiles(q, null, { limit: 5, fuzzy: true });
+    results.forEach(f => {
       suggestions.push({ type: 'file', text: f.filename, icon: getFileIcon(f.filename), tag: null });
     });
+    // Tag matches from suggestion keywords
     const allTags = new Set();
-    files.forEach(f => { if (f.tags) f.tags.split(',').forEach(t => allTags.add(t.trim())); });
+    results.forEach(f => { if (f.tags) f.tags.split(',').forEach(t => allTags.add(t.trim())); });
     const tagMatches = Array.from(allTags).filter(t => t.toLowerCase().includes(q.toLowerCase())).slice(0, 3);
     tagMatches.forEach(t => {
       const color = db.getTagColor ? db.getTagColor(t) : null;
