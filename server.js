@@ -69,7 +69,7 @@ const I18N = {
     'msg.copied': '已复制',
     'ui.copy': '复制',
     'msg.copy.failed': '复制失败',
-    'msg.delete.failed': '删除失败',
+    'msg.delete.failed': T('file.deleteFailed'),
     'msg.rename.failed': '重命名失败',
     'msg.update.failed': '更新失败',
     'msg.link.copied': '链接已复制',
@@ -104,7 +104,7 @@ const I18N = {
     'msg.downloadFailed': '下载失败:',
     'msg.batchDownloadSuccess': '批量下载成功',
     'msg.batchDownloadFailed': '批量下载失败:',
-    'msg.downloadDirSaved': '下载目录已保存（仅本机有效）',
+    'msg.downloadDirSaved': T('msg.downloadDirSaved'),
     'msg.noContent': '暂无分享内容',
     'msg.getFailed': '获取失败',
     'msg.tokenRefreshed': '已刷新',
@@ -217,7 +217,7 @@ const I18N = {
     'share.linkCopyFailed': '复制失败',
     'share.confirmDelete': '确定删除此分享链接？',
     'share.deleted': T('file.deleted'),
-    'share.deleteFailed': '删除失败',
+    'share.deleteFailed': T('file.deleteFailed'),
     'share.neverExpire': '永不过期',
     'share.expired': '已过期',
     'share.daysLeft': '剩余',
@@ -271,7 +271,7 @@ const I18N = {
     'admin.renewed': '证书已续期',
     'admin.renewFailed': '续期失败:',
     'admin.renewReqFailed': '续期请求失败',
-    'admin.unknown': '未知错误',
+    'admin.unknown': T('ui.unknownError'),
     'admin.tokenRefreshed': 'Token 已刷新',
     'admin.expired': '已过期',
     'admin.refreshed': '已刷新',
@@ -297,7 +297,7 @@ const I18N = {
     'fav.removeFav': '取消收藏',
 
     // 错误
-    'err.unknown': '未知错误',
+    'err.unknown': T('ui.unknownError'),
     'err.failed': '失败',
     'err.genFailed': '生成失败',
     'err.reqFailed': '请求失败',
@@ -1017,6 +1017,47 @@ const I18N = {
     'pwa.install': 'Install',
     'pwa.fileUpload': 'Upload file',
     'pwa.shareText': 'Share text',
+
+    // 补充的 msg keys
+    'msg.linkCopied': 'Link copied',
+    'msg.createShareFailed': 'Failed to create share link',
+    'msg.invalidFilename': 'Invalid filename',
+    'msg.shareFailed': 'Share failed',
+    'msg.deletedN': '{n} files deleted',
+    'msg.copiedN': '{n} files copied',
+    'msg.copyFailedN': '{n} copied, {m} failed',
+    'msg.copiedTo': '{n} files copied to {dest}',
+    'msg.confirmDelete': 'Confirm delete {name}?',
+    'msg.confirmDeleteAll': 'Delete all files?',
+    'msg.confirmDeleteDays': 'Delete files older than {n} days?',
+    'msg.confirmDeleteSelected': 'Delete {n} selected files?',
+    'msg.contentCopied': 'Content copied',
+    'msg.copiedToClipboard': 'Link copied to clipboard',
+    'msg.copyContent': 'Copy content:',
+    'msg.noContent': 'No content',
+    'msg.getFailed': 'Failed to get',
+    'msg.uploadSuccess': 'Upload successful',
+    'msg.uploaded': 'Uploaded',
+    'msg.uploadFailed': 'Retry failed:',
+    'msg.pasted': 'Image pasted: ',
+    'msg.tokenRefreshed': 'Refreshed',
+    'msg.batchDownloadFailed': 'Batch download failed',
+    'msg.batchDownloadSuccess': 'Batch download successful',
+    'msg.batchPackUnavailable': 'Batch pack unavailable, opening one by one...',
+    'msg.downloadDirSaved': 'Download dir saved (local only)',
+    'msg.downloadFailed': 'Download failed',
+
+    // 补充的 file keys
+    'file.checkFailed': 'Check failed',
+    'file.httpsDisabled': 'HTTPS disabled',
+    'file.httpsLanSkip': 'Skip on LAN',
+    'file.invalidName': 'Invalid filename',
+    'file.noFileSelected': 'No file selected',
+    'file.retry': 'Retry',
+    'msg.noFileSelected': 'Please select a file first',
+    'msg.textShareFailed': 'Failed:',
+    'msg.textShareSuccess': 'Text shared successfully',
+    'msg.uploadFail': 'Retry failed:',
   },
 
   // 翻译函数
@@ -1872,7 +1913,7 @@ async function startHttpServer() {
           'X-RateLimit-Remaining': '0',
           'X-RateLimit-Reset': String(Math.ceil(Date.now() / 1000) + (rate.retryAfter || 60))
         });
-        res.end(JSON.stringify({ success: false, error: '请求过于频繁，请 60 秒后重试', retryAfter: rate.retryAfter || 60 }));
+        res.end(JSON.stringify({ success: false, error: T('rateLimit.exceeded'), retryAfter: rate.retryAfter || 60 }));
         return;
       }
       res.setHeader('X-RateLimit-Limit', String(rate.total));
@@ -2731,7 +2772,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100dvh; overscroll-behavior: none; /* prevent pull-to-refresh on mobile */ -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
 /* iOS safe-area support for notch/Dynamic Island devices */
 header { text-align: center; margin-bottom: 32px; padding: env(safe-area-inset-top) 16px 0; }
-main { padding: 0 16px env(safe-area-inset-bottom); }
+main { padding: 0 16px env(safe-area-inset-bottom); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .container { max-width: 900px; margin: 0 auto; padding: 24px 16px; overflow-x: hidden; }
 /* Global overflow guard */
 #root, #app { overflow-x: hidden; }
@@ -2876,6 +2917,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .container { max-width: 100%; }
   .modal-content { max-width: 95%; }
   .search-suggestions { max-height: 300px; }
+  .file-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .filter-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .filter-tabs::-webkit-scrollbar { display: none; }
 }
 
 @media (max-width: 500px) {
@@ -2903,6 +2947,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .sort-bar select, .share-link-box input, input[type="password"] { font-size: 16px; min-height: 44px; }
   .file-grid { grid-template-columns: 1fr; }
   .file-grid .file-item { flex-direction: row; min-height: 60px; }
+  .card > div > .btn { width: 100%; margin-bottom: 8px; }
+  .card > div > .btn:last-child { margin-bottom: 0; }
+  .code-box { font-size: 11px; word-break: break-all; }
   .search-suggestions { max-height: 250px; }
   .qr-section.show { display: block; }
   .conn-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); margin-left: 8px; }
@@ -5022,7 +5069,7 @@ function doSearch() {
       }
       updateTagFilterBar();
     })
-    .catch(e => showAlert('listAlert', '搜索失败', 'error'));
+    .catch(e => showAlert('listAlert', T('search.failed'), 'error'));
 }
 
 function clearSearch() {
@@ -5291,7 +5338,7 @@ async function uploadFiles(files) {
             broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
           } else {
             failCount++;
-            showAlert('uploadAlert', '失败: ' + data.error, 'error');
+            showAlert('uploadAlert', T('msg.failed') + ': ' + data.error, 'error');
           }
         } catch (e) {
           clearInterval(animInterval);
@@ -5308,7 +5355,7 @@ async function uploadFiles(files) {
             retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
             queueItem.querySelector('.status').after(retryBtn);
           }
-          showAlert('uploadAlert', '失败: ' + e.message, 'error');
+          showAlert('uploadAlert', T('msg.failed') + ': ' + e.message, 'error');
         }
         resolve();
       };
@@ -5382,11 +5429,11 @@ async function retryUploadItem(idx) {
         loadFiles();
         broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
       } else {
-        showAlert('uploadAlert', '重试失败: ' + data.error, 'error');
+        showAlert('uploadAlert', T('msg.retryFailed') + ': ' + data.error, 'error');
         window._failedUploads.push({ file, filename });
       }
     } catch (e) {
-      showAlert('uploadAlert', '重试失败: ' + e.message, 'error');
+      showAlert('uploadAlert', T('msg.retryFailed') + ': ' + e.message, 'error');
       window._failedUploads.push({ file, filename });
     }
   };
@@ -5421,7 +5468,7 @@ async function copyContent(filename) {
       document.body.appendChild(textarea);
       textarea.select();
       try { document.execCommand('copy'); showToast(T('msg.contentCopied')); }
-      catch (e) { prompt('复制内容:', data.content); }
+      catch (e) { prompt(T('file.copyContent') + ':', data.content); }
       document.body.removeChild(textarea);
     }
   } catch (e) { showToast(T('msg.copy.failed'); }
@@ -5433,7 +5480,7 @@ function downloadFile(filename) {
 
 async function addTag(filename, existingTags) {
   const current = existingTags ? existingTags.split(',').filter(t => t.trim()).join(', ') : '';
-  const input = prompt('输入标签（多个标签用逗号分隔）:', current);
+  const input = prompt(T('tag.inputPrompt') + ':', current);
   if (input === null) return;
   const newTags = input.split(',').map(t => t.trim()).filter(t => t);
   if (newTags.length === 0) return;
@@ -5465,12 +5512,12 @@ async function addTag(filename, existingTags) {
     });
     const data = await res.json();
     if (data.success) {
-      showAlert('listAlert', '标签已更新', 'success');
+      showAlert('listAlert', T('tag.colorChanged'), 'success');
       loadFiles();
     } else {
       showAlert('listAlert', T('msg.update.failed') + ': ' + data.error, 'error');
     }
-  } catch (e) { showAlert('listAlert', '更新失败: ' + e.message, 'error'); }
+  } catch (e) { showAlert('listAlert', T('msg.update.failed') + ': ' + e.message, 'error'); }
 }
 
 async function deleteFile(filename) {
@@ -5568,9 +5615,9 @@ async function renameFile(oldFilename) {
       loadFiles();
       broadcastWs({ type: 'file_rename', payload: { oldFilename: data.oldFilename || oldFilename, newFilename: data.newFilename || newFilename } });
     } else {
-      showAlert('listAlert', '重命名失败: ' + (data.error || '未知错误'), 'error');
+      showAlert('listAlert', T('file.renameFailed') + ': ' + (data.error || T('ui.unknownError')), 'error');
     }
-  } catch (e) { showAlert('listAlert', '重命名失败: ' + e.message, 'error'); }
+  } catch (e) { showAlert('listAlert', T('file.renameFailed') + ': ' + e.message, 'error'); }
 }
 
 function startInlineRename(divEl, filename) {
@@ -5616,11 +5663,11 @@ async function commitInlineRename(divEl, oldFilename, input) {
       loadFiles();
       broadcastWs({ type: 'file_rename', payload: { oldFilename: data.oldFilename, newFilename: data.newFilename } });
     } else {
-      showAlert('listAlert', '重命名失败: ' + (data.error || '未知错误'), 'error');
+      showAlert('listAlert', T('file.renameFailed') + ': ' + (data.error || T('ui.unknownError')), 'error');
       cancelInlineRename(divEl, null, original);
     }
   } catch (e) {
-    showAlert('listAlert', '重命名失败: ' + e.message, 'error');
+    showAlert('listAlert', T('file.renameFailed') + ': ' + e.message, 'error');
     cancelInlineRename(divEl, null, original);
   }
 }
@@ -5647,10 +5694,10 @@ async function deleteOld(days) {
     const res = await fetch(API + '/api/delete-old?days=' + days, { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.success) {
-      showAlert('listAlert', '已删除 ' + data.deleted + ' 个文件', 'success');
+      showAlert('listAlert', T('file.deleted') + ' ' + data.deleted + ' ' + T('file.numFiles'), 'success');
       loadFiles();
     } else {
-      showAlert('listAlert', '删除失败', 'error');
+      showAlert('listAlert', T('file.deleteFailed'), 'error');
     }
   } catch (e) { showAlert('listAlert', '删除失败: ' + e.message, 'error'); }
 }
@@ -5661,10 +5708,10 @@ async function deleteAll() {
     const res = await fetch(API + '/api/delete-all', { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.success) {
-      showAlert('listAlert', '已删除 ' + data.deleted + ' 个文件', 'success');
+      showAlert('listAlert', T('file.deleted') + ' ' + data.deleted + ' ' + T('file.numFiles'), 'success');
       loadFiles();
     } else {
-      showAlert('listAlert', '删除失败', 'error');
+      showAlert('listAlert', T('file.deleteFailed'), 'error');
     }
   } catch (e) { showAlert('listAlert', '删除失败: ' + e.message, 'error'); }
 }
@@ -5712,7 +5759,7 @@ async function batchDelete() {
 async function batchCopy() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
-  const destPrefix = prompt('请输入目标虚拟文件夹前缀（如 work/backup/）:\n选中的 ' + checked.length + ' 个文件将被复制到此目录下');
+  const destPrefix = prompt(T('file.inputFolderPrefix')（如 work/backup/）:\n选中的 ' + checked.length + ' 个文件将被复制到此目录下');
   if (destPrefix === null) return; // cancelled
   const cleanPrefix = destPrefix.trim();
   if (!cleanPrefix) return;
@@ -6061,7 +6108,7 @@ document.addEventListener('change', (e) => {
 async function batchDownload() {
   const checkboxes = document.querySelectorAll('.batch-checkbox:checked');
   if (checkboxes.length === 0) {
-    showAlert('listAlert', '请先选择文件', 'error');
+    showAlert('listAlert', T('file.noFileSelected'), 'error');
     return;
   }
   
@@ -6079,12 +6126,12 @@ async function batchDownload() {
     if (contentType && contentType.includes('application/json')) {
       const data = await res.json();
       if (data.mode === 'multiple') {
-        showAlert('listAlert', '批量打包不可用，正在逐个打开下载...', 'info');
+        showAlert('listAlert', T('msg.batchPackUnavailable'), 'info');
         for (const f of data.files) {
           window.open(API + '/download/' + encodeURIComponent(f.name), '_blank');
         }
       } else {
-        showAlert('listAlert', '下载失败: ' + data.error, 'error');
+        showAlert('listAlert', T('msg.downloadFailed') + ': ' + data.error, 'error');
       }
     } else if (contentType && contentType.includes('zip')) {
       const blob = await res.blob();
@@ -6094,10 +6141,10 @@ async function batchDownload() {
       a.download = 'sharetool_batch.zip';
       a.click();
       URL.revokeObjectURL(url);
-      showAlert('listAlert', '批量下载成功', 'success');
+      showAlert('listAlert', T('msg.batchDownloadSuccess'), 'success');
     }
   } catch (e) {
-    showAlert('listAlert', '批量下载失败: ' + e.message, 'error');
+    showAlert('listAlert', T('msg.batchDownloadFailed') + ': ' + e.message, 'error');
   }
 }
 
@@ -6105,7 +6152,7 @@ function saveDownloadDir() {
   const dir = document.getElementById('downloadDir').value.trim();
   localStorage.setItem('shareTool_downloadDir', dir);
   config.downloadDir = dir;
-  showAlert('listAlert', '下载目录已保存（仅本机有效）', 'success');
+  showAlert('listAlert', T('msg.downloadDirSaved'), 'success');
 }
 
 // 搜索回车/实时搜索
