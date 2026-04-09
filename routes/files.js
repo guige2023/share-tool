@@ -329,7 +329,7 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // POST /api/batch-download
+  // POST /api/batch-download - 流式 ZIP 打包（避免大文件内存溢出）
   if (pathname === '/api/batch-download' && method === 'POST') {
     const authData = authRequired(req, res);
     if (!authData) return true;
@@ -347,61 +347,42 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
           return;
         }
 
-        const files = [];
+        // 收集文件元数据（不读 content）
+        const fileMetas = [];
         for (const fn of filenames) {
           const file = db.getFileByName(fn);
           if (file) {
-            files.push({ filename: fn, content: file.content || '' });
+            fileMetas.push({ filename: fn, content: file.content || '' });
           }
         }
 
-        if (files.length === 0) {
+        if (fileMetas.length === 0) {
           sendJson(res, { success: false, error: '没有找到任何文件' }, 404);
           return;
         }
 
-        let zipBuffer = null;
-        try {
-          const archive = archiver('zip', { zlib: { level: 9 } });
-          const chunks = [];
-          archive.on('data', chunk => chunks.push(chunk));
-          for (const f of files) {
-            archive.append(f.content, { name: f.filename });
-          }
-          archive.finalize();
-          zipBuffer = Buffer.concat(chunks);
-        } catch (archiverErr) {
-          try {
-            const AdmZip = require('adm-zip');
-            const zip = new AdmZip();
-            for (const f of files) {
-              zip.addFile(f.filename, Buffer.from(f.content, 'utf8'));
-            }
-            zipBuffer = zip.toBuffer();
-          } catch (admZipErr) {
-            sendJson(res, {
-              success: true,
-              mode: 'multiple',
-              files: files.map(f => ({
-                name: f.filename,
-                size: f.content ? Buffer.byteLength(f.content, 'utf8') : 0
-              })),
-              message: '批量打包不可用，请使用多标签页下载'
-            });
-            return;
-          }
-        }
+        // 流式打包：直接 pipe 到 HTTP 响应，避免内存缓冲区
+        res.writeHead(200, {
+          'Content-Type': 'application/zip',
+          'Content-Disposition': 'attachment; filename="sharetool_batch.zip"',
+          'Transfer-Encoding': 'chunked'
+        });
 
-        if (zipBuffer) {
-          res.writeHead(200, {
-            'Content-Type': 'application/zip',
-            'Content-Disposition': 'attachment; filename="sharetool_batch.zip"',
-            'Content-Length': zipBuffer.length
-          });
-          res.end(zipBuffer);
-          db.addAuditLog('batch_download', `${files.length} files`, getClientIp(req), authData.token);
-          return;
+        const archive = archiver('zip', { zlib: { level: 5 } }); // level 5 平衡速度与压缩率
+        archive.on('error', err => {
+          if (!res.headersSent) {
+            sendJson(res, { success: false, error: '打包失败' }, 500);
+          }
+          res.end();
+        });
+
+        archive.pipe(res);
+        for (const f of fileMetas) {
+          archive.append(f.content, { name: f.filename });
         }
+        archive.finalize();
+
+        db.addAuditLog('batch_download', `${fileMetas.length} files`, getClientIp(req), authData.token);
       } catch (e) {
         sendJson(res, { success: false, error: e.message }, 400);
       }
