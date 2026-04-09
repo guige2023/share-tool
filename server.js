@@ -1932,6 +1932,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .fab { display: flex; align-items: center; justify-content: center; }
 .tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
 .hide-mobile { display: none; }
+body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 .sort-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
 .sort-bar select { padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 12px; }
 .sort-bar select:focus { outline: none; border-color: var(--accent-primary); }
@@ -2495,6 +2496,19 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+// Modal scroll lock - prevent background scroll on mobile when modal open
+let _scrollPos = 0;
+function lockScroll() {
+  _scrollPos = window.scrollY;
+  document.body.classList.add('modal-open');
+  document.body.style.top = '-' + _scrollPos + 'px';
+}
+function unlockScroll() {
+  document.body.classList.remove('modal-open');
+  document.body.style.top = '';
+  window.scrollTo(0, _scrollPos);
 }
 
 function btoaSafe(str) {
@@ -3219,6 +3233,7 @@ async function openImageModal(filename) {
     window._imageFiles = currentFiles.filter(f => !f.isVirtualFolder && isImageFile(f.name));
     window._imageIndex = window._imageFiles.findIndex(f => f.name === filename);
     updateImageNavButtons();
+    lockScroll();
     document.getElementById('fileModal').classList.add('show');
     // Arrow key navigation
     document.getElementById('fileModal').dataset.imageMode = '1';
@@ -3267,6 +3282,7 @@ async function openMediaModal(filename) {
       document.getElementById('modalBody').innerHTML =
         '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video controls autoplay style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">您的浏览器不支持视频播放</video></div>';
     }
+    lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open media: ' + e.message); }
 }
@@ -3281,6 +3297,7 @@ async function openPdfModal(filename) {
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     document.getElementById('modalBody').innerHTML =
       '<iframe src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;background:var(--bg-tertiary);" title="PDF预览"></iframe>';
+    lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open PDF: ' + e.message); }
 }
@@ -3342,6 +3359,7 @@ async function openMarkdownModal(filename) {
 
     // Apply syntax highlighting to code blocks
     if (typeof hljs !== 'undefined') hljs.highlightAll();
+    lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to render Markdown: ' + e.message); }
 }
@@ -3379,6 +3397,7 @@ async function openCodeModal(filename) {
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0) + ' | ' + lang;
     document.getElementById('modalBody').innerHTML =
       '<pre style="margin:0;overflow:auto;max-height:70vh;background:var(--bg-tertiary);border-radius:8px;padding:16px;font-size:13px;line-height:1.5;"><code class="hljs language-' + lang + '">' + highlighted + '</code></pre>';
+    lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open code file: ' + e.message); }
 }
@@ -3400,6 +3419,7 @@ async function openFileModal(filename) {
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = 'Size: ' + formatSize(data.size || 0) + ' | Modified: ' + formatTime(data.time || 0);
     document.getElementById('modalBody').textContent = data.content || '';
+    lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open file'); }
 }
@@ -3474,6 +3494,7 @@ function showShareLinksModal() {
           '</div>';
         }).join('') + '</div>';
       }
+      lockScroll();
       document.getElementById('shareLinksModal').classList.add('show');
     }).catch(() => showToast('获取分享链接失败'));
 }
@@ -3542,11 +3563,13 @@ function showAuditModal() {
           (l.ip ? '<div style="color:var(--text-muted);font-size:10px;font-family:monospace;">' + escapeHtml(l.ip) + '</div>' : '') +
           '</div></div>'
       ).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);">暂无日志记录</div>';
+      lockScroll();
       document.getElementById('auditModal').classList.add('show');
     }).catch(() => showToast('获取日志失败'));
 }
 
 function showTokenModal() {
+  lockScroll();
   document.getElementById('tokenModal').classList.add('show');
   document.getElementById('newTokenInput').value = '';
   document.getElementById('newTokenInput').focus();
@@ -3672,6 +3695,7 @@ document.addEventListener('keydown', (e) => {
     showToast('已刷新');
   } else if (e.key === '?') {
     e.preventDefault();
+    lockScroll();
     document.getElementById('shortcutModal').classList.add('show');
   } else if (e.key === 'n' || e.key === 'N') {
     // n: new upload (trigger hidden file input)
@@ -4032,6 +4056,7 @@ async function shareFile(filename) {
   document.getElementById('shareExpiryHours').value = '168';
   document.getElementById('shareMaxDownloads').value = '';
   document.getElementById('sharePassword').value = '';
+  lockScroll();
   document.getElementById('shareOptionsModal').classList.add('show');
 }
 

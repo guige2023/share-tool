@@ -1003,13 +1003,13 @@ function checkRateLimit(key) {
 function recordRateLimitAttempt(key, success = false) {
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
-  
+
   if (success) {
     // 成功，清除记录
     db.prepare('DELETE FROM rate_limit WHERE key = ?').run(key);
     return;
   }
-  
+
   const row = db.prepare('SELECT * FROM rate_limit WHERE key = ?').get(key);
   if (!row) {
     db.prepare('INSERT INTO rate_limit (key, attempts, last_attempt) VALUES (?, 1, ?)').run(key, now);
@@ -1018,6 +1018,22 @@ function recordRateLimitAttempt(key, success = false) {
     const lockedUntil = newAttempts >= RATE_LIMIT_CONFIG.maxAttempts ? now + RATE_LIMIT_CONFIG.lockoutSeconds : null;
     db.prepare('UPDATE rate_limit SET attempts = ?, locked_until = ?, last_attempt = ? WHERE key = ?')
       .run(newAttempts, lockedUntil, now, key);
+  }
+}
+
+function getRateLimitConfig() {
+  return { ...RATE_LIMIT_CONFIG };
+}
+
+function setRateLimitConfig(overrides) {
+  if (typeof overrides.maxAttempts === 'number' && overrides.maxAttempts > 0) {
+    RATE_LIMIT_CONFIG.maxAttempts = overrides.maxAttempts;
+  }
+  if (typeof overrides.lockoutSeconds === 'number' && overrides.lockoutSeconds > 0) {
+    RATE_LIMIT_CONFIG.lockoutSeconds = overrides.lockoutSeconds;
+  }
+  if (typeof overrides.windowSeconds === 'number' && overrides.windowSeconds > 0) {
+    RATE_LIMIT_CONFIG.windowSeconds = overrides.windowSeconds;
   }
 }
 
@@ -1371,7 +1387,7 @@ module.exports = {
   // 审计
   addAuditLog, listAuditLogs, getAuditStats,
   // 速率限制
-  checkRateLimit, recordRateLimitAttempt,
+  checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig,
   // 分享链接
   saveShareLink, getShareLink, deleteShareLink, incrementShareLinkDownload,
   listShareLinks, cleanupExpiredShareLinks,
