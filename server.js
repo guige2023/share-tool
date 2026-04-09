@@ -1802,7 +1802,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; display: none; }
 .alert-success { background: rgba(34, 197, 94, 0.15); border: 1px solid var(--success); color: var(--success-fg); }
 .alert-error { background: rgba(220, 38, 38, 0.15); border: 1px solid var(--danger); color: var(--danger-fg); }
-.alert-info { background: rgba(59, 130, 246, 0.15); border: 1px solid #3b82f6; color: var(--info-fg); }
+.alert-info { background: rgba(59, 130, 246, 0.15); border: 1px solid var(--info-color, #3b82f6); color: var(--info-fg); }
 .alert.show { display: block; }
 .code-box { background: var(--bg-tertiary); padding: 14px; border-radius: 10px; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; color: var(--code-fg); margin: 8px 0; overflow-x: auto; border: 1px solid var(--border-color); white-space: pre-wrap; word-break: break-all; }
 .progress-bar { width: 100%; height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden; margin-top: 8px; }
