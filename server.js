@@ -1631,7 +1631,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="search"], [data-theme="dark"] textarea { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-primary); }
 [data-theme="dark"] .file-item { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="dark"] .file-item:hover { border-color: var(--text-muted); }
-[data-theme="dark"] .code-box { background: #0f172a; border-color: #334155; color: var(--code-fg); }
+[data-theme="dark"] .code-box { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--code-fg); }
 [data-theme="dark"] .modal-content { background: var(--bg-secondary); border-color: var(--border-color); }
 [data-theme="dark"] .modal-overlay,
 [data-theme="dark"] .qr-modal-overlay { background: rgba(0,0,0,0.85); }
@@ -4596,7 +4596,7 @@ function renderRecentSearches() {
   container.style.display = 'flex';
   container.innerHTML = searches.map(s =>
     '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + escapeHtml(s).replace(/'/g, "\\'") + '\';doSearch()">' + escapeHtml(s) + '</span>'
-  ).join('') + '<span class="recent-search-tag" style="color:#dc2626" onclick="clearRecentSearches()">✕清除</span>';
+  ).join('') + '<span class="recent-search-tag" style="color:var(--danger)" onclick="clearRecentSearches()">✕清除</span>';
 }
 
 function clearRecentSearches() {
@@ -4625,7 +4625,7 @@ init();
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
 <!-- FAB: Mobile-friendly upload button -->
-<div class="fab" id="fabMain" style="position:fixed;bottom:max(24px,env(safe-area-inset-bottom));right:24px;width:56px;height:56px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:50%;box-shadow:0 4px 16px rgba(102,126,234,0.4);cursor:pointer;z-index:100;display:none;" onclick="fabClicked()">
+<div class="fab" id="fabMain" style="position:fixed;bottom:max(24px,env(safe-area-inset-bottom));right:24px;width:56px;height:56px;background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));border-radius:50%;box-shadow:0 4px 16px rgba(102,126,234,0.4);cursor:pointer;z-index:100;display:none;" onclick="fabClicked()">
   <span style="font-size:24px;color:white;">+</span>
 </div>
 <div class="fab-menu" id="fabMenu">
