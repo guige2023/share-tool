@@ -1751,6 +1751,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-video-wrapper video { width: 100%; max-height: 200px; border-radius: 8px; background: var(--bg-secondary,#000); margin-top: 4px; }
 [data-theme="dark"] .file-audio-player audio { filter: invert(0.8); } /* improve contrast on dark bg */
 .file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.file-name input.inline-rename { font-size: 14px; font-weight: 500; background: var(--bg-input); border: 1px solid var(--accent-primary); border-radius: 4px; color: var(--text-primary); padding: 2px 6px; outline: none; width: 100%; }
 .file-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 .file-tag { font-size: 10px; padding: 2px 6px; background: rgba(102,126,234,0.2); color: #667eea; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
 .file-tag:hover { opacity: 0.85; }
@@ -2796,7 +2797,7 @@ function renderFiles() {
       '<div class="file-content">' +
         (isImage
           ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><img class="file-thumb-img" id="' + thumbId + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')" /></div>'
-          : '<div class="file-name"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(f.name) + '</span></div>') +
+          : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="双击重命名"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(f.name) + '</span></div>') +
         (tags.length ? '<div class="file-tags">' + tags.map(t => '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + escapeHtml(t.trim()) + '\')">' + escapeHtml(t.trim()) + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + escapeHtml(t.trim()) + '\')">×</span></span>').join('') + '</div>' : '') +
         '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\')">+标签</button>' +
         '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' +
@@ -3811,6 +3812,74 @@ async function renameFile(oldFilename) {
       showAlert('listAlert', '重命名失败: ' + (data.error || '未知错误'), 'error');
     }
   } catch (e) { showAlert('listAlert', '重命名失败: ' + e.message, 'error'); }
+}
+
+function startInlineRename(divEl, filename) {
+  const span = divEl.querySelector('.search-target');
+  if (!span) return;
+  const currentName = decodeURIComponent(filename);
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'inline-rename';
+  input.value = currentName;
+  // Save original span content for restore on cancel
+  input.dataset.original = currentName;
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitInlineRename(divEl, filename, input); }
+    else if (e.key === 'Escape') { cancelInlineRename(divEl, span); }
+    else if (e.key === 'Tab') { e.preventDefault(); commitInlineRename(divEl, filename, input); }
+  });
+  input.addEventListener('blur', () => {
+    // Small delay so that Enter key handler fires first
+    setTimeout(() => commitInlineRename(divEl, filename, input), 50);
+  });
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+async function commitInlineRename(divEl, oldFilename, input) {
+  const newFilename = input.value.trim();
+  const original = input.dataset.original;
+  if (!newFilename || newFilename === original) {
+    cancelInlineRename(divEl, null, original);
+    return;
+  }
+  try {
+    const res = await fetch(API + '/api/file-rename/' + oldFilename, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ newFilename })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('已重命名: ' + data.newFilename);
+      loadFiles();
+      broadcastWs({ type: 'file_rename', payload: { oldFilename: data.oldFilename, newFilename: data.newFilename } });
+    } else {
+      showAlert('listAlert', '重命名失败: ' + (data.error || '未知错误'), 'error');
+      cancelInlineRename(divEl, null, original);
+    }
+  } catch (e) {
+    showAlert('listAlert', '重命名失败: ' + e.message, 'error');
+    cancelInlineRename(divEl, null, original);
+  }
+}
+
+function cancelInlineRename(divEl, span, originalName) {
+  if (!divEl) return;
+  const input = divEl.querySelector('.inline-rename');
+  if (!input) return;
+  const name = originalName || input.dataset.original || '';
+  const icon = divEl.querySelector('.file-type-icon');
+  const iconHtml = icon ? icon.outerHTML : '';
+  const textNode = document.createTextNode(name);
+  if (span) {
+    input.replaceWith(span);
+    span.textContent = name;
+  } else {
+    input.replaceWith(textNode);
+  }
 }
 
 async function deleteOld(days) {
