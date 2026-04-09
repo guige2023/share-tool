@@ -1654,6 +1654,8 @@ function setCors(res, req) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-auth-token, x-refresh-token, Authorization, x-requested-with');
   res.setHeader('Access-Control-Expose-Headers', 'x-requested-with');
+  // HSTS header for HTTPS connections
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 }
 
 function isLocalhost(origin) {
@@ -3827,9 +3829,9 @@ const WS_URL = 'ws://' + location.hostname + ':${WS_PORT}';
 const DEVICE_ID = '${DEVICE_ID}';
 const DEVICE_NAME = navigator.platform || 'Unknown';
 
-// Configure marked for safe rendering (marked@9 API)
+// Configure marked for safe rendering (marked@9+ API, mangle/headerIds removed in v5+)
 if (typeof marked !== 'undefined') {
-  marked.setOptions({ breaks: true, gfm: true, mangle: false, headerIds: false });
+  marked.use({ breaks: true, gfm: true });
 }
 
 let ws = null;
@@ -4927,7 +4929,12 @@ async function openCodeModal(filename) {
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0) + ' | ' + lang;
     document.getElementById('modalBody').innerHTML =
-      '<pre style="margin:0;overflow:auto;max-height:70vh;background:var(--bg-tertiary);border-radius:8px;padding:16px;font-size:13px;line-height:1.5;"><code class="hljs language-' + lang + '">' + highlighted + '</code></pre>';
+      '<div style="position:relative;">' +
+        '<button onclick="navigator.clipboard.writeText(document.getElementById(\'codeContentClone\').textContent).then(()=>{this.textContent=\'' + T('file.copied') + '!\';this.classList.add(\'copied\');setTimeout(()=>{this.textContent=\'' + T('ui.copy') + '\';this.classList.remove(\'copied\')},2000)})" ' +
+           'style="position:absolute;top:8px;right:8px;padding:4px 10px;font-size:12px;border-radius:6px;border:none;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;z-index:1;">' + T('ui.copy') + '</button>' +
+        '<pre id="codeContentClone" style="margin:0;overflow:auto;max-height:70vh;background:var(--bg-tertiary);border-radius:8px;padding:16px;font-size:13px;line-height:1.5;display:none;">' + escapeHtml(content) + '</pre>' +
+        '<pre style="margin:0;overflow:auto;max-height:70vh;background:var(--bg-tertiary);border-radius:8px;padding:16px;font-size:13px;line-height:1.5;"><code class="hljs language-' + lang + '">' + highlighted + '</code></pre>' +
+      '</div>';
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open code file: ' + e.message); }
