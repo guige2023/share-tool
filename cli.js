@@ -84,7 +84,7 @@ function request(method, endpoint, options = {}) {
 function uploadFile(filePath) {
   return new Promise((resolve, reject) => {
     const serverUrl = getServerUrl();
-    const parsedUrl = parseUrl(serverUrl, '/upload');
+    const parsedUrl = parseUrl(serverUrl, '/api/upload');
     const isHttps = parsedUrl.protocol === 'https:';
     const client = isHttps ? https : http;
 
