@@ -323,7 +323,9 @@ const I18N = {
     'tag.addFailed': '批量添加失败:',
     'tag.colorChanged': '颜色已更新',
     'tag.clickChangeColor': '点击修改颜色',
+    'tag.doubleClickRename': '双击重命名',
     'tag.count': '个',
+    'tag.manager': '标签管理',
     'tag.renamePrompt': '将标签 "{old}" 重命名为：',
     'tag.renameSuccess': '已重命名，更新了 {n} 个文件',
     'tag.renameFailed': '重命名失败',
@@ -6738,12 +6740,20 @@ function renderTagManagerItems(tags) {
   list.innerHTML = tags.map(t => {
     const color = t.color || '#667eea';
     const tagEsc = escapeHtml(t.tag);
-    return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;">' +
-      '<input type="color" value="' + color + '" style="width:24px;height:24px;border:none;background:none;cursor:pointer;padding:0;border-radius:4px;" title="' + T('tag.clickChangeColor') + '" onchange="updateTagColor(\'' + tagEsc + '\', this.value)">' +
-      '<span style="flex:1;font-size:13px;">' + tagEsc + '</span>' +
-      '<span style="font-size:11px;color:var(--text-muted);">' + t.count + T('tag.count') + '</span>' +
-      '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="renameTag(\'' + tagEsc + '\')">' + T('tag.rename') + '</button>' +
-      '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteTag(\'' + tagEsc + '\')">' + T('tag.delete') + '</button>' +
+    const contrastColor = getContrastColor(color);
+    return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-tertiary);border-radius:12px;border:1px solid var(--border-color);transition:border-color 0.15s;">' +
+      '<div style="width:36px;height:36px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);" title="' + T('tag.clickChangeColor') + '" onclick="document.getElementById(\'colorPicker_' + tagEsc.replace(/[^a-zA-Z0-9]/g, '_') + '\').click()">' +
+        '<span style="font-size:16px;">🏷</span>' +
+        '<input type="color" id="colorPicker_' + tagEsc.replace(/[^a-zA-Z0-9]/g, '_') + '" value="' + color + '" style="position:absolute;width:0;height:0;opacity:0;" onchange="updateTagColor(\'' + tagEsc + '\', this.value); this.parentElement.style.background=this.value;">' +
+      '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="font-size:14px;font-weight:500;color:var(--text-primary);cursor:pointer;" ondblclick="renameTag(\'' + tagEsc + '\')" title="' + T('tag.doubleClickRename') + '">' + tagEsc + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + t.count + ' ' + T('tag.count') + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:6px;align-items:center;">' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:6px 10px;min-height:32px;" onclick="renameTag(\'' + tagEsc + '\')" title="' + T('tag.rename') + '">✏️</button>' +
+        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:6px 10px;min-height:32px;" onclick="deleteTag(\'' + tagEsc + '\')" title="' + T('tag.delete') + '">🗑</button>' +
+      '</div>' +
     '</div>';
   }).join('');
 }
