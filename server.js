@@ -1766,6 +1766,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .search-suggestions { position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; margin-top: 4px; z-index: 1000; max-height: 240px; overflow-y: auto; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
 .search-suggestion { padding: 10px 14px; cursor: pointer; font-size: 13px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
 .search-suggestion:hover { background: var(--bg-tertiary); }
+.search-suggestion.selected { background: var(--bg-tertiary); outline: 1px solid var(--accent-primary); }
 .search-suggestion .suggestion-icon { color: var(--text-muted); font-size: 12px; }
 .search-suggestion .suggestion-tag { font-size: 10px; padding: 1px 5px; border-radius: 3px; margin-left: auto; }
 .filter-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -4386,20 +4387,74 @@ function saveDownloadDir() {
 }
 
 // 搜索回车/实时搜索
-document.getElementById('searchInput').addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') doSearch();
+let selectedSuggestionIndex = -1;
+let currentSuggestions = [];
+
+document.getElementById('searchInput').addEventListener('keydown', (e) => {
+  const container = document.getElementById('searchSuggestions');
+  const isVisible = container && container.style.display !== 'none';
+
+  if (isVisible && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape')) {
+    if (e.key === 'Escape') {
+      hideSuggestions();
+      selectedSuggestionIndex = -1;
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, currentSuggestions.length - 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, 0);
+    } else if (e.key === 'Enter') {
+      if (selectedSuggestionIndex >= 0 && currentSuggestions[selectedSuggestionIndex]) {
+        e.preventDefault();
+        const s = currentSuggestions[selectedSuggestionIndex];
+        applySuggestion(s.text, s.type);
+        return;
+      }
+      doSearch();
+      return;
+    }
+    updateSuggestionSelection();
+    return;
+  }
+  // Enter without selection → normal search
+  if (e.key === 'Enter') {
+    doSearch();
+  }
 });
+
 // 实时搜索（输入时自动搜索）
 let searchDebounce = null;
 let suggestDebounce = null;
 document.getElementById('searchInput').addEventListener('input', () => {
+  selectedSuggestionIndex = -1;
   if (searchDebounce) clearTimeout(searchDebounce);
   searchDebounce = setTimeout(doSearch, 400);
   // 搜索自动补全
   const q = document.getElementById('searchInput').value.trim();
   if (suggestDebounce) clearTimeout(suggestDebounce);
-  if (q.length < 1) { hideSuggestions(); return; }
+  if (q.length < 1) {
+    hideSuggestions();
+    // 空搜索时显示最近搜索
+    const recent = getRecentSearches();
+    if (recent.length > 0) {
+      document.getElementById('recentSearches').style.display = 'flex';
+    }
+    return;
+  }
+  document.getElementById('recentSearches').style.display = 'none';
   suggestDebounce = setTimeout(() => fetchSuggestions(q), 200);
+});
+
+// Cmd/Ctrl+K 全局搜索快捷键
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    const input = document.getElementById('searchInput');
+    if (input) { input.focus(); input.select(); }
+  }
 });
 
 async function fetchSuggestions(q) {
@@ -4416,16 +4471,30 @@ async function fetchSuggestions(q) {
 
 function renderSuggestions(suggestions) {
   const container = document.getElementById('searchSuggestions');
-  container.innerHTML = suggestions.map(s => {
+  currentSuggestions = suggestions;
+  selectedSuggestionIndex = -1;
+  container.innerHTML = suggestions.map((s, i) => {
     const tagStyle = s.color ? 'background:rgba(' + hexToRgb(s.color) + ',0.2);color:' + s.color + ';' : 'background:rgba(102,126,234,0.2);color:var(--accent-primary);';
     const tagLabel = s.type === 'tag' ? '<span class="suggestion-tag" style="' + tagStyle + '">tag</span>' : '';
-    return '<div class="search-suggestion" onclick="applySuggestion(\'' + escapeHtml(s.text).replace(/'/g, "\\'") + '\', \'' + s.type + '\')">' +
+    return '<div class="search-suggestion' + (i === 0 ? ' selected' : '') + '" data-idx="' + i + '" onclick="applySuggestion(\'' + escapeHtml(s.text).replace(/'/g, "\\'") + '\', \'' + s.type + '\')">' +
       '<span class="suggestion-icon">' + escapeHtml(s.icon || '') + '</span>' +
       '<span>' + escapeHtml(s.text) + '</span>' +
       tagLabel +
       '</div>';
   }).join('');
   container.style.display = 'block';
+  // Auto-select first item
+  if (suggestions.length > 0) selectedSuggestionIndex = 0;
+}
+
+function updateSuggestionSelection() {
+  const container = document.getElementById('searchSuggestions');
+  container.querySelectorAll('.search-suggestion').forEach((el, i) => {
+    el.classList.toggle('selected', i === selectedSuggestionIndex);
+  });
+  // Scroll selected into view
+  const selected = container.querySelector('.search-suggestion.selected');
+  if (selected) selected.scrollIntoView({ block: 'nearest' });
 }
 
 function hideSuggestions() {
