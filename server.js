@@ -3806,6 +3806,25 @@ function sendHtml(res) {
   res.end(HTML_PAGE);
 }
 
+// ============================================================
+// Server-side utilities (shared with route modules)
+// ============================================================
+function getFileIcon(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  const icons = {
+    pdf: '📕', doc: '📘', docx: '📘', xls: '📗', xlsx: '📗',
+    ppt: '📙', pptx: '📙', txt: '📄', md: '📝', json: '📋',
+    jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️',
+    mp3: '🎵', wav: '🎵', flac: '🎵', aac: '🎵',
+    mp4: '🎬', mkv: '🎬', avi: '🎬', mov: '🎬', webm: '🎬',
+    zip: '📦', rar: '📦', '7z': '📦', tar: '📦', gz: '📦',
+    js: '💻', ts: '💻', py: '💻', java: '💻', c: '💻', cpp: '💻', h: '💻',
+    css: '🎨', html: '🌐', xml: '🌐', yml: '⚙️', yaml: '⚙️',
+    exe: '⚙️', dmg: '⚙️', deb: '⚙️', rpm: '⚙️',
+  };
+  return icons[ext] || '📄';
+}
+
 
 // ============================================================
 // 启动
