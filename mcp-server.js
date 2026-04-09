@@ -389,19 +389,19 @@ async function executeTool(name, args) {
 
 // Send JSON-RPC response
 function sendResponse(response) {
-  console.log(JSON.stringify(response));
+  process.stdout.write(JSON.stringify(response) + '\n');
 }
 
 // Send JSON-RPC error
 function sendError(id, error) {
-  console.log(JSON.stringify({
+  process.stdout.write(JSON.stringify({
     jsonrpc: '2.0',
     id,
     error: {
       code: -32603,
       message: error.message || 'Internal error'
     }
-  }));
+  }) + '\n');
 }
 
 // Handle incoming JSON-RPC message
@@ -450,8 +450,10 @@ function handleMessage(request) {
       break;
 
     case 'tools/call':
+      pendingOperations++;
       executeTool(params.name, params.arguments || {})
         .then((result) => {
+          pendingOperations--;
           sendResponse({
             jsonrpc: '2.0',
             id,
@@ -466,6 +468,7 @@ function handleMessage(request) {
           });
         })
         .catch((error) => {
+          pendingOperations--;
           sendError(id, error);
         });
       break;
@@ -481,7 +484,7 @@ const rl = readline.createInterface({
   crlfDelay: Infinity
 });
 
-let buffer = '';
+let pendingOperations = 0;
 
 rl.on('line', (line) => {
   const trimmed = line.trim();
@@ -496,7 +499,15 @@ rl.on('line', (line) => {
 });
 
 rl.on('close', () => {
-  process.exit(0);
+  // Don't exit immediately if there are pending async operations
+  const checkExit = () => {
+    if (pendingOperations === 0) {
+      process.exit(0);
+    } else {
+      setTimeout(checkExit, 100);
+    }
+  };
+  checkExit();
 });
 
 // Handle stdin errors gracefully

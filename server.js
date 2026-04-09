@@ -1600,6 +1600,7 @@ const HTML_PAGE = `<!DOCTYPE html>
   --code-fg: #4ade80;
   --danger: #dc2626;
   --warning: #d97706;
+  --text-inverse: #fff;
 }
 [data-theme="dark"] body { background: var(--bg-primary); }
 [data-theme="dark"] .card { background: var(--bg-secondary); border-color: var(--border-color); }
