@@ -251,6 +251,8 @@ const I18N = {
     'share.never': '永不过期',
     'share.downloadLimit': '下载次数限制（可选）',
     'share.passwordOptional': '密码保护（可选）',
+    'share.description': '备注',
+    'share.descriptionPlaceholder': '给链接加个备注（可选）',
     'share.linkCreateFailed': '创建分享链接失败',
     'share.successCreated': '✓ 分享链接已创建',
     'share.batchCreate': '🔗 批量创建分享（{n}个）',
@@ -707,6 +709,8 @@ const I18N = {
     'share.never': 'Never',
     'share.downloadLimit': 'Download limit (optional)',
     'share.passwordOptional': 'Password protection (optional)',
+    'share.description': 'Description',
+    'share.descriptionPlaceholder': 'Add a note (optional)',
     'share.linkCreateFailed': 'Failed to create share link',
     'share.successCreated': '✓ Share link created',
     'share.batchCreate': '🔗 Batch Create Share ({n} files)',
@@ -1083,6 +1087,8 @@ const I18N = {
     'share.never': 'Never',
     'share.downloadLimit': 'Download limit (optional)',
     'share.passwordOptional': 'Password protection (optional)',
+    'share.description': 'Description',
+    'share.descriptionPlaceholder': 'Add a note (optional)',
     'share.linkCreateFailed': 'Failed to create share link',
     'share.successCreated': '✓ Share link created',
     'share.batchCreate': '🔗 Batch Create Share ({n} files)',
@@ -6143,11 +6149,12 @@ function doUpdateShareLink() {
   const expiryHours = parseInt(document.getElementById('editShareExpiryHours').value) || 0;
   const maxDownloads = parseInt(document.getElementById('editShareMaxDownloads').value) || null;
   const password = document.getElementById('editSharePassword').value || null;
+  const description = document.getElementById('editShareDescription').value || '';
   closeEditShareLinkModal();
   fetch(API + '/api/share/update/' + code, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-    body: JSON.stringify({ expiryHours, maxDownloads, password })
+    body: JSON.stringify({ expiryHours, maxDownloads, password, description })
   })
     .then(r => r.json())
     .then(data => {
