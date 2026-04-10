@@ -3644,9 +3644,11 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .hero-content { flex-direction: column; }
   .hero-url { flex-direction: column; }
   .status-bar { flex-direction: column; align-items: center; }
-  .search-bar { flex-direction: column; }
-  .search-bar .btn { width: 100%; }
-  .search-bar input { min-height: 44px; /* touch target */ font-size: 16px; /* prevent iOS zoom */ }
+  .search-bar { flex-direction: column; gap: 8px; }
+  .search-bar .btn { width: 100%; min-height: 44px; }
+  .search-bar input { min-height: 44px; font-size: 16px; width: 100%; box-sizing: border-box; }
+  .search-suggestions { max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #clearSearchBtn { display: inline-block !important; } /* always show clear on mobile */
   .sort-bar select, .share-link-box input, input[type="password"] { font-size: 16px; min-height: 44px; }
   .file-grid { grid-template-columns: 1fr; }
   .file-grid .file-item { flex-direction: column; min-height: auto; }
@@ -3721,7 +3723,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .status-item { font-size: 11px; padding: 3px 8px; }
   .modal-content { max-width: 98vw; }
   .card { padding: 16px 12px; }
-  h1 { font-size: 24px; }
+  h1 { font-size: 20px; }
+  .subtitle { display: none; }
   .section-title { font-size: 14px; }
   .search-bar input { font-size: 15px; }
   .fab { width: 44px; height: 44px; font-size: 18px; }
