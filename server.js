@@ -8928,8 +8928,12 @@ async function batchAddTag() {
   const newTags = tag.split(',').map(t => t.trim()).filter(t => t);
   if (newTags.length === 0) return;
 
+  setBatchOperation('标签中...');
+  const files = Array.from(checked).map(cb => cb.value);
+
   // Auto-assign colors for new tags
-  for (const t of newTags) {
+  for (let i = 0; i < newTags.length; i++) {
+    const t = newTags[i];
     if (!tagColors[t]) {
       try {
         const res = await fetch(API + '/api/tags/suggest-color?tag=' + encodeURIComponent(t), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
@@ -8944,10 +8948,11 @@ async function batchAddTag() {
         }
       } catch (e) {}
     }
+    const statusText = document.getElementById('batchStatusText');
+    if (statusText) statusText.textContent = '标签 ' + (i + 1) + '/' + newTags.length;
   }
 
   // Use batch API - single call for all files
-  const files = Array.from(checked).map(cb => cb.value);
   try {
     const res = await fetch(API + '/api/file-tags/batch', {
       method: 'PUT',
@@ -8956,15 +8961,15 @@ async function batchAddTag() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast(T('tag.added', null, {n: data.updated}));
+      endBatchOperation(T('tag.added', null, {n: data.updated}), () => { clearBatch(); loadFiles(); });
     } else {
       showToast(T('tag.addFailed') + ' ' + (data.error || T('admin.unknown')), 'error');
+      clearBatch();
     }
   } catch (e) {
     showToast(T('tag.addFailed') + ' ' + e.message, 'error');
+    clearBatch();
   }
-  clearBatch();
-  loadFiles();
 }
 
 async function batchRemoveTag() {
@@ -9156,8 +9161,10 @@ async function batchRename() {
   const repl = (document.getElementById('brReplace') || {}).value || '';
   const text = (document.getElementById('brText') || {}).value || '';
   const files = window._batchRenameFiles || [];
+  setBatchOperation('重命名中...');
   let renamed = 0, failed = 0;
-  for (const oldEnc of files) {
+  for (let i = 0; i < files.length; i++) {
+    const oldEnc = files[i];
     const oldFn = decodeURIComponent(oldEnc);
     const ext = oldFn.includes('.') ? oldFn.split('.').pop() : '';
     const base = ext ? oldFn.slice(0, -(ext.length + 1)) : oldFn;
@@ -9168,6 +9175,8 @@ async function batchRename() {
     else if (op === 'case') newBase = base === base.toLowerCase() ? base.toUpperCase() : base.toLowerCase();
     const newFn = ext ? newBase + '.' + ext : newBase;
     if (newFn === oldFn) continue;
+    const statusText = document.getElementById('batchStatusText');
+    if (statusText) statusText.textContent = '重命名中 ' + (i + 1) + '/' + files.length;
     try {
       const res = await fetch(API + '/api/file-rename/' + oldEnc, {
         method: 'POST',
@@ -9180,9 +9189,7 @@ async function batchRename() {
     } catch (e) { failed++; }
   }
   closeModal();
-  clearBatch();
-  loadFiles();
-  if (renamed > 0) showToast('已重命名 ' + renamed + ' 个文件' + (failed > 0 ? '，' + failed + ' 个失败' : ''));
+  endBatchOperation('已重命名 ' + renamed + ' 个文件' + (failed > 0 ? '，' + failed + ' 个失败' : ''), () => { clearBatch(); loadFiles(); });
 }
 
 // Favorites (localStorage)
