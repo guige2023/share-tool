@@ -7138,6 +7138,68 @@ function showFilesWithTag(tag) {
 }
 function closeTagsModal() { unlockScroll(); document.getElementById('tagsModal').classList.remove('show'); }
 
+let _tagsCtxTag = null;
+function showTagsContextMenu(e, tag) {
+  _tagsCtxTag = tag;
+  const menu = document.getElementById('tagsCtxMenuInner');
+  if (!menu) return;
+  const tagJs = tag.replace(/'/g, "\\'");
+  const items = [
+    { icon: '🏷', label: T('tag.viewFiles'), action: "filterByTag('" + tagJs + "')" },
+    { icon: '✏', label: T('tag.rename'), action: "renameTag('" + tagJs + "')" },
+    { icon: '🗑', label: T('tag.delete'), action: "deleteTag('" + tagJs + "')", danger: true },
+    { divider: true },
+    { icon: '🎨', label: T('tag.changeColor'), action: "promptTagColor('" + tagJs + "')" },
+    { icon: '😀', label: T('tag.changeIcon'), action: "promptTagEmoji('" + tagJs + "')" }
+  ];
+  menu.innerHTML = items.map(item => {
+    if (item.divider) return '<div style="border-top:1px solid var(--border-color);margin:4px 0;"></div>';
+    const danger = item.danger ? 'color:var(--danger);' : '';
+    return '<div onclick="hideTagsContextMenu();' + item.action + '" style="padding:10px 16px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;' + danger + '" onmouseover="this.style.background=\'var(--bg-tertiary)\'" onmouseout="this.style.background=\'transparent\'">' + item.icon + ' ' + item.label + '</div>';
+  }).join('');
+  const menuWrap = document.getElementById('tagsCtxMenu');
+  const x = Math.min(e.clientX, window.innerWidth - 180);
+  const y = Math.min(e.clientY, window.innerHeight - 220);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menuWrap.style.display = 'block';
+}
+function hideTagsContextMenu() {
+  const menuWrap = document.getElementById('tagsCtxMenu');
+  if (menuWrap) menuWrap.style.display = 'none';
+  _tagsCtxTag = null;
+}
+async function promptTagColor(tag) {
+  const current = tagColors[tag] || '#667eea';
+  const input = prompt('Enter color for "' + tag + '":', current);
+  if (!input || input === current) return;
+  try {
+    await fetch(API + '/api/tags/color', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ tag, color: input })
+    });
+    tagColors[tag] = input;
+    renderFiles();
+    // Refresh tags modal if open
+    if (document.getElementById('tagsModal').classList.contains('show')) showTagsModal();
+  } catch(e) { showAlert('listAlert', 'Failed: ' + e.message, 'error'); }
+}
+async function promptTagEmoji(tag) {
+  const input = prompt('Enter emoji for "' + tag + '":', tagEmojis[tag] || '🏷');
+  if (!input || input === tagEmojis[tag]) return;
+  try {
+    await fetch(API + '/api/tags/emoji', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ tag, emoji: input })
+    });
+    tagEmojis[tag] = input;
+    renderFiles();
+    if (document.getElementById('tagsModal').classList.contains('show')) showTagsModal();
+  } catch(e) { showAlert('listAlert', 'Failed: ' + e.message, 'error'); }
+}
+
 function showBackupModal() {
   const body = document.getElementById('backupModalBody');
   body.innerHTML = '<div style="padding:16px;text-align:center;">' +
@@ -9721,6 +9783,40 @@ function showFileContextMenu(e, filename) {
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
   menu.classList.add('show');
+}
+
+function showTagsContextMenu(event, tag) {
+  event.preventDefault();
+  event.stopPropagation();
+  const menu = document.getElementById('tagsCtxMenuInner');
+  if (!menu) return;
+  const items = [
+    { label: '🔍 ' + T('file.showFilesWithTag', '查看此标签'), action: "showFilesWithTag('" + tag.replace(/'/g, "\\'") + "'); hideTagsContextMenu()" },
+    { label: '✏️ ' + T('tag.rename', '重命名'), action: "hideTagsContextMenu(); setTimeout(function(){ openRenameTagModal('" + tag.replace(/'/g, "\\'") + "'); }, 100)" },
+    { sep: true },
+    { label: '🗑 ' + T('tag.delete', '删除'), action: "hideTagsContextMenu(); setTimeout(function(){ doDeleteTag('" + tag.replace(/'/g, "\\'") + "'); }, 100)", danger: true },
+  ];
+  menu.innerHTML = items.map(item =>
+    item.sep ? '<div class="ctx-sep"></div>' :
+    '<div class="ctx-item' + (item.danger ? ' danger' : '') + '" onclick="event.stopPropagation();' + item.action + '">' + item.label + '</div>'
+  ).join('');
+  const menuEl = document.getElementById('tagsCtxMenu');
+  if (menuEl) {
+    menuEl.style.display = 'block';
+    const rect = menu.getBoundingClientRect();
+    const menuW = rect.width || 180, menuH = items.length * 42;
+    let top = event.clientY;
+    let left = event.clientX;
+    if (top + menuH > window.innerHeight - 8) top = event.clientY - menuH;
+    if (left + menuW > window.innerWidth - 8) left = event.clientX - menuW;
+    menu.style.top = Math.max(8, top) + 'px';
+    menu.style.left = Math.max(8, left) + 'px';
+  }
+}
+
+function hideTagsContextMenu() {
+  const menu = document.getElementById('tagsCtxMenu');
+  if (menu) menu.style.display = 'none';
 }
 
 function closeContextMenu() {
