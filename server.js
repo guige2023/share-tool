@@ -3559,12 +3559,13 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: var(--bg-tertiary); border-radius: 10px; border: 1px solid var(--border-color); gap: 12px; touch-action: pan-y; user-select: none; position: relative; overflow: hidden; }
 .file-item.focused { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
 .file-item:hover { border-color: var(--text-muted); }
-.file-item .swipe-actions { position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 0; transform: translateX(100%); transition: transform 0.2s ease; }
+.file-item .swipe-actions { position: absolute; right: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 0; transform: translateX(100%); transition: transform 0.2s ease; box-shadow: -4px 0 12px rgba(0,0,0,0.15); }
 .file-item .swipe-actions.show { transform: translateX(0); }
-.file-item .swipe-btn { height: 100%; padding: 0 20px; border: none; color: white; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px; min-width: 60px; }
-.file-item .swipe-btn.delete { background: var(--danger); }
-.file-item .swipe-btn.tag { background: var(--warning); }
-.file-item .swipe-btn .icon { font-size: 16px; }
+.file-item .swipe-btn { height: 100%; padding: 0 20px; border: none; color: white; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 2px; min-width: 60px; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.file-item .swipe-btn.delete { background: linear-gradient(135deg, var(--danger), #dc2626); }
+.file-item .swipe-btn.tag { background: linear-gradient(135deg, var(--warning), #d97706); }
+.file-item .swipe-btn .icon { font-size: 16px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.2)); }
+.file-item .swipe-btn:active { opacity: 0.85; transform: scale(0.97); }
 /* Long-press context menu (mobile) */
 #contextMenu {
   position: fixed;
