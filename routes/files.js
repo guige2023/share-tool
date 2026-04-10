@@ -208,8 +208,36 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // PUT /api/content/:filename - Update file content (edit & save)
+  if (pathname.startsWith('/api/content/') && method === 'PUT') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(pathname.slice('/api/content/'.length));
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return true; }
+
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body); } catch (_) { sendJson(res, { success: false, error: 'Invalid JSON' }, 400); return; }
+      const { content } = parsed;
+      if (typeof content !== 'string') { sendJson(res, { success: false, error: 'content required' }, 400); return; }
+
+      const updated = db.updateFileByName(filename, { content });
+      if (updated) {
+        db.addAuditLog('edit_file', filename + ' (' + file.size + ' -> ' + updated.size + ' bytes)', getClientIp(req), authData.token);
+        broadcastChange({ type: 'update', filename, hash: updated.hash, size: updated.size });
+        sendJson(res, { success: true, hash: updated.hash, size: updated.size });
+      } else {
+        sendJson(res, { success: false, error: 'Update failed' }, 500);
+      }
+    });
+    return true;
+  }
+
   // GET /api/content/:filename
-  if (pathname.startsWith('/api/content/')) {
+  if (pathname.startsWith('/api/content/') && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const filename = decodeURIComponent(pathname.slice('/api/content/'.length));

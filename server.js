@@ -10,7 +10,6 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
-const url = require('url');
 const zlib = require('zlib');
 const cryptoModule = require('./crypto');
 
@@ -2121,8 +2120,8 @@ async function startHttpServer() {
     }
 
     // 速率限制检查（跳过静态资源和健康检查）
-    const parsed = url.parse(req.url, true);
-    const pathname = parsed.pathname;
+    const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const pathname = parsedUrl.pathname;
     // Skip rate limit for healthcheck, static assets
     if (!['/api/health', '/index', '/favicon'].some(p => pathname.startsWith(p))) {
       const clientIp = getClientIp(req);
