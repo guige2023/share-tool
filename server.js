@@ -140,6 +140,7 @@ const I18N = {
     'file.rename': '重命名',
     'file.delete': '删除',
     'file.copy': '复制',
+    'file.copyFailed': '复制失败',
     'file.copyContent': '复制内容',
     'file.share': '分享',
     'file.files': '文件',
@@ -706,6 +707,7 @@ const I18N = {
     'file.rename': 'Rename',
     'file.delete': 'Delete',
     'file.copy': 'Copy',
+    'file.copyFailed': 'Copy failed',
     'file.copyContent': 'Copy content',
     'file.share': 'Share',
     'file.files': 'Files',
@@ -2475,7 +2477,9 @@ function createShareLink(filename, options = {}) {
   };
 
   db.saveShareLink(shareData);
-  return shareData;
+  // 返回时移除明文密码，只返回安全信息
+  const { password, ...safeData } = shareData;
+  return safeData;
 }
 
 function validateShareCode(code) {
@@ -5012,6 +5016,24 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <button class="btn" style="flex:1;" onclick="confirmTagInput()">' + T('ui.save') + '</button>
         <button class="btn btn-secondary" style="flex:1;" onclick="closeTagInputModal()">' + T('ui.cancel') + '</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Copy File Modal -->
+<div class="modal-overlay" id="copyModal" onclick="if(event.target===this)closeCopyModal()">
+  <div class="modal-content" style="max-width:420px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">📋 <span id="copyModalTitle">' + T('file.copyTo') + '</span></div>
+      <button class="modal-close" onclick="closeCopyModal()">x</button>
+    </div>
+    <div style="padding:12px 0;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;" id="copyModalFileName"></div>
+      <input type="text" id="copyModalDest" placeholder="目标文件夹前缀（如 backup/）" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();doCopyFile()}">
+    </div>
+    <div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--border-color);">
+      <button class="btn btn-secondary" onclick="closeCopyModal()">' + T('msg.cancel') + '</button>
+      <button class="btn btn-primary" onclick="doCopyFile()">' + T('ui.confirm') + '</button>
     </div>
   </div>
 </div>
@@ -7653,10 +7675,13 @@ function showStorageModal() {
       const usedMB = (used / 1024 / 1024).toFixed(2);
       const limitMB = (limit / 1024 / 1024).toFixed(0);
       const pct = limit > 0 ? Math.min(100, (used / limit * 100)).toFixed(1) : 0;
+      const barColor = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : 'var(--accent-primary)';
+      const warnText = pct > 90 ? '<div style="font-size:12px;color:#ef4444;margin-top:6px;">⚠️ Storage almost full — consider deleting unused files</div>' : pct > 70 ? '<div style="font-size:12px;color:#f59e0b;margin-top:6px;">Storage usage getting high</div>' : '';
       body.innerHTML = '<div style="padding:12px;">' +
         '<div style="font-size:24px;font-weight:600;">' + usedMB + ' <span style="font-size:14px;color:var(--text-muted);">/ ' + limitMB + ' MB</span></div>' +
-        '<div style="height:12px;background:var(--bg-tertiary);border-radius:6px;margin:12px 0;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:var(--accent-primary);border-radius:6px;"></div></div>' +
+        '<div style="height:12px;background:var(--bg-tertiary);border-radius:6px;margin:12px 0;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:6px;"></div></div>' +
         '<div style="font-size:12px;color:var(--text-muted);">' + pct + '% used · ' + (data.fileCount || 0) + ' files</div>' +
+        warnText +
         '</div>';
     }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">Failed to load storage info</div>'; });
   lockScroll();
@@ -10553,17 +10578,38 @@ function closeContextMenu() {
   _ctxFilename = null;
 }
 
+let _copyTarget = null;
+
 function promptCopy(filename) {
-  const dest = prompt('复制到目标文件夹前缀（如 backup/）：', '');
+  _copyTarget = filename;
+  document.getElementById('copyModalFileName').textContent = decodeURIComponent(filename).split('/').pop();
+  const input = document.getElementById('copyModalDest');
+  input.value = '';
+  lockScroll();
+  document.getElementById('copyModal').classList.add('show');
+  setTimeout(() => { input.focus(); }, 50);
+}
+
+function closeCopyModal() {
+  unlockScroll();
+  document.getElementById('copyModal').classList.remove('show');
+  _copyTarget = null;
+}
+
+function doCopyFile() {
+  if (!_copyTarget) return;
+  const filename = _copyTarget;
+  const dest = document.getElementById('copyModalDest').value;
+  closeCopyModal();
   if (!dest) return;
   fetch(API + '/api/file-copy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-    body: JSON.stringify({ sourceFilename: filename, newFilename: dest + filename.split('/').pop() })
+    body: JSON.stringify({ sourceFilename: filename, newFilename: dest + decodeURIComponent(filename).split('/').pop() })
   }).then(r => r.json()).then(d => {
-    showToast(d.success ? '已复制到 ' + dest : '复制失败: ' + d.error);
+    showToast(d.success ? T('msg.copiedTo') + ' ' + dest : T('file.copyFailed') + ': ' + (d.error || ''));
     if (d.success) loadFiles();
-  }).catch(e => showToast('复制失败: ' + e.message));
+  }).catch(e => showToast(T('file.copyFailed') + ': ' + e.message));
 }
 
 function startInlineRenameFromCtx(filename) {
