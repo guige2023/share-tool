@@ -124,8 +124,8 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
 
   // POST /api/token/refresh
   if (pathname === '/api/token/refresh' && method === 'POST') {
-    // Token sent via x-auth-token header (matches frontend)
-    const refreshToken = req.headers['x-auth-token'] || req.headers['authorization']?.replace('Bearer ', '');
+    // Refresh token sent via x-refresh-token header (not x-auth-token)
+    const refreshToken = req.headers['x-refresh-token'] || req.headers['x-auth-token'];
     const result = db.refreshToken(refreshToken);
     if (result && result.success) {
       db.addAuditLog('token_refresh', 'Token 刷新成功', getClientIp(req));

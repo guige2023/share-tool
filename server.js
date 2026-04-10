@@ -4252,7 +4252,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 
 <script>
 const API = '';
-let AUTH_TOKEN='${AUTH_TOKEN}';
+let AUTH_TOKEN='***';
+let REFRESH_TOKEN=null;  // separate refresh token (not sent as x-auth-token)
 const WS_URL = 'ws://' + location.hostname + ':${WS_PORT}';
 const DEVICE_ID = '${DEVICE_ID}';
 const DEVICE_NAME = navigator.platform || 'Unknown';
@@ -6261,11 +6262,13 @@ function showTokenModal() {
 
 async function refreshToken() {
   try {
-    const res = await fetch(API + '/api/token/refresh', { method: 'POST', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const res = await fetch(API + '/api/token/refresh', { method: 'POST', headers: { 'x-refresh-token': REFRESH_TOKEN || '' } });
     const data = await res.json();
     if (data.success) {
-      AUTH_TOKEN = data.token;  // update with new token from API
+      AUTH_TOKEN = data.token;
+      REFRESH_TOKEN = data.refreshToken;
       localStorage.setItem('sharetool_token', AUTH_TOKEN);
+      localStorage.setItem('sharetool_refresh_token', REFRESH_TOKEN);
       updateTokenDisplay(AUTH_TOKEN, data.expiresAt);
       showToast(T('admin.tokenRefreshed'));
     } else {
@@ -6528,9 +6531,13 @@ async function doSetToken() {
     });
     const data = await res.json();
     if (data.success) {
-      AUTH_TOKEN = data.token || newToken || crypto.randomUUID();
+      AUTH_TOKEN = data.token || AUTH_TOKEN || newToken || crypto.randomUUID();
+      if (data.refreshToken) {
+        REFRESH_TOKEN = data.refreshToken;
+        localStorage.setItem('sharetool_refresh_token', REFRESH_TOKEN);
+      }
       localStorage.setItem('sharetool_token', AUTH_TOKEN);
-      updateTokenDisplay(AUTH_TOKEN, null); // static token has no expiry
+      updateTokenDisplay(AUTH_TOKEN, data.expiresAt || null);
       closeTokenModal();
       showToast(T('admin.tokenUpdated'));
     } else {
@@ -9017,13 +9024,31 @@ function initTheme() {
 
 // 初始化
 async function init() {
-  // 加载 Token
+  // 加载 Token 和 Refresh Token
   try {
-    const res = await fetch(API + '/api/token/current');
+    // 优先从 localStorage 恢复（包含 refresh token）
+    const savedToken = localStorage.getItem('sharetool_token');
+    const savedRefresh = localStorage.getItem('sharetool_refresh_token');
+    if (savedRefresh) REFRESH_TOKEN = savedRefresh;
+    if (savedToken) AUTH_TOKEN=***
+
+    // 从服务端验证 token 是否有效，获取过期时间
+    const res = await fetch(API + '/api/token/current', {
+      headers: { 'x-auth-token': AUTH_TOKEN || '' }
+    });
     const data = await res.json();
-    if (data.token) AUTH_TOKEN = data.token;
-    // 更新 Token 显示（含过期时间）
-    updateTokenDisplay(AUTH_TOKEN, data.expiresAt);
+    if (data.token) AUTH_TOKEN=***
+
+    // 检查是否即将过期（7天内），是则自动刷新
+    if (data.expiresAt && REFRESH_TOKEN) {
+      const now = Math.floor(Date.now() / 1000);
+      const sevenDays = 7 * 24 * 3600;
+      if (data.expiresAt - now < sevenDays) {
+        await refreshToken();
+      }
+    }
+
+    updateTokenDisplay(AUTH_TOKEN, data.expiresAt || null);
   } catch (e) {}
 
   initTheme();
