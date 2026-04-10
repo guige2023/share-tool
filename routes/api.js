@@ -526,12 +526,12 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/audit/export') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const format = parsed.query.format || 'csv';
+    const format = parsed.query.get('format') || 'csv';
     const filters = {
-      action: parsed.query.action || null,
-      ip: parsed.query.ip || null,
-      since: parsed.query.since ? parseInt(parsed.query.since) : null,
-      until: parsed.query.until ? parseInt(parsed.query.until) : null
+      action: parsed.query.get('action') || null,
+      ip: parsed.query.get('ip') || null,
+      since: parsed.query.get('since') ? parseInt(parsed.query.get('since')) : null,
+      until: parsed.query.get('until') ? parseInt(parsed.query.get('until')) : null
     };
     
     if (format === 'json') {

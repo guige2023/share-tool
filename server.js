@@ -6594,22 +6594,6 @@ async function uploadFiles(files) {
           showAlert('uploadAlert', T('msg.failed') + ': ' + e.message, 'error');
         }
         resolve();
-      };
-      reader.onerror = () => {
-        failCount++;
-        const queueItem = document.getElementById('upload-item-' + i);
-        if (queueItem) {
-          queueItem.classList.add('fail');
-          queueItem.querySelector('.status').textContent = '✗';
-          window._failedUploads.push({ file, filename, index: i });
-          const retryBtn = document.createElement('button');
-          retryBtn.className = 'retry-btn';
-          retryBtn.textContent = T('file.retry');
-          retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;cursor:pointer;';
-          retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
-          queueItem.querySelector('.status').after(retryBtn);
-        }
-        resolve();
     });
   }
 
