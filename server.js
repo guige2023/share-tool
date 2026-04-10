@@ -2916,6 +2916,8 @@ const HTML_PAGE = `<!DOCTYPE html>
   --code-fg: #4ade80;
   --danger: #dc2626;
   --warning: #d97706;
+  --warning-bg: #78350f;
+  --warning-fg: #fef3c7;
 }
 [data-theme="light"] {
   --bg-primary: #ffffff;
@@ -2937,6 +2939,8 @@ const HTML_PAGE = `<!DOCTYPE html>
   --code-fg: #4ade80;
   --danger: #dc2626;
   --warning: #d97706;
+  --warning-bg: #fef3c7;
+  --warning-fg: #1e293b;
   --text-inverse: #fff;
 }
 [data-theme="dark"] {
@@ -2958,6 +2962,8 @@ const HTML_PAGE = `<!DOCTYPE html>
   --code-fg: #4ade80;
   --danger: #dc2626;
   --warning: #d97706;
+  --warning-bg: #78350f;
+  --warning-fg: #fef3c7;
   --text-inverse: #fff;
 }
 [data-theme="dark"] body { background: var(--bg-primary); }
@@ -3575,7 +3581,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 </head>
 <body>
 <!-- Offline Banner -->
-<div id="offlineBanner" style="display:none;position:sticky;top:0;z-index:9999;background:#fbbf24;color:#1a1a1a;padding:8px 16px;text-align:center;font-size:13px;font-weight:500;">
+<div id="offlineBanner" style="display:none;position:sticky;top:0;z-index:9999;background:var(--warning-bg,#fbbf24);color:var(--warning-fg,#1a1a1a);padding:8px 16px;text-align:center;font-size:13px;font-weight:500;">
   📡 网络已断开，部分功能暂不可用
 </div>
 <div class="container">
@@ -5557,7 +5563,7 @@ function showShareLinksModal() {
           return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<span style="font-weight:600;cursor:pointer;" onclick="copyText(\'' + l.filename.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" title="Click to copy filename">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
-              '<span style="font-size:11px;color:' + (isExpired ? '#dc2626' : 'var(--text-muted)') + ';">' + (isExpired ? T('share.expired') : expires) + '</span>' +
+              '<span style="font-size:11px;color:' + (isExpired ? 'var(--danger)' : 'var(--text-muted)') + ';">' + (isExpired ? T('share.expired') : expires) + '</span>' +
             '</div>' +
             '<div style="display:flex;gap:16px;font-size:11px;color:var(--text-muted);">' +
               '<span>📥 ' + (l.downloadCount || 0) + (l.maxDownloads ? ' / ' + l.maxDownloads : '') + ' ' + T('share.downloads') + '</span>' +
