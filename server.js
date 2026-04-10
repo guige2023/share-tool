@@ -808,6 +808,14 @@ const I18N = {
     'tag.color': 'Color',
     'tag.rename': 'Rename',
     'tag.delete': 'Delete',
+    'tag.merge': 'Merge',
+    'tag.mergeHint': 'Select tags to merge (will be merged into target)',
+    'tag.mergeTarget': 'Merge into:',
+    'tag.mergeConfirm': 'Confirm merge',
+    'tag.mergeSuccess': 'Merged {n} files into {target}',
+    'tag.mergeFailed': 'Merge failed',
+    'tag.mergeSelectFirst': 'Please select tags to merge first',
+    'tag.mergeNoTarget': 'Please select a target tag first',
     'tag.inputName': 'Enter tag name (multiple separated by comma):',
     'tag.added': 'Added tag to {n} files',
     'tag.addFailed': 'Batch add failed:',
@@ -1181,6 +1189,14 @@ const I18N = {
     'tag.color': 'Color',
     'tag.rename': 'Rename',
     'tag.delete': 'Delete',
+    'tag.merge': 'Merge',
+    'tag.mergeHint': 'Select tags to merge (will be merged into target)',
+    'tag.mergeTarget': 'Merge into:',
+    'tag.mergeConfirm': 'Confirm merge',
+    'tag.mergeSuccess': 'Merged {n} files into {target}',
+    'tag.mergeFailed': 'Merge failed',
+    'tag.mergeSelectFirst': 'Please select tags to merge first',
+    'tag.mergeNoTarget': 'Please select a target tag first',
     'tag.inputName': 'Enter tag name (multiple separated by comma):',
     'tag.added': 'Added tag to {n} files',
     'tag.addFailed': 'Batch add failed:',
@@ -3830,7 +3846,17 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button id="menuToggle" onclick="toggleMobileMenu()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;line-height:1;" title="Menu">☰</button>
-        <button id="themeToggle" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px;" title="' + T('ui.toggleTheme') + '">🌙</button>
+        <button id="themeToggle" onclick="toggleThemeDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px;" title="' + T('ui.toggleTheme') + '">🌙</button>
+      </div>
+      <div id="themeDropdown" style="display:none;position:absolute;top:56px;right:16px;z-index:1000;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:12px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-secondary);">主题模式</div>
+        <div style="display:flex;gap:6px;margin-bottom:12px;">
+          <button onclick="setTheme('light');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">☀️ 浅色</button>
+          <button onclick="setTheme('dark');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">🌙 深色</button>
+        </div>
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-secondary);">强调色</div>
+        <div id="accentColorPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+        <input type="color" id="customAccentColor" value="#667eea" onchange="applyAccentColor(this.value)" style="width:100%;height:32px;border:none;border-radius:6px;cursor:pointer;background:var(--bg-tertiary);">
       </div>
     </div>
     <div class="status-bar">
@@ -3960,7 +3986,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span class="batch-count" id="batchCount">' + T('ui.selectedN').replace('{n}', '0') + '</span>
       <span class="batch-status" id="batchStatus"><span class="spinner"></span><span id="batchStatusText"></span></span>
       <button onclick="batchDownload()">📦 ' + T('ui.batchDownload') + '</button>
-      <button onclick="batchAddTag()">🏷 ' + T('ui.batchTag') + '</button>
+      <button onclick="batchAddTagViaModal()">🏷 ' + T('ui.batchTag') + '</button>
       <button onclick="batchRemoveTag()">🏷✕ ' + T('ui.batchRemoveTag') + '</button>
       <button onclick="batchStar()">⭐ ' + T('ui.batchStar') + '</button>
       <button onclick="batchCopy()">📋 ' + T('ui.batchCopy') + '</button>
@@ -8237,6 +8263,13 @@ function handleBatchTagKeydown(e) {
   }
 }
 
+function batchAddTagViaModal() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+  openBatchTagModal(filenames);
+}
+
 function closeTagInputModal() {
   unlockScroll();
   document.getElementById('tagInputModal').classList.remove('show');
@@ -9861,6 +9894,57 @@ function toggleTheme() {
   updateThemeColor(next);
   // 取消系统跟随监听（用户已手动选择）
   detachSystemThemeWatcher();
+}
+
+const ACCENT_PRESETS = [
+  { color: '#667eea', name: '紫' },
+  { color: '#3b82f6', name: '蓝' },
+  { color: '#10b981', name: '绿' },
+  { color: '#f59e0b', name: '橙' },
+  { color: '#ef4444', name: '红' },
+  { color: '#ec4899', name: '粉' },
+  { color: '#8b5cf6', name: '靛' },
+  { color: '#14b8a6', name: '青' },
+];
+
+function renderAccentColorPicker() {
+  const container = document.getElementById('accentColorPicker');
+  if (!container) return;
+  const saved = localStorage.getItem('sharetool_accent') || '#667eea';
+  container.innerHTML = ACCENT_PRESETS.map(p => {
+    const active = p.color === saved ? '2px solid var(--text-primary)' : '1px solid var(--border-color)';
+    return '<button onclick="applyAccentColor(\'' + p.color + '\');closeThemeDropdown();" ' +
+      'style="width:28px;height:28px;border-radius:50%;border:' + active + ';background:' + p.color + ';cursor:pointer;" ' +
+      'title="' + p.name + '"></button>';
+  }).join('');
+  const custom = document.getElementById('customAccentColor');
+  if (custom) custom.value = saved;
+}
+
+function toggleThemeDropdown() {
+  const dd = document.getElementById('themeDropdown');
+  const isOpen = dd.style.display !== 'none';
+  if (isOpen) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  renderAccentColorPicker();
+  // Close on outside click
+  const close = (e) => { if (!dd.contains(e.target) && e.target.id !== 'themeToggle') { dd.style.display = 'none'; document.removeEventListener('click', close); } };
+  setTimeout(() => document.addEventListener('click', close), 0);
+}
+
+function closeThemeDropdown() {
+  const dd = document.getElementById('themeDropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function applyAccentColor(color) {
+  document.documentElement.style.setProperty('--accent-primary', color);
+  localStorage.setItem('sharetool_accent', color);
+  // Derive secondary from primary (lighter shade)
+  const r = parseInt(color.slice(1,3),16), g = parseInt(color.slice(3,5),16), b = parseInt(color.slice(5,7),16);
+  const secondary = '#' + [Math.min(r+30,255), Math.min(g+20,255), Math.min(b+40,255)].map(v => v.toString(16).padStart(2,'0')).join('');
+  document.documentElement.style.setProperty('--accent-secondary', secondary);
+  renderAccentColorPicker();
 }
 
 function setTheme(theme) {
