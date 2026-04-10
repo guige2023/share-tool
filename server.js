@@ -468,6 +468,11 @@ const I18N = {
     'ui.wsDisconnected': 'WS 未连接',
     'ui.syncOffline': '同步离线',
     'ui.devices': '设备',
+    'ui.notifications': '通知中心',
+    'ui.noNotifications': '暂无通知',
+    'ui.markAllRead': '全部已读',
+    'ui.clearAll': '清空',
+    'ui.clearNotifConfirm': '确定清空所有通知？',
     'ui.heroTitle': '局域网文件/文字分享',
     'ui.heroDesc': '同一 WiFi 网络下扫码访问，支持多设备同步。',
     'about.about': '关于',
@@ -985,6 +990,11 @@ const I18N = {
     'ui.wsDisconnected': 'WS Disconnected',
     'ui.syncOffline': 'Sync offline',
     'ui.devices': 'Devices',
+    'ui.notifications': 'Notifications',
+    'ui.noNotifications': 'No notifications',
+    'ui.markAllRead': 'Mark all read',
+    'ui.clearAll': 'Clear all',
+    'ui.clearNotifConfirm': 'Clear all notifications?',
     'ui.heroTitle': 'LAN File & Text Sharing',
     'ui.heroDesc': 'Scan QR code on the same WiFi network, multi-device sync supported.',
     'about.about': 'About',
@@ -3971,7 +3981,32 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .file-star.starred { color: var(--warning); }
   .notif-badge { position: fixed; top: 12px; right: 12px; background: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; z-index: 400; font-weight: bold; }
   .notif-badge.show { display: flex; }
-  .filter-tab .kbd-hint { font-size: 9px; opacity: 0.6; }
+  .notif-badge { width: 16px; height: 16px; font-size: 10px; top: 8px; right: 8px; }
+
+  /* Notification center */
+  .notif-panel { position: fixed; top: 60px; right: 16px; width: 360px; max-height: 480px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); z-index: 1000; display: none; flex-direction: column; overflow: hidden; }
+  .notif-panel.open { display: flex; }
+  .notif-panel-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border-color); }
+  .notif-panel-title { font-size: 15px; font-weight: 600; }
+  .notif-panel-actions { display: flex; gap: 8px; }
+  .notif-panel-action { background: none; border: none; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .notif-panel-action:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+  .notif-list { flex: 1; overflow-y: auto; max-height: 400px; }
+  .notif-empty { padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+  .notif-item { display: flex; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.15s; }
+  .notif-item:hover { background: var(--bg-tertiary); }
+  .notif-item.unread { background: rgba(102,126,234,0.08); }
+  .notif-item.unread:hover { background: rgba(102,126,234,0.15); }
+  .notif-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+  .notif-content { flex: 1; min-width: 0; }
+  .notif-title { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .notif-msg { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .notif-time { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .notif-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-primary); position: absolute; top: 14px; right: 14px; }
+  .notif-item.unread { position: relative; }
+  @media (max-width: 480px) {
+    .notif-panel { width: calc(100vw - 32px); right: 8px; top: 56px; max-height: calc(100vh - 120px); }
+  }
 }
 
 /* Mobile menu drawer */
@@ -4252,6 +4287,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button id="menuToggle" onclick="toggleMobileMenu()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;line-height:1;touch-action:manipulation;-webkit-tap-highlight-color:transparent;" title="Menu">☰</button>
+        <button id="notifBell" onclick="toggleNotifPanel()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--text-primary);font-size:18px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative;" title="' + T('ui.notifications') + '">🔔</button>
+        <div class="notif-badge" id="notifBadge"></div>
         <button id="themeToggle" onclick="toggleThemeDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px; touch-action: manipulation; -webkit-tap-highlight-color: transparent;" title="' + T('ui.toggleTheme') + '">🌙</button>
       </div>
       <div id="themeDropdown" style="display:none;position:absolute;top:56px;right:16px;z-index:1000;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:12px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
@@ -4544,7 +4581,20 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   </div>
 </div>
 
-<div class="notif-badge" id="notifBadge"></div>
+<!-- Notification Center Panel -->
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-panel-header">
+    <span class="notif-panel-title">🔔 <span id="notifPanelTitle">' + T('ui.notifications') + '</span></span>
+    <div class="notif-panel-actions">
+      <button class="notif-panel-action" onclick="markAllNotifRead()" id="notifMarkAllBtn">' + T('ui.markAllRead') + '</button>
+      <button class="notif-panel-action" onclick="clearAllNotif()" style="color:var(--danger);">' + T('ui.clearAll') + '</button>
+    </div>
+  </div>
+  <div class="notif-list" id="notifList">
+    <div class="notif-empty" id="notifEmpty">' + T('ui.noNotifications') + '</div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <div class="ctx-backdrop" id="ctxBackdrop" onclick="hideContextMenu()"></div>
@@ -5104,6 +5154,119 @@ function showToast(msg, duration = 2500) {
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), duration);
+}
+
+// ============================================================
+// Notification Center
+// ============================================================
+const NOTIF_ICONS = {
+  sync: '🔄',
+  file: '📁',
+  share: '🔗',
+  system: '⚙️',
+  warning: '⚠️',
+  error: '❌',
+  info: 'ℹ️',
+  success: '✅',
+  star: '⭐'
+};
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if (!panel) return;
+  const isOpen = panel.classList.contains('open');
+  if (isOpen) {
+    panel.classList.remove('open');
+  } else {
+    panel.classList.add('open');
+    loadNotifications();
+    // Mark as read when opened
+    fetch(API + '/api/notifications/read', {
+      method: 'POST',
+      headers: { 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ ids: null })
+    }).then(() => updateNotifBadge());
+  }
+}
+
+async function loadNotifications() {
+  const list = document.getElementById('notifList');
+  const empty = document.getElementById('notifEmpty');
+  if (!list) return;
+  try {
+    const res = await fetch(API + '/api/notifications?limit=50', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.success || !data.notifications || data.notifications.length === 0) {
+      list.innerHTML = '<div class="notif-empty">' + T('ui.noNotifications') + '</div>';
+      return;
+    }
+    list.innerHTML = data.notifications.map(n => {
+      const icon = NOTIF_ICONS[n.type] || NOTIF_ICONS.info;
+      const time = formatRelativeTime(n.created_at * 1000);
+      const unread = n.read ? '' : 'unread';
+      return '<div class="notif-item ' + unread + '" onclick="handleNotifClick(' + n.id + ', \'' + escapeHtml(n.type) + '\')">' +
+        '<div class="notif-icon">' + icon + '</div>' +
+        '<div class="notif-content">' +
+        '<div class="notif-title">' + escapeHtml(n.title) + '</div>' +
+        (n.message ? '<div class="notif-msg">' + escapeHtml(n.message) + '</div>' : '') +
+        '<div class="notif-time">' + time + '</div>' +
+        '</div></div>';
+    }).join('');
+  } catch (e) {
+    list.innerHTML = '<div class="notif-empty">Failed to load</div>';
+  }
+}
+
+function handleNotifClick(id, type) {
+  // Mark single as read
+  fetch(API + '/api/notifications/read', {
+    method: 'POST',
+    headers: { 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ ids: [id] })
+  }).then(() => loadNotifications());
+}
+
+async function updateNotifBadge() {
+  try {
+    const res = await fetch(API + '/api/notifications?limit=1', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    const badge = document.getElementById('notifBadge');
+    if (!badge) return;
+    if (data.unreadCount > 0) {
+      badge.textContent = data.unreadCount > 99 ? '99+' : data.unreadCount;
+      badge.classList.add('show');
+    } else {
+      badge.textContent = '';
+      badge.classList.remove('show');
+    }
+  } catch (e) {}
+}
+
+function markAllNotifRead() {
+  fetch(API + '/api/notifications/read', {
+    method: 'POST',
+    headers: { 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ ids: null })
+  }).then(() => { loadNotifications(); updateNotifBadge(); });
+}
+
+function clearAllNotif() {
+  if (!confirm(T('ui.clearNotifConfirm') || 'Clear all notifications?')) return;
+  fetch(API + '/api/notifications', {
+    method: 'DELETE',
+    headers: { 'x-auth-token': AUTH_TOKEN || '', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids: null })
+  }).then(() => { loadNotifications(); updateNotifBadge(); });
+}
+
+// Auto-create a notification when sync events happen (called from WebSocket handlers)
+function createSyncNotification(type, title, message) {
+  fetch(API + '/api/notifications', {
+    method: 'POST',
+    headers: { 'x-auth-token': AUTH_TOKEN || '', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, title, message })
+  }).catch(() => {});
+  updateNotifBadge();
 }
 
 // 冲突解决弹窗

@@ -225,6 +225,18 @@ function initSchemaV1(db) {
     )
   `);
 
+  // 通知表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      type        TEXT    NOT NULL,
+      title       TEXT    NOT NULL,
+      message     TEXT,
+      read        INTEGER NOT NULL DEFAULT 0,
+      created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `);
+
   // 搜索历史表（持久化到数据库，支持多设备同步）
   db.exec(`
     CREATE TABLE IF NOT EXISTS search_history (
@@ -1747,6 +1759,45 @@ function setRateLimitConfig(overrides) {
   }
 }
 
+// ============================================================
+// 通知系统
+// ============================================================
+function addNotification(type, title, message = null) {
+  const db = getDb();
+  db.prepare('INSERT INTO notifications (type, title, message) VALUES (?, ?, ?)').run(type, title, message);
+  return db.prepare('SELECT * FROM notifications WHERE id = last_insert_rowid()').get();
+}
+
+function getNotifications(limit = 50, offset = 0) {
+  const db = getDb();
+  return db.prepare('SELECT * FROM notifications ORDER BY created_at DESC LIMIT ? OFFSET ?').all(limit, offset);
+}
+
+function getUnreadNotificationCount() {
+  const db = getDb();
+  return db.prepare('SELECT COUNT(*) as count FROM notifications WHERE read = 0').get().count;
+}
+
+function markNotificationsRead(ids = null) {
+  const db = getDb();
+  if (ids === null) {
+    db.prepare('UPDATE notifications SET read = 1 WHERE read = 0').run();
+  } else {
+    const placeholders = ids.map(() => '?').join(',');
+    db.prepare(`UPDATE notifications SET read = 1 WHERE id IN (${placeholders})`).run(...ids);
+  }
+}
+
+function clearNotifications(ids = null) {
+  const db = getDb();
+  if (ids === null) {
+    db.prepare('DELETE FROM notifications').run();
+  } else {
+    const placeholders = ids.map(() => '?').join(',');
+    db.prepare(`DELETE FROM notifications WHERE id IN (${placeholders})`).run(...ids);
+  }
+}
+
 function addSearchHistory(query, userId = null) {
   const db = getDb();
   db.prepare('INSERT INTO search_history(query, user_id) VALUES(?, ?)').run(query, userId);
@@ -2733,6 +2784,8 @@ module.exports = {
   addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV,
   // 速率限制
   checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig,
+  // 通知
+  addNotification, getNotifications, getUnreadNotificationCount, markNotificationsRead, clearNotifications,
   // 搜索历史
   addSearchHistory, getSearchHistory, clearSearchHistory, getPopularSearches,
   // 分享链接

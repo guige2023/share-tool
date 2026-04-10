@@ -1386,5 +1386,75 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/notifications — 获取通知列表
+  if (pathname === '/api/notifications' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const limit = parseInt(query.limit) || 50;
+    const offset = parseInt(query.offset) || 0;
+    const notifications = db.getNotifications(limit, offset);
+    const unreadCount = db.getUnreadNotificationCount();
+    sendJson(res, { success: true, notifications, unreadCount });
+    return true;
+  }
+
+  // POST /api/notifications/read — 标记已读
+  if (pathname === '/api/notifications/read' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { ids } = JSON.parse(body); // ids=null 表示全部已读
+        db.markNotificationsRead(ids);
+        sendJson(res, { success: true });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // POST /api/notifications — 创建通知
+  if (pathname === '/api/notifications' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { type, title, message } = JSON.parse(body);
+        if (!type || !title) {
+          sendJson(res, { success: false, error: 'type and title required' }, 400);
+          return;
+        }
+        const notification = db.addNotification(type, title, message || null);
+        sendJson(res, { success: true, notification });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // DELETE /api/notifications — 删除通知
+  if (pathname === '/api/notifications' && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { ids } = JSON.parse(body); // ids=null 表示全部删除
+        db.clearNotifications(ids);
+        sendJson(res, { success: true });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };
