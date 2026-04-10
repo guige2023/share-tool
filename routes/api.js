@@ -433,7 +433,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
           // Full replace (default)
           newTags = Array.isArray(tags) ? tags.join(',') : (tags || '');
         }
-        db.updateFile(filename, null, { tags: newTags });
+        db.updateFileByName(filename, { tags: newTags });
         db.addAuditLog('update_tags', `${filename}: ${newTags}`, getClientIp(req), authData.token);
         broadcastChange({ type: 'update', filename, tags: newTags });
         sendJson(res, { success: true, tags: newTags });
@@ -449,7 +449,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
     const file = db.getFileByName(filename);
     if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
-    db.updateFile(filename, null, { tags: '' });
+    db.updateFileByName(filename, { tags: '' });
     db.addAuditLog('update_tags', `${filename}: (cleared)`, getClientIp(req), authData.token);
     broadcastChange({ type: 'update', filename, tags: '' });
     sendJson(res, { success: true });
@@ -489,7 +489,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
             } else {
               newTags = toProcess.join(',');
             }
-            db.updateFile(filename, null, { tags: newTags });
+            db.updateFileByName(filename, { tags: newTags });
             updated++;
           } catch (e) { failed++; }
         }

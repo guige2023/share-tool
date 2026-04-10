@@ -6087,18 +6087,12 @@ function applySearchHighlight(q) {
 }
 
 async function removeTag(filename, tag) {
-  const decodedName = decodeURIComponent(filename);
   const decodedTag = tag;
-  // Get current tags, remove the tag, update
-  const file = currentFiles.find(f => f.name === decodedName);
-  if (!file) return;
-  const currentTags = file.tags ? file.tags.split(',').map(t => t.trim()).filter(t => t) : [];
-  const newTags = currentTags.filter(t => t !== decodedTag).join(',');
   try {
-    const res = await fetch(API + '/api/file-tags/' + filename, {
+    const res = await fetch(API + '/api/file-tags/' + filename + '?action=remove', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ tags: newTags })
+      body: JSON.stringify({ tags: decodedTag })
     });
     const data = await res.json();
     if (data.success) {
