@@ -608,6 +608,43 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/search/history — 获取搜索历史
+  if (pathname === '/api/search/history') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const limit = parseInt(parsed.query.get('limit')) || 10;
+    const history = db.getSearchHistory(authData.userId, limit);
+    sendJson(res, { success: true, history: history.map(h => h.query) });
+    return true;
+  }
+
+  // DELETE /api/search/history — 清空搜索历史
+  if (pathname === '/api/search/history' && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    db.clearSearchHistory(authData.userId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // POST /api/search/history — 添加单条搜索记录
+  if (pathname === '/api/search/history' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { query } = JSON.parse(body);
+        if (query && query.trim().length >= 2) {
+          db.addSearchHistory(query.trim(), authData.userId);
+        }
+      } catch (e) {}
+      sendJson(res, { success: true });
+    });
+    return true;
+  }
+
   // GET /api/https/cert
   if (pathname === '/api/https/cert') {
     const certInfo = getCertInfo();
