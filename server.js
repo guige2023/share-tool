@@ -7617,6 +7617,24 @@ function goPage(p) {
   if (window.currentSearchQ) applySearchHighlight(window.currentSearchQ);
 }
 
+function showSearchHint() {
+  const el = document.getElementById('searchHint');
+  if (el) el.style.display = 'block';
+}
+function hideSearchHint() {
+  const el = document.getElementById('searchHint');
+  if (el) el.style.display = 'none';
+}
+function insertSearchFilter(filter) {
+  const input = document.getElementById('searchInput');
+  if (!input) return;
+  const val = input.value;
+  // If cursor at end or no filter present, append filter
+  input.value = val + (val && !val.endsWith(' ') ? ' ' : '') + filter;
+  input.focus();
+  hideSearchHint();
+}
+
 function doSearch() {
   const q = document.getElementById('searchInput').value.trim();
   window.currentSearchQ = q;
