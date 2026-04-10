@@ -350,7 +350,7 @@ async function main() {
   if (!command) {
     console.log('Usage: share-tool <command> [args]');
     console.log('Commands:');
-    console.log('  list           List all files');
+    console.log('  list [-l]      List all files (-l: long format)');
     console.log('  upload <file>  Upload a single file');
     console.log('  upload-dir <dir>  Upload all files in a directory');
     console.log('  download <name> [-o dir]  Download a file');
@@ -397,13 +397,34 @@ async function main() {
   try {
     switch (command) {
       case 'list': {
+        const longFlag = args.includes('-l') || args.includes('--long');
         const res = await request('GET', '/api/list');
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
           printJson(res.data);
           process.exit(1);
         }
-        printJson(res.data);
+        if (longFlag) {
+          const files = res.data.files || [];
+          if (files.length === 0) { console.log('No files.'); break; }
+          // Calculate column widths
+          const nameW = Math.min(Math.max(...files.map(f => (f.name||'').length)) + 2, 40);
+          const sizeW = 8;
+          const typeW = 6;
+          const header = 'NAME'.padEnd(nameW) + 'SIZE'.padStart(sizeW) + '  TYPE    TAGS';
+          console.log(header);
+          console.log('-'.repeat(nameW + sizeW + 14));
+          for (const f of files) {
+            const name = (f.name||'').length > nameW - 2 ? (f.name||'').slice(0, nameW-3) + '...' : (f.name||'');
+            const size = formatSize(f.size || 0).padStart(sizeW);
+            const type = (f.type||'file').slice(0,5).padEnd(6);
+            const tags = f.tags || '';
+            console.log(name.padEnd(nameW) + size + '  ' + type + ' ' + tags);
+          }
+          console.log(`\n${files.length} file(s)`);
+        } else {
+          printJson(res.data);
+        }
         break;
       }
 
