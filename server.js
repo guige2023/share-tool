@@ -4447,6 +4447,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="search" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}" onfocus="showSearchHint()" onblur="setTimeout(hideSearchHint,200)">
       <button class="btn btn-sm" onclick="doSearch()">' + T('ui.search') + '</button>
       <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
+      <span id="searchKbdHint" style="font-size:11px;color:var(--text-muted);padding:0 4px;opacity:0.6;">// · ⌘K</span>
     </div>
     <div id="activeFilterChips" style="display:none;padding:4px 0 2px;flex-wrap:wrap;gap:6px;align-items:center;"></div>
     <div id="searchHint" style="display:none;font-size:11px;color:var(--text-muted);padding:2px 8px 6px;line-height:1.4;">
@@ -9089,6 +9090,8 @@ function goPage(p) {
 function showSearchHint() {
   const el = document.getElementById('searchHint');
   if (el) el.style.display = 'block';
+  const kbd = document.getElementById('searchKbdHint');
+  if (kbd) kbd.style.display = 'none';
   // 空搜索时显示热门搜索
   const input = document.getElementById('searchInput');
   if (!input || !input.value.trim()) {
@@ -9098,6 +9101,8 @@ function showSearchHint() {
 function hideSearchHint() {
   const el = document.getElementById('searchHint');
   if (el) el.style.display = 'none';
+  const kbd = document.getElementById('searchKbdHint');
+  if (kbd) kbd.style.display = '';
 }
 function clearAllFilters() {
   const input = document.getElementById('searchInput');
@@ -11904,10 +11909,21 @@ document.getElementById('searchInput').addEventListener('input', () => {
 
 // Cmd/Ctrl+K 全局搜索快捷键
 document.addEventListener('keydown', (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+  // Cmd/Ctrl+K or / → focus search (unless already in an input)
+  const tag = e.target.tagName;
+  if (((e.metaKey || e.ctrlKey) && e.key === 'k') || (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && !e.target.isContentEditable)) {
     e.preventDefault();
     const input = document.getElementById('searchInput');
     if (input) { input.focus(); input.select(); }
+  }
+  // Escape → clear search and blur
+  if (e.key === 'Escape') {
+    const input = document.getElementById('searchInput');
+    if (input && document.activeElement === input) {
+      input.value = '';
+      input.blur();
+      if (currentFiles.length === 0) loadFiles(currentFolder, isStarredView);
+    }
   }
 });
 

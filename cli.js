@@ -368,6 +368,8 @@ async function main() {
     console.log('  find <query> [--tag=x] [--type=x] [--limit=n]  Advanced search');
     console.log('  share <text>   Share text snippet');
     console.log('  sync           Trigger sync push');
+    console.log('  status         Check if server is online');
+    console.log('  open           Open server URL in browser');
     console.log('  stats          Show storage stats');
     console.log('  recent [n]     Show recently modified files (default: 10)');
     console.log('  trash [list|restore <id>|delete <id>|empty]  Manage trash');
@@ -928,6 +930,13 @@ async function main() {
           const ss = Math.round(h.uptime % 60);
           console.log('   Uptime:  ' + (days > 0 ? days + 'd ' : '') + hh + 'h ' + mm + 'm ' + ss + 's');
         }
+        break;
+      }
+      case 'open': {
+        const url = getServerUrl();
+        const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+        console.log('Opening: ' + url);
+        require('child_process').spawn(openCmd, [url], { detached: true, stdio: 'ignore' }).unref();
         break;
       }
       case 'stats': {
