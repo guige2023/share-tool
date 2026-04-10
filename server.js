@@ -2861,6 +2861,10 @@ function handleWsMessage(ws, msg) {
         }
       }));
       logger.info(`[WS] sync_request from ${ws.deviceId}: ${changes.length} changes since ${since}`);
+      // 更新设备同步统计（收到服务器推送的变更）
+      if (ws.deviceId) {
+        db.updateDeviceSyncStats(ws.deviceId, changes.length);
+      }
       break;
     }
     
@@ -2902,8 +2906,12 @@ function handleWsMessage(ws, msg) {
       
       if (processedIds.length > 0) {
         db.markLogsSynced(processedIds);
+        // 更新设备同步统计（推送到服务器的变更）
+        if (ws.deviceId) {
+          db.updateDeviceSyncStats(ws.deviceId, processedIds.length);
+        }
       }
-      
+
       ws.send(JSON.stringify({ type: 'sync_ack', payload: { processed: changes.length } }));
       break;
     }

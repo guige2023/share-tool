@@ -1434,7 +1434,9 @@ function getDeviceSyncInfo(deviceId) {
   const db = getDb();
   const device = db.prepare('SELECT device_id, device_name, is_online, last_seen, last_sync_at, synced_files FROM devices WHERE device_id = ?').get(deviceId);
   if (!device) return null;
-  const pending = db.prepare('SELECT COUNT(*) as count FROM sync_log WHERE synced = 0').get().count;
+  const pending = db.prepare(
+    'SELECT COUNT(*) as count FROM sync_log WHERE (device_id = ? OR device_id IS NULL) AND synced = 0'
+  ).get(deviceId).count;
   return { ...device, pending_sync: pending };
 }
 

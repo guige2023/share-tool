@@ -303,7 +303,20 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const devices = db.listDevices();
-    sendJson(res, { success: true, devices });
+    // 附加每设备的同步统计
+    const enriched = devices.map(d => {
+      // 统计该设备未同步的变更数（通过 device_id 字段）
+      const pendingRow = db.prepare(
+        'SELECT COUNT(*) as count FROM sync_log WHERE (device_id = ? OR device_id IS NULL) AND synced = 0'
+      ).get(d.device_id);
+      return {
+        ...d,
+        last_sync_at: d.last_sync_at || null,
+        synced_files: d.synced_files || 0,
+        pending_sync: pendingRow ? pendingRow.count : 0
+      };
+    });
+    sendJson(res, { success: true, devices: enriched });
     return true;
   }
 
