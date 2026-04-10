@@ -6705,7 +6705,7 @@ async function openCsvModal(filename) {
 
 async function openArchiveModal(filename) {
   try {
-    const res = await fetch(API + '/api/archive-list/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const res = await fetch(API + '/api/archive-list?filename=' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const result = await res.json();
     if (!result.success || !result.files) {
       showToast(result.error || 'Failed to read archive'); return;

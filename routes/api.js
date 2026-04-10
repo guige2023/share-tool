@@ -150,7 +150,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
       return true;
     }
     const ext = (decoded.split('.').pop() || '').toLowerCase();
-    const validExts = ['zip', 'tar', 'gz', 'tgz', 'bz2'];
+    const validExts = ['zip', 'tar', 'gz', 'tgz', 'bz2', 'rar', '7z'];
     if (!validExts.includes(ext)) {
       sendJson(res, { success: false, error: 'Not an archive file' }, 400);
       return true;
@@ -182,6 +182,33 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
         const stdout = execSync('tar', ['-tf', tmpFile]);
         fs.unlinkSync(tmpFile);
         files = stdout.toString().split('\n').filter(n => n.trim()).map(name => ({ name, size: 0, dir: name.endsWith('/') })).slice(0, 500);
+      } else if (ext === '7z') {
+        fs.writeFileSync(tmpFile, content);
+        try {
+          const stdout = execSync('7z', ['l', '-slt', tmpFile]);
+          const lines = stdout.toString().split('\n');
+          let currentFile = null;
+          for (const line of lines) {
+            const pathMatch = line.match(/^Path = (.+)$/);
+            const sizeMatch = line.match(/^Size = (\d+)$/);
+            if (pathMatch) { currentFile = { name: pathMatch[1], size: 0, dir: false }; }
+            if (sizeMatch && currentFile) { currentFile.size = parseInt(sizeMatch[1]) || 0; files.push(currentFile); currentFile = null; }
+          }
+        } catch (e) { /* 7z not available or failed */ }
+        fs.unlinkSync(tmpFile);
+        if (files.length === 0) files = [{ name: '(7z listing unavailable)', size: 0, dir: false }];
+      } else if (ext === 'rar') {
+        fs.writeFileSync(tmpFile, content);
+        try {
+          const stdout = execSync('unrar', ['l', '-v', tmpFile]);
+          const lines = stdout.toString().split('\n');
+          for (const line of lines) {
+            const match = line.match(/^\s*(\S+)\s+(\d+)\s+\d+-\d+-\d+/);
+            if (match) { files.push({ name: match[1], size: parseInt(match[2]) || 0, dir: false }); }
+          }
+        } catch (e) { /* unrar not available or failed */ }
+        fs.unlinkSync(tmpFile);
+        if (files.length === 0) files = [{ name: '(rar listing unavailable)', size: 0, dir: false }];
       }
 
       sendJson(res, { success: true, files, total: files.length, size: file.size });
