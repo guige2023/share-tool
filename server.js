@@ -582,6 +582,9 @@ const I18N = {
     'ui.shortcutHelp': '? 查看快捷键',
     'ui.shortcutNewUpload': 'N 上传文件',
     'ui.shortcutSearch': '/ 搜索',
+    'ui.shortcutSearchCmd': '⌘K 搜索（全局）',
+    'ui.shortcutSearchNav': '↑↓ 搜索结果导航',
+    'ui.shortcutView': 'V 切换视图',
     'ui.shortcutCopyLink': 'C 复制链接',
     'ui.shortcutToggleFav': 'F 收藏筛选',
     'ui.shortcutToggleSelect': 'X 选中/取消',
@@ -1070,6 +1073,9 @@ const I18N = {
     'ui.shortcutHelp': '? View shortcuts',
     'ui.shortcutNewUpload': 'N Upload file',
     'ui.shortcutSearch': '/ Search',
+    'ui.shortcutSearchCmd': '⌘K Search (global)',
+    'ui.shortcutSearchNav': '↑↓ Search result nav',
+    'ui.shortcutView': 'V Toggle view',
     'ui.shortcutCopyLink': 'C Copy link',
     'ui.shortcutToggleFav': 'F Favorite filter',
     'ui.shortcutToggleSelect': 'X Toggle select',
@@ -4604,7 +4610,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span class="shortcut-key">j / k</span><span class="shortcut-desc">' + T('ui.shortcutMoveFocus') + '</span>
       <span class="shortcut-key">Enter</span><span class="shortcut-desc">' + T('ui.shortcutOpenFocused') + '</span>
       <span class="shortcut-key">x</span><span class="shortcut-desc">' + T('ui.shortcutToggleSelect') + '</span>
-      <span class="shortcut-key">v</span><span class="shortcut-desc">切换网格/列表视图</span>
+      <span class="shortcut-key">v</span><span class="shortcut-desc">' + T('ui.shortcutView') + '</span>
       <span class="shortcut-key">t</span><span class="shortcut-desc">' + T('ui.shortcutTagSelected') + '</span>
       <span class="shortcut-key">a</span><span class="shortcut-desc">' + T('ui.shortcutSelectAll') + '</span>
       <span class="shortcut-key">s</span><span class="shortcut-desc">' + T('ui.shortcutStarFocused') + '</span>
@@ -4619,6 +4625,9 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span class="shortcut-key">Esc</span><span class="shortcut-desc">' + T('ui.shortcutClose') + '</span>
       <span class="shortcut-key">← →</span><span class="shortcut-desc">' + T('ui.shortcutImageNav') + '</span>
       <span class="shortcut-key">?</span><span class="shortcut-desc">' + T('ui.shortcutHelp') + '</span>
+      <span class="shortcut-key">⌘K</span><span class="shortcut-desc">' + T('ui.shortcutSearchCmd') + '</span>
+      <span class="shortcut-key">↑↓</span><span class="shortcut-desc">' + T('ui.shortcutSearchNav') + '</span>
+      <span class="shortcut-key">V</span><span class="shortcut-desc">' + T('ui.shortcutView') + '</span>
     </div>
   </div>
 </div>
