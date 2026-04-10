@@ -6422,7 +6422,6 @@ async function saveCustomFileOrder(movedName, targetName) {
   if (!container) return;
   const items = Array.from(container.querySelectorAll('.file-item'));
   const names = items.map(el => el.dataset.filename || el.getAttribute('data-filename'));
-  const order = getCustomFileOrder();
   // Find indices
   const movedIdx = names.indexOf(movedName);
   const targetIdx = names.indexOf(targetName);
@@ -6431,7 +6430,7 @@ async function saveCustomFileOrder(movedName, targetName) {
   names.splice(movedIdx, 1);
   // Insert at new position (insert before target)
   names.splice(targetIdx, 0, movedName);
-  // Save
+  // Save to localStorage
   const orderObj = {};
   names.forEach((name, i) => { orderObj[name] = i; });
   localStorage.setItem(CUSTOM_ORDER_KEY, JSON.stringify(orderObj));
@@ -6442,40 +6441,15 @@ async function saveCustomFileOrder(movedName, targetName) {
     return file ? { id: file.id, position: i } : null;
   }).filter(Boolean);
 
-  // Sync to server
-  try {
-    await fetch(API + '/api/file/reorder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ positions })
-    });
-  } catch (_) {}
+  // Sync to server (fire-and-forget, don't block UI)
+  fetch(API + '/api/file/reorder', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ positions })
+  }).catch(() => {});
 
-  // Reload the file list to reflect new order
-  loadFiles();
-}
-
+  // Re-render locally without full reload
   renderFiles();
-  // Also persist to DB in background
-  persistFileOrderToServer(names);
-}
-
-async function persistFileOrderToServer(names) {
-  try {
-    // Build positions array: name → position
-    const positions = names.map((name, i) => {
-      const file = currentFiles.find(f => f.name === name);
-      return file ? { id: file.id, position: i } : null;
-    }).filter(Boolean);
-    if (positions.length === 0) return;
-    await fetch(API + '/api/file/reorder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ positions })
-    });
-  } catch (e) {
-    logger.warn({ err: e }, 'Failed to persist file order');
-  }
 }
 
 function getCustomFileOrder() {
