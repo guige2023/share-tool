@@ -1296,7 +1296,7 @@ async function main() {
         links.forEach(l => {
           const exp = l.expires_at ? new Date(l.expires_at * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) : 'never';
           const dl = l.download_count !== undefined ? ` (${l.download_count} downloads)` : '';
-          const pwd = l.hasPassword ? ' 🔒' : '';
+          const pwd = (l.hasPassword || l.password) ? ' 🔒' : '';
           console.log(`  ${l.code}${pwd} → ${l.filename} — expires ${exp}${dl}`);
           console.log(`    ${l.url}`);
         });
