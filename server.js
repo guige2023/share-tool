@@ -10323,6 +10323,12 @@ function saveRecentSearch(q) {
   searches = searches.slice(0, 5);
   try { localStorage.setItem('sharetool_recent_searches', JSON.stringify(searches)); } catch (e) {}
   renderRecentSearches();
+  // Sync to server API (fire-and-forget)
+  fetch(API + '/api/search/history', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ query: q })
+  }).catch(() => {});
 }
 
 function renderRecentSearches() {
@@ -10339,6 +10345,33 @@ function renderRecentSearches() {
 function clearRecentSearches() {
   try { localStorage.setItem('sharetool_recent_searches', '[]'); } catch (e) {}
   renderRecentSearches();
+  // Sync clear to server API (fire-and-forget)
+  fetch(API + '/api/search/history', {
+    method: 'DELETE',
+    headers: { 'x-auth-token': AUTH_TOKEN || '' }
+  }).catch(() => {});
+}
+
+// Load search history from server and merge with localStorage
+async function loadSearchHistoryFromServer() {
+  try {
+    const res = await fetch(API + '/api/search/history?limit=20', {
+      headers: { 'x-auth-token': AUTH_TOKEN || '' }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.success && data.history && data.history.length > 0) {
+      // Merge: server history takes priority, cap at 5
+      const serverSearches = data.history.slice(0, 5);
+      const local = getRecentSearches();
+      // Merge, dedupe, keep server order
+      const merged = [...serverSearches];
+      local.forEach(s => { if (!merged.includes(s)) merged.push(s); });
+      merged.splice(5);
+      try { localStorage.setItem('sharetool_recent_searches', JSON.stringify(merged)); } catch (e) {}
+      renderRecentSearches();
+    }
+  } catch (e) {}
 }
 
 function getFileIcon(filename) {
