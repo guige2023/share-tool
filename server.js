@@ -4291,6 +4291,14 @@ function showAlert(id, msg, type, show = true) {
   if (show) setTimeout(() => { if (el) el.className = 'alert alert-' + type; }, 4000);
 }
 
+let _isTouchDevice = null;
+function isTouchDevice() {
+  if (_isTouchDevice === null) {
+    _isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  }
+  return _isTouchDevice;
+}
+
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
