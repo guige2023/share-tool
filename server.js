@@ -3727,6 +3727,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .subtitle { display: none; }
   .section-title { font-size: 14px; }
   .search-bar input { font-size: 15px; }
+  .search-suggestion { min-height: 44px; padding: 8px 14px; }
   .fab { width: 44px; height: 44px; font-size: 18px; }
   .fab-menu { bottom: max(80px, calc(80px + env(safe-area-inset-bottom))); right: 12px; }
   .share-link-box input { font-size: 12px; }

@@ -458,7 +458,16 @@ function runMigrations(db, fromVersion) {
 // ============================================================
 const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, starred, position, created_at, updated_at';
 
+// Security helper: validate filename against path traversal
+function validateFilename(filename) {
+  if (!filename || typeof filename !== 'string') return false;
+  if (filename.includes('..') || filename.startsWith('/') || filename.startsWith('\\') || filename.includes('\x00')) return false;
+  return true;
+}
+
 function addFile(filename, content, type = 'file', hash = null, encrypted = false) {
+  // Security: reject path traversal attempts
+  if (!validateFilename(filename)) throw new Error('Invalid filename');
   const db = getDb();
   const size = content ? Buffer.byteLength(content, 'utf8') : 0;
   if (!hash) {
