@@ -10339,6 +10339,15 @@ function fabClicked() {
     document.getElementById('fabMain').style.transform = '';
   }
 }
+// Close FAB menu when tapping outside
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('fabMenu');
+  const fab = document.getElementById('fabMain');
+  if (menu && menu.classList.contains('show') && !menu.contains(e.target) && !fab.contains(e.target)) {
+    menu.classList.remove('show');
+    fab.style.transform = '';
+  }
+});
 function fabUpload() {
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   if (isMobile) {
