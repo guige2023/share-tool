@@ -8657,7 +8657,7 @@ function updatePasswordStrength(password) {
   if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
   if (score <= 1) {
     el.textContent = '⚠️ ' + T('share.passwordWeak');
-    el.style.color = '#dc2626';
+    el.style.color = 'var(--danger)';
   } else if (score <= 3) {
     el.textContent = '✓ ' + T('share.passwordMedium');
     el.style.color = 'var(--warning)';
@@ -9930,18 +9930,18 @@ async function compareSelectedVersions() {
   html += '<div style="padding:8px;font-size:12px;">';
   for (let i = 0; i < linesA.length; i++) {
     const inLCS = lcs.has(i);
-    const cls = inLCS ? '' : ' style="background:rgba(239,68,68,0.15);color:#f87171;"';
+    const cls = inLCS ? '' : ' style="background:rgba(239,68,68,0.15);color:var(--danger-fg);"';
     html += '<div' + cls + '>' + (inLCS ? '' : '-') + escapeHtml(linesA[i] || ' ') + '</div>';
   }
   html += '</div><div style="padding:8px;font-size:12px;">';
   for (let i = 0; i < linesB.length; i++) {
     const inLCS = lcs.has(i);
-    const cls = inLCS ? '' : ' style="background:rgba(34,197,94,0.15);color:#4ade80;"';
+    const cls = inLCS ? '' : ' style="background:rgba(34,197,94,0.15);color:var(--success-fg);"';
     html += '<div' + cls + '>' + (inLCS ? '' : '+') + escapeHtml(linesB[i] || ' ') + '</div>';
   }
   html += '</div></div>';
   html += '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">' +
-    '<span style="color:#f87171;">- 旧版本</span> · <span style="color:#4ade80;">+ 新版本</span>' +
+    '<span style="color:var(--danger-fg);">- 旧版本</span> · <span style="color:var(--success-fg);">+ 新版本</span>' +
     '</div>';
   document.getElementById('versionsContent').innerHTML = html;
 }
