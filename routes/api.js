@@ -998,8 +998,13 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
   if (trashDeleteMatch && method === 'DELETE') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    db.permanentlyDeleteTrash(parseInt(trashDeleteMatch[1]));
-    addAuditLog('trash_delete', `trash_id=${trashDeleteMatch[1]}`, getClientIp(req), authData.token);
+    const trashId = parseInt(trashDeleteMatch[1]);
+    if (!Number.isInteger(trashId) || trashId <= 0) {
+      sendJson(res, { success: false, error: 'Invalid trash ID' }, 400);
+      return true;
+    }
+    db.permanentlyDeleteTrash(trashId);
+    db.addAuditLog('trash_delete', `trash_id=${trashId}`, getClientIp(req), authData.token);
     sendJson(res, { success: true });
     return true;
   }

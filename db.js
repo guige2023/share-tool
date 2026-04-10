@@ -2176,8 +2176,14 @@ function ensureTagStats() {
 
 // 批量重命名标签（SQL 直接替换，避免 listFiles 100 条限制）
 function renameTagGlobally(oldTag, newTag) {
+  // 校验标签名（防止 LIKE 注入和无效字符）
+  if (!oldTag || !newTag || oldTag.includes(',') || newTag.includes(',')) {
+    return { updated: 0, error: 'Invalid tag name' };
+  }
+  // 转义 LIKE 特殊字符（% 和 _）
+  const escapeLike = (s) => String(s).replace(/[%_]/g, (c) => c === '%' ? '\\%' : '\\_');
   const db = getDb();
-  const rows = db.prepare("SELECT id, tags FROM files WHERE tags LIKE ?").all('%' + oldTag + '%');
+  const rows = db.prepare("SELECT id, tags FROM files WHERE tags LIKE ? ESCAPE '\\'").all('%' + escapeLike(oldTag) + '%');
   let updated = 0;
   for (const row of rows) {
     const tags = row.tags.split(',').map(s => s.trim());

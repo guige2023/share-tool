@@ -6256,6 +6256,7 @@ function handleFileItemClick(event, filename, isImage) {
   if (isCodeFile(filename)) { openCodeModal(filename); return; }
   if (isAudioFile(filename) || isVideoFile(filename)) { openMediaModal(filename); return; }
   if (isPdfFile(filename)) { openPdfModal(filename); return; }
+  if (isOfficeFile(filename)) { openOfficeModal(filename); return; }
   openFileModal(filename);
 }
 
@@ -7376,6 +7377,7 @@ document.addEventListener('keydown', (e) => {
           if (isCodeFile(decoded)) { openCodeModal(decoded); return; }
           if (isAudioFile(decoded) || isVideoFile(decoded)) { openMediaModal(decoded); return; }
           if (isPdfFile(decoded)) { openPdfModal(decoded); return; }
+          if (isOfficeFile(decoded)) { openOfficeModal(decoded); return; }
           openFileModal(decoded);
         }
       }
