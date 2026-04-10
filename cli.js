@@ -367,6 +367,7 @@ async function main() {
     console.log('  cat <name>     Print file content to stdout');
     console.log('  find <query> [--tag=x] [--type=x] [--limit=n]  Advanced search');
     console.log('  share <text>   Share text snippet');
+    console.log('  share-link <file> [--expires=7d] [--max-downloads=n] [--password=x]  Create share link');
     console.log('  sync           Trigger sync push');
     console.log('  status         Check if server is online');
     console.log('  open           Open server URL in browser');
@@ -374,6 +375,7 @@ async function main() {
     console.log('  stats          Show storage stats');
     console.log('  recent [n]     Show recently modified files (default: 10)');
     console.log('  trash [list|restore <id>|delete <id>|empty]  Manage trash');
+    console.log('  share-list     List all active share links');
     console.log('  diff <filename> [v1] [v2]  Compare file versions');
     console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
@@ -681,6 +683,36 @@ async function main() {
           process.exit(1);
         }
         printJson(shareRes.data);
+        break;
+      }
+      case 'share-link': {
+        // share-tool share-link <filename> [--expires=7d] [--max-downloads=10] [--password=<pwd>]
+        const filename = args[1];
+        if (!filename) {
+          printError('Usage: share-tool share-link <filename> [--expires=7d] [--max-downloads=10] [--password=<pwd>]');
+          process.exit(1);
+        }
+        const expiresDays = parseInt(args.find(a => a.startsWith('--expires='))?.split('=')[1]) || 0;
+        const maxDownloads = parseInt(args.find(a => a.startsWith('--max-downloads='))?.split('=')[1]) || 0;
+        const password = args.find(a => a.startsWith('--password='))?.split('=')[1] || '';
+        const body = {};
+        if (expiresDays > 0) body.expiresAt = Math.floor(Date.now() / 1000) + expiresDays * 86400;
+        if (maxDownloads > 0) body.maxDownloads = maxDownloads;
+        if (password) body.password = password;
+        const res = await request('POST', '/api/share/create', {
+          body: JSON.stringify({ filename, ...body })
+        });
+        if (res.status >= 400) {
+          printError('Failed: ' + (res.data?.error || res.status));
+          process.exit(1);
+        }
+        const d = res.data;
+        const url = d.url || (getServerUrl().replace(/\/+$/, '') + '/s/' + d.code);
+        console.log('Share link created:');
+        console.log('  URL:  ' + url);
+        console.log('  Code: ' + d.code);
+        if (d.passwordRequired) console.log('  Note: Password required to access');
+        if (d.expiresAt) console.log('  Expires: ' + new Date(d.expiresAt * 1000).toLocaleString());
         break;
       }
 
@@ -1212,6 +1244,23 @@ async function main() {
           printError('Usage: share-tool trash [list|restore <id>|delete <id>|empty]');
           process.exit(1);
         }
+        break;
+      }
+
+      case 'share-list': {
+        // List all active share links
+        const res = await request('GET', '/api/share/list');
+        if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
+        const links = res.data.links || [];
+        if (links.length === 0) { console.log('No active share links.'); break; }
+        console.log(`Share links (${links.length}):`);
+        links.forEach(l => {
+          const exp = l.expires_at ? new Date(l.expires_at * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) : 'never';
+          const dl = l.download_count !== undefined ? ` (${l.download_count} downloads)` : '';
+          const pwd = l.hasPassword ? ' 🔒' : '';
+          console.log(`  ${l.code}${pwd} → ${l.filename} — expires ${exp}${dl}`);
+          console.log(`    ${l.url}`);
+        });
         break;
       }
 

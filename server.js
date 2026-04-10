@@ -4450,13 +4450,13 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span id="searchKbdHint" style="font-size:11px;color:var(--text-muted);padding:0 4px;opacity:0.6;">// · ⌘K</span>
     </div>
     <div id="activeFilterChips" style="display:none;padding:4px 0 2px;flex-wrap:wrap;gap:6px;align-items:center;"></div>
-    <div id="searchHint" style="display:none;font-size:11px;color:var(--text-muted);padding:2px 8px 6px;line-height:1.4;">
-      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('tag:')">tag:</span> tag &nbsp;
-      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('size:>1m')">size:</span> &gt;1m &nbsp;
-      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('date:>yesterday')">date:</span> &gt;date &nbsp;
-      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('type:pdf')">type:</span> pdf &nbsp;
-      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('content:')">content:</span> text &nbsp;
-      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('ext:')">ext:</span> jpg
+    <div id="searchHint" style="display:none;padding:4px 8px 6px;gap:4px;flex-wrap:wrap;display:flex;flex-direction:row;align-items:center;">
+      <span style="font-size:11px;color:var(--text-muted);margin-right:2px;">试试:</span>
+      <span class="filter-chip-hint" onclick="insertSearchFilter('tag:')">🏷 tag</span>
+      <span class="filter-chip-hint" onclick="insertSearchFilter('size:>1m')">📦 &gt;1m</span>
+      <span class="filter-chip-hint" onclick="insertSearchFilter('date:>yesterday')">📅 最近</span>
+      <span class="filter-chip-hint" onclick="insertSearchFilter('type:pdf')">📄 PDF</span>
+      <span class="filter-chip-hint" onclick="insertSearchFilter('ext:jpg')">🖼 JPG</span>
     </div>
     <div class="search-suggestions" id="searchSuggestions" style="display:none;"></div>
     </div>
