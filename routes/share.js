@@ -92,7 +92,7 @@ module.exports = function handleShareRoutes(req, res, pathname, query, ctx) {
     req.on('data', d => body += d);
     req.on('end', () => {
       try {
-        const { expiryHours, maxDownloads, password } = JSON.parse(body);
+        const { expiryHours, maxDownloads, password, description } = JSON.parse(body);
         // expiryHours: null=unchanged, 0=never expire, >0=hours
         const MAX_TS_MS = 32503680000000;
         const updates = {};
@@ -104,6 +104,9 @@ module.exports = function handleShareRoutes(req, res, pathname, query, ctx) {
         }
         if (password !== undefined) {
           updates.password = password || null;
+        }
+        if (description !== undefined) {
+          updates.description = description || '';
         }
         const result = db.updateShareLink(code, updates);
         if (!result.success) {

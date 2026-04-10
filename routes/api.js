@@ -469,6 +469,15 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
       since: parsed.query.get('since') ? parseInt(parsed.query.get('since')) : null,
       until: parsed.query.get('until') ? parseInt(parsed.query.get('until')) : null
     };
+    // date=YYYY-MM-DD maps to since/until for that day
+    const dateFilter = parsed.query.get('date') || null;
+    if (dateFilter) {
+      const d = new Date(dateFilter);
+      if (!isNaN(d)) {
+        filters.since = Math.floor(d.setHours(0, 0, 0, 0) / 1000);
+        filters.until = Math.floor(d.setHours(23, 59, 59, 999) / 1000);
+      }
+    }
     const result = db.listAuditLogs(limit, offset, filters);
     const stats = db.getAuditStats();
     sendJson(res, { success: true, ...result, stats });
@@ -487,6 +496,15 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
       since: parsed.query.get('since') ? parseInt(parsed.query.get('since')) : null,
       until: parsed.query.get('until') ? parseInt(parsed.query.get('until')) : null
     };
+    // date=YYYY-MM-DD maps to since/until for that day
+    const dateFilter = parsed.query.get('date') || null;
+    if (dateFilter) {
+      const d = new Date(dateFilter);
+      if (!isNaN(d)) {
+        filters.since = Math.floor(d.setHours(0, 0, 0, 0) / 1000);
+        filters.until = Math.floor(d.setHours(23, 59, 59, 999) / 1000);
+      }
+    }
     
     if (format === 'json') {
       const rows = db.listAuditLogs(10000, 0, filters);

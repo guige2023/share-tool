@@ -308,6 +308,8 @@ const I18N = {
     'admin.getFailed': '获取日志失败',
     'admin.exported': '审计日志已导出',
     'admin.opts': '可选',
+    'admin.actionBreakdown': '操作分布',
+    'ui.all': '全部',
     'share.noLinks': '暂无分享链接',
 
     // 收藏
@@ -761,6 +763,8 @@ const I18N = {
     'admin.getFailed': 'Failed to get logs',
     'admin.exported': 'Audit log exported',
     'admin.opts': 'optional',
+    'admin.actionBreakdown': 'Action Breakdown',
+    'ui.all': 'All',
 
     // 收藏
     'fav.favorite': 'Favorite',
@@ -1124,6 +1128,8 @@ const I18N = {
     'admin.getFailed': 'Failed to get logs',
     'admin.exported': 'Audit log exported',
     'admin.opts': 'optional',
+    'admin.actionBreakdown': 'Action Breakdown',
+    'ui.all': 'All',
 
     // 收藏
     'fav.favorite': 'Favorite',
@@ -4005,13 +4011,23 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div id="contextMenu"></div>
 
 <div class="modal-overlay" id="auditModal" onclick="if(event.target===this)closeAuditModal()">
-  <div class="modal-content" style="max-width:700px;max-height:80vh;overflow:auto;">
+  <div class="modal-content" style="max-width:800px;max-height:85vh;overflow:auto;">
     <div class="modal-header">
       <div class="modal-title">📊 <span id="auditModalTitle">' + T('admin.auditTitle') + '</span></div>
       <button class="modal-close" onclick="closeAuditModal()">x</button>
     </div>
     <div id="auditStats" style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;"></div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
+    <!-- Action breakdown chart -->
+    <div id="auditChart" style="margin-bottom:16px;display:none;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:500;">' + T('admin.actionBreakdown') + '</div>
+      <div id="auditChartBars" style="display:flex;flex-direction:column;gap:6px;"></div>
+    </div>
+    <!-- Filters -->
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+      <select id="auditFilterAction" onchange="showAuditModal()" style="padding:6px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:12px;max-width:160px;">
+        <option value="">' + T('ui.all') + '</option>
+      </select>
+      <input type="date" id="auditFilterDate" onchange="showAuditModal()" style="padding:6px 8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:12px;">
       <button class="btn btn-sm" onclick="exportAudit('csv')">📥 CSV</button>
       <button class="btn btn-sm" onclick="exportAudit('json')">📥 JSON</button>
     </div>
@@ -4063,6 +4079,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.passwordOptional') + '</div>
         <input type="password" id="sharePassword" placeholder="' + T('share.noPassword') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.description') + '</div>
+        <input type="text" id="shareDescription" placeholder="' + T('share.descriptionPlaceholder') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+      </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="doCreateShareLink()" style="flex:1;">' + T('share.create') + '</button>
         <button class="btn btn-secondary" onclick="closeShareOptionsModal()">' + T('msg.cancel') + '</button>
@@ -4109,6 +4129,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.passwordOptional') + '</div>
         <input type="password" id="editSharePassword" placeholder="' + T('share.noPassword') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + T('share.leaveBlank') + '</div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.description') + '</div>
+        <input type="text" id="editShareDescription" placeholder="' + T('share.descriptionPlaceholder') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="doUpdateShareLink()" style="flex:1;">' + T('ui.save') + '</button>
@@ -5988,6 +6012,7 @@ function showShareLinksModal() {
               '<span>🕐 ' + (l.createdAt ? new Date(l.createdAt * 1000).toLocaleDateString() : '—') + '</span>' +
             '</div>' +
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
+            (l.description ? '<div style="font-size:12px;color:var(--accent-secondary);margin-top:4px;">' + T('share.description') + ': ' + escapeHtml(l.description) + '</div>' : '') +
             '<div style="display:flex;gap:8px;margin-top:4px;">' +
               '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(url) + '\')">' + T('share.copyLink') + '</button>' +
               '<button class="btn btn-sm" style="margin-left:4px;" onclick="emailShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\')">✉️</button>' +
@@ -6107,6 +6132,7 @@ function showEditShareLinkModal(code) {
       }
       document.getElementById('editShareMaxDownloads').value = link.maxDownloads || '';
       document.getElementById('editSharePassword').value = '';
+      document.getElementById('editShareDescription').value = link.description || '';
       lockScroll();
       document.getElementById('editShareLinkModal').classList.add('show');
     }).catch(() => showToast(T('err.reqFailed')));
@@ -6139,8 +6165,15 @@ function closeEditShareLinkModal() {
   document.getElementById('editShareLinkModal').classList.remove('show');
 }
 
+let _auditAllLogs = [];
+
 function showAuditModal() {
-  fetch(API + '/api/audit/logs', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+  const filterAction = document.getElementById('auditFilterAction')?.value || '';
+  const filterDate = document.getElementById('auditFilterDate')?.value || '';
+  let url = API + '/api/audit/logs?limit=500';
+  if (filterAction) url += '&action=' + encodeURIComponent(filterAction);
+  if (filterDate) url += '&date=' + filterDate;
+  fetch(url, { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
     .then(r => r.json())
     .then(data => {
       if (!data.success) { showToast(T('admin.getFailed')); return; }
@@ -6148,7 +6181,44 @@ function showAuditModal() {
       document.getElementById('auditStats').innerHTML =
         '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.todayOps') + '</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.todayCount || 0) + '</div></div>' +
         '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.totalOps') + '</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.totalCount || 0) + '</div></div>' +
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.lastOp') + '</div><div style="font-size:12px;color:var(--text-secondary)">' + escapeHtml(stats.lastAction || '--') + '</div></div>';
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.lastOp') + '</div><div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(stats.lastAction || '--') + '</div></div>';
+
+      // Build action filter dropdown
+      const allActions = [...new Set(data.logs.map(l => l.action).filter(Boolean))].sort();
+      const filterSel = document.getElementById('auditFilterAction');
+      if (filterSel) {
+        const current = filterSel.value;
+        filterSel.innerHTML = '<option value="">' + T('ui.all') + '</option>' +
+          allActions.map(a => '<option value="' + escapeHtml(a) + '"' + (a === current ? ' selected' : '') + '>' + escapeHtml(a) + '</option>').join('');
+      }
+
+      // Action breakdown chart
+      const chartDiv = document.getElementById('auditChart');
+      const chartBars = document.getElementById('auditChartBars');
+      if (allActions.length > 0) {
+        const actionCounts = {};
+        data.logs.forEach(l => { if (l.action) actionCounts[l.action] = (actionCounts[l.action] || 0) + 1; });
+        const maxCount = Math.max(...Object.values(actionCounts));
+        const colors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6'];
+        let colorIdx = 0;
+        chartBars.innerHTML = Object.entries(actionCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8)
+          .map(([action, count]) => {
+            const pct = maxCount > 0 ? (count / maxCount * 100) : 0;
+            const color = colors[colorIdx++ % colors.length];
+            return '<div style="display:flex;align-items:center;gap:8px;font-size:11px;">' +
+              '<div style="width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary);">' + escapeHtml(action) + '</div>' +
+              '<div style="flex:1;background:var(--bg-tertiary);border-radius:4px;height:16px;overflow:hidden;">' +
+                '<div style="width:' + pct + '%;background:' + color + ';height:100%;border-radius:4px;transition:width 0.3s;"></div>' +
+              '</div>' +
+              '<div style="width:28px;text-align:right;color:var(--text-muted);">' + count + '</div>' +
+            '</div>';
+          }).join('');
+        chartDiv.style.display = 'block';
+      } else {
+        chartDiv.style.display = 'none';
+      }
 
       const logs = data.logs || [];
       document.getElementById('auditLogList').innerHTML = logs.length ? logs.map(l =>
@@ -6993,12 +7063,13 @@ async function doCreateShareLink() {
   const expiryHours = parseInt(document.getElementById('shareExpiryHours').value) || 168;
   const maxDownloads = parseInt(document.getElementById('shareMaxDownloads').value) || null;
   const password = document.getElementById('sharePassword').value || null;
+  const description = document.getElementById('shareDescription').value || '';
   closeShareOptionsModal();
   try {
     const res = await fetch(API + '/api/share/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ filename, expiryHours: expiryHours || null, maxDownloads, password })
+      body: JSON.stringify({ filename, expiryHours: expiryHours || null, maxDownloads, password, description })
     });
     const data = await res.json();
     if (data.success) {

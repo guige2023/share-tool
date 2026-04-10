@@ -1654,6 +1654,11 @@ function updateShareLink(code, updates) {
     values.push(updates.password ? hashPassword(updates.password) : null);
   }
 
+  if (updates.description !== undefined) {
+    fields.push('description = ?');
+    values.push(updates.description || '');
+  }
+
   if (fields.length === 0) {
     return { success: false, error: 'No fields to update' };
   }
