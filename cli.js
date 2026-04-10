@@ -169,23 +169,38 @@ async function uploadFile(filePath) {
 
   // 2. 上传缺失的分片
   const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
+  const BAR_WIDTH = 24;
+  const startTime = Date.now();
+  let uploadedChunks = receivedChunks.length; // count of chunks already confirmed uploaded
+
   for (let i = 0; i < totalChunks; i++) {
     if (receivedChunks.includes(i)) continue; // 跳过已上传的
 
     const start = i * CHUNK_SIZE;
     const end = Math.min(start + CHUNK_SIZE, totalSize);
     const chunkContent = fileContent.slice(start, end).toString('base64');
+    uploadedChunks++;
+
+    const uploadedBytes = Math.min(uploadedChunks * CHUNK_SIZE, totalSize);
+    const pct = Math.round((uploadedBytes / totalSize) * 100);
+    const barFilled = Math.round((pct / 100) * BAR_WIDTH);
+    const bar = '█'.repeat(barFilled) + '░'.repeat(BAR_WIDTH - barFilled);
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    const speed = elapsed > 0 ? formatSize(Math.round(uploadedBytes / elapsed)) + '/s' : '';
+
+    process.stdout.write(`\r  ${fileName}  [${bar}] ${String(pct).padStart(3)}%  ${formatSize(uploadedBytes)}/${formatSize(totalSize)}  ${speed}`);
 
     const chunkRes = await request('POST', '/api/upload/chunk', {
       body: JSON.stringify({ uploadId, chunkIndex: i, content: chunkContent })
     });
 
     if (chunkRes.status !== 200 || !chunkRes.data.success) {
+      console.log(`\nError: Chunk ${i} upload failed: ${chunkRes.data.error || chunkRes.status}`);
       throw new Error(`分片 ${i} 上传失败: ${chunkRes.data.error || chunkRes.status}`);
     }
-    process.stdout.write(`\r   进度: ${i + 1}/${totalChunks} 分片`);
   }
-  console.log('\r   进度: 100%');
+  const finalBar = '█'.repeat(BAR_WIDTH);
+  console.log(`\r  ${fileName}  [${finalBar}] 100%  ${formatSize(totalSize)}/${formatSize(totalSize)}`);
 
   // 3. 完成上传
   const completeRes = await request('POST', '/api/upload/complete', {
