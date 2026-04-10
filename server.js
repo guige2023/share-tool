@@ -3574,6 +3574,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 </style>
 </head>
 <body>
+<!-- Offline Banner -->
+<div id="offlineBanner" style="display:none;position:sticky;top:0;z-index:9999;background:#fbbf24;color:#1a1a1a;padding:8px 16px;text-align:center;font-size:13px;font-weight:500;">
+  📡 网络已断开，部分功能暂不可用
+</div>
 <div class="container">
   <header>
     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -4083,6 +4087,21 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Browser online/offline awareness
+window.addEventListener('online', () => {
+  const banner = document.getElementById('offlineBanner');
+  if (banner) banner.style.display = 'none';
+  logger.info('[Network] Online');
+});
+
+window.addEventListener('offline', () => {
+  const banner = document.getElementById('offlineBanner');
+  if (banner) banner.style.display = 'flex';
+  const syncStatusEl = document.getElementById('syncStatus');
+  if (syncStatusEl) { syncStatusEl.className = 'status-item disconnected'; syncStatusEl.textContent = T('ui.syncOffline'); }
+  logger.info('[Network] Offline');
+});
+
 // PWA Install Prompt
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -4289,6 +4308,8 @@ function connectWS() {
     if (txt) txt.textContent = T('device.notConnected');
     const statusEl = document.getElementById('wsStatus');
     if (statusEl) { statusEl.className = 'status-item disconnected'; statusEl.textContent = T('device.wsDisconnected'); }
+    const syncStatusEl = document.getElementById('syncStatus');
+    if (syncStatusEl) { syncStatusEl.className = 'status-item disconnected'; syncStatusEl.textContent = T('ui.syncOffline'); }
 
       logger.info('[WS] Disconnected');
       isConnected = false;
@@ -4299,6 +4320,8 @@ function connectWS() {
     
     ws.onerror = (e) => {
       logger.error({ err: e }, 'WS error');
+      const syncStatusEl = document.getElementById('syncStatus');
+      if (syncStatusEl) { syncStatusEl.className = 'status-item disconnected'; syncStatusEl.textContent = T('ui.syncOffline'); }
     };
   } catch (e) {
     logger.error({ err: e }, 'WS connect failed');
