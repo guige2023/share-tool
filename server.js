@@ -8592,14 +8592,18 @@ async function showFileVersions(filename) {
   if (versions.length === 0) {
     html = '<div style="color:var(--text-muted);padding:20px;text-align:center;">' + T('ver.noVersions') + '</div>';
   } else {
-    html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-color);">' +
+      '<div style="font-size:12px;color:var(--text-muted);">选择两个版本进行对比</div>' +
+      '<button class="btn btn-sm" id="compareVersionsBtn" onclick="compareSelectedVersions()" disabled>对比</button>' +
+      '</div>';
+    html += '<div style="display:flex;flex-direction:column;gap:8px;">';
     for (const v of versions) {
       const ts = new Date(v.created_at * 1000).toLocaleString('zh-CN');
       const size = (v.size / 1024).toFixed(1) + ' KB';
       html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg-secondary);border-radius:8px;">' +
-        '<div>' +
-        '<div style="font-weight:500;">v' + v.id + '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);">' + ts + ' · ' + size + '</div>' +
+        '<div style="display:flex;align-items:center;gap:10px;">' +
+        '<input type="checkbox" class="version-compare-check" value="' + v.id + '" onchange="onVersionCheckChange()" style="width:16px;height:16px;cursor:pointer;">' +
+        '<div style="font-weight:500;">v' + v.id + ' <span style="font-weight:400;font-size:11px;color:var(--text-muted);">' + ts + ' · ' + size + '</span></div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;">' +
         '<button class="btn btn-sm" onclick="previewVersion(' + v.id + ')">' + T('file.view') + '</button>' +
@@ -8617,6 +8621,74 @@ async function showFileVersions(filename) {
 function closeVersionsModal() {
   document.getElementById('versionsModal').classList.remove('show');
   window._versionsFilename = null;
+}
+
+function onVersionCheckChange() {
+  const checked = document.querySelectorAll('.version-compare-check:checked');
+  const btn = document.getElementById('compareVersionsBtn');
+  if (btn) {
+    btn.disabled = checked.length !== 2;
+    btn.textContent = '对比' + (checked.length === 2 ? ' (2)' : '');
+  }
+}
+
+async function compareSelectedVersions() {
+  const checked = document.querySelectorAll('.version-compare-check:checked');
+  if (checked.length !== 2) return;
+  const [aId, bId] = Array.from(checked).map(c => c.value);
+  const [resA, resB] = await Promise.all([
+    fetch(API + '/api/file-version/' + aId, { headers: { 'x-auth-token': AUTH_TOKEN || '' } }),
+    fetch(API + '/api/file-version/' + bId, { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+  ]);
+  const [dataA, dataB] = await Promise.all([resA.json(), resB.json()]);
+  if (!dataA.success || !dataB.success) { showToast('无法加载版本内容', 'error'); return; }
+  const vA = dataA.version, vB = dataB.version;
+  const textA = vA.content || '';
+  const textB = vB.content || '';
+  const linesA = textA.split('\n'), linesB = textB.split('\n');
+  // LCS-based line diff
+  const lcs = computeLCS(linesA, linesB);
+  let html = '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(window._versionsFilename || '').replace(/'/g, "\\'") + '\')">← 返回列表</button></div>';
+  html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:500px;overflow-y:auto;">';
+  html += '<div style="padding:8px;font-size:12px;">';
+  for (let i = 0; i < linesA.length; i++) {
+    const inLCS = lcs.has(i);
+    const cls = inLCS ? '' : ' style="background:rgba(239,68,68,0.15);color:#f87171;"';
+    html += '<div' + cls + '>' + (inLCS ? '' : '-') + escapeHtml(linesA[i] || ' ') + '</div>';
+  }
+  html += '</div><div style="padding:8px;font-size:12px;">';
+  for (let i = 0; i < linesB.length; i++) {
+    const inLCS = lcs.has(i);
+    const cls = inLCS ? '' : ' style="background:rgba(34,197,94,0.15);color:#4ade80;"';
+    html += '<div' + cls + '>' + (inLCS ? '' : '+') + escapeHtml(linesB[i] || ' ') + '</div>';
+  }
+  html += '</div></div>';
+  html += '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">' +
+    '<span style="color:#f87171;">- 旧版本</span> · <span style="color:#4ade80;">+ 新版本</span>' +
+    '</div>';
+  document.getElementById('versionsContent').innerHTML = html;
+}
+
+function computeLCS(a, b) {
+  const m = a.length, n = b.length;
+  // Build LCS index mapping: for each position in a, does it appear in LCS?
+  // Simplified: use greedy longest common subsequence approximation
+  const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      if (a[i-1] === b[j-1]) dp[i][j] = dp[i-1][j-1] + 1;
+      else dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+    }
+  }
+  // Backtrack to find which rows in 'a' are in LCS
+  const lcsSet = new Set();
+  let i = m, j = n;
+  while (i > 0 && j > 0) {
+    if (a[i-1] === b[j-1]) { lcsSet.add(i-1); i--; j--; }
+    else if (dp[i-1][j] > dp[i][j-1]) i--;
+    else j--;
+  }
+  return lcsSet;
 }
 
 async function showTrashModal() {
