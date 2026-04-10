@@ -3027,12 +3027,13 @@ function startSyncScheduler() {
     }
   }, 60000);
   
-  // 每小时清理一次过期 Token、分享链接、sync_log
+  // 每小时清理一次过期 Token、分享链接、sync_log、audit_log
   setInterval(() => {
     try {
       db.cleanupExpiredTokens();
       db.cleanupExpiredShareLinks();
       db.cleanupSyncLog(7);  // 保留7天已同步的 sync_log
+      db.cleanupAuditLog(90); // 保留90天审计日志
     } catch (e) {
       logger.error({ err: e }, '[Cleanup]');
     }
@@ -9154,15 +9155,40 @@ async function deleteVersion(versionId) {
   }
 }
 
+function toggleTagSelect(tag, checked) {
+  if (!window._selectedTags) window._selectedTags = new Set();
+  if (checked) {
+    window._selectedTags.add(tag);
+  } else {
+    window._selectedTags.delete(tag);
+  }
+  updateBatchTagBar();
+}
+
+function updateBatchTagBar() {
+  const bar = document.getElementById('tagBatchBar');
+  if (!bar) return;
+  const count = window._selectedTags ? window._selectedTags.size : 0;
+  if (count === 0) {
+    bar.innerHTML = '';
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+  bar.innerHTML = '<span style="font-size:12px;color:var(--text-secondary);">' + count + ' selected</span>';
+}
+
 async function showTagManager() {
   await loadTagColors();
   const res = await fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
   const data = await res.json();
   _tagManagerData = (data.success && data.tags) ? data.tags : [];
+  window._selectedTags = new Set();
   // Reset search filter on open
   const searchInput = document.getElementById('tagManagerSearch');
   if (searchInput) searchInput.value = '';
   renderTagManagerItems(_tagManagerData);
+  updateBatchTagBar();
   document.getElementById('tagManagerModal').classList.add('show');
   lockScroll();
 }
@@ -9194,8 +9220,9 @@ function renderTagManagerItems(tags) {
     const tagHtml = escapeHtml(t.tag);                              // HTML-safe for display
     const tagJs = t.tag.replace(/\\/g, '\\\\').replace(/'/g, "\\'");  // JS-string-safe for onclick
     const tagId = t.tag.replace(/[^a-zA-Z0-9]/g, '_');             // safe ID
+    const checked = window._selectedTags && window._selectedTags.has(t.tag) ? 'checked' : '';
     return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-tertiary);border-radius:12px;border:1px solid var(--border-color);transition:border-color 0.15s;">' +
-      // Color swatch + emoji (clickable for color change)
+      '<input type="checkbox" id="tagchk_' + tagId + '" ' + checked + ' onchange="toggleTagSelect(\'' + tagJs + '\', this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent-primary);flex-shrink:0;" title="批量选择">' +
       '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;">' +
         '<div style="width:36px;height:28px;border-radius:6px;background:' + color + ';display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);" title="' + T('tag.clickChangeColor') + '" onclick="document.getElementById(\'colorPicker_' + tagId + '\').click()">' +
           '<span style="font-size:14px;">' + escapeHtml(emoji) + '</span>' +

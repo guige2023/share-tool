@@ -1748,6 +1748,16 @@ function cleanupSyncLog(daysToKeep = 7) {
   return result.changes;
 }
 
+function cleanupAuditLog(daysToKeep = 90) {
+  const db = getDb();
+  const cutoff = Math.floor(Date.now() / 1000) - daysToKeep * 86400;
+  const result = db.prepare('DELETE FROM audit_log WHERE timestamp < ?').run(cutoff);
+  if (result.changes > 0) {
+    console.log(`[DB] Cleaned up ${result.changes} old audit_log entries`);
+  }
+  return result.changes;
+}
+
 function getDbStats() {
   const db = getDb();
   const fileCount = db.prepare('SELECT COUNT(*) as c FROM files').get().c;
@@ -2282,7 +2292,7 @@ module.exports = {
   // 清理
   cleanupExpiredTokens,
   // DB 健康
-  cleanupSyncLog, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
+  cleanupSyncLog, cleanupAuditLog, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, touchTag,
   getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags,

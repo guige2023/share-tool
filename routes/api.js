@@ -46,6 +46,21 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/db/cleanup — manual trigger cleanup (audit_log, sync_log, expired)
+  if (pathname === '/api/db/cleanup' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const results = {
+      audit_log: db.cleanupAuditLog(90),
+      sync_log: db.cleanupSyncLog(7),
+      expired_tokens: db.cleanupExpiredTokens(),
+      expired_share_links: db.cleanupExpiredShareLinks()
+    };
+    db.addAuditLog('db_cleanup', `Cleaned: audit=${results.audit_log}, sync=${results.sync_log}`, getClientIp(req), authData.token);
+    sendJson(res, { success: true, results });
+    return true;
+  }
+
   // DELETE /api/delete-all
   if (pathname === '/api/delete-all' && method === 'DELETE') {
     const authData = authRequired(req, res);
