@@ -4326,7 +4326,9 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <button id="notifBell" onclick="toggleNotifPanel()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--text-primary);font-size:18px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative;" title="' + T('ui.notifications') + '">🔔</button>
         <div class="notif-badge" id="notifBadge"></div>
         <button id="themeToggle" onclick="toggleThemeDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px; touch-action: manipulation; -webkit-tap-highlight-color: transparent;" title="' + T('ui.toggleTheme') + '">🌙</button>
+        <button id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'});this.blur()" title="' + T('ui.backToTop') + '" style="display:none;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">⬆</button>
       </div>
+      <style>#backToTop{transition:opacity .2s;opacity:.7}#backToTop:hover{opacity:1}</style>
       <div id="themeDropdown" style="display:none;position:absolute;top:56px;right:16px;z-index:1000;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:12px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-secondary);">主题模式</div>
         <div style="display:flex;gap:6px;margin-bottom:12px;">
@@ -8718,7 +8720,7 @@ document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
   const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 
-  if (e.key === '/') {
+  if (e.key === '/' && !isInput) {
     e.preventDefault();
     const el = document.getElementById('searchInput');
     if (el) { el.focus(); el.select(); }
