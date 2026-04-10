@@ -4789,7 +4789,7 @@ function initSortSelect(sort, order) {
   const sel = document.getElementById('sortSelect');
   if (!sel) return;
   const sortKey = sort === 'created_at' ? 'time' : sort;
-  const target = sortKey + '_' + order;
+  const target = sortKey === 'position' ? 'manual' : sortKey + '_' + order;
   for (const opt of sel.options) {
     opt.selected = opt.value === target;
   }
