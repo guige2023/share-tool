@@ -4687,9 +4687,38 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="modal-header">
       <div class="modal-title">🔗 <span id="shareLinksTitle">' + T('share.manage') + '</span></div>
       <button id="btnDeleteExpiredShares" class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="deleteExpiredShares()">' + T('share.deleteExpired') + '</button>
+      <div id="shareLinksBatchActions" style="display:none;gap:4px;">
+        <button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="showBatchExtendShareModal()">⏱ 批量续期</button>
+        <button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="batchDeleteShareLinks()">🗑 删除</button>
+        <button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="deselectAllShareLinks()">取消全选</button>
+      </div>
       <button class="modal-close" onclick="closeShareLinksModal()">x</button>
     </div>
     <div id="shareLinksList" style="padding:8px 0;"></div>
+  </div>
+</div>
+
+<!-- 批量续期分享链接 Modal -->
+<div class="modal-overlay" id="batchExtendShareModal" onclick="if(event.target===this)closeBatchExtendShareModal()">
+  <div class="modal-content" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">⏱ 批量续期</div>
+      <button class="modal-close" onclick="closeBatchExtendShareModal()">x</button>
+    </div>
+    <div style="padding:12px;display:flex;flex-direction:column;gap:10px;">
+      <div style="font-size:13px;color:var(--text-muted);" id="batchExtendShareCount"></div>
+      <div>
+        <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:4px;">选择有效期</label>
+        <select id="batchExtendHours" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);">
+          <option value="168">7 天</option>
+          <option value="720">30 天</option>
+          <option value="2160">90 天</option>
+          <option value="4320">180 天</option>
+          <option value="0">永不过期</option>
+        </select>
+      </div>
+      <button class="btn" style="width:100%;" onclick="confirmBatchExtendShare()">确认续期</button>
+    </div>
   </div>
 </div>
 
@@ -6398,12 +6427,29 @@ function handleDragStart(e, el) {
 function handleDragOver(e, el) {
   // Don't allow reordering virtual folders or the source item
   if (el === dragState.sourceEl) return;
-  if (el.classList.contains('drag-over')) return;
-  // Remove drag-over from all items first
-  document.querySelectorAll('.file-item.drag-over').forEach(item => item.classList.remove('drag-over'));
-  el.classList.add('drag-over');
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
+
+  // Remove drag-over from all items first
+  document.querySelectorAll('.file-item.drag-over').forEach(item => item.classList.remove('drag-over'));
+  document.querySelectorAll('.drop-indicator').forEach(ind => ind.remove());
+
+  // Determine insert position: upper half = before, lower half = after
+  const rect = el.getBoundingClientRect();
+  const isUpperHalf = e.clientY < rect.top + rect.height / 2;
+  el.classList.add('drag-over');
+
+  // Create drop indicator line
+  const indicator = document.createElement('div');
+  indicator.className = 'drop-indicator';
+  const indicatorStyle = isUpperHalf
+    ? 'position:absolute;left:0;right:0;height:3px;background:var(--accent-primary);top:' + rect.top + 'px;pointer-events:none;z-index:10;border-radius:2px;'
+    : 'position:absolute;left:0;right:0;height:3px;background:var(--accent-primary);bottom:' + (window.innerHeight - rect.bottom) + 'px;pointer-events:none;z-index:10;border-radius:2px;';
+  indicator.style.cssText = indicatorStyle;
+
+  // Store insert position for drop
+  el._dropInsertBefore = isUpperHalf;
+  document.body.appendChild(indicator);
 }
 
 function handleDrop(e, targetEl) {
@@ -6415,12 +6461,14 @@ function handleDrop(e, targetEl) {
   saveCustomFileOrder(sourceName, targetName);
   // Visual feedback: remove styles
   document.querySelectorAll('.file-item.drag-over').forEach(item => item.classList.remove('drag-over'));
+  document.querySelectorAll('.drop-indicator').forEach(ind => ind.remove());
   dragState = { sourceEl: null, sourceIndex: -1 };
 }
 
 function handleDragEnd(e, el) {
   el.classList.remove('dragging');
   document.querySelectorAll('.file-item.drag-over').forEach(item => item.classList.remove('drag-over'));
+  document.querySelectorAll('.drop-indicator').forEach(ind => ind.remove());
   dragState = { sourceEl: null, sourceIndex: -1 };
 }
 
@@ -7774,7 +7822,10 @@ function showShareLinksModal() {
           const expires = (l.expiresAt === MAX_TS || !l.expiresAt) ? T('share.neverExpire') : (isExpired ? T('share.expired') : T('share.daysLeft') + ' ' + Math.ceil((l.expiresAt - Date.now()) / 86400000) + ' ' + T('share.day'));
           return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-              '<span style="font-weight:600;cursor:pointer;" onclick="copyText(\'' + l.filename.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" title="Click to copy filename">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
+              '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<input type="checkbox" class="share-link-checkbox" value="' + l.code.replace(/"/g, '&quot;') + '" onchange="onShareLinkCheckboxChange()" style="width:16px;height:16px;cursor:pointer;">' +
+                '<span style="font-weight:600;cursor:pointer;" onclick="copyText(\'' + l.filename.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" title="Click to copy filename">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
+              '</div>' +
               '<span style="font-size:11px;color:' + (isExpired ? 'var(--danger)' : 'var(--text-muted)') + ';">' + (isExpired ? T('share.expired') : expires) + '</span>' +
             '</div>' +
             '<div style="display:flex;gap:16px;font-size:11px;color:var(--text-muted);">' +
@@ -7797,6 +7848,73 @@ function showShareLinksModal() {
       lockScroll();
       document.getElementById('shareLinksModal').classList.add('show');
     }).catch(() => showToast(T('share.getLinkFailed')));
+}
+
+function onShareLinkCheckboxChange() {
+  const checked = document.querySelectorAll('.share-link-checkbox:checked');
+  const batchActions = document.getElementById('shareLinksBatchActions');
+  if (batchActions) batchActions.style.display = checked.length > 0 ? 'flex' : 'none';
+}
+
+function deselectAllShareLinks() {
+  document.querySelectorAll('.share-link-checkbox').forEach(cb => cb.checked = false);
+  onShareLinkCheckboxChange();
+}
+
+function showBatchExtendShareModal() {
+  const checked = document.querySelectorAll('.share-link-checkbox:checked');
+  if (checked.length === 0) return;
+  document.getElementById('batchExtendShareCount').textContent = '已选择 ' + checked.length + ' 个链接';
+  document.getElementById('batchExtendShareModal').classList.add('show');
+}
+
+function closeBatchExtendShareModal() {
+  document.getElementById('batchExtendShareModal').classList.remove('show');
+}
+
+async function confirmBatchExtendShare() {
+  const checked = document.querySelectorAll('.share-link-checkbox:checked');
+  if (checked.length === 0) { closeBatchExtendShareModal(); return; }
+  const codes = Array.from(checked).map(cb => cb.value);
+  const expiryHours = parseInt(document.getElementById('batchExtendHours').value);
+  closeBatchExtendShareModal();
+  try {
+    const res = await fetch(API + '/api/share/batch', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ codes, expiryHours })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('已续期 ' + data.updated + ' 个链接');
+      deselectAllShareLinks();
+      showShareLinksModal();
+    } else {
+      showToast('续期失败: ' + (data.error || ''), true);
+    }
+  } catch (e) { showToast('续期失败: ' + e.message, true); }
+}
+
+async function batchDeleteShareLinks() {
+  const checked = document.querySelectorAll('.share-link-checkbox:checked');
+  if (checked.length === 0) return;
+  if (!confirm('确认删除选中的 ' + checked.length + ' 个分享链接？')) return;
+  const codes = Array.from(checked).map(cb => cb.value);
+  try {
+    const res = await fetch(API + '/api/share/batch', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ codes })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('已删除 ' + data.deleted + ' 个链接');
+      deselectAllShareLinks();
+      showShareLinksModal();
+    } else {
+      showToast('删除失败: ' + (data.error || ''), true);
+    }
+  } catch (e) { showToast('删除失败: ' + e.message, true); }
 }
 
 function copyShareLinkOf(code, url) {
