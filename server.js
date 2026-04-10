@@ -84,6 +84,8 @@ const I18N = {
     'msg.confirm': '确认',
     'msg.optional': '可选',
     'msg.confirmDelete': '确定删除 {name}？',
+    'batch.confirmRename': '确认重命名',
+    'batch.cancel': '取消',
     'ui.confirmDelete': '确定删除',
     'msg.confirmDeleteAll': '确定删除所有文件?',
     'msg.confirmDeleteSelected': '确定删除选中的 {n} 个文件?',
@@ -661,6 +663,8 @@ const I18N = {
     'msg.cancel': 'Cancel',
     'msg.confirm': 'Confirm',
     'msg.optional': 'optional',
+    'batch.confirmRename': 'Confirm Rename',
+    'batch.cancel': 'Cancel',
 
     // 文件状态
     'file.deleted': 'Deleted',
@@ -8899,7 +8903,6 @@ async function doCreateShareLink() {
   const maxDownloads = parseInt(document.getElementById('shareMaxDownloads').value) || null;
   const password = document.getElementById('sharePassword').value || null;
   const description = document.getElementById('shareDescription').value || '';
-  closeShareOptionsModal();
   try {
     const res = await fetch(API + '/api/share/create', {
       method: 'POST',
@@ -8907,6 +8910,7 @@ async function doCreateShareLink() {
       body: JSON.stringify({ filename, expiryHours: expiryHours || null, maxDownloads, password, description })
     });
     const data = await res.json();
+    closeShareOptionsModal();
     if (data.success) {
       const shareUrl = data.url;
       const linkBox = document.getElementById('shareLinkBox');
@@ -10925,7 +10929,7 @@ function showBatchRenameModal() {
   footer.style.display = 'flex';
   footer.style.gap = '8px';
   footer.style.justifyContent = 'flex-end';
-  footer.innerHTML = '<button class="btn btn-sm" onclick="batchRename()">确认重命名</button><button class="btn btn-sm btn-secondary" onclick="closeModal()">取消</button>';
+  footer.innerHTML = '<button class="btn btn-sm" onclick="batchRename()">' + T('batch.confirmRename') + '</button><button class="btn btn-sm btn-secondary" onclick="closeModal()">' + T('batch.cancel') + '</button>';
   lockScroll();
   document.getElementById('fileModal').classList.add('show');
   window._batchRenameFiles = filenames;
