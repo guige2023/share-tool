@@ -11916,13 +11916,17 @@ document.addEventListener('keydown', (e) => {
     const input = document.getElementById('searchInput');
     if (input) { input.focus(); input.select(); }
   }
-  // Escape → clear search and blur
+  // Escape → clear search, blur, reload
   if (e.key === 'Escape') {
     const input = document.getElementById('searchInput');
-    if (input && document.activeElement === input) {
+    if (input) {
+      const hadValue = input.value.trim();
       input.value = '';
       input.blur();
-      if (currentFiles.length === 0) loadFiles(currentFolder, isStarredView);
+      if (hadValue) {
+        hideSearchHint();
+        loadFiles(currentFolder, isStarredView);
+      }
     }
   }
 });
