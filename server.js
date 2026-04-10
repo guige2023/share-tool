@@ -3288,6 +3288,12 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-grid .file-tags { margin-top: 6px; }
 .file-grid .file-tag { font-size: 10px; padding: 2px 6px; }
 .file-grid .file-star { position: absolute; top: 8px; right: 8px; }
+
+/* Drag-and-drop for file reordering */
+.file-item[draggable="true"] { cursor: grab; }
+.file-item[draggable="true"]:active { cursor: grabbing; }
+.file-item.drag-over { outline: 2px dashed var(--accent-primary); outline-offset: -2px; background: rgba(102, 126, 234, 0.08); }
+.file-item.dragging { opacity: 0.4; }
 .file-item { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px; background: var(--bg-tertiary); border-radius: 10px; border: 1px solid var(--border-color); gap: 12px; touch-action: pan-y; user-select: none; position: relative; overflow: hidden; }
 .file-item.focused { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
 .file-item:hover { border-color: var(--text-muted); }
@@ -4869,7 +4875,7 @@ function renderFiles() {
 
     // Search highlight applied by applySearchHighlight() after render
 
-    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '">' +
+    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" draggable="true" ondragstart="handleDragStart(event, this)" ondragover="handleDragOver(event, this)" ondrop="handleDrop(event, this)" ondragend="handleDragEnd(event, this)" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
         (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>' + T('file.addTag') + '</span></button>' : '') +
         '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>' + T('tag.delete') + '</span></button>' +
@@ -5006,6 +5012,76 @@ function resetSwipe(btn) {
   item.style.transform = 'translateX(0)';
   const actions = item.querySelector('.swipe-actions');
   if (actions) actions.classList.remove('show');
+}
+
+// File drag-and-drop reordering
+let dragState = { sourceEl: null, sourceIndex: -1 };
+
+function handleDragStart(e, el) {
+  dragState.sourceEl = el;
+  el.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+  // Use filename as drag data
+  e.dataTransfer.setData('text/plain', el.dataset.filename || el.getAttribute('data-filename'));
+}
+
+function handleDragOver(e, el) {
+  // Don't allow reordering virtual folders or the source item
+  if (el === dragState.sourceEl) return;
+  if (el.classList.contains('drag-over')) return;
+  // Remove drag-over from all items first
+  document.querySelectorAll('.file-item.drag-over').forEach(item => item.classList.remove('drag-over'));
+  el.classList.add('drag-over');
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function handleDrop(e, targetEl) {
+  e.preventDefault();
+  if (!dragState.sourceEl || targetEl === dragState.sourceEl) return;
+  const sourceName = dragState.sourceEl.dataset.filename || dragState.sourceEl.getAttribute('data-filename');
+  const targetName = targetEl.dataset.filename || targetEl.getAttribute('data-filename');
+  // Save custom order to localStorage
+  saveCustomFileOrder(sourceName, targetName);
+  // Visual feedback: remove styles
+  document.querySelectorAll('.file-item.drag-over').forEach(item => item.classList.remove('drag-over'));
+  dragState = { sourceEl: null, sourceIndex: -1 };
+}
+
+function handleDragEnd(e, el) {
+  el.classList.remove('dragging');
+  document.querySelectorAll('.file-item.drag-over').forEach(item => item.classList.remove('drag-over'));
+  dragState = { sourceEl: null, sourceIndex: -1 };
+}
+
+// Save and apply custom file order
+const CUSTOM_ORDER_KEY = 'sharetool_custom_order_v1';
+
+function saveCustomFileOrder(movedName, targetName) {
+  const container = document.getElementById('fileContainer') || document.querySelector('.file-list, .file-grid');
+  if (!container) return;
+  const items = Array.from(container.querySelectorAll('.file-item'));
+  const names = items.map(el => el.dataset.filename || el.getAttribute('data-filename'));
+  const order = getCustomFileOrder();
+  // Find indices
+  const movedIdx = names.indexOf(movedName);
+  const targetIdx = names.indexOf(targetName);
+  if (movedIdx < 0 || targetIdx < 0 || movedIdx === targetIdx) return;
+  // Remove moved item
+  names.splice(movedIdx, 1);
+  // Insert at new position (insert before target)
+  names.splice(targetIdx, 0, movedName);
+  // Save
+  const orderObj = {};
+  names.forEach((name, i) => { orderObj[name] = i; });
+  localStorage.setItem(CUSTOM_ORDER_KEY, JSON.stringify(orderObj));
+  // Reload the file list to reflect new order
+  loadFiles();
+}
+
+function getCustomFileOrder() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_ORDER_KEY) || '{}'); }
+  catch { return {}; }
 }
 
 async function loadPreview(filename, previewId) {
@@ -7039,40 +7115,6 @@ async function deleteFile(filename) {
       showAlert("listAlert", "Delete failed", "error");
     }
   } catch (e) { showAlert("listAlert", "Delete failed: " + e.message, "error"); }
-}
-
-async function renameFile(oldFilename) {
-  var isVirtual = oldFilename.includes("/");
-  var promptMsg = isVirtual ? "Enter new folder name:" : "Enter new filename:";
-  var newFilename = prompt(promptMsg, decodeURIComponent(oldFilename));
-  if (!newFilename || newFilename === decodeURIComponent(oldFilename)) return;
-  try {
-    var res;
-    if (isVirtual) {
-      var parts = oldFilename.split("/");
-      parts[parts.length - 1] = newFilename.trim();
-      var newPath = parts.join("/");
-      res = await fetch(API + "/api/folder/rename", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-auth-token": AUTH_TOKEN || "" },
-        body: JSON.stringify({ oldPath: oldFilename, newPath: newPath })
-      });
-    } else {
-      res = await fetch(API + "/api/file-rename/" + oldFilename, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-auth-token": AUTH_TOKEN || "" },
-        body: JSON.stringify({ newFilename: newFilename.trim() })
-      });
-    }
-    var data = await res.json();
-    if (data.success) {
-      showToast(T('msg.renamed'));
-      loadFiles();
-      broadcastWs({ type: "file_rename", payload: { oldFilename: oldFilename, newFilename: newFilename } });
-    } else {
-      showAlert("listAlert", "Rename failed: " + (data.error || "Unknown"), "error");
-    }
-  } catch (e) { showAlert("listAlert", "Rename failed: " + e.message, "error"); }
 }
 
 async function renameFile(oldFilename) {
