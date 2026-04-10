@@ -2205,14 +2205,13 @@ async function startHttpServer() {
 
       // PWA Service Worker
       if (pathname === '/sw.js') {
-        const sw = `// ShareTool Service Worker v1.0
-const CACHE_NAME = 'sharetool-v1';
-const STATIC_ASSETS = ['/', '/index.html'];
-const API_BASE = '';
+        const sw = `// ShareTool Service Worker v2.0
+const CACHE_NAME = 'sharetool-v2';
+const STATIC_ASSETS = ['/', '/index.html', '/icon-192.png', '/icon-512.png', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS)).catch(() => {})
   );
   self.skipWaiting();
 });
@@ -2220,7 +2219,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k.startsWith('sharetool-') && k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -2229,44 +2228,45 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-
-  // Skip non-GET and cross-origin
   if (request.method !== 'GET') return;
   if (url.origin !== location.origin) return;
 
-  // API: network-first
   if (url.pathname.startsWith('/api/')) {
+    const isWrite = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method);
+    if (isWrite) {
+      event.respondWith(
+        fetch(request).catch(() => new Response(JSON.stringify({success:false, error:'offline'}), {
+          headers: {'Content-Type': 'application/json'}
+        }))
+      );
+      return;
+    }
     event.respondWith(
-      fetch(request).catch(() => new Response(JSON.stringify({success:false, error:'offline'}), {
-        headers: {'Content-Type': 'application/json'}
-      }))
+      caches.open(CACHE_NAME).then(cache =>
+        cache.match(request).then(cached => {
+          const networkFetch = fetch(request).then(response => {
+            if (response.ok) cache.put(request, response.clone());
+            return response;
+          }).catch(() => cached || new Response(JSON.stringify({success:false, error:'offline'}), {
+            headers: {'Content-Type': 'application/json'}
+          }));
+          return cached || networkFetch;
+        })
+      )
     );
     return;
   }
 
-  // Static: cache-first
   event.respondWith(
-    caches.match(request).then(cached => cached || fetch(request).then(resp => {
-      if (resp.ok) {
-        const clone = resp.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
-      }
-      return resp;
-    }))
-  );
-});
-
-// Push notification support (future)
-self.addEventListener('push', (event) => {
-  if (!event.data) return;
-  const data = event.data.json();
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'ShareTool', {
-      body: data.body,
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
-      tag: 'sharetool'
-    })
+    caches.open(CACHE_NAME).then(cache =>
+      cache.match(request).then(cached => {
+        const networkFetch = fetch(request).then(response => {
+          if (response.ok) cache.put(request, response.clone());
+          return response;
+        }).catch(() => cached);
+        return cached || networkFetch;
+      })
+    )
   );
 });
 `;

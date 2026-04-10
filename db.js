@@ -392,6 +392,41 @@ function initSchemaV5(db) {
   }
 }
 
+function initSchemaV6(db) {
+  // v6 新增：标签统计表 tag_stats
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS tag_stats (
+        tag      TEXT PRIMARY KEY,
+        count    INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+    console.log('[DB] Migrated: tag_stats table');
+  } catch (e) {
+    if (!e.message.includes('duplicate table')) throw e;
+  }
+  // 从现有数据初始化 tag_stats
+  try {
+    const rows = db.prepare('SELECT tags FROM files WHERE tags IS NOT NULL AND tags != ""').all();
+    const counts = {};
+    for (const row of rows) {
+      for (const t of row.tags.split(',').map(s => s.trim()).filter(Boolean)) {
+        counts[t] = (counts[t] || 0) + 1;
+      }
+    }
+    const stmt = db.prepare('INSERT OR REPLACE INTO tag_stats (tag, count) VALUES (?, ?)');
+    for (const [tag, count] of Object.entries(counts)) {
+      stmt.run(tag, count);
+    }
+    console.log(`[DB] Initialized tag_stats with ${Object.keys(counts).length} tags`);
+  } catch (e) { /* already initialized or no tags */ }
+  // 修复旧数据库 tag_colors 表缺少的 emoji 列
+  try {
+    db.exec("ALTER TABLE tag_colors ADD COLUMN emoji TEXT");
+    console.log('[DB] Altered: tag_colors.emoji');
+  } catch (e) { /* column already exists or table missing */ }
+}
+
 function runMigrations(db, fromVersion) {
   console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
   for (let v = fromVersion + 1; v <= SCHEMA_VERSION; v++) {
@@ -403,6 +438,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV4(db);
     } else if (v === 5) {
       initSchemaV5(db);
+    } else if (v === 6) {
+      initSchemaV6(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -505,7 +542,11 @@ function updateFileByName(filename, updates) {
     values.push(crypto.createHash('md5').update(updates.content).digest('hex'));
   }
   if (updates.type !== undefined) { fields.push('type = ?'); values.push(updates.type); }
-  if (updates.tags !== undefined) { fields.push('tags = ?'); values.push(updates.tags); }
+  if (updates.tags !== undefined) {
+    updateTagStats(existing.tags, updates.tags);
+    fields.push('tags = ?');
+    values.push(updates.tags);
+  }
   if (updates.encrypted !== undefined) { fields.push('encrypted = ?'); values.push(updates.encrypted ? 1 : 0); }
 
   fields.push('updated_at = unixepoch()');
@@ -581,6 +622,7 @@ function permanentlyDeleteFile(filename) {
   const existing = getFileByName(filename);
   if (!existing) return false;
   addSyncLog(existing.id, filename, 'delete', existing.hash, null, existing.size);
+  updateTagStats(existing.tags, null);
   db.prepare('DELETE FROM files WHERE filename = ?').run(filename);
   return true;
 }
@@ -1918,6 +1960,49 @@ function ensureTagStats() {
   }
 }
 
+// 批量重命名标签（SQL 直接替换，避免 listFiles 100 条限制）
+function renameTagGlobally(oldTag, newTag) {
+  const db = getDb();
+  const rows = db.prepare("SELECT id, tags FROM files WHERE tags LIKE ?").all('%' + oldTag + '%');
+  let updated = 0;
+  for (const row of rows) {
+    const tags = row.tags.split(',').map(s => s.trim());
+    const idx = tags.indexOf(oldTag);
+    if (idx !== -1) {
+      tags[idx] = newTag;
+      db.prepare("UPDATE files SET tags = ?, updated_at = unixepoch() WHERE id = ?").run(tags.join(','), row.id);
+      updated++;
+    }
+  }
+  // 更新 tag_stats：如果 newTag 已存在则合并，否则直接重命名
+  const oldStat = db.prepare('SELECT count FROM tag_stats WHERE tag = ?').get(oldTag);
+  const oldCount = oldStat ? oldStat.count : 0;
+  const newStat = db.prepare('SELECT count FROM tag_stats WHERE tag = ?').get(newTag);
+  if (newStat) {
+    db.prepare('UPDATE tag_stats SET count = count + ? WHERE tag = ?').run(updated, newTag);
+    if (oldCount > 0) db.prepare('DELETE FROM tag_stats WHERE tag = ?').run(oldTag);
+  } else {
+    if (oldCount > 0) {
+      db.prepare('UPDATE tag_stats SET tag = ? WHERE tag = ?').run(newTag, oldTag);
+    }
+  }
+  return { updated };
+}
+
+// 批量删除标签（从所有文件移除）
+function deleteTagFromAllFiles(tag) {
+  const db = getDb();
+  const rows = db.prepare("SELECT id, tags FROM files WHERE tags LIKE ?").all('%' + tag + '%');
+  let updated = 0;
+  for (const row of rows) {
+    const tags = row.tags.split(',').map(s => s.trim()).filter(s => s !== tag);
+    db.prepare("UPDATE files SET tags = ?, updated_at = unixepoch() WHERE id = ?").run(tags.join(',') || null, row.id);
+    updated++;
+  }
+  db.prepare('UPDATE tag_stats SET count = 0 WHERE tag = ?').run(tag);
+  return { updated };
+}
+
 // ============================================================
 // 迁移旧文件（从文件系统迁移到数据库）
 // ============================================================
@@ -2038,7 +2123,7 @@ module.exports = {
   cleanupSyncLog, getDbStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor,
-  getTagEmoji, setTagEmoji, getAllTags,
+  getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, renameTagGlobally, deleteTagFromAllFiles,
   // 回收站
   moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, cleanupExpiredTrash,
   // 文件版本历史
