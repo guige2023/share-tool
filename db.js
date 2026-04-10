@@ -1530,7 +1530,8 @@ function exportAuditLogsCSV(filters = {}) {
   }
 
   const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-  const rows = db.prepare(`SELECT * FROM audit_log ${where} ORDER BY timestamp DESC`).all(...params);
+  const limit = filters.limit || 100000;
+  const rows = db.prepare(`SELECT * FROM audit_log ${where} ORDER BY timestamp DESC LIMIT ?`).all(...params, limit);
 
   const header = 'ID,Action,Details,IP,Token,Timestamp\n';
   const csvRows = rows.map(r => {
@@ -2109,7 +2110,7 @@ module.exports = {
   // Token
   generateToken, validateToken, refreshToken, revokeToken, revokeAllTokens,
   // 审计
-  addAuditLog, listAuditLogs, getAuditStats,
+  addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV,
   // 速率限制
   checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig,
   // 分享链接

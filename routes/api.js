@@ -505,13 +505,16 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
       res.end(JSON.stringify(exportData, null, 2));
       db.addAuditLog('audit_export', `JSON export, action=${filters.action || 'all'}`, getClientIp(req), authData.token);
     } else {
-      const csv = db.exportAuditLogsCSV(filters);
+      // CSV 也限制行数，避免内存溢出
+      const EXPORT_MAX_ROWS = 100000;
+      const csv = db.exportAuditLogsCSV({ ...filters, limit: EXPORT_MAX_ROWS });
+      const rowCount = (csv.match(/\n/g) || []).length - 1; // -1 for header
       res.writeHead(200, {
         'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': `attachment; filename="audit_log_${Date.now()}.csv"`
       });
       res.end(csv);
-      db.addAuditLog('audit_export', `CSV export, action=${filters.action || 'all'}`, getClientIp(req), authData.token);
+      db.addAuditLog('audit_export', `CSV export, rows=${rowCount}, action=${filters.action || 'all'}`, getClientIp(req), authData.token);
     }
     return true;
   }
