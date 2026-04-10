@@ -230,6 +230,14 @@ function initSchemaV1(db) {
     )
   `);
 
+  // 标签统计表（维护每个标签的文件数量）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tag_stats (
+      tag      TEXT PRIMARY KEY,
+      count    INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
   // 添加索引：文件名（搜索）、创建时间（排序）
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_files_hash ON files(hash);
