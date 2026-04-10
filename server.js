@@ -7247,6 +7247,7 @@ function openEmojiModal(tag) {
   document.getElementById('emojiPreview').textContent = _selectedEmoji;
   document.getElementById('emojiTagName').textContent = tag;
   document.getElementById('emojiCustomInput').value = '';
+  lockScroll();
   // Build presets
   const presetsEl = document.getElementById('emojiPresets');
   presetsEl.innerHTML = TAG_EMOJI_PRESETS.map(e =>
@@ -7257,6 +7258,7 @@ function openEmojiModal(tag) {
 
 function closeEmojiModal() {
   document.getElementById('emojiModal').classList.remove('show');
+  unlockScroll();
   _emojiPickerTag = null;
 }
 
