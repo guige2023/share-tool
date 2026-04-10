@@ -8128,23 +8128,34 @@ async function uploadFiles(files) {
         try { base64 = await fileToBase64(file); } catch (_) { failCount++; resolve(); return; }
       }
 
-      // Animate progress during upload
-      let animFrame = 0;
-      const animInterval = setInterval(() => {
-        animFrame++;
-        const basePct = Math.round((i / totalFiles) * 100);
-        const animPct = Math.min(basePct + Math.round(animFrame / 10), basePct + 20);
-        if (progressFill) progressFill.style.width = animPct + '%';
-      }, 50);
+      // Real progress via XMLHttpRequest
+      const queueItem = document.getElementById('upload-item-' + i);
+      const statusEl = queueItem ? queueItem.querySelector('.status') : null;
+      const progressPct = queueItem ? queueItem.querySelector('.progress-pct') : null;
 
-      try {
-        const res = await fetch(API + '/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-          body: JSON.stringify({ filename, content: base64, type: 'file' })
-        });
-        clearInterval(animInterval);
-        const data = await res.json();
+      const xhr = new XMLHttpRequest();
+      const startTime = Date.now();
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && statusEl) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          const elapsed = (Date.now() - startTime) / 1000;
+          const speed = e.loaded / elapsed; // bytes/sec
+          const speedStr = speed > 1024 * 1024 ? (speed / 1024 / 1024).toFixed(1) + ' MB/s'
+                          : speed > 1024 ? (speed / 1024).toFixed(0) + ' KB/s'
+                          : Math.round(speed) + ' B/s';
+          statusEl.textContent = pct + '% ' + speedStr;
+          if (progressPct) progressPct.textContent = pct + '%';
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        let data;
+        try { data = JSON.parse(xhr.responseText); } catch (_) { data = { success: false, error: 'Server error' }; }
+        const finalPct = Math.round(((i + 1) / totalFiles) * 100);
+        if (progressFill) progressFill.style.width = finalPct + '%';
+        if (statusEl) statusEl.textContent = data.success ? '✓' : '✗';
+        if (progressPct) progressPct.textContent = '';
         if (progressFill) progressFill.style.width = Math.round(((i + 1) / totalFiles) * 100) + '%';
         const queueItem = document.getElementById('upload-item-' + i);
         if (queueItem) {
@@ -8168,7 +8179,10 @@ async function uploadFiles(files) {
           broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
         } else {
           failCount++;
-          showAlert('uploadAlert', T('msg.failed') + ': ' + data.error, 'error');
+          // Only show first failure as alert (avoid spamming)
+          if (failCount === 1) {
+            showAlert('uploadAlert', T('msg.failed') + ': ' + data.error, 'error');
+          }
         }
       } catch (e) {
         clearInterval(animInterval);
@@ -8185,7 +8199,9 @@ async function uploadFiles(files) {
           retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
           queueItem.querySelector('.status').after(retryBtn);
         }
-        showAlert('uploadAlert', T('msg.failed') + ': ' + e.message, 'error');
+        if (failCount === 1) {
+          showAlert('uploadAlert', T('msg.failed') + ': ' + e.message, 'error');
+        }
       }
       resolve();
     });
