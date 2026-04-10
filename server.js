@@ -3126,6 +3126,11 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .file-item:hover { border-color: var(--text-muted); }
 [data-theme="light"] .file-item { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="light"] .file-item:hover { border-color: var(--accent-primary); }
+[data-theme="dark"] .file-item.selected { background: rgba(102, 126, 234, 0.15); border-color: var(--accent-primary); }
+[data-theme="light"] .file-item.selected { background: rgba(102, 126, 234, 0.08); border-color: var(--accent-primary); }
+[data-theme="dark"] input[type="checkbox"] { accent-color: var(--accent-primary); }
+[data-theme="dark"] ::selection { background: rgba(102, 126, 234, 0.35); color: var(--text-primary); }
+[data-theme="light"] ::selection { background: rgba(102, 126, 234, 0.25); color: var(--text-primary); }
 [data-theme="dark"] .code-box { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--code-fg); }
 [data-theme="light"] .code-box { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-primary); }
 [data-theme="dark"] .modal-content { background: var(--bg-secondary); border-color: var(--border-color); }
@@ -3922,14 +3927,14 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span>' + T('ui.sortBy') + ':</span>
       <select id="sortSelect" onchange="changeSort(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;">
         <option value="manual">' + T('ui.sortManual') + '</option>
-        <option value="time_desc">' + T('ui.sortNewest') + '</option>
-        <option value="time_asc">' + T('ui.sortOldest') + '</option>
-        <option value="name_asc">' + T('ui.sortNameAZ') + '</option>
-        <option value="name_desc">' + T('ui.sortNameZA') + '</option>
-        <option value="size_desc">' + T('ui.sortLargest') + '</option>
-        <option value="size_asc">' + T('ui.sortSmallest') + '</option>
-        <option value="type_asc">' + T('ui.sortTypeAZ') + '</option>
-        <option value="type_desc">' + T('ui.sortTypeZA') + '</option>
+        <option value="time_desc">' + T('ui.sortNewest') + ' ▼</option>
+        <option value="time_asc">' + T('ui.sortOldest') + ' ▲</option>
+        <option value="name_asc">' + T('ui.sortNameAZ') + ' A→Z</option>
+        <option value="name_desc">' + T('ui.sortNameZA') + ' Z→A</option>
+        <option value="size_desc">' + T('ui.sortLargest') + ' ▼</option>
+        <option value="size_asc">' + T('ui.sortSmallest') + ' ▲</option>
+        <option value="type_asc">' + T('ui.sortTypeAZ') + ' A→Z</option>
+        <option value="type_desc">' + T('ui.sortTypeZA') + ' Z→A</option>
         <option value="tag_asc">' + T('ui.sortTagAZ') + '</option>
         <option value="tag_desc">' + T('ui.sortTagZA') + '</option>
       </select>
@@ -4928,7 +4933,9 @@ function getTagStyle(tagName) {
     const r = parseInt(color.slice(1,3), 16);
     const g = parseInt(color.slice(3,5), 16);
     const b = parseInt(color.slice(5,7), 16);
-    return 'background:rgba(' + r + ',' + g + ',' + b + ',0.2);color:' + color + ';';
+    // Use contrast-aware text color for both light and dark themes
+    const textColor = getContrastColor(color);
+    return 'background:rgba(' + r + ',' + g + ',' + b + ',0.2);color:' + textColor + ';';
   }
   return '';
 }
