@@ -7546,7 +7546,30 @@ function clearSearch() {
   document.getElementById('clearSearchBtn').style.display = 'none';
   const countEl = document.getElementById('searchResultCount');
   if (countEl) countEl.style.display = 'none';
+  const exportBtn = document.getElementById('exportSearchBtn');
+  if (exportBtn) exportBtn.style.display = 'none';
   loadFiles();
+}
+
+function exportSearchResults() {
+  if (!currentFiles || !currentFiles.length) return;
+  const q = window.currentSearchQ || '';
+  const headers = ['文件名', '类型', '大小', '修改时间', '标签'];
+  const rows = currentFiles.map(f => {
+    const size = f.size ? (f.size < 1024 ? f.size + ' B' : f.size < 1048576 ? (f.size/1024).toFixed(1)+' KB' : (f.size/1048576).toFixed(1)+' MB') : '';
+    const date = f.updated_at ? new Date(f.updated_at * 1000).toLocaleString('zh-CN') : '';
+    const tags = (f.tags || '').replace(/,/g, '; ');
+    return [f.name, f.type || '', size, date, tags];
+  });
+  const csv = [headers, ...rows].map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'sharetool-search-' + (q.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_') || 'results') + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('已导出 ' + currentFiles.length + ' 条结果');
 }
 
 // Filter tabs
