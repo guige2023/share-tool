@@ -490,6 +490,14 @@ const I18N = {
     'fileInfo.loading': '加载中...',
     'fileInfo.loadFailed': '加载失败',
     'fileInfo.copyHash': '复制哈希',
+    'file.openNewTab': '新标签页打开',
+    'file.previewImage': '图片预览',
+    'file.previewCode': '代码/MD预览',
+    'file.copyFilename': '复制文件名',
+    'file.copyTo': '复制到...',
+    'file.share': '分享',
+    'tag.add': '添加标签',
+    'media.playMedia': '媒体预览',
     'fileInfo.openVersions': '查看历史',
     'ui.copyLink': '复制链接',
     'ui.qrCode': '二维码',
@@ -983,7 +991,16 @@ const I18N = {
     'fileInfo.yes': 'Yes',
     'fileInfo.no': 'No',
     'fileInfo.loading': 'Loading...',
+    'fileInfo.loadFailed': 'Failed to load',
     'fileInfo.copyHash': 'Copy Hash',
+    'file.openNewTab': 'Open in New Tab',
+    'file.previewImage': 'Image Preview',
+    'file.previewCode': 'Code/MD Preview',
+    'file.copyFilename': 'Copy Filename',
+    'file.copyTo': 'Copy to...',
+    'file.share': 'Share',
+    'tag.add': 'Add Tag',
+    'media.playMedia': 'Media Preview',
     'fileInfo.openVersions': 'View History',
     'ui.confirmDelete': 'Confirm delete',
     'ui.copyLink': 'Copy Link',
@@ -6362,7 +6379,7 @@ function showContextMenu(filename, el) {
     ...(isArchive ? [{ label: '📦 ' + 'View Archive', action: "openArchiveModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
     { sep: true },
     { label: '🔗 ' + T('file.copyLink'), action: "copyText(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || '')); hideContextMenu()" },
-    { label: '↗️ 新标签页打开', action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" },
+    { label: '↗️ ' + T('file.openNewTab'), action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" },
     { label: '⭐ ' + T('fav.favorite'), action: "toggleStar('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
     { label: '✏️ ' + T('file.rename'), action: "startInlineRename(null, '" + encodeURIComponent(filename) + "'); hideContextMenu()" },
     { label: '📤 ' + T('file.share'), action: "showShareModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
@@ -9772,22 +9789,22 @@ function showFileContextMenu(e, filename) {
   const isText = /text/i.test(ext);
 
   const items = [];
-  items.push({ icon: '📖', label: '打开 / Open', action: "openFileByName('" + encodeURIComponent(filename) + "')" });
-  items.push({ icon: '🔗', label: '新标签页打开', action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank')" });
-  if (isImage) items.push({ icon: '🖼', label: '图片预览', action: "openImageModal('" + encodeURIComponent(filename) + "')" });
-  if (isAudio || isVideo) items.push({ icon: isAudio ? '🎵' : '🎬', label: '媒体预览', action: "openMediaModal('" + encodeURIComponent(filename) + "')" });
-  if (isPdf) items.push({ icon: '📕', label: 'PDF 预览', action: "openPdfModal('" + encodeURIComponent(filename) + "')" });
-  if (isCode || isMd || isText) items.push({ icon: '📝', label: '代码/MD预览', action: "openCodeModal('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '📖', label: T('file.view'), action: "openFileByName('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '🔗', label: T('file.openNewTab'), action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank')" });
+  if (isImage) items.push({ icon: '🖼', label: T('file.previewImage'), action: "openImageModal('" + encodeURIComponent(filename) + "')" });
+  if (isAudio || isVideo) items.push({ icon: isAudio ? '🎵' : '🎬', label: T('media.playMedia'), action: "openMediaModal('" + encodeURIComponent(filename) + "')" });
+  if (isPdf) items.push({ icon: '📕', label: T('file.previewPdf'), action: "openPdfModal('" + encodeURIComponent(filename) + "')" });
+  if (isCode || isMd || isText) items.push({ icon: '📝', label: T('file.previewCode'), action: "openCodeModal('" + encodeURIComponent(filename) + "')" });
   items.push({ divider: true });
-  items.push({ icon: '🏷', label: '添加标签', action: "addTag('" + encodeURIComponent(filename) + "', '')" });
-  items.push({ icon: '🔗', label: '创建分享链接', action: "shareFile('" + encodeURIComponent(filename) + "')" });
-  items.push({ icon: '📋', label: '复制到...', action: "promptCopy('" + encodeURIComponent(filename) + "')" });
-  items.push({ icon: '✏️', label: '重命名', action: "startInlineRenameFromCtx('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '🏷', label: T('tag.add'), action: "addTag('" + encodeURIComponent(filename) + "', '')" });
+  items.push({ icon: '🔗', label: T('file.share'), action: "shareFile('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '📋', label: T('file.copyTo'), action: "promptCopy('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '✏️', label: T('file.rename'), action: "startInlineRenameFromCtx('" + encodeURIComponent(filename) + "')" });
   items.push({ divider: true });
-  items.push({ icon: '⬇', label: '下载', action: "downloadFile('" + encodeURIComponent(filename) + "')" });
-  items.push({ icon: '📄', label: '复制文件名', action: "navigator.clipboard.writeText('" + filename.replace(/'/g, "\\'") + "').then(()=>showToast('✓ 已复制文件名')).catch(()=>{})" });
-  items.push({ icon: '🔗', label: '复制下载链接', action: "navigator.clipboard.writeText(window.location.origin + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || '')).then(()=>showToast('✓ 已复制链接')).catch(()=>{})" });
-  items.push({ icon: '🗑', label: '删除', action: "deleteFile('" + encodeURIComponent(filename) + "')", danger: true });
+  items.push({ icon: '⬇', label: T('file.download'), action: "downloadFile('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '📄', label: T('file.copyFilename'), action: "navigator.clipboard.writeText('" + filename.replace(/'/g, "\\'") + "').then(()=>showToast('✓ ' + T('msg.copied'))).catch(()=>{})" });
+  items.push({ icon: '🔗', label: T('file.copyLink'), action: "navigator.clipboard.writeText(window.location.origin + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || '')).then(()=>showToast('✓ ' + T('msg.linkCopied'))).catch(()=>{})" });
+  items.push({ icon: '🗑', label: T('file.delete'), action: "deleteFile('" + encodeURIComponent(filename) + "')", danger: true });
 
   menu.innerHTML = items.map(item => {
     if (item.divider) return '<div class="ctx-divider"></div>';

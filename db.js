@@ -1932,15 +1932,22 @@ function incrementShareLinkDownload(code) {
   return { allowed: true };
 }
 
-function listShareLinks() {
+function listShareLinks(filename = null) {
   const db = getDb();
-  const rows = db.prepare('SELECT * FROM share_links ORDER BY created_at DESC LIMIT 100').all();
+  const now = Math.floor(Date.now() / 1000);
+  let rows;
+  if (filename) {
+    rows = db.prepare('SELECT * FROM share_links WHERE filename = ? ORDER BY created_at DESC LIMIT 100').all(filename);
+  } else {
+    rows = db.prepare('SELECT * FROM share_links ORDER BY created_at DESC LIMIT 100').all();
+  }
   return rows.map(row => ({
     code: row.code,
     filename: row.filename,
     isText: row.is_text === 1,
     password: !!row.password,
     expiresAt: row.expires_at * 1000,
+    expired: row.expires_at > 0 && row.expires_at < now,
     maxDownloads: row.max_downloads,
     downloadCount: row.download_count,
     description: row.description || '',

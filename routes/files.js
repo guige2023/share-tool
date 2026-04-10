@@ -979,8 +979,9 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
       return true;
     }
     const versionCount = db.getFileVersionCount(file.id);
-    // 检查是否有活跃的分享链接
+    // 按文件名过滤分享链接，并计算总下载次数
     const shareLinks = db.listShareLinks(file.filename);
+    const totalDownloads = shareLinks.reduce((sum, l) => sum + (l.downloadCount || 0), 0);
     const activeShare = shareLinks.filter(l => !l.expired);
     sendJson(res, {
       success: true,
@@ -996,10 +997,14 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
         updatedAt: file.updated_at * 1000,
         versionCount,
         shareCount: activeShare.length,
-        shareLinks: activeShare.map(l => ({
+        totalDownloads,
+        shareLinks: shareLinks.map(l => ({
           code: l.code,
-          expiresAt: l.expires_at,
-          hasPassword: l.hasPassword
+          expiresAt: l.expiresAt,
+          hasPassword: l.password,
+          expired: l.expired,
+          downloadCount: l.downloadCount,
+          maxDownloads: l.maxDownloads
         }))
       }
     });
