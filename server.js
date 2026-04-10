@@ -2295,7 +2295,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v3.46',
+          version: 'v3.47',
         });
         return;
       }
@@ -2860,6 +2860,21 @@ function startSyncScheduler() {
       logger.error({ err: e }, '[Vacuum]');
     }
   }, 3600000);
+
+  // DB 健康检查：每10分钟一次
+  setInterval(() => {
+    try {
+      const stats = db.getDbStats();
+      const integrity = db.checkDbIntegrity();
+      if (integrity !== 'ok') {
+        logger.error('[DB] Integrity check failed: ' + integrity);
+      }
+      const memUsage = process.memoryUsage();
+      logger.info(`[Health] DB: files=${stats.totalFiles}, conn=${stats.connections}, heap=${Math.round(memUsage.heapUsed/1024/1024)}MB`);
+    } catch (e) {
+      logger.error({ err: e }, '[HealthCheck]');
+    }
+  }, 600000); // 10 minutes
 }
 
 const HTML_PAGE = `<!DOCTYPE html>
