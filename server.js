@@ -3740,6 +3740,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   /* File info panel: full screen on tiny screens */
   #fileInfoPanel { height: 100dvh; max-height: 100dvh; border-radius: 0; }
   .modal-content { max-height: 90dvh; }
+  .btn-sm { min-height: 44px; display: inline-flex; align-items: center; }
 }
 
 .fav-filter-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 14px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
@@ -4299,6 +4300,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <select id="tagsModalSort" onchange="sortTagsModal(this.value)"
         style="padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;">
         <option value="count">' + T('sort.byCount') + '</option>
+        <option value="recent">' + T('sort.byRecent') + '</option>
         <option value="alpha">' + T('sort.alpha') + '</option>
         <option value="color">' + T('sort.byColor') + '</option>
       </select>
@@ -6390,6 +6392,7 @@ function applyTagsModalSort(tags, sortBy) {
   const colorOrder = ['red','orange','yellow','green','teal','blue','purple','pink','gray'];
   if (sortBy === 'count') return [...tags].sort((a, b) => b.count - a.count);
   if (sortBy === 'alpha') return [...tags].sort((a, b) => a.tag.localeCompare(b.tag));
+  if (sortBy === 'recent') return [...tags].sort((a, b) => (b.last_used || 0) - (a.last_used || 0));
   if (sortBy === 'color') {
     return [...tags].sort((a, b) => {
       const ca = colorOrder.indexOf(a.color) >= 0 ? colorOrder.indexOf(a.color) : 999;
@@ -6525,9 +6528,9 @@ function showShareLinksModal() {
             '</div>' +
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
             (l.description ? '<div style="font-size:12px;color:var(--accent-secondary);margin-top:4px;">' + T('share.description') + ': ' + escapeHtml(l.description) + '</div>' : '') +
-            '<div style="display:flex;gap:8px;margin-top:4px;">' +
+            '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">' +
               '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(url) + '\')">' + T('share.copyLink') + '</button>' +
-              '<button class="btn btn-sm" style="margin-left:4px;" onclick="emailShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\')">✉️</button>' +
+              '<button class="btn btn-sm" onclick="emailShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\')">✉️</button>' +
               '<button class="btn btn-sm" onclick="emailShareLink(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(l.filename).replace(/'/g, "\\'") + '\')">' + T('share.email') + '</button>' +
               '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('share.qrCode') + '</button>' +
               '<button class="btn btn-sm" onclick="showEditShareLinkModal(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('ui.edit') + '</button>' +

@@ -1962,7 +1962,7 @@ function setTagColor(tag, color) {
 
 function getAllTagColors() {
   const db = getDb();
-  return db.prepare('SELECT tag, color, emoji FROM tag_colors ORDER BY updated_at DESC').all();
+  return db.prepare('SELECT tag, color, emoji, last_used FROM tag_colors ORDER BY COALESCE(last_used, 0) DESC, updated_at DESC').all();
 }
 
 function getSuggestedColor(tag) {
@@ -2059,13 +2059,13 @@ function updateTagStats(oldTags, newTags) {
 function getAllTagsWithStats() {
   const db = getDb();
   const rows = db.prepare(`
-    SELECT ts.tag, ts.count, tc.color, tc.emoji
+    SELECT ts.tag, ts.count, tc.color, tc.emoji, tc.last_used
     FROM tag_stats ts
     LEFT JOIN tag_colors tc ON tc.tag = ts.tag
     WHERE ts.count > 0
     ORDER BY ts.count DESC
   `).all();
-  return rows.map(r => ({ tag: r.tag, count: r.count, color: r.color, emoji: r.emoji }));
+  return rows.map(r => ({ tag: r.tag, count: r.count, color: r.color, emoji: r.emoji, last_used: r.last_used }));
 }
 
 // 确保 tag_stats 初始化（懒加载，在 getAllTagsWithStats 首次调用时）
@@ -2284,7 +2284,7 @@ module.exports = {
   // DB 健康
   cleanupSyncLog, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
-  getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor,
+  getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, touchTag,
   getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags,
   // 回收站
   moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, cleanupExpiredTrash,

@@ -414,6 +414,8 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
           const toAdd = Array.isArray(tags) ? tags : [tags].filter(Boolean);
           const merged = new Set([...currentTags, ...toAdd]);
           newTags = [...merged].join(',');
+          // 更新标签最近使用时间
+          toAdd.forEach(t => db.touchTag(t));
         } else if (action === 'remove') {
           const toRemove = Array.isArray(tags) ? tags : [tags].filter(Boolean);
           newTags = currentTags.filter(t => !toRemove.includes(t)).join(',');
@@ -462,6 +464,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
           return;
         }
         const toProcess = Array.isArray(tags) ? tags : [tags];
+        if (action === 'add') toProcess.forEach(t => db.touchTag(t)); // 更新标签最近使用时间
         let updated = 0, failed = 0;
         for (const filename of files) {
           try {
