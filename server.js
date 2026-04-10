@@ -5522,7 +5522,11 @@ function renderFiles() {
 
     // Search highlight applied by applySearchHighlight() after render
 
-    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" draggable="true" ondragstart="handleDragStart(event, this)" ondragover="handleDragOver(event, this)" ondrop="handleDrop(event, this)" ondragend="handleDragEnd(event, this)" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '" oncontextmenu="showFileContextMenu(event, \'' + encodeURIComponent(f.name) + '\')">' +
+    // File type color indicator (left border)
+    const typeColor = isImage ? '#22c55e' : isPdf ? '#ef4444' : isVideo ? '#f97316' : isAudio ? '#a855f7' : isCode ? '#3b82f6' : isArchive ? '#eab308' : isCsv ? '#14b8a6' : isMarkdown ? '#06b6d4' : '';
+    const typeBarStyle = typeColor ? 'border-left: 3px solid ' + typeColor + ';' : '';
+
+    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" draggable="true" ondragstart="handleDragStart(event, this)" ondragover="handleDragOver(event, this)" ondrop="handleDrop(event, this)" ondragend="handleDragEnd(event, this)" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '" oncontextmenu="showFileContextMenu(event, \'' + encodeURIComponent(f.name) + '\')" style="' + typeBarStyle + '">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
         (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>' + T('file.addTag') + '</span></button>' : '') +
         '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>' + T('tag.delete') + '</span></button>' +
@@ -5578,10 +5582,29 @@ function renderFiles() {
     }
   }
 
-  // 懒加载图片缩略图（仅 jpg/png/gif/webp，限制大小 2MB）
+  // 懒加载图片缩略图（IntersectionObserver，仅可见时加载）
+  let thumbObserver;
+  if (!window._thumbObserver) {
+    window._thumbObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+          const filename = el.dataset.filename;
+          if (filename) loadImageThumb(filename, el.id);
+          window._thumbObserver.unobserve(el);
+        }
+      }
+    }, { rootMargin: '200px' });
+  }
+  thumbObserver = window._thumbObserver;
   for (const f of pagedFiles) {
     if (!f.isVirtualFolder && isImageFile(f.name) && f.size > 0 && f.size < 2 * 1024 * 1024) {
-      loadImageThumb(f.name, 'thumb-' + btoaSafe(f.name).substring(0, 20));
+      const thumbId = 'thumb-' + btoaSafe(f.name).substring(0, 20);
+      const el = document.getElementById(thumbId);
+      if (el && !el.dataset.src) {
+        el.dataset.filename = f.name;
+        thumbObserver.observe(el);
+      }
     }
   }
 
