@@ -3,7 +3,7 @@
  */
 
 module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
-  const { db, config, sendJson, authRequired, getClientIp, saveConfig, SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, fs, path, ensureSslCertificates, getCertInfo, checkAndRenewCertificate } = ctx;
+  const { db, config, sendJson, authRequired, getClientIp, saveConfig, SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, fs, path, ensureSslCertificates, getCertInfo, checkAndRenewCertificate, broadcastChange } = ctx;
   const { method } = req;
   const parsed = { query };
 
@@ -360,6 +360,14 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
         // 更新标签颜色
         const oldColor = db.getTagColor(oldTag);
         if (oldColor) { db.setTagColor(newTag, oldColor); db.deleteTagColor(oldTag); }
+        db.addAuditLog('tag_rename', `old=${oldTag}, new=${newTag}, updated=${updated} files`, getClientIp(req), authData.token);
+        if (updated > 0) {
+          for (const f of files) {
+            if (f.tags && f.tags.split(',').map(s => s.trim()).includes(newTag)) {
+              broadcastChange({ type: 'update', filename: f.filename, tags: f.tags });
+            }
+          }
+        }
         sendJson(res, { success: true, updated });
       } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
     });
@@ -426,6 +434,8 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
           newTags = Array.isArray(tags) ? tags.join(',') : (tags || '');
         }
         db.updateFile(filename, null, { tags: newTags });
+        db.addAuditLog('update_tags', `${filename}: ${newTags}`, getClientIp(req), authData.token);
+        broadcastChange({ type: 'update', filename, tags: newTags });
         sendJson(res, { success: true, tags: newTags });
       } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
     });
@@ -440,6 +450,8 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     const file = db.getFileByName(filename);
     if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
     db.updateFile(filename, null, { tags: '' });
+    db.addAuditLog('update_tags', `${filename}: (cleared)`, getClientIp(req), authData.token);
+    broadcastChange({ type: 'update', filename, tags: '' });
     sendJson(res, { success: true });
     return true;
   }
@@ -480,6 +492,10 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
             db.updateFile(filename, null, { tags: newTags });
             updated++;
           } catch (e) { failed++; }
+        }
+        db.addAuditLog('batch_update_tags', `count=${files.length}, action=${action}, tags=${tags}, updated=${updated}, failed=${failed}`, getClientIp(req), authData.token);
+        if (updated > 0) {
+          files.slice(0, updated).forEach(f => broadcastChange({ type: 'update', filename: f.filename || f, tags: newTags }));
         }
         sendJson(res, { success: true, updated, failed, total: files.length });
       } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }

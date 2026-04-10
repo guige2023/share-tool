@@ -589,28 +589,18 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // PUT /api/file-tags/:filename
-  if (pathname.startsWith('/api/file-tags/') && method === 'PUT') {
+  // DELETE /api/files/:filename
+  if (pathname.startsWith('/api/files/') && method === 'DELETE') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
-    let body = '';
-    req.on('data', d => body += d);
-    req.on('end', () => {
-      try {
-        const { tags } = JSON.parse(body);
-        const updated = db.updateFileByName(filename, { tags });
-        if (updated) {
-          broadcastChange({ type: 'update', filename, tags });
-          db.addAuditLog('update_tags', `${filename}: ${tags}`, getClientIp(req), authData.token);
-          sendJson(res, { success: true, tags });
-        } else {
-          sendJson(res, { success: false, error: 'File not found' }, 404);
-        }
-      } catch (e) {
-        sendJson(res, { success: false, error: e.message }, 400);
-      }
-    });
+    const filename = decodeURIComponent(pathname.slice('/api/files/'.length));
+    if (db.deleteFileByName(filename)) {
+      broadcastChange({ type: 'delete', filename });
+      db.addAuditLog('delete_file', filename, getClientIp(req), authData.token);
+      sendJson(res, { success: true });
+    } else {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+    }
     return true;
   }
 
