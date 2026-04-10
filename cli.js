@@ -14,6 +14,20 @@ const DEFAULT_URL = 'http://localhost:18790';
 const CHUNK_SIZE = 512 * 1024; // 512KB per chunk
 const MAX_HISTORY = 500;
 
+// CLI internationalization (English by default, zh-CN if LANG matches)
+const CLI_I18N = (() => {
+  const lang = (process.env.LANG || '').toLowerCase();
+  const isZh = lang.includes('zh');
+  return {
+    resume:          isZh ? '断点续传' : 'Resuming',
+    uploadStart:     isZh ? '开始上传' : 'Uploading',
+    chunkUploaded:   isZh ? '个分片' : ' chunks',
+    chunkFailed:     isZh ? '分片' : 'Chunk',
+    uploadFailed:    isZh ? '上传失败' : 'Upload failed',
+    completeFailed:  isZh ? '完成上传失败' : 'Failed to complete upload',
+  };
+})();
+
 function formatSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
   const k = 1024;
@@ -151,7 +165,7 @@ async function uploadFile(filePath) {
     uploadId = checkRes.data.uploadId;
     receivedChunks = checkRes.data.receivedChunks || [];
     const totalChunks = checkRes.data.totalChunks;
-    console.log(`📡 断点续传: ${fileName} (${receivedChunks.length}/${totalChunks} 已上传)`);
+    console.log(`📡 ${CLI_I18N.resume}: ${fileName} (${receivedChunks.length}/${totalChunks}${CLI_I18N.chunkUploaded})`);
   } else {
     // 发起新的分片上传
     const chunkCount = Math.ceil(totalSize / CHUNK_SIZE);
@@ -164,7 +178,7 @@ async function uploadFile(filePath) {
     }
     uploadId = initRes.data.uploadId;
     receivedChunks = [];
-    console.log(`⬆️  开始上传: ${fileName} (${chunkCount} 个分片)`);
+    console.log(`⬆️  ${CLI_I18N.uploadStart}: ${fileName} (${chunkCount}${CLI_I18N.chunkUploaded})`);
   }
 
   // 2. 上传缺失的分片
@@ -196,7 +210,7 @@ async function uploadFile(filePath) {
 
     if (chunkRes.status !== 200 || !chunkRes.data.success) {
       console.log(`\nError: Chunk ${i} upload failed: ${chunkRes.data.error || chunkRes.status}`);
-      throw new Error(`分片 ${i} 上传失败: ${chunkRes.data.error || chunkRes.status}`);
+      throw new Error(`${CLI_I18N.chunkFailed} ${i} ${CLI_I18N.uploadFailed}: ${chunkRes.data.error || chunkRes.status}`);
     }
   }
   const finalBar = '█'.repeat(BAR_WIDTH);
@@ -207,7 +221,7 @@ async function uploadFile(filePath) {
     body: JSON.stringify({ uploadId })
   });
   if (completeRes.status !== 200 || !completeRes.data.success) {
-    throw new Error(`完成上传失败: ${completeRes.data.error}`);
+    throw new Error(`${CLI_I18N.completeFailed}: ${completeRes.data.error}`);
   }
   return { status: 200, data: completeRes.data };
 }
