@@ -5040,6 +5040,15 @@ let showFavoritesOnly = false;
 let focusedFileIndex = -1;   // keyboard-navigated file focus
 const lastSyncTs = parseInt(localStorage.getItem('sharetool_last_sync') || '0');
 const offlineQueue = JSON.parse(localStorage.getItem('sharetool_offline_queue') || '[]');
+// 启动时迁移 localStorage 旧数据到 IndexedDB
+if (offlineQueue.length > 0) {
+  offlineDB.open().then(() => {
+    offlineQueue.forEach(item => offlineDB.add(item));
+    localStorage.removeItem('sharetool_offline_queue');
+    logger.info('[OfflineDB] Migrated', offlineQueue.length, 'items from localStorage');
+  }).catch(() => {});
+  offlineQueue.length = 0; // 清空内存引用
+}
 const TAG_COLOR_PRESETS = ['#667eea','#f59e0b','#10b981','#ef4444','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316'];
 let tagColors = {};  // { tagName: color } from server
 let tagEmojis = {};  // { tagName: emoji } from server
@@ -5421,7 +5430,7 @@ function connectWS() {
       reconnectDelay = 1000;
       updateWsStatus(true);
       startPeriodicSync(30000);
-      flushOfflineQueue();
+      flushOfflineQueueNew();
       
       ws.send(JSON.stringify({
         type: 'register',
@@ -5450,7 +5459,7 @@ function connectWS() {
       logger.info('[WS] Disconnected');
       isConnected = false;
       updateWsStatus(false);
-      flushOfflineQueue();
+      flushOfflineQueueNew();
       scheduleReconnect();
     };
     
@@ -5627,6 +5636,106 @@ function flushOfflineQueue() {
   logger.info('[OfflineQueue] Flush complete, remaining:', offlineQueue.length);
 }
 
+// ============================================================
+// IndexedDB 离线队列（替代 localStorage，突破5-10MB限制）
+// ============================================================
+class OfflineDB {
+  constructor() {
+    this.dbName = 'ShareToolOffline';
+    this.dbVersion = 1;
+    this.storeName = 'offlineQueue';
+    this.db = null;
+  }
+
+  open() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, this.dbVersion);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => { this.db = request.result; resolve(this.db); };
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+        }
+      };
+    });
+  }
+
+  async add(item) {
+    if (!this.db) await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(this.storeName, 'readwrite');
+      const req = tx.objectStore(this.storeName).add({ ...item, createdAt: Date.now() });
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async getAll() {
+    if (!this.db) await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(this.storeName, 'readonly');
+      const req = tx.objectStore(this.storeName).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async clear() {
+    if (!this.db) await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(this.storeName, 'readwrite');
+      const req = tx.objectStore(this.storeName).clear();
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async delete(id) {
+    if (!this.db) await this.open();
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction(this.storeName, 'readwrite');
+      const req = tx.objectStore(this.storeName).delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+}
+
+const offlineDB = new OfflineDB();
+offlineDB.open().catch(e => logger.warn('[OfflineDB] Open failed:', e.message));
+
+// 新的 flush：优先用 IndexedDB，localStorage 作为降级
+async function flushOfflineQueueNew() {
+  if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
+  try {
+    const queue = await offlineDB.getAll();
+    if (queue.length === 0) return;
+    logger.info('[OfflineQueue] Flushing', queue.length, 'items from IndexedDB');
+    let failed = 0;
+    for (const item of queue) {
+      ws.send(JSON.stringify({ type: item.action, payload: item.payload }));
+      await offlineDB.delete(item.id);
+    }
+    logger.info('[OfflineQueue] IndexedDB flush complete');
+  } catch (e) {
+    logger.warn('[OfflineQueue] IndexedDB flush failed, using localStorage:', e.message);
+    flushOfflineQueue();
+  }
+}
+
+// 替代 addToOfflineQueue：同时写入 IndexedDB + localStorage（降级）
+async function addToOfflineQueueNew(action, payload) {
+  const item = { action, payload, ts: Math.floor(Date.now() / 1000) };
+  try {
+    await offlineDB.add(item);
+  } catch (e) {
+    // IndexedDB 失败，降级到 localStorage
+    offlineQueue.push(item);
+    localStorage.setItem('sharetool_offline_queue', JSON.stringify(offlineQueue));
+  }
+}
+
 // 增量同步：定期从服务器拉取变更
 let syncIntervalId = null;
 
@@ -5722,7 +5831,7 @@ function wsSend(type, payload) {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type, payload }));
   } else {
-    addToOfflineQueue(type, payload);
+    addToOfflineQueueNew(type, payload);
   }
 }
 
