@@ -3138,7 +3138,7 @@ h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667
 .status-item { font-size: 12px; padding: 4px 12px; background: var(--bg-secondary); border-radius: 20px; border: 1px solid var(--border-color); }
 .status-item.connected { border-color: var(--success); color: var(--success); }
 .status-item.disconnected { border-color: var(--text-muted); color: var(--text-muted); }
-.hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-color); }
+.hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-color); overflow: hidden; }
 .hero-content { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .hero-text { flex: 1; min-width: 200px; }
 .hero-title { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
@@ -3942,6 +3942,7 @@ const lastSyncTs = parseInt(localStorage.getItem('sharetool_last_sync') || '0');
 const offlineQueue = JSON.parse(localStorage.getItem('sharetool_offline_queue') || '[]');
 const TAG_COLOR_PRESETS = ['#667eea','#f59e0b','#10b981','#ef4444','#3b82f6','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316'];
 let tagColors = {};  // { tagName: color } from server
+let tagEmojis = {};  // { tagName: emoji } from server
 
 // PWA: Register Service Worker
 let deferredPrompt = null;
@@ -4424,11 +4425,15 @@ function renderDevices(devices) {
 
 async function loadTagColors() {
   try {
-    const res = await fetch(API + '/api/tags/colors', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const res = await fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
-    if (data.success && data.colors) {
+    if (data.success && data.tags) {
       tagColors = {};
-      data.colors.forEach(c => { tagColors[c.tag] = c.color; });
+      tagEmojis = {};
+      data.tags.forEach(t => {
+        if (t.color) tagColors[t.tag] = t.color;
+        if (t.emoji) tagEmojis[t.tag] = t.emoji;
+      });
       renderFiles();
     }
   } catch (e) {
@@ -4445,6 +4450,10 @@ function getTagStyle(tagName) {
     return 'background:rgba(' + r + ',' + g + ',' + b + ',0.2);color:' + color + ';';
   }
   return '';
+}
+
+function getTagEmoji(tagName) {
+  return tagEmojis[tagName] || null;
 }
 
 function getContrastColor(hexColor) {
@@ -4752,10 +4761,13 @@ function handleSwipeStart(e, el) {
 
 function handleSwipeMove(e, el) {
   if (!swipeState.el || swipeState.el !== el) return;
-  // Cancel long-press if finger moved significantly
-  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; longPressTarget = null; }
   const dx = e.touches[0].clientX - swipeState.startX;
   swipeState.currentX = e.touches[0].clientX;
+  // Only cancel long-press if finger moved enough to be a deliberate swipe (not accidental micro-movement)
+  const MOVE_CANCEL_THRESHOLD = 10;
+  if (longPressTimer && Math.abs(dx) > MOVE_CANCEL_THRESHOLD) {
+    clearTimeout(longPressTimer); longPressTimer = null; longPressTarget = null;
+  }
   const actions = el.querySelector('.swipe-actions');
   if (!actions) return;
   if (dx < 0) {
@@ -7108,14 +7120,19 @@ function renderTagManagerItems(tags) {
   }
   list.innerHTML = tags.map(t => {
     const color = t.color || '#667eea';
+    const emoji = t.emoji || '🏷';
     const tagHtml = escapeHtml(t.tag);                              // HTML-safe for display
     const tagJs = t.tag.replace(/\\/g, '\\\\').replace(/'/g, "\\'");  // JS-string-safe for onclick
     const tagId = t.tag.replace(/[^a-zA-Z0-9]/g, '_');             // safe ID
-    const contrastColor = getContrastColor(color);
     return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-tertiary);border-radius:12px;border:1px solid var(--border-color);transition:border-color 0.15s;">' +
-      '<div style="width:36px;height:36px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);" title="' + T('tag.clickChangeColor') + '" onclick="document.getElementById(\'colorPicker_' + tagId + '\').click()">' +
-        '<span style="font-size:16px;">🏷</span>' +
-        '<input type="color" id="colorPicker_' + tagId + '" value="' + color + '" style="position:absolute;width:0;height:0;opacity:0;" onchange="updateTagColor(\'' + tagJs + '\', this.value); this.parentElement.style.background=this.value;">' +
+      // Color swatch + emoji (clickable for color change)
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;">' +
+        '<div style="width:36px;height:28px;border-radius:6px;background:' + color + ';display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);" title="' + T('tag.clickChangeColor') + '" onclick="document.getElementById(\'colorPicker_' + tagId + '\').click()">' +
+          '<span style="font-size:14px;">' + escapeHtml(emoji) + '</span>' +
+          '<input type="color" id="colorPicker_' + tagId + '" value="' + color + '" style="position:absolute;width:0;height:0;opacity:0;" onchange="updateTagColor(\'' + tagJs + '\', this.value);">' +
+        '</div>' +
+        // Emoji picker trigger
+        '<span style="font-size:10px;color:var(--text-muted);cursor:pointer;" title="Change icon" onclick="changeTagEmoji(\'' + tagJs + '\')">✏️</span>' +
       '</div>' +
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-size:14px;font-weight:500;color:var(--text-primary);cursor:pointer;" ondblclick="renameTag(\'' + tagJs + '\')" title="' + T('tag.doubleClickRename') + '">' + tagHtml + '</div>' +

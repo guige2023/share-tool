@@ -220,11 +220,12 @@ function initSchemaV1(db) {
     )
   `);
 
-  // 标签颜色表
+  // 标签颜色/图标表
   db.exec(`
     CREATE TABLE IF NOT EXISTS tag_colors (
       tag        TEXT PRIMARY KEY,
       color      TEXT NOT NULL,
+      emoji      TEXT,
       updated_at INTEGER NOT NULL DEFAULT (unixepoch())
     )
   `);
@@ -1793,7 +1794,7 @@ function setTagColor(tag, color) {
 
 function getAllTagColors() {
   const db = getDb();
-  return db.prepare('SELECT tag, color FROM tag_colors ORDER BY updated_at DESC').all();
+  return db.prepare('SELECT tag, color, emoji FROM tag_colors ORDER BY updated_at DESC').all();
 }
 
 function getSuggestedColor(tag) {
@@ -1803,6 +1804,25 @@ function getSuggestedColor(tag) {
     hash = tag.charCodeAt(i) + ((hash << 5) - hash);
   }
   return TAG_COLOR_PRESETS[Math.abs(hash) % TAG_COLOR_PRESETS.length];
+}
+
+function getTagEmoji(tag) {
+  const db = getDb();
+  const row = db.prepare('SELECT emoji FROM tag_colors WHERE tag = ?').get(tag);
+  return row ? row.emoji : null;
+}
+
+function setTagEmoji(tag, emoji) {
+  const db = getDb();
+  // 确保 color 也存在（INSERT OR REPLACE 需要所有 NOT NULL 列有值）
+  const existing = db.prepare('SELECT color FROM tag_colors WHERE tag = ?').get(tag);
+  if (existing) {
+    db.prepare('UPDATE tag_colors SET emoji = ?, updated_at = unixepoch() WHERE tag = ?').run(emoji, tag);
+  } else {
+    const color = getSuggestedColor(tag);
+    db.prepare('INSERT INTO tag_colors (tag, color, emoji, updated_at) VALUES (?, ?, ?, unixepoch())').run(tag, color, emoji);
+  }
+  return { tag, emoji };
 }
 
 function deleteTagColor(tag) {
@@ -1941,7 +1961,8 @@ module.exports = {
   // DB 健康
   cleanupSyncLog, getDbStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
-  getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, getAllTags,
+  getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor,
+  getTagEmoji, setTagEmoji, getAllTags,
   // 回收站
   moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, cleanupExpiredTrash,
   // 文件版本历史

@@ -217,10 +217,14 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
       }
     }
     const colors = db.getAllTagColors();
+    // Build map: tag -> {color, emoji}
+    const colorMap = {};
+    for (const c of colors) { colorMap[c.tag] = c; }
     const tags = Object.keys(tagCounts).map(tag => ({
       tag,
       count: tagCounts[tag],
-      color: colors[tag] || null
+      color: colorMap[tag]?.color || null,
+      emoji: colorMap[tag]?.emoji || null
     })).sort((a, b) => b.count - a.count);
     sendJson(res, { success: true, tags });
     return true;
@@ -312,6 +316,23 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
         const { tag, color } = JSON.parse(body);
         if (!tag || !color) { sendJson(res, { success: false, error: 'tag and color required' }, 400); return; }
         db.setTagColor(tag, color);
+        sendJson(res, { success: true });
+      } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
+    });
+    return true;
+  }
+
+  // PUT /api/tags/emoji — 更新标签图标
+  if (pathname === '/api/tags/emoji' && method === 'PUT') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { tag, emoji } = JSON.parse(body);
+        if (!tag) { sendJson(res, { success: false, error: 'tag required' }, 400); return; }
+        db.setTagEmoji(tag, emoji || null);
         sendJson(res, { success: true });
       } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
     });
