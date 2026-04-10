@@ -6241,16 +6241,26 @@ function showAuditModal() {
     }).catch(() => showToast(T('admin.getFailed')));
 }
 
-function exportAudit(format) {
-  const url = API + '/api/audit/export?format=' + format;
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = '';
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  showToast(T('admin.exported') || (format.toUpperCase() + ' exported'));
+async function exportAudit(format) {
+  try {
+    const url = API + '/api/audit/export?format=' + format;
+    const res = await fetch(url, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    if (!res.ok) throw new Error('Export failed');
+    const blob = await res.blob();
+    const contentType = format === 'json' ? 'application/json' : 'text/csv';
+    const blobUrl = URL.createObjectURL(new Blob([blob], { type: contentType }));
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = 'audit_log_' + new Date().toISOString().slice(0, 10) + '.' + format;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+    showToast(T('admin.exported') || (format.toUpperCase() + ' exported'));
+  } catch (e) {
+    showToast('Export failed: ' + e.message, 'error');
+  }
 }
 
 function showTokenModal() {
