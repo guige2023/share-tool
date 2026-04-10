@@ -4100,12 +4100,69 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 [data-theme="dark"] .hljs-number,[data-theme="dark"] .hljs-literal { color: #79c0ff; }
 [data-theme="dark"] .hljs-title,[data-theme="dark"] .hljs-section { color: #d2a8ff; }
 [data-theme="dark"] .hljs-type,[data-theme="dark"] .hljs-class { color: #7ee787; }
+/* Lightbox nav buttons */
+.lightbox-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 2;
+  display: none;
+}
+.lightbox-nav-btn:hover { background: rgba(0,0,0,0.7); }
+#imgNavPrev { left: 8px; }
+#imgNavNext { right: 8px; }
+.lightbox-counter {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  display: none;
+}
+.lightbox-download-btn {
+  position: absolute;
+  top: 8px;
+  right: 56px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 2;
+}
+[data-theme="dark"] .lightbox-nav-btn,
+[data-theme="dark"] .lightbox-download-btn {
+  background: rgba(255,255,255,0.2);
+}
+[data-theme="dark"] .lightbox-nav-btn:hover,
+[data-theme="dark"] .lightbox-download-btn:hover {
+  background: rgba(255,255,255,0.35);
+}
+[data-theme="dark"] .lightbox-counter {
+  background: rgba(0,0,0,0.8);
+}
+
 /* Mobile lightbox nav buttons: larger touch targets */
 @media (max-width: 500px) {
-  #imgNavPrev, #imgNavNext {
-    width: 52px !important;
-    height: 52px !important;
-    font-size: 26px !important;
+  .lightbox-nav-btn {
+    width: 52px;
+    height: 52px;
+    font-size: 26px;
   }
 }
 /* System color scheme auto-detection (applies when no user preference saved) */
@@ -6270,7 +6327,7 @@ async function openImageModal(filename) {
     const dataUrl = 'data:' + mime + ';base64,' + data.content;
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = 'Size: ' + formatSize(data.size || 0);
-    document.getElementById('modalBody').innerHTML = '<div id="imageLightbox" style="position:relative;text-align:center;min-height:60px;"><button id="imgNavPrev" onclick="imageNav(-1)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;z-index:2;display:none;">‹</button><img id="lightboxImg" src="' + dataUrl + '" style="max-width:100%;max-height:80vh;display:block;margin:0 auto;border-radius:8px;" /><button id="imgNavNext" onclick="imageNav(1)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:20px;cursor:pointer;z-index:2;display:none;">›</button><div id="imgCounter" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;display:none;"></div><button id="imgDownloadBtn" onclick="downloadCurrentImage()" style="position:absolute;top:8px;right:56px;background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:6px;width:36px;height:36px;font-size:16px;cursor:pointer;z-index:2;" title="Download">⬇</button></div>';
+    document.getElementById('modalBody').innerHTML = '<div id="imageLightbox" style="position:relative;text-align:center;min-height:60px;"><button id="imgNavPrev" class="lightbox-nav-btn" onclick="imageNav(-1)">‹</button><img id="lightboxImg" src="' + dataUrl + '" style="max-width:100%;max-height:80vh;display:block;margin:0 auto;border-radius:8px;" /><button id="imgNavNext" class="lightbox-nav-btn" onclick="imageNav(1)">›</button><div id="imgCounter" class="lightbox-counter"></div><button id="imgDownloadBtn" class="lightbox-download-btn" onclick="downloadCurrentImage()" title="Download">⬇</button></div>';
     // Collect image files for navigation
     window._imageFiles = currentFiles.filter(f => !f.isVirtualFolder && isImageFile(f.name));
     window._imageIndex = window._imageFiles.findIndex(f => f.name === filename);
