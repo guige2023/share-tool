@@ -4007,9 +4007,17 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-wrapper">
     <div class="search-bar">
-      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}">
+      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}" onfocus="showSearchHint()" onblur="setTimeout(hideSearchHint,200)">
       <button class="btn btn-sm" onclick="doSearch()">' + T('ui.search') + '</button>
       <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
+    </div>
+    <div id="searchHint" style="display:none;font-size:11px;color:var(--text-muted);padding:2px 8px 6px;line-height:1.4;">
+      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('tag:')">tag:</span> tag &nbsp;
+      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('size:>1m')">size:</span> &gt;1m &nbsp;
+      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('date:>yesterday')">date:</span> &gt;date &nbsp;
+      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('type:pdf')">type:</span> pdf &nbsp;
+      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('content:')">content:</span> text &nbsp;
+      <span style="color:var(--text-muted);">ext:</span> jpg
     </div>
     <div class="search-suggestions" id="searchSuggestions" style="display:none;"></div>
     </div>
@@ -9852,13 +9860,19 @@ async function batchRename() {
     const oldFn = decodeURIComponent(oldEnc);
     const ext = oldFn.includes('.') ? oldFn.split('.').pop() : '';
     const base = ext ? oldFn.slice(0, -(ext.length + 1)) : oldFn;
-    let newBase = base;
-    if (op === 'replace') newBase = find ? base.split(find).join(repl) : base;
-    else if (op === 'prefix') newBase = text + base;
-    else if (op === 'suffix') newBase = base + text;
-    else if (op === 'case') newBase = base === base.toLowerCase() ? base.toUpperCase() : base.toLowerCase();
-    const newFn = ext ? newBase + '.' + ext : newBase;
-    if (newFn === oldFn) continue;
+    let newBase = base, newFn;
+    if (op === 'replace') { newBase = find ? base.split(find).join(repl) : base; newFn = ext ? newBase + '.' + ext : newBase; }
+    else if (op === 'prefix') { newBase = text + base; newFn = ext ? newBase + '.' + ext : newBase; }
+    else if (op === 'suffix') { newBase = base + text; newFn = ext ? newBase + '.' + ext : newFn; }
+    else if (op === 'case') { newBase = base === base.toLowerCase() ? base.toUpperCase() : base.toLowerCase(); newFn = ext ? newBase + '.' + ext : newBase; }
+    else if (op === 'seq') {
+      const start = parseInt((document.getElementById('brSeqStart') || {}).value) || 1;
+      const pad = parseInt((document.getElementById('brSeqPad') || {}).value) || 3;
+      const prefix = (document.getElementById('brSeqPrefix') || {}).value || '';
+      const suffix = (document.getElementById('brSeqSuffix') || {}).value || ('.' + ext);
+      newFn = prefix + String(start + i).padStart(pad, '0') + suffix;
+    }
+    if (!newFn || newFn === oldFn) continue;
     const statusText = document.getElementById('batchStatusText');
     if (statusText) statusText.textContent = '重命名中 ' + (i + 1) + '/' + files.length;
     try {
