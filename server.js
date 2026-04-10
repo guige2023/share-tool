@@ -3565,7 +3565,7 @@ h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667
 .status-item { font-size: 12px; padding: 4px 12px; background: var(--bg-secondary); border-radius: 20px; border: 1px solid var(--border-color); }
 .status-item.connected { border-color: var(--success); color: var(--success); }
 .status-item.disconnected { border-color: var(--text-muted); color: var(--text-muted); }
-.hero { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-color); overflow: hidden; }
+.hero { background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--border-color); overflow: hidden; }
 .hero-content { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .hero-text { flex: 1; min-width: 200px; }
 .hero-title { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
@@ -3765,8 +3765,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .drop-zone { border: 2px dashed var(--border-color); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 16px; transition: all 0.2s; color: var(--text-muted); font-size: 13px; }
 .drop-zone.drag-over { border-color: var(--accent-primary); background: rgba(102,126,234,0.1); color: var(--accent-primary); }
 .drop-zone-icon { font-size: 24px; margin-bottom: 8px; }
-.fab { position: fixed; bottom: max(24px, calc(24px + env(safe-area-inset-bottom))); right: max(24px, calc(24px + env(safe-area-inset-right))); width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: white; border: none; border-radius: 50%; font-size: 24px; cursor: pointer; box-shadow: 0 4px 16px rgba(102,126,234,0.4); z-index: 300; transition: all 0.2s; display: none; /* shown via JS when files exist */ backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-.fab:hover { transform: scale(1.1); }
+.fab { position: fixed; bottom: max(24px, calc(24px + env(safe-area-inset-bottom))); right: max(24px, calc(24px + env(safe-area-inset-right))); width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: white; border: none; font-size: 24px; cursor: pointer; box-shadow: 0 4px 16px rgba(102,126,234,0.4); z-index: 300; transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; display: none; /* shown via JS when files exist */ backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.fab:hover { transform: scale(1.08); }
+.fab:active { transform: scale(0.95); opacity: 0.9; box-shadow: 0 2px 8px rgba(102,126,234,0.3); }
 .fab-menu { display: none; position: fixed; bottom: max(90px, calc(90px + env(safe-area-inset-bottom))); right: max(24px, calc(24px + env(safe-area-inset-right))); flex-direction: column; gap: 8px; z-index: 350; }
 .fab-menu.show { display: flex; }
 .fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
@@ -4114,8 +4115,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <p class="subtitle">' + T('ui.heroTitle').replace('文件/文字', ' / ') + '</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button id="menuToggle" onclick="toggleMobileMenu()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;line-height:1;" title="Menu">☰</button>
-        <button id="themeToggle" onclick="toggleThemeDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px;" title="' + T('ui.toggleTheme') + '">🌙</button>
+        <button id="menuToggle" onclick="toggleMobileMenu()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;line-height:1;touch-action:manipulation;-webkit-tap-highlight-color:transparent;" title="Menu">☰</button>
+        <button id="themeToggle" onclick="toggleThemeDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px; touch-action: manipulation; -webkit-tap-highlight-color: transparent;" title="' + T('ui.toggleTheme') + '">🌙</button>
       </div>
       <div id="themeDropdown" style="display:none;position:absolute;top:56px;right:16px;z-index:1000;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:12px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-secondary);">主题模式</div>
