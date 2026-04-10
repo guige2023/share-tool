@@ -901,6 +901,35 @@ async function main() {
         break;
       }
 
+      case 'status': {
+        let res;
+        try {
+          res = await request('GET', '/api/health');
+        } catch (e) {
+          console.log('❌ Server offline or unreachable');
+          process.exit(1);
+        }
+        if (res.status >= 500) {
+          console.log('❌ Server error: ' + res.status);
+          process.exit(1);
+        }
+        if (res.status >= 400) {
+          console.log('⚠️  Server returned: ' + res.status);
+          process.exit(1);
+        }
+        const h = res.data;
+        console.log('✅ Server online');
+        console.log('   Version: ' + (h.version || 'unknown'));
+        console.log('   URL:     ' + getServerUrl());
+        if (h.uptime) {
+          const days = Math.floor(h.uptime / 86400);
+          const hh = Math.floor((h.uptime % 86400) / 3600);
+          const mm = Math.floor((h.uptime % 3600) / 60);
+          const ss = Math.round(h.uptime % 60);
+          console.log('   Uptime:  ' + (days > 0 ? days + 'd ' : '') + hh + 'h ' + mm + 'm ' + ss + 's');
+        }
+        break;
+      }
       case 'stats': {
         const res = await request('GET', '/api/dashboard');
         if (res.status >= 400) {
