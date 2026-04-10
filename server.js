@@ -2142,7 +2142,7 @@ async function startHttpServer() {
       res.setHeader('X-RateLimit-Reset', String(Math.ceil(Date.now() / 1000) + 60));
     }
 
-    const query = parsed.query;
+    const query = parsedUrl.searchParams;
 
     // WebDAV 处理（优先于其他路由）
     if (pathname.startsWith(WEBDAV_PREFIX) || pathname === WEBDAV_PREFIX) {
