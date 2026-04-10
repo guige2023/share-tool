@@ -3362,8 +3362,18 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .upload-queue-item .status { font-size: 14px; flex-shrink: 0; }
   .upload-queue-item.done .status { color: var(--success-fg); }
   .upload-queue-item.fail .status { color: var(--danger-fg); }
-  .upload-queue-item .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--text-muted); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.6s linear infinite; }
   .file-star { cursor: pointer; font-size: 16px; color: var(--text-muted); transition: color 0.2s; user-select: none; }
+  /* Mobile-only utilities */
+  .hide-mobile { display: none; }
+  .show-mobile { display: block; }
+  /* File info panel: full screen on mobile */
+  #fileInfoPanel { width: 100vw; max-width: 100vw; }
+  #fileInfoPanel .file-info-header { padding-right: max(16px, env(safe-area-inset-right)); }
+  /* Modal: larger on mobile */
+  .modal-content { max-width: 95vw; }
+  .modal-close { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)); }
+  /* Better touch targets */
+  .filter-tab, .filter-tab.active { padding: 10px 16px; min-height: 44px; display: inline-flex; align-items: center; }
   .file-star:hover { color: var(--warning); }
   .file-star.starred { color: var(--warning); }
   .notif-badge { position: fixed; top: 12px; right: 12px; background: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; z-index: 400; font-weight: bold; }
@@ -3381,7 +3391,6 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .recent-search-tag:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 .fab { display: flex; align-items: center; justify-content: center; }
 .tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
-.hide-mobile { display: none; }
 body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 .sort-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
 .sort-bar select { padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 12px; }
