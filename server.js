@@ -3668,6 +3668,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 @media (max-width: 500px) {
   .container { padding: 12px; padding-bottom: max(100px, calc(100px + env(safe-area-inset-bottom))); }
   .hero { padding: 16px; }
+  .search-suggestions { max-height: 280px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .hero-content { display: none; /* hide marketing text on mobile, just show title */ }
   .hero-title { font-size: 15px; }
   .hero-features { display: none; }
@@ -3678,6 +3679,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .file-actions { justify-content: flex-start; flex-wrap: wrap; }
   .file-item { flex-direction: column; min-height: 60px; padding: 16px; }
   .file-item .file-name { font-size: 15px; }
+  .file-checkbox { width: 24px; height: 24px; }
   .file-actions .btn { width: auto; flex: 1; min-width: 60px; text-align: center; font-size: 12px; padding: 10px 10px; min-height: 44px; /* touch target */ }
   .setting-row { flex-direction: column; align-items: stretch; }
   .setting-row label { min-width: auto; }
