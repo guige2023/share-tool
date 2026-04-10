@@ -3792,6 +3792,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">📂 类型分布</div>
       <div id="dashboardTypeChart" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"></div>
     </div>
+    <div style="margin-top:10px;">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">🕐 最近活动</div>
+      <div id="dashboardActivityFeed" style="display:flex;flex-direction:column;gap:4px;"></div>
+    </div>
   </div>
 
   <div class="card">
@@ -5494,7 +5498,7 @@ function renderFileInfoContent(meta) {
   html += '<div class="file-info-section-title">' + T('fileInfo.share') + ' (' + meta.shareCount + ')</div>';
   if (meta.shareLinks && meta.shareLinks.length > 0) {
     for (const link of meta.shareLinks) {
-      const shareUrl = location.origin + '/s/' + link.code;
+      const shareUrl = location.origin + '/s/' + link.code + '?utm_source=sharetool&utm_medium=file_info_copy&utm_campaign=sharetool';
       html += '<div class="file-info-share-item">';
       html += '<div style="font-size:12px;color:var(--text-primary);">' + escapeHtml(link.filename || meta.filename) + ' <button class="btn btn-sm" style="font-size:9px;padding:1px 4px;" onclick="copyText(\'' + escapeHtml(link.filename || meta.filename) + '\')">📋</button></div>';
       html += '<div class="file-info-share-url" title="' + escapeHtml(shareUrl) + '">' + escapeHtml(shareUrl) + '</div>';
@@ -5876,6 +5880,9 @@ async function loadDashboard() {
     } else if (typeEl) {
       typeEl.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">暂无数据</div>';
     }
+
+    // Recent activity feed: fetch latest audit logs
+    renderDashboardActivityFeed();
 
   } catch (e) {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">加载失败</div>';

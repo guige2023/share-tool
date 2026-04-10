@@ -29,7 +29,7 @@ module.exports = function handleShareRoutes(req, res, pathname, query, ctx) {
           isText: file.type === 'text',
           description: description || ''
         });
-        const shareUrl = `http://${LOCAL_IP}:${PORT}/s/${shareData.code}`;
+        const shareUrl = `${req.headers.origin}/s/${shareData.code}?utm_source=sharetool&utm_medium=api_create&utm_campaign=sharetool`;
         db.addAuditLog('share_create', `code=${shareData.code}, filename=${filename}`, getClientIp(req));
         sendJson(res, { success: true, code: shareData.code, url: shareUrl, expiresAt: shareData.expiresAt, description: shareData.description });
       } catch (e) {
@@ -48,7 +48,7 @@ module.exports = function handleShareRoutes(req, res, pathname, query, ctx) {
       res.end('Share link not found');
       return true;
     }
-    const shareUrl = `http://${LOCAL_IP}:${PORT}/s/${code}`;
+    const shareUrl = `${req.headers.origin}/s/${code}?utm_source=sharetool&utm_medium=qr_code&utm_campaign=sharetool`;
     try {
       const dataUrl = QRCode.toDataURL(shareUrl, { margin: 2, width: 256, errorCorrectionLevel: 'M' });
       // QRCode.toDataURL is async but may return promise or string
