@@ -994,7 +994,7 @@ const I18N = {
     'ui.searchPlaceholder': 'Search filenames...',
     'ui.filterByTag': 'Filter by tag',
     'ui.searchTags': 'Search tags...',
-    'ui.clearFilter': 'Clear filter',
+    'ui.clearSearchHistory': 'Clear history',
     'ui.noFiles': 'No shared content yet',
     'ui.noFilesHint': 'Upload files or share text to get started',
     'ui.selectAll': 'Select all',
@@ -3711,6 +3711,18 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .fab-menu { display: none; position: fixed; bottom: max(90px, calc(90px + env(safe-area-inset-bottom))); right: max(24px, calc(24px + env(safe-area-inset-right))); flex-direction: column; gap: 8px; z-index: 350; }
 .fab-menu.show { display: flex; }
 .fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+
+/* FAB Slide-out Drawer (hamburger style) */
+.fab-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 390; opacity: 0; transition: opacity 0.25s; }
+.fab-drawer-overlay.show { display: block; opacity: 1; }
+.fab-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: 200px; background: var(--bg-secondary); border-left: 1px solid var(--border-color); z-index: 400; transform: translateX(100%); transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1); padding: max(24px, env(safe-area-inset-top)) 20px 20px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.fab-drawer.open { transform: translateX(0); }
+.fab-drawer .drawer-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--border-color); }
+.fab-drawer .drawer-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.fab-drawer .drawer-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); padding: 4px; line-height: 1; }
+.fab-drawer .drawer-close:hover { color: var(--text-primary); }
+.fab-drawer .btn { width: 100%; height: 48px; border-radius: 12px; padding: 0 16px; font-size: 14px; justify-content: flex-start; gap: 10px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.fab-drawer .btn .icon { font-size: 18px; }
 .file-type-icon { font-size: 16px; margin-right: 6px; }
 
 .tag-filter-btn { cursor: pointer; transition: all 0.2s; }
@@ -11562,38 +11574,53 @@ init();
   </div>
 </div>
 
-<!-- FAB: Mobile-friendly upload button -->
-<div class="fab" id="fabMain" style="position:fixed;bottom:max(24px,env(safe-area-inset-bottom));right:24px;width:56px;height:56px;background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));border-radius:50%;box-shadow:0 4px 16px rgba(102,126,234,0.4);cursor:pointer;z-index:100;display:none;" onclick="fabClicked()">
-  <span style="font-size:24px;color:var(--text-inverse,#fff);">+</span>
+<!-- FAB: Mobile hamburger menu -->
+<div class="fab" id="fabMain" style="position:fixed;bottom:max(24px,env(safe-area-inset-bottom));right:24px;width:56px;height:56px;background:linear-gradient(135deg,var(--accent-primary),var(--accent-secondary));border-radius:50%;box-shadow:0 4px 16px rgba(102,126,234,0.4);cursor:pointer;z-index:395;display:none;align-items:center;justify-content:center;" onclick="fabClicked()">
+  <span id="fabIcon" style="font-size:22px;color:#fff;line-height:1;">☰</span>
 </div>
-<div class="fab-menu" id="fabMenu">
-  <button class="btn" onclick="fabUpload()" title="上传文件" style="flex-direction:column;gap:2px;font-size:11px;padding:0;width:56px;height:56px;border-radius:50%;">📤<span style="font-size:10px;">' + T('file.upload') + '</span></button>
-  <button class="btn" onclick="fabText()" title="分享文字" style="flex-direction:column;gap:2px;font-size:11px;padding:0;width:56px;height:56px;border-radius:50%;">📝<span style="font-size:10px;">' + T('file.textShare') + '</span></button>
+<div class="fab-drawer-overlay" id="fabDrawerOverlay" onclick="fabClose()"></div>
+<div class="fab-drawer" id="fabDrawer">
+  <div class="drawer-header">
+    <span class="drawer-title">菜单</span>
+    <button class="drawer-close" onclick="fabClose()">×</button>
+  </div>
+  <button class="btn" onclick="fabUpload()">📤 <span>' + T('file.upload') + '</span></button>
+  <button class="btn" onclick="fabText()">📝 <span>' + T('file.textShare') + '</span></button>
 </div>
 
 <script>
-// FAB for mobile - triggers file input on click
+// FAB hamburger menu
 function fabClicked() {
-  const menu = document.getElementById('fabMenu');
-  const isHidden = menu.style.display === 'none' || !menu.classList.contains('show');
-  if (isHidden) {
-    menu.classList.add('show');
-    document.getElementById('fabMain').style.transform = 'rotate(45deg)';
+  const overlay = document.getElementById('fabDrawerOverlay');
+  const drawer = document.getElementById('fabDrawer');
+  const icon = document.getElementById('fabIcon');
+  const isOpen = drawer.classList.contains('open');
+  if (isOpen) {
+    fabClose();
   } else {
-    menu.classList.remove('show');
-    document.getElementById('fabMain').style.transform = '';
+    overlay.classList.add('show');
+    drawer.classList.add('open');
+    icon.textContent = '×';
   }
 }
-// Close FAB menu when tapping outside
+function fabClose() {
+  const overlay = document.getElementById('fabDrawerOverlay');
+  const drawer = document.getElementById('fabDrawer');
+  const icon = document.getElementById('fabIcon');
+  overlay.classList.remove('show');
+  drawer.classList.remove('open');
+  icon.textContent = '☰';
+}
+// Close FAB drawer when tapping outside
 document.addEventListener('click', (e) => {
-  const menu = document.getElementById('fabMenu');
+  const drawer = document.getElementById('fabDrawer');
   const fab = document.getElementById('fabMain');
-  if (menu && menu.classList.contains('show') && !menu.contains(e.target) && !fab.contains(e.target)) {
-    menu.classList.remove('show');
-    fab.style.transform = '';
+  if (drawer && drawer.classList.contains('open') && !drawer.contains(e.target) && !fab.contains(e.target)) {
+    fabClose();
   }
 });
 function fabUpload() {
+  fabClose();
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   if (isMobile) {
     // iOS Safari doesn't support webkitdirectory — remove it so picker opens, keep multiple
@@ -11608,11 +11635,10 @@ function fabUpload() {
   } else {
     document.getElementById('fileInput').click();
   }
-  fabClicked(); // close menu
 }
 function fabText() {
+  fabClose();
   document.getElementById('textContent').focus();
-  fabClicked(); // close menu
 }
 // Show FAB on mobile, hide on desktop
 function updateFabVisibility() {
