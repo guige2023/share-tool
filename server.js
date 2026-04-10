@@ -3554,6 +3554,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 .modal-body { font-size: 14px; color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; word-break: break-all; max-height: 60vh; overflow: auto; }
 .modal-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
 .kbd-hint { font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 8px; }
+/* Hide keyboard hints on touch devices - they're not relevant */
+@media (hover: none) and (pointer: coarse) {
+  .kbd-hint { display: none; }
+}
 .kbd { display: inline-block; padding: 2px 6px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; font-size: 11px; }
 /* Markdown rendered content */
 .markdown-body { color: var(--text-primary); line-height: 1.7; }
