@@ -2319,6 +2319,8 @@ module.exports = {
   addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV,
   // 速率限制
   checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig,
+  // 搜索历史
+  addSearchHistory, getSearchHistory, clearSearchHistory,
   // 分享链接
   saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload,
   listShareLinks, cleanupExpiredShareLinks,

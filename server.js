@@ -10264,8 +10264,9 @@ async function init() {
   // Load storage info
   fetchStorageInfo();
 
-  // Load recent searches
+  // Load recent searches (localStorage + server merge)
   renderRecentSearches();
+  loadSearchHistoryFromServer();
 
   // Load HTTPS status + token display
   if (document.getElementById('currentTokenDisplay')) {
