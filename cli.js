@@ -790,6 +790,34 @@ async function main() {
           console.log(`Versions:   ${s.versions.totalVersions || 0}`);
           console.log(`  Storage: ${formatSize(s.versions.totalVersionSize || 0)}`);
         }
+
+        // Also fetch system stats
+        const sysRes = await request('GET', '/api/system/stats');
+        if (sysRes.status < 400 && sysRes.data && sysRes.data.success) {
+          const m = sysRes.data.memory;
+          const c = sysRes.data.cpu;
+          const p = sysRes.data.process;
+          const d = sysRes.data.disk;
+          const fmtMem = b => (b / 1024 / 1024).toFixed(0) + ' MB';
+          const fmtDisk = b => (b / 1024 / 1024 / 1024).toFixed(1) + ' GB';
+          console.log('\n=== System Stats ===');
+          if (m) {
+            console.log(`Heap:       ${fmtMem(m.heapUsed)} / ${fmtMem(m.heapTotal)} (${Math.round((m.heapUsed / m.heapTotal) * 100)}%)`);
+            console.log(`RSS:        ${fmtMem(m.rss)}`);
+            console.log(`System:     ${Math.round((m.systemUsed / m.systemTotal) * 100)}% used (${fmtMem(m.systemFree)} free)`);
+          }
+          if (c) {
+            const days = Math.floor(p.uptime / 86400);
+            const hh = Math.floor((p.uptime % 86400) / 3600);
+            const mm = Math.floor((p.uptime % 3600) / 60);
+            const ss = Math.round(p.uptime % 60);
+            const upStr = (days > 0 ? days + 'd ' : '') + hh + 'h ' + mm + 'm ' + ss + 's';
+            console.log(`CPU:        ${c.cores} cores · load ${c.loadavg1m.toFixed(2)} (1m) / ${c.loadavg5m.toFixed(2)} (5m) / ${c.loadavg15m.toFixed(2)} (15m)`);
+            if (d) console.log(`Disk:       ${fmtDisk(d.used)} / ${fmtDisk(d.total)} (${Math.round((d.free / d.total) * 100)}% free)`);
+            console.log(`Uptime:     ${upStr}`);
+            console.log(`Node:       ${p.nodeVersion} on ${p.platform}`);
+          }
+        }
         break;
       }
 
