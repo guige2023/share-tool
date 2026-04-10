@@ -1636,7 +1636,15 @@ function encodeURIPath(path) {
 function handleWebDAV(req, res, pathname, query) {
   const path = pathname.slice(WEBDAV_PREFIX.length);
   const depth = parseWebDAVDepth(req.headers.depth || '1');
-  
+
+  // Auth required
+  const authResult = auth(req);
+  if (!authResult) {
+    res.writeHead(401, { 'Content-Type': 'application/xml' });
+    res.end('<?xml version="1.0"?><d:error xmlns:d="DAV:"><d:href>' + escapeHtml(pathname) + '</d:href><d:status>401 Unauthorized</d:status></d:error>');
+    return true;
+  }
+
   // OPTIONS - Return DAV support
   if (req.method === 'OPTIONS') {
     res.writeHead(200, {
@@ -7875,6 +7883,22 @@ function copyShareLink() {
     input.select();
     document.execCommand('copy');
     showToast(T('msg.linkCopied'));
+  });
+}
+
+function copyText(text) {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    // silent success
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
   });
 }
 
