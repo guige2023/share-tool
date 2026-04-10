@@ -1257,6 +1257,32 @@ function getTotalStorageSize() {
   return row.total;
 }
 
+// 获取虚拟文件夹大小（所有前缀匹配的文件累计大小）
+function getFolderSize(folderPrefix) {
+  const db = getDb();
+  if (!folderPrefix) return getTotalStorageSize();
+  const prefix = folderPrefix.endsWith('/') ? folderPrefix : folderPrefix + '/';
+  const row = db.prepare('SELECT COALESCE(SUM(size), 0) as total FROM files WHERE filename LIKE ?').get(prefix + '%');
+  return row.total;
+}
+
+// 获取所有顶级虚拟文件夹的大小
+function getAllFolderSizes() {
+  const db = getDb();
+  const files = db.prepare('SELECT filename, size FROM files').all();
+  const folderSizes = new Map();
+
+  for (const f of files) {
+    const name = f.filename;
+    if (!name.includes('/')) continue; // 根目录文件
+    const topFolder = name.split('/')[0];
+    if (!folderSizes.has(topFolder)) folderSizes.set(topFolder, 0);
+    folderSizes.set(topFolder, folderSizes.get(topFolder) + f.size);
+  }
+
+  return Array.from(folderSizes.entries()).map(([name, size]) => ({ name, size }));
+}
+
 // ============================================================
 // 设备管理
 // ============================================================
@@ -2307,7 +2333,7 @@ module.exports = {
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
   setFilePositions,
-  searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
+  searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize, getFolderSize, getAllFolderSizes,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
   touchDevice, getOnlineDevices, cleanupStaleDevices,

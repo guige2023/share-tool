@@ -17,6 +17,15 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/folder-sizes — 获取虚拟文件夹大小
+  if (pathname === '/api/folder-sizes' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const folders = db.getAllFolderSizes();
+    sendJson(res, { success: true, folders });
+    return true;
+  }
+
   // GET /api/db/stats
   if (pathname === '/api/db/stats' && method === 'GET') {
     const authData = authRequired(req, res);

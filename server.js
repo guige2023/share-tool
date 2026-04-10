@@ -1504,7 +1504,8 @@ const RATE_TIERS = {
   '/api/file/reorder':       { tier: 'write',  anon: 10, auth: 40 },  // 排序操作
   '/api/share/create':        { tier: 'write',  anon: 10, auth: 40 },  // 写操作
   '/api/share/access':        { tier: 'share',  anon: 5,  auth: 40 },  // 特殊：防暴力
-  '/api/files':               { tier: 'read',   anon: 30, auth: 120 }  // 读操作
+  '/api/files':               { tier: 'read',   anon: 30, auth: 120 },  // 读操作
+  '/api/folder-sizes':       { tier: 'read',   anon: 30, auth: 120 }   // 读操作
 };
 const RATE_WINDOW_MS = 60 * 1000; // 60秒窗口
 
@@ -5160,6 +5161,15 @@ async function loadFiles(folder = null, starred = false) {
       });
     }
     currentFolder = folder;
+    // Load folder sizes when at root
+    if (!folder && !starred) {
+      fetch(API + '/api/folder-sizes', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+        .then(r => r.json())
+        .then(d => { if (d.folders) window.folderSizes = Object.fromEntries(d.folders.map(f => [f.name, f.size])); })
+        .catch(() => {});
+    } else {
+      window.folderSizes = {};
+    }
     // Sync sort select UI
     initSortSelect(sortRaw, sortOrder);
     renderFiles();
@@ -5355,7 +5365,7 @@ function renderFiles() {
           return '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + tagEsc + '\')">' + tagHtml + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + tagEsc + '\')">×</span></span>';
         }).join('') + '</div>' : '') +
         (!isVirtualFolder ? '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + ((f.tags || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')">+' + T('file.addTag') + '</button>' : '') +
-        (!isVirtualFolder ? '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' : '<div class="file-meta" style="color:var(--text-muted);">' + T('file.enterFolder') + '</div>') +
+        (!isVirtualFolder ? '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' : '<div class="file-meta" style="color:var(--text-muted);">' + T('file.enterFolder') + (window.folderSizes && window.folderSizes[f.name] ? ' | ' + formatSize(window.folderSizes[f.name]) : '') + '</div>') +
         (!isVirtualFolder && isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
         // Audio/Video/PDF inline player
         (!isVirtualFolder && isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
