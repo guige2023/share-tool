@@ -488,6 +488,7 @@ const I18N = {
     'fileInfo.yes': '是',
     'fileInfo.no': '否',
     'fileInfo.loading': '加载中...',
+    'fileInfo.loadFailed': '加载失败',
     'fileInfo.copyHash': '复制哈希',
     'fileInfo.openVersions': '查看历史',
     'ui.copyLink': '复制链接',
@@ -6918,7 +6919,7 @@ function openFileInfoPanel(filename) {
       renderFileInfoContent(data.meta);
     })
     .catch(() => {
-      body.innerHTML = '<div style="color:var(--danger);padding:16px;">加载失败</div>';
+      body.innerHTML = '<div style="color:var(--danger);padding:16px;">' + T('fileInfo.loadFailed') + '</div>';
     });
 }
 
