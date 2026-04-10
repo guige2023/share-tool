@@ -212,6 +212,17 @@ function initSchemaV1(db) {
     )
   `);
 
+  // 搜索历史表（持久化到数据库，支持多设备同步）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS search_history (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      query       TEXT    NOT NULL,
+      user_id     TEXT,
+      timestamp   INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_search_history_user ON search_history(user_id, timestamp DESC)');
+
   // 分享链接表
   db.exec(`
     CREATE TABLE IF NOT EXISTS share_links (

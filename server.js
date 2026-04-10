@@ -348,6 +348,7 @@ const I18N = {
     'tag.added': '已为 {n} 个文件添加标签',
     'tag.addFailed': '批量添加失败:',
     'tag.colorChanged': '颜色已更新',
+    'tag.batchColorChanged': '已更新 {n} 个标签颜色',
     'tag.clickChangeColor': '点击修改颜色',
     'tag.changeColor': '批量改颜色',
     'tag.selected': '已选择',
@@ -827,6 +828,7 @@ const I18N = {
     'tag.added': 'Added tag to {n} files',
     'tag.addFailed': 'Batch add failed:',
     'tag.colorChanged': 'Color updated',
+    'tag.batchColorChanged': 'Batch color updated for {n} tags',
     'tag.clickChangeColor': 'Click to change color',
     'tag.count': '',
     'tag.iconChanged': 'Icon updated',
@@ -1211,6 +1213,7 @@ const I18N = {
     'tag.added': 'Added tag to {n} files',
     'tag.addFailed': 'Batch add failed:',
     'tag.colorChanged': 'Color updated',
+    'tag.batchColorChanged': 'Batch color updated for {n} tags',
     'tag.clickChangeColor': 'Click to change color',
     'tag.count': '',
     'tag.iconChanged': 'Icon updated',
@@ -8634,6 +8637,8 @@ function showFileContextMenu(e, filename) {
   items.push({ icon: '✏️', label: '重命名', action: "startInlineRenameFromCtx('" + encodeURIComponent(filename) + "')" });
   items.push({ divider: true });
   items.push({ icon: '⬇', label: '下载', action: "downloadFile('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '📄', label: '复制文件名', action: "navigator.clipboard.writeText('" + filename.replace(/'/g, "\\'") + "').then(()=>showToast('✓ 已复制文件名')).catch(()=>{})" });
+  items.push({ icon: '🔗', label: '复制下载链接', action: "navigator.clipboard.writeText(window.location.origin + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || '')).then(()=>showToast('✓ 已复制链接')).catch(()=>{})" });
   items.push({ icon: '🗑', label: '删除', action: "deleteFile('" + encodeURIComponent(filename) + "')", danger: true });
 
   menu.innerHTML = items.map(item => {
@@ -9220,7 +9225,7 @@ async function openBatchColorPicker() {
   });
   const data = await res.json();
   if (data.success) {
-    showToast(T('tag.colorChanged', null, { n: data.updated }));
+    showToast(T('tag.batchColorChanged', null, { n: data.updated }));
     showTagManager();
     loadFiles();
   }
