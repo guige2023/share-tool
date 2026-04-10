@@ -6343,21 +6343,65 @@ function showAboutModal() {
       const c = data.cpu;
       const p = data.process;
       const d = data.disk;
-      const fmtMem = b => (b / 1024 / 1024).toFixed(0) + ' MB';
+      const fmtMem = b => { if (b >= 1e9) return (b / 1024 / 1024 / 1024).toFixed(1) + ' GB'; return (b / 1024 / 1024).toFixed(0) + ' MB'; };
       const fmtDisk = b => (b / 1024 / 1024 / 1024).toFixed(1) + ' GB';
       const memPct = m ? Math.round((m.heapUsed / m.heapTotal) * 100) : 0;
       const sysMemPct = m ? Math.round((m.systemUsed / m.systemTotal) * 100) : 0;
+      const sysMemFreePct = m ? 100 - sysMemPct : 0;
       const days = p ? Math.floor(p.uptime / 86400) : 0;
       const hours = p ? Math.floor((p.uptime % 86400) / 3600) : 0;
       const mins = p ? Math.floor((p.uptime % 3600) / 60) : 0;
       const secs = p ? Math.round(p.uptime % 60) : 0;
       const uptimeStr = p ? (days > 0 ? days + 'd ' : '') + hours + 'h ' + mins + 'm ' + secs + 's' : '—';
-      let html = '<div style="border-top:1px solid var(--border-color);padding-top:12px;margin-top:4px;">';
-      if (m) html += '<div style="margin-bottom:8px;">💻 ' + fmtMem(m.heapUsed) + ' / ' + fmtMem(m.heapTotal) + ' heap (' + memPct + '%) <span style="opacity:0.6">· RSS ' + fmtMem(m.rss) + '</span></div>';
-      if (m) html += '<div style="margin-bottom:8px;">🖥 ' + sysMemPct + '% system memory used <span style="opacity:0.6">(' + fmtMem(m.systemFree) + ' free)</span></div>';
-      if (c) html += '<div style="margin-bottom:8px;">⚙️ ' + c.cores + ' cores · load ' + c.loadavg1m.toFixed(2) + ' <span style="opacity:0.6">(1m)</span></div>';
-      if (d) html += '<div style="margin-bottom:8px;">💾 ' + fmtDisk(d.used) + ' / ' + fmtDisk(d.total) + ' disk <span style="opacity:0.6">(' + Math.round((d.free / d.total) * 100) + '% free)</span></div>';
-      if (p) html += '<div style="margin-bottom:8px;">⏱ ' + uptimeStr + ' uptime · ' + p.nodeVersion + '</div>';
+      // Load bar: normalize to cores (load < cores = green, < 2*cores = yellow, >= 2*cores = red)
+      const loadPerCore = c ? c.loadavg1m / c.cores : 0;
+      const loadColor = loadPerCore < 0.7 ? '#22c55e' : loadPerCore < 1.4 ? '#eab308' : '#ef4444';
+      const loadBarWidth = Math.min(100, Math.round(loadPerCore * 100));
+      const diskPct = d ? Math.round((d.used / d.total) * 100) : 0;
+      let html = '<div style="border-top:1px solid var(--border-color);padding-top:12px;margin-top:4px;display:flex;flex-direction:column;gap:10px;">';
+      // Memory section with pie chart
+      if (m) {
+        const heapPct = Math.round((m.heapUsed / m.heapTotal) * 100);
+        html += '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">';
+        // Heap pie (conic-gradient)
+        html += '<div style="position:relative;width:48px;height:48px;flex-shrink:0;">';
+        html += '<svg width="48" height="48" viewBox="0 0 48 48" style="transform:rotate(-90deg);">';
+        html += '<circle cx="24" cy="24" r="20" fill="none" stroke="var(--border-color)" stroke-width="6"/>';
+        html += '<circle cx="24" cy="24" r="20" fill="none" stroke="#60a5fa" stroke-width="6"';
+        html += ' stroke-dasharray="' + (heapPct * 1.256) + ' 125.6" stroke-linecap="round"/>';
+        html += '</svg>';
+        html += '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--text-primary);">' + heapPct + '%</div>';
+        html += '</div>';
+        // System memory bar (horizontal)
+        html += '<div style="flex:1;min-width:120px;">';
+        html += '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">🖥 ' + sysMemPct + '% ' + fmtMem(m.systemUsed) + ' / ' + fmtMem(m.systemTotal) + ' system</div>';
+        html += '<div style="height:8px;background:var(--border-color);border-radius:4px;overflow:hidden;">';
+        html += '<div style="height:100%;width:' + sysMemPct + '%;background:#60a5fa;border-radius:4px;"></div>';
+        html += '</div>';
+        html += '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">RSS ' + fmtMem(m.rss) + ' · heap ' + fmtMem(m.heapUsed) + '</div>';
+        html += '</div>';
+        html += '</div>';
+      }
+      // CPU load section
+      if (c) {
+        html += '<div>';
+        html += '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;">⚙️ Load avg: <span style="color:var(--text-primary);">' + c.loadavg1m.toFixed(2) + '</span> (1m) · <span style="opacity:0.7">' + c.loadavg5m.toFixed(2) + '</span> (5m) · <span style="opacity:0.6">' + c.loadavg15m.toFixed(2) + '</span> (15m) · ' + c.cores + ' cores</div>';
+        html += '<div style="height:8px;background:var(--border-color);border-radius:4px;overflow:hidden;">';
+        html += '<div style="height:100%;width:' + loadBarWidth + '%;background:' + loadColor + ';border-radius:4px;transition:width 0.3s;"></div>';
+        html += '</div>';
+        html += '</div>';
+      }
+      // Disk section
+      if (d) {
+        html += '<div>';
+        html += '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">💾 ' + fmtDisk(d.used) + ' / ' + fmtDisk(d.total) + ' · ' + diskPct + '% used · ' + Math.round((d.free / d.total) * 100) + '% free</div>';
+        html += '<div style="height:6px;background:var(--border-color);border-radius:3px;overflow:hidden;">';
+        html += '<div style="height:100%;width:' + diskPct + '%;background:#a78bfa;border-radius:3px;"></div>';
+        html += '</div>';
+        html += '</div>';
+      }
+      // Uptime
+      if (p) html += '<div style="font-size:11px;color:var(--text-muted);">⏱ ' + uptimeStr + ' · Node.js ' + p.nodeVersion + '</div>';
       html += '</div>';
       document.getElementById('aboutSystemStats').innerHTML = html;
     }).catch(() => {});
