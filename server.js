@@ -3759,6 +3759,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 .markdown-body input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent-primary); }
 /* TOC hover */
 .md-toc div:hover { color: var(--accent-secondary); }
+.toc-entry { transition: color 0.15s; }
+.toc-entry.toc-active { color: var(--accent-secondary) !important; font-weight: 600; }
 /* External links in markdown open in new tab */
 .markdown-body a[href^="http"] { target: "_blank"; rel: "noopener noreferrer"; }
 .markdown-body pre code { background: none; padding: 0; }
@@ -5712,6 +5714,18 @@ async function imageNav(dir) {
   await openImageModal(imgs[newIdx].name);
 }
 
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+let _currentSpeedIdx = 2; // default 1x
+
+function cyclePlaybackSpeed() {
+  _currentSpeedIdx = (_currentSpeedIdx + 1) % SPEEDS.length;
+  const speed = SPEEDS[_currentSpeedIdx];
+  const el = document.getElementById('mediaEl');
+  const btn = document.getElementById('speedBtn');
+  if (el) el.playbackRate = speed;
+  if (btn) btn.textContent = '速度: ' + speed + 'x';
+}
+
 async function openMediaModal(filename) {
   try {
     const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
@@ -5729,10 +5743,10 @@ async function openMediaModal(filename) {
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     if (isAudio) {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio controls style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('media.browserNotSupportAudio') + '</audio></div>';
+        '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio id="mediaEl" controls style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('media.browserNotSupportAudio') + '</audio><div style="margin-top:8px;"><button onclick="cyclePlaybackSpeed()" id="speedBtn" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-secondary);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">速度: 1x</button></div></div>';
     } else {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video controls style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('media.browserNotSupportVideo') + '</video></div>';
+        '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video id="mediaEl" controls style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('media.browserNotSupportVideo') + '</video><div style="margin-top:6px;"><button onclick="cyclePlaybackSpeed()" id="speedBtn" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">速度: 1x</button></div></div>';
     }
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
@@ -5781,7 +5795,7 @@ async function openMarkdownModal(filename) {
       tocHtml = '<div class="md-toc" style="background:var(--bg-tertiary);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;">' +
         '<div style="color:var(--text-muted);margin-bottom:6px;font-weight:600;">' + T('media.tableOfContents') + '</div>' +
         tocEntries.map(e =>
-          '<div style="padding-left:' + ((e.level - 1) * 12) + 'px;color:var(--accent-primary);cursor:pointer;margin:2px 0;" onclick="document.getElementById(\'' + e.id + '\').scrollIntoView({behavior:\'smooth\'})">' + escapeHtml(e.text) + '</div>'
+          '<div class="toc-entry" data-id="' + e.id + '" style="padding-left:' + ((e.level - 1) * 12) + 'px;color:var(--accent-primary);cursor:pointer;margin:2px 0;transition:color 0.15s;" onclick="document.getElementById(\'' + e.id + '\').scrollIntoView({behavior:\'smooth\'})">' + escapeHtml(e.text) + '</div>'
         ).join('') + '</div>';
     }
 
@@ -5790,6 +5804,20 @@ async function openMarkdownModal(filename) {
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     document.getElementById('modalBody').innerHTML = bodyHtml;
+
+    // TOC active tracking via IntersectionObserver
+    if (tocEntries.length > 1) {
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          const el = document.querySelector('.toc-entry[data-id="' + entry.target.id + '"]');
+          if (el) el.classList.toggle('toc-active', entry.isIntersecting);
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      tocEntries.forEach(e => {
+        const h = document.getElementById(e.id);
+        if (h) observer.observe(h);
+      });
+    }
 
     // Add copy buttons to code blocks
     document.querySelectorAll('#modalBody .markdown-body pre').forEach(pre => {
@@ -5807,6 +5835,24 @@ async function openMarkdownModal(filename) {
         });
       };
       pre.appendChild(btn);
+    });
+
+    // Add line numbers to code blocks (before hljs so it sees the original structure)
+    document.querySelectorAll('#modalBody .markdown-body pre code').forEach(code => {
+      const lines = code.textContent.split('\n');
+      if (lines.length <= 1) return; // skip single-line code
+      const lang = code.className.replace('language-', '') || '';
+      const lineNumWidth = String(lines.length).length + 1; // +1 for gap
+      const tableHtml = '<div class="code-with-lines" style="display:table;width:100%;">' +
+        '<span class="line-nums" style="display:table-cell;user-select:none;color:var(--text-muted);padding-right:12px;text-align:right;font-size:12px;line-height:1.6;white-space:pre;vertical-align:top;min-width:' + lineNumWidth + 'ch;">' +
+        lines.map((_, i) => '<span>' + (i + 1) + '</span>').join('\n') +
+        '</span>' +
+        '<span class="code-content" style="display:table-cell;white-space:pre;word-break:break-all;line-height:1.6;">' + escapeHtml(code.textContent) + '</span>' +
+        '</div>';
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-lines-wrapper';
+      wrapper.innerHTML = tableHtml;
+      code.parentNode.replaceChild(wrapper, code);
     });
 
     // Apply syntax highlighting to code blocks
