@@ -4713,6 +4713,18 @@ async function loadFiles(folder = null, starred = false) {
     const res = await fetch(API + '/api/list?sort=' + sortRaw + '&order=' + sortOrder + folderParam + starredParam, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     currentFiles = data.files || [];
+    // Apply custom drag-order if set
+    const customOrder = getCustomFileOrder();
+    if (Object.keys(customOrder).length > 0) {
+      currentFiles.sort((a, b) => {
+        const ai = customOrder[a.name];
+        const bi = customOrder[b.name];
+        if (ai !== undefined && bi !== undefined) return ai - bi;
+        if (ai !== undefined) return -1;
+        if (bi !== undefined) return 1;
+        return 0;
+      });
+    }
     currentFolder = folder;
     // Sync sort select UI
     initSortSelect(sortRaw, sortOrder);
@@ -6201,7 +6213,8 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     loadFiles();
     showToast(T('admin.refreshed'));
-  } else if (e.key === '?') {
+  } else if (e.key === '?' && !isTouchDevice()) {
+    // Hide ? shortcut hint on touch devices - they don't have keyboards
     e.preventDefault();
     lockScroll();
     document.getElementById('shortcutModal').classList.add('show');
