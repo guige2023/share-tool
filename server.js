@@ -3969,7 +3969,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-wrapper">
     <div class="search-bar">
-      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off">
+      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}">
       <button class="btn btn-sm" onclick="doSearch()">' + T('ui.search') + '</button>
       <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
     </div>
