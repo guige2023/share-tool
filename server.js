@@ -211,6 +211,7 @@ const I18N = {
 
     // 分享
     'share.link': '分享链接',
+    'share.sharedVia': '通过 ShareTool 分享',
     'share.expired': '已过期',
     'share.neverExpire': '永不过期',
     'share.manualRenew': '手动续期',
@@ -708,6 +709,7 @@ const I18N = {
 
     // 分享
     'share.link': 'Share link',
+    'share.sharedVia': 'Shared via ShareTool',
     'share.expired': 'Expired',
     'share.neverExpire': 'Never expires',
     'share.manualRenew': 'Manual renew',
@@ -8181,6 +8183,7 @@ async function shareText() {
       if (linkBox && linkInput) {
         linkInput.value = shareData.success ? shareData.url : (location.origin + '/api/files/' + encodeURIComponent(filename) + '?auth=' + (AUTH_TOKEN || ''));
         linkBox.style.display = 'flex';
+        updateSystemShareBtn();
       }
       loadFiles();
       broadcastWs({ type: 'file_create', payload: { filename, content, type: 'text' } });
@@ -8331,6 +8334,7 @@ async function doCreateShareLink() {
       if (linkBox && linkInput) {
         linkInput.value = shareUrl;
         linkBox.style.display = 'flex';
+        updateSystemShareBtn();
       }
       // 显示过期时间
       if (data.expiresAt) {
