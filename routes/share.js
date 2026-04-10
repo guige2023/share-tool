@@ -249,7 +249,12 @@ btn.textContent='验证并访问';
             return;
           }
           db.recordRateLimitAttempt(rateKey, true);
-          db.incrementShareLinkDownload(code);
+          const dlResult = db.incrementShareLinkDownload(code);
+          if (!dlResult.allowed) {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ success: false, error: '下载次数已达上限（' + dlResult.downloadCount + '/' + dlResult.maxDownloads + '）' }));
+            return;
+          }
           db.addAuditLog('share_access', `code=${code}, filename=${shareData.filename}`, clientIp);
 
           if (file.encrypted) {
@@ -276,7 +281,11 @@ btn.textContent='验证并访问';
     }
 
     // No password: directly serve file
-    db.incrementShareLinkDownload(code);
+    const dlResult = db.incrementShareLinkDownload(code);
+    if (!dlResult.allowed) {
+      sendJson(res, { success: false, error: '下载次数已达上限（' + dlResult.downloadCount + '/' + dlResult.maxDownloads + '）' }, 403);
+      return true;
+    }
     db.addAuditLog('share_access', `code=${code}, filename=${shareData.filename}`, getClientIp(req));
     if (file.encrypted) {
       sendJson(res, { success: false, error: '加密文件无法通过分享链接访问，请在 App 中打开' }, 403);

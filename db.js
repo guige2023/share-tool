@@ -1903,7 +1903,13 @@ function deleteShareLink(code) {
 
 function incrementShareLinkDownload(code) {
   const db = getDb();
+  const link = db.prepare('SELECT max_downloads, download_count FROM share_links WHERE code = ?').get(code);
+  if (!link) return { allowed: false, reason: 'not_found' };
+  if (link.max_downloads && link.download_count >= link.max_downloads) {
+    return { allowed: false, reason: 'max_exceeded', maxDownloads: link.max_downloads, downloadCount: link.download_count };
+  }
   db.prepare('UPDATE share_links SET download_count = download_count + 1 WHERE code = ?').run(code);
+  return { allowed: true };
 }
 
 function listShareLinks() {

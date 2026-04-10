@@ -10538,7 +10538,7 @@ async function renameTag(oldTag) {
     showTagManager();
     loadFiles();
   } else {
-    showToast(T('tag.renameFailed'));
+    showToast(T('tag.renameFailed') || 'Failed to rename tag');
   }
 }
 
@@ -10556,7 +10556,7 @@ async function deleteTag(tag) {
     showTagManager();
     loadFiles();
   } else {
-    showToast(T('tag.renameFailed'));
+    showToast(T('tag.deleteFailed') || 'Failed to delete tag');
   }
 }
 
