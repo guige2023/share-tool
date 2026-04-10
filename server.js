@@ -4018,6 +4018,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       </select>
       <span id="fileCount" style="margin-left:auto;"></span>
       <span id="searchResultCount" style="display:none;color:var(--accent-primary);font-weight:500;margin-left:8px;"></span>
+      <button id="exportSearchBtn" class="btn btn-sm btn-secondary" style="display:none;margin-left:4px;" onclick="exportSearchResults()">📥 导出</button>
       <div class="view-toggle">
         <button class="active" id="listViewBtn" onclick="setView('list')" title="' + T('ui.listView') + '">☰</button>
         <button id="gridViewBtn" onclick="setView('grid')" title="' + T('ui.gridView') + '">▦</button>
@@ -4502,6 +4503,14 @@ if ('serviceWorker' in navigator) {
     }).catch(err => {
       logger.info('[SW] registration failed:', err);
     });
+    // Restore saved accent color
+    const savedAccent = localStorage.getItem('sharetool_accent');
+    if (savedAccent) {
+      document.documentElement.style.setProperty('--accent-primary', savedAccent);
+      const r = parseInt(savedAccent.slice(1,3),16), g = parseInt(savedAccent.slice(3,5),16), b = parseInt(savedAccent.slice(5,7),16);
+      const secondary = '#' + [Math.min(r+30,255), Math.min(g+20,255), Math.min(b+40,255)].map(v => v.toString(16).padStart(2,'0')).join('');
+      document.documentElement.style.setProperty('--accent-secondary', secondary);
+    }
   });
 }
 
@@ -7522,6 +7531,9 @@ function doSearch() {
         countEl.textContent = currentFiles.length === 0 ? T('ui.noResults') : T('ui.resultsFound', {n: currentFiles.length});
         countEl.style.display = 'inline';
       }
+      // Show export button when results exist
+      const exportBtn = document.getElementById('exportSearchBtn');
+      if (exportBtn) exportBtn.style.display = currentFiles.length > 0 ? 'inline-block' : 'none';
       updateTagFilterBar();
     })
     .catch(e => showAlert('listAlert', T('search.failed'), 'error'));

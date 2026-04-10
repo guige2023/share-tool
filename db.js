@@ -2093,6 +2093,50 @@ function deleteTagFromAllFiles(tag) {
   return { updated };
 }
 
+function mergeTags(sources, target) {
+  // 将所有 source 标签合并到 target（从每个文件的标签列表中移除 source，加入 target）
+  const db = getDb();
+  const allTags = [target, ...sources];
+
+  // 找到所有包含任一 source 标签的文件
+  const conditions = sources.map(() => `tags LIKE ?`).join(' OR ');
+  const params = sources.map(s => `%${s}%`);
+  const rows = db.prepare(`SELECT id, tags FROM files WHERE ${conditions}`).all(...params);
+
+  let updated = 0;
+  for (const row of rows) {
+    const fileTags = row.tags ? row.tags.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    // 检查是否包含任何 source 标签
+    const hasSource = fileTags.some(t => sources.includes(t));
+    if (!hasSource) continue;
+
+    // 移除所有 source 标签，加入 target（如果还没有）
+    const newTags = fileTags.filter(t => !sources.includes(t));
+    if (!newTags.includes(target)) {
+      newTags.push(target);
+    }
+
+    const newTagsStr = newTags.join(',');
+    db.prepare("UPDATE files SET tags = ?, updated_at = unixepoch() WHERE id = ?").run(newTagsStr, row.id);
+    updated++;
+  }
+
+  // 清理被合并的 source 标签的 tag_stats
+  for (const src of sources) {
+    db.prepare('UPDATE tag_stats SET count = 0 WHERE tag = ?').run(src);
+    // 将 color 从 source 转移到 target（如果 target 还没有 color）
+    const srcColor = db.getTagColor(src);
+    const tgtColor = db.getTagColor(target);
+    if (srcColor && !tgtColor) {
+      db.setTagColor(target, srcColor);
+    }
+    db.deleteTagColor(src);
+  }
+
+  return { updated };
+}
+
 // ============================================================
 // 迁移旧文件（从文件系统迁移到数据库）
 // ============================================================
@@ -2214,7 +2258,7 @@ module.exports = {
   cleanupSyncLog, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor,
-  getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, renameTagGlobally, deleteTagFromAllFiles,
+  getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags,
   // 回收站
   moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, cleanupExpiredTrash,
   // 文件版本历史

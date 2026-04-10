@@ -360,6 +360,29 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/tags/merge — 合并多个标签到目标标签
+  if (pathname === '/api/tags/merge' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { sources, target } = JSON.parse(body);
+        if (!sources || !Array.isArray(sources) || sources.length === 0) {
+          sendJson(res, { success: false, error: 'sources array required' }, 400);
+          return;
+        }
+        if (!target) { sendJson(res, { success: false, error: 'target required' }, 400); return; }
+        if (sources.includes(target)) { sendJson(res, { success: false, error: 'target cannot be in sources' }, 400); return; }
+        const result = db.mergeTags(sources, target);
+        db.addAuditLog('tag_merge', `sources=${sources.join(',')}, target=${target}, updated=${result.updated} files`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, updated: result.updated });
+      } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
+    });
+    return true;
+  }
+
   // GET /api/file-tags/:filename — 获取文件标签
   if (pathname.startsWith('/api/file-tags/') && method === 'GET') {
     const authData = authRequired(req, res);
