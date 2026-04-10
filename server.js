@@ -4913,6 +4913,7 @@ function updateTagFilterBar() {
 }
 
 function clearTagFilter() {
+  window.currentTagMatch = 'all';
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
     const val = searchInput.value || '';
@@ -6688,6 +6689,9 @@ function filterByTag(tag) {
   input.value = newQ;
   window.currentSearchQ = newQ;
   doSearch();
+  // Ensure toggle button text is current
+  const toggle = document.getElementById('tagMatchToggle');
+  if (toggle) toggle.textContent = window.currentTagMatch === 'any' ? 'OR' : 'AND';
 }
 
 function changeSort(value) { setSort(value); }
@@ -6858,6 +6862,7 @@ function doSearch() {
 function clearSearch() {
   document.getElementById('searchInput').value = '';
   window.currentSearchQ = '';
+  window.currentTagMatch = 'all';
   document.getElementById('clearSearchBtn').style.display = 'none';
   const countEl = document.getElementById('searchResultCount');
   if (countEl) countEl.style.display = 'none';
