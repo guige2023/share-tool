@@ -1391,32 +1391,51 @@ let broadcastTimer = null;
 // ============================================================
 // 速率限制（时间窗口桶）
 // ============================================================
-// API 全局限流：基于时间窗口桶（内存 Map，进程重启即重置，符合 Ephemeral 原则）
-const RATE_LIMIT_GLOBAL_WINDOW_MS = 60 * 1000; // 60秒窗口
-const RATE_LIMIT_GLOBAL_MAX = 60;              // 最多60次
-const rateLimitMap = new Map();                 // ip -> [{timestamp}]
+// API 精细化限流：基于端点评级 + 时间窗口桶（内存 Map，进程重启即重置）
+// 评分：heavy(重) < write(写) < read(读)
+// 免认证请求（anonymous）使用更严格的限制
+const rateLimitMap = new Map(); // ip -> Map<endpoint -> {timestamps[]}>
+
+// 端点评级配置：heaviest < write < read
+const RATE_TIERS = {
+  '/api/upload':              { tier: 'heavy',  anon: 5,  auth: 20 },  // 重操作
+  '/api/search':              { tier: 'heavy',  anon: 5,  auth: 20 },  // 重操作
+  '/api/share/create':        { tier: 'write',  anon: 10, auth: 40 },  // 写操作
+  '/api/share/access':        { tier: 'share',  anon: 5,  auth: 40 },  // 特殊：防暴力
+  '/api/files':               { tier: 'read',   anon: 30, auth: 120 }  // 读操作
+};
+const RATE_WINDOW_MS = 60 * 1000; // 60秒窗口
+
+function getRateLimit(ip, endpoint, isAuth) {
+  const now = Date.now();
+  const windowStart = now - RATE_WINDOW_MS;
+
+  // 查端点配置
+  let cfg = RATE_TIERS[endpoint];
+  if (!cfg) cfg = { tier: 'read', anon: 30, auth: 120 }; // 默认读操作限制
+  const max = isAuth ? cfg.auth : cfg.anon;
+
+  // 确保数据结构
+  if (!rateLimitMap.has(ip)) rateLimitMap.set(ip, new Map());
+  const endpointMap = rateLimitMap.get(ip);
+  if (!endpointMap.has(endpoint)) endpointMap.set(endpoint, []);
+
+  const timestamps = endpointMap.get(endpoint);
+  // 清理过期记录
+  while (timestamps.length > 0 && timestamps[0] < windowStart) timestamps.shift();
+
+  const remaining = Math.max(0, max - timestamps.length);
+  if (timestamps.length >= max) {
+    return { allowed: false, retryAfter: 60, remaining: 0, total: max, tier: cfg.tier };
+  }
+
+  timestamps.push(now);
+  return { allowed: true, remaining: remaining - 1, total: max, tier: cfg.tier };
+}
 
 function checkGlobalRateLimit(ip) {
-  const now = Date.now();
-  const windowStart = now - RATE_LIMIT_GLOBAL_WINDOW_MS;
-
-  if (!rateLimitMap.has(ip)) {
-    rateLimitMap.set(ip, []);
-  }
-
-  const requests = rateLimitMap.get(ip);
-  // 清理过期记录
-  while (requests.length > 0 && requests[0] < windowStart) {
-    requests.shift();
-  }
-
-  const remaining = Math.max(0, RATE_LIMIT_GLOBAL_MAX - requests.length);
-  if (requests.length >= RATE_LIMIT_GLOBAL_MAX) {
-    return { allowed: false, retryAfter: 60, remaining: 0, total: RATE_LIMIT_GLOBAL_MAX };
-  }
-
-  requests.push(now);
-  return { allowed: true, remaining: remaining - 1, total: RATE_LIMIT_GLOBAL_MAX };
+  // 兼容旧调用（authRequired 内部使用）
+  return getRateLimit(ip, 'ALL', false);
 }
 
 // ============================================================
@@ -2140,7 +2159,8 @@ async function startHttpServer() {
     // Skip rate limit for healthcheck, static assets
     if (!['/api/health', '/index', '/favicon'].some(p => pathname.startsWith(p))) {
       const clientIp = getClientIp(req);
-      const rate = checkGlobalRateLimit(clientIp);
+      const isAuth = !!(req.headers['x-auth-token'] || parsedUrl.searchParams.get('auth'));
+      const rate = getRateLimit(clientIp, pathname, isAuth);
       if (!rate.allowed) {
         res.writeHead(429, {
           'Content-Type': 'application/json',
@@ -8199,18 +8219,69 @@ function toggleTheme() {
   html.setAttribute('data-theme', next);
   localStorage.setItem('shareTool_theme', next);
   document.getElementById('themeToggle').textContent = next === 'light' ? '☀️' : '🌙';
-  // 更新所有 theme-color meta（确保状态栏反映用户选择）
-  const themeColor = next === 'light' ? '#667eea' : '#0f172a';
+  updateThemeColor(next);
+  // 取消系统跟随监听（用户已手动选择）
+  detachSystemThemeWatcher();
+}
+
+function setTheme(theme) {
+  // 'system' = follow system; 'light'/'dark' = manual
+  if (theme === 'system') {
+    localStorage.removeItem('shareTool_theme');
+    applySystemTheme();
+    attachSystemThemeWatcher();
+  } else {
+    localStorage.setItem('shareTool_theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    document.getElementById('themeToggle').textContent = theme === 'light' ? '☀️' : '🌙';
+    updateThemeColor(theme);
+    detachSystemThemeWatcher();
+  }
+}
+
+function updateThemeColor(theme) {
+  const themeColor = theme === 'light' ? '#667eea' : '#0f172a';
   document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = themeColor; });
+}
+
+function applySystemTheme() {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = prefersDark ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeToggle').textContent = theme === 'light' ? '☀️' : '🌙';
+  updateThemeColor(theme);
+}
+
+let _systemWatcher = null;
+function attachSystemThemeWatcher() {
+  if (_systemWatcher) return;
+  _systemWatcher = window.matchMedia('(prefers-color-scheme: dark)');
+  _systemWatcher.addEventListener('change', () => {
+    // 只有在非手动设置时才跟随系统
+    if (!localStorage.getItem('shareTool_theme')) {
+      applySystemTheme();
+    }
+  });
+}
+function detachSystemThemeWatcher() {
+  if (_systemWatcher) {
+    _systemWatcher.removeEventListener('change', applySystemTheme);
+    _systemWatcher = null;
+  }
 }
 
 function initTheme() {
   const saved = localStorage.getItem('shareTool_theme');
-  const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  document.documentElement.setAttribute('data-theme', theme);
-  document.getElementById('themeToggle').textContent = theme === 'light' ? '☀️' : '🌙';
-  const themeColor = theme === 'light' ? '#667eea' : '#0f172a';
-  document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.content = themeColor; });
+  if (saved) {
+    // 手动设置
+    document.documentElement.setAttribute('data-theme', saved);
+    document.getElementById('themeToggle').textContent = saved === 'light' ? '☀️' : '🌙';
+    updateThemeColor(saved);
+  } else {
+    // 跟随系统
+    attachSystemThemeWatcher();
+    applySystemTheme();
+  }
 }
 
 // 初始化
