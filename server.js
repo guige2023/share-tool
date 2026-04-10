@@ -6688,17 +6688,6 @@ document.addEventListener('click', function(e) {
   }
 });
 
-// Keyboard: Escape closes file modal and context menu
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    hideContextMenu();
-    const fileModal = document.getElementById('fileModal');
-    if (fileModal && fileModal.classList.contains('show')) {
-      closeModal();
-    }
-  }
-});
-
 function closeModal() {
   resetImageZoom();
   unlockScroll();
