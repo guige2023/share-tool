@@ -9099,6 +9099,21 @@ function hideSearchHint() {
   const el = document.getElementById('searchHint');
   if (el) el.style.display = 'none';
 }
+function clearAllFilters() {
+  const input = document.getElementById('searchInput');
+  if (input) {
+    // Remove all inline filter tokens from the search query
+    input.value = input.value
+      .replace(/tag:\S+/g, '')
+      .replace(/content:\S+/g, '')
+      .replace(/size:[<>]\d+[kmgt]?/gi, '')
+      .replace(/date:[<>][^\s]+/gi, '')
+      .replace(/type:\w+/gi, '')
+      .replace(/ext:\w+/gi, '')
+      .trim();
+    doSearch();
+  }
+}
 function removeFilterChip(type, value) {
   const input = document.getElementById('searchInput');
   if (!input) return;
@@ -9147,7 +9162,9 @@ function doSearch() {
     const container = document.getElementById('activeFilterChips');
     if (chips.length === 0) { container.style.display = 'none'; return; }
     container.style.display = 'flex';
-    container.innerHTML = chips.map((c, i) => '<span class="filter-chip">' + labels[c.type] + ' ' + escapeHtml(c.value) + ' <button class="filter-chip-remove" onclick="event.stopPropagation();removeFilterChip(\'' + c.type + '\',\'' + c.value.replace(/'/g, "\\'") + '\')">×</button></span>').join('');
+    const chipsHtml = chips.map((c, i) => '<span class="filter-chip">' + labels[c.type] + ' ' + escapeHtml(c.value) + ' <button class="filter-chip-remove" onclick="event.stopPropagation();removeFilterChip(\'' + c.type + '\',\'' + c.value.replace(/'/g, "\\'") + '\')">×</button></span>').join('');
+    const clearAll = chips.length > 1 ? '<button class="btn btn-sm" onclick="clearAllFilters()" style="font-size:11px;padding:2px 8px;height:auto;min-height:0;">清除全部</button>' : '';
+    container.innerHTML = chipsHtml + clearAll;
     window._filterChips = chips;
   })();
 
