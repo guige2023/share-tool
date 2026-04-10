@@ -3984,6 +3984,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   <div class="modal-content" style="max-width:600px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
       <div class="modal-title">🔗 <span id="shareLinksTitle">' + T('share.manage') + '</span></div>
+      <button id="btnDeleteExpiredShares" class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="deleteExpiredShares()">' + T('share.deleteExpired') + '</button>
       <button class="modal-close" onclick="closeShareLinksModal()">x</button>
     </div>
     <div id="shareLinksList" style="padding:8px 0;"></div>
@@ -4076,6 +4077,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div id="tagInputExisting" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
       <!-- New tags input -->
       <input type="text" id="tagInputField" placeholder="' + T('tag.inputHint') + '" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off">
+      <!-- Tag autocomplete suggestions -->
+      <div id="tagInputSuggestions" style="display:none;max-height:120px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;margin-top:4px;background:var(--bg-secondary);"></div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + T('tag.inputHint') + '</div>
       <!-- Color picker for new tags -->
       <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
@@ -5099,8 +5102,7 @@ function handleDragEnd(e, el) {
 
 // Save and apply custom file order
 const CUSTOM_ORDER_KEY = 'sharetool_custom_order_v1';
-
-function saveCustomFileOrder(movedName, targetName) {
+async function saveCustomFileOrder(movedName, targetName) {
   const container = document.getElementById('fileContainer') || document.querySelector('.file-list, .file-grid');
   if (!container) return;
   const items = Array.from(container.querySelectorAll('.file-item'));
@@ -5118,8 +5120,52 @@ function saveCustomFileOrder(movedName, targetName) {
   const orderObj = {};
   names.forEach((name, i) => { orderObj[name] = i; });
   localStorage.setItem(CUSTOM_ORDER_KEY, JSON.stringify(orderObj));
+
+  // Build positions array: use currentFiles (has id+name) to map filenames to ids
+  const positions = names.map((name, i) => {
+    const file = currentFiles.find(f => f.name === name);
+    return file ? { id: file.id, position: i } : null;
+  }).filter(Boolean);
+
+  // Sync to server
+  try {
+    await fetch(API + '/api/file/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ positions })
+    });
+  } catch (_) {}
+
   // Reload the file list to reflect new order
   loadFiles();
+}
+    const bi = orderObj[b.name];
+    if (ai !== undefined && bi !== undefined) return ai - bi;
+    if (ai !== undefined) return -1;
+    if (bi !== undefined) return 1;
+    return 0;
+  });
+  renderFiles();
+  // Also persist to DB in background
+  persistFileOrderToServer(names);
+}
+
+async function persistFileOrderToServer(names) {
+  try {
+    // Build positions array: name → position
+    const positions = names.map((name, i) => {
+      const file = currentFiles.find(f => f.name === name);
+      return file ? { id: file.id, position: i } : null;
+    }).filter(Boolean);
+    if (positions.length === 0) return;
+    await fetch(API + '/api/file/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ positions })
+    });
+  } catch (e) {
+    logger.warn({ err: e }, 'Failed to persist file order');
+  }
 }
 
 function getCustomFileOrder() {
