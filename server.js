@@ -3770,6 +3770,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">📅 7天活动</div>
       <div id="dashboardChart" style="display:flex;align-items:flex-end;gap:4px;height:40px;"></div>
     </div>
+    <div style="margin-top:10px;">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">📂 类型分布</div>
+      <div id="dashboardTypeChart" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;"></div>
+    </div>
   </div>
 
   <div class="card">
@@ -5803,6 +5807,41 @@ async function loadDashboard() {
         '<div style="font-size:8px;color:var(--text-muted);">' + item.date + '</div>' +
         '</div>';
     }).join('');
+
+    // Type distribution donut chart
+    const typeEl = document.getElementById('dashboardTypeChart');
+    const byType = data.byType || [];
+    if (typeEl && byType.length > 0) {
+      const totalFiles = (files?.total) || 1;
+      const COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#667eea'];
+      // Build conic-gradient segments
+      let gradientStops = [];
+      let accumulatedPercent = 0;
+      byType.slice(0, 10).forEach((item, i) => {
+        const percent = Math.round((item.count / totalFiles) * 100);
+        if (percent > 0) {
+          gradientStops.push(COLORS[i % COLORS.length] + ' ' + accumulatedPercent + '% ' + (accumulatedPercent + percent) + '%');
+          accumulatedPercent += percent;
+        }
+      });
+      const bg = gradientStops.length > 0 ? 'conic-gradient(' + gradientStops.join(', ') + ')' : 'none';
+
+      typeEl.innerHTML =
+        '<div style="width:52px;height:52px;border-radius:50%;background:' + bg + ';position:relative;flex-shrink:0;">' +
+        '<div style="position:absolute;inset:8px;background:var(--bg-secondary);border-radius:50%;"></div>' +
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;">' +
+        byType.slice(0, 8).map((item, i) => {
+          const pct = Math.round((item.count / totalFiles) * 100);
+          return '<div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-secondary);">' +
+            '<div style="width:8px;height:8px;border-radius:50%;background:' + (COLORS[i % COLORS.length]) + ';flex-shrink:0;"></div>' +
+            '<span>' + escapeHtml(item.type || 'file') + ' ' + pct + '%</span>' +
+            '</div>';
+        }).join('') +
+        '</div>';
+    } else if (typeEl) {
+      typeEl.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">暂无数据</div>';
+    }
 
   } catch (e) {
     el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">加载失败</div>';
