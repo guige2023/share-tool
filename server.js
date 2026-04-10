@@ -4016,7 +4016,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div id="breadcrumbBar" style="display:none;padding:6px 0;font-size:12px;margin-bottom:4px;"></div>
     <div class="sort-bar">
       <span>' + T('ui.sortBy') + ':</span>
-      <select id="sortSelect" onchange="changeSort(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;">
+      <select id="sortSelect" onchange="changeSort(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:16px;">
         <option value="manual">' + T('ui.sortManual') + '</option>
         <option value="time_desc">' + T('ui.sortNewest') + ' ▼</option>
         <option value="time_asc">' + T('ui.sortOldest') + ' ▲</option>
@@ -4153,10 +4153,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <!-- Filters -->
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
-      <select id="auditFilterAction" onchange="showAuditModal()" style="padding:6px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:12px;max-width:160px;">
+      <select id="auditFilterAction" onchange="showAuditModal()" style="padding:6px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:16px;max-width:160px;">
         <option value="">' + T('ui.all') + '</option>
       </select>
-      <input type="date" id="auditFilterDate" onchange="showAuditModal()" style="padding:6px 8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:12px;">
+      <input type="date" id="auditFilterDate" onchange="showAuditModal()" style="padding:6px 8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:16px;">
       <button class="btn btn-sm" onclick="exportAudit('csv')">📥 CSV</button>
       <button class="btn btn-sm" onclick="exportAudit('json')">📥 JSON</button>
     </div>
