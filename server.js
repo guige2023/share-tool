@@ -531,6 +531,8 @@ const I18N = {
     'ui.shortcutCopyLink': 'C 复制链接',
     'ui.shortcutToggleFav': 'F 收藏筛选',
     'ui.shortcutToggleSelect': 'X 选中/取消',
+    'ui.shortcutTagSelected': 'T 批量标签',
+    'ui.shortcutOpenFocused': 'Enter 打开文件',
     'ui.shortcutRefresh': 'R 刷新',
     'ui.shortcutClose': 'Esc 关闭',
     'ui.shortcutMoveFocus': 'J/K 上下移动焦点',
@@ -985,6 +987,8 @@ const I18N = {
     'ui.shortcutCopyLink': 'C Copy link',
     'ui.shortcutToggleFav': 'F Favorite filter',
     'ui.shortcutToggleSelect': 'X Toggle select',
+    'ui.shortcutTagSelected': 'T Batch tag',
+    'ui.shortcutOpenFocused': 'Enter Open file',
     'ui.shortcutRefresh': 'R Refresh',
     'ui.shortcutClose': 'Esc Close',
     'ui.shortcutMoveFocus': 'J/K Move focus',
@@ -4250,7 +4254,9 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <div class="shortcut-list">
       <span class="shortcut-key">j / k</span><span class="shortcut-desc">' + T('ui.shortcutMoveFocus') + '</span>
+      <span class="shortcut-key">Enter</span><span class="shortcut-desc">' + T('ui.shortcutOpenFocused') + '</span>
       <span class="shortcut-key">x</span><span class="shortcut-desc">' + T('ui.shortcutToggleSelect') + '</span>
+      <span class="shortcut-key">t</span><span class="shortcut-desc">' + T('ui.shortcutTagSelected') + '</span>
       <span class="shortcut-key">a</span><span class="shortcut-desc">' + T('ui.shortcutSelectAll') + '</span>
       <span class="shortcut-key">s</span><span class="shortcut-desc">' + T('ui.shortcutStarFocused') + '</span>
       <span class="shortcut-key">c</span><span class="shortcut-desc">' + T('ui.shortcutCopyLink') + '</span>
@@ -6933,8 +6939,20 @@ document.addEventListener('keydown', (e) => {
     const items = getVisibleFileItems();
     if (focusedFileIndex >= 0 && items[focusedFileIndex]) {
       const el = items[focusedFileIndex];
-      const cb = el.querySelector('.file-checkbox');
+      const cb = el.querySelector('.batch-checkbox');
       if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
+    }
+  } else if (e.key === 't' || e.key === 'T') {
+    // t: batch tag selected files (or focused file if none selected)
+    e.preventDefault();
+    const checked = document.querySelectorAll('.batch-checkbox:checked');
+    if (checked.length > 0) {
+      const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+      openBatchTagModal(filenames);
+    } else if (focusedFileIndex >= 0) {
+      const items = getVisibleFileItems();
+      const fn = items[focusedFileIndex]?.dataset.filename;
+      if (fn) openBatchTagModal([decodeURIComponent(fn)]);
     }
   } else if (e.key === 'c' || e.key === 'C') {
     // c: copy share link of focused file
@@ -6943,6 +6961,26 @@ document.addEventListener('keydown', (e) => {
     if (focusedFileIndex >= 0 && items[focusedFileIndex]) {
       const fn = items[focusedFileIndex].dataset.filename;
       if (fn) copyShareLinkByFilename(decodeURIComponent(fn));
+    }
+  } else if (e.key === 'Enter') {
+    // Enter: open focused file
+    e.preventDefault();
+    const items = getVisibleFileItems();
+    if (focusedFileIndex >= 0 && items[focusedFileIndex]) {
+      const el = items[focusedFileIndex];
+      const fn = el.dataset.filename;
+      if (fn) {
+        const decoded = decodeURIComponent(fn);
+        const isImage = /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(decoded);
+        const isVirtualFolder = virtualFolders.some(vf => vf.name === decoded);
+        if (!isVirtualFolder) {
+          if (isImage) { openImageModal(decoded); return; }
+          if (isCodeFile(decoded)) { openCodeModal(decoded); return; }
+          if (isAudioFile(decoded) || isVideoFile(decoded)) { openMediaModal(decoded); return; }
+          if (isPdfFile(decoded)) { openPdfModal(decoded); return; }
+          openFileModal(decoded);
+        }
+      }
     }
   } else if ((e.key === 'Delete' || e.key === 'Backspace') && focusedFileIndex >= 0) {
     // Delete: delete focused file (with confirmation)
