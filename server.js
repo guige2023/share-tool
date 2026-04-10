@@ -4319,9 +4319,22 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   <div class="modal-content" style="max-width:480px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
       <div class="modal-title">' + T('tag.manager') + '</div>
-      <button class="modal-close" onclick="closeTagManager()">x</button>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-sm" onclick="showTagMergeUI()" style="font-size:11px;padding:4px 10px;">' + T('tag.merge') + '</button>
+        <button class="modal-close" onclick="closeTagManager()">x</button>
+      </div>
     </div>
     <input type="text" id="tagManagerSearch" placeholder="' + T('ui.searchTags') + '" style="width:100%;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;margin-bottom:12px;box-sizing:border-box;" oninput="filterTagManagerList(this.value)">
+    <div id="tagMergeUI" style="display:none;background:var(--bg-tertiary);border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">' + T('tag.mergeHint') + '</div>
+      <div id="tagMergeSourceList" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;margin-bottom:12px;"></div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">' + T('tag.mergeTarget') + '</div>
+      <select id="tagMergeTarget" style="width:100%;padding:6px 10px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:13px;margin-bottom:10px;"></select>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button class="btn btn-sm btn-secondary" onclick="hideTagMergeUI()">' + T('ui.cancel') + '</button>
+        <button class="btn btn-sm" onclick="executeTagMerge()" style="background:var(--accent-primary);color:white;">' + T('tag.mergeConfirm') + '</button>
+      </div>
+    </div>
     <div id="tagManagerList" style="display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
@@ -4350,6 +4363,27 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div style="margin-top:16px;display:flex;gap:8px;">
         <button class="btn" style="flex:1;" onclick="confirmTagInput()">' + T('ui.save') + '</button>
         <button class="btn btn-secondary" style="flex:1;" onclick="closeTagInputModal()">' + T('ui.cancel') + '</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Batch Tag Modal -->
+<div class="modal-overlay" id="batchTagModal" onclick="if(event.target===this)closeBatchTagModal()">
+  <div class="modal-content" style="max-width:440px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">🏷 <span id="batchTagModalTitle">批量标签</span></div>
+      <button class="modal-close" onclick="closeBatchTagModal()">x</button>
+    </div>
+    <div style="padding:8px 0;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;" id="batchTagFileCount"></div>
+      <div id="batchTagExisting" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
+      <input type="text" id="batchTagInputField" placeholder="输入标签后按回车" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off">
+      <div id="batchTagSuggestions" style="display:none;max-height:120px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;margin-top:4px;background:var(--bg-secondary);"></div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">输入后按 Enter 添加 · 点击已有标签可移除</div>
+      <div style="margin-top:16px;display:flex;gap:8px;">
+        <button class="btn" style="flex:1;" onclick="confirmBatchTagInput()">保存</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeBatchTagModal()">取消</button>
       </div>
     </div>
   </div>
@@ -7107,6 +7141,23 @@ document.addEventListener('keydown', (e) => {
       const cb = el.querySelector('.batch-checkbox');
       if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
     }
+  } else if ((e.key === 'v' || e.key === 'V') && !isInputFocused()) {
+    // v: toggle grid/list view
+    e.preventDefault();
+    const gridView = document.getElementById('gridView');
+    const listView = document.getElementById('listView');
+    if (gridView && listView) {
+      const isGrid = gridView.style.display !== 'none';
+      if (isGrid) {
+        gridView.style.display = 'none';
+        listView.style.display = 'block';
+        localStorage.setItem('sharetool_view', 'list');
+      } else {
+        gridView.style.display = 'grid';
+        listView.style.display = 'none';
+        localStorage.setItem('sharetool_view', 'grid');
+      }
+    }
   } else if (e.key === 't' || e.key === 'T') {
     // t: batch tag selected files (or focused file if none selected)
     e.preventDefault();
@@ -8091,6 +8142,91 @@ function selectTagInputColor(el, color) {
 }
 
 let _tagInputState = { filename: '', existingTags: [], selectedColor: '#667eea' };
+
+// ============================================================
+// Batch Tag Modal
+// ============================================================
+let _batchTagState = { filenames: [], tags: [] };
+
+function openBatchTagModal(filenames) {
+  _batchTagState = { filenames, tags: [] };
+  document.getElementById('batchTagFileCount').textContent = filenames.length + ' 个文件';
+  document.getElementById('batchTagInputField').value = '';
+  renderBatchTagChips();
+  lockScroll();
+  document.getElementById('batchTagModal').classList.add('show');
+  document.getElementById('batchTagInputField').focus();
+  setupBatchTagSuggestions();
+}
+
+function closeBatchTagModal() {
+  unlockScroll();
+  document.getElementById('batchTagModal').classList.remove('show');
+}
+
+function renderBatchTagChips() {
+  const container = document.getElementById('batchTagExisting');
+  container.innerHTML = _batchTagState.tags.map(t =>
+    '<span style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(102,126,234,0.2);color:var(--accent-primary);border-radius:12px;font-size:12px;cursor:pointer;" onclick="removeBatchTag(\'' + escapeHtml(t).replace(/'/g, "\\'") + '\')">' +
+    escapeHtml(t) + '<span style="cursor:pointer;opacity:0.7;margin-left:2px;">×</span></span>'
+  ).join('');
+}
+
+function removeBatchTag(tag) {
+  _batchTagState.tags = _batchTagState.tags.filter(t => t !== tag);
+  renderBatchTagChips();
+}
+
+function addBatchTag(tag) {
+  const trimmed = tag.trim();
+  if (trimmed && !_batchTagState.tags.includes(trimmed)) {
+    _batchTagState.tags.push(trimmed);
+    renderBatchTagChips();
+  }
+  document.getElementById('batchTagInputField').value = '';
+  document.getElementById('batchTagSuggestions').style.display = 'none';
+}
+
+async function confirmBatchTagInput() {
+  const { filenames, tags } = _batchTagState;
+  if (!filenames.length) { closeBatchTagModal(); return; }
+  closeBatchTagModal();
+  let success = 0, failed = 0;
+  for (const filename of filenames) {
+    try {
+      const res = await fetch(API + '/api/file-tags/' + encodeURIComponent(filename), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ action: 'replace', tags })
+      });
+      if (res.ok) success++; else failed++;
+    } catch { failed++; }
+  }
+  if (success) {
+    showToast(success + ' 个文件已更新标签');
+    loadFiles();
+  } else if (failed) {
+    showToast('标签更新失败', true);
+  }
+}
+
+function setupBatchTagSuggestions() {
+  const input = document.getElementById('batchTagInputField');
+  if (!input) return;
+  input.removeEventListener('keydown', handleBatchTagKeydown);
+  input.addEventListener('keydown', handleBatchTagKeydown);
+}
+
+function handleBatchTagKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = e.target.value.trim();
+    if (val) addBatchTag(val);
+  } else if (e.key === 'Backspace' && !e.target.value && _batchTagState.tags.length) {
+    _batchTagState.tags.pop();
+    renderBatchTagChips();
+  }
+}
 
 function closeTagInputModal() {
   unlockScroll();
