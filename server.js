@@ -526,6 +526,8 @@ const I18N = {
     'tags.empty': '暂无标签',
     'ui.sortTagAZ': '标签 A-Z',
     'ui.sortTagZA': '标签 Z-A',
+    'ui.sortTagCount': '使用次数',
+    'ui.sortByColor': '按颜色',
     'ui.sortMostDownloaded': '下载最多',
     'ui.sortLeastDownloaded': '下载最少',
     'ui.sortManual': '手动',
@@ -1004,6 +1006,8 @@ const I18N = {
     'tags.empty': 'No tags yet',
     'ui.sortTagAZ': 'Tag A-Z',
     'ui.sortTagZA': 'Tag Z-A',
+    'ui.sortTagCount': 'Usage count',
+    'ui.sortByColor': 'By color',
     'ui.sortMostDownloaded': 'Most downloaded',
     'ui.sortLeastDownloaded': 'Least downloaded',
     'ui.sortManual': 'Manual',
@@ -4502,6 +4506,15 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       </div>
     </div>
     <input type="text" id="tagManagerSearch" placeholder="' + T('ui.searchTags') + '" style="width:100%;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;min-height:44px;margin-bottom:8px;box-sizing:border-box;" oninput="filterTagManagerList(this.value)">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+      <select id="tagManagerSort" onchange="sortTagManagerList(this.value)" style="flex:1;padding:8px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;min-height:44px;box-sizing:border-box;">
+        <option value="count_desc">' + T('ui.sortTagCount') + '</option>
+        <option value="name_asc">' + T('ui.sortTagAZ') + '</option>
+        <option value="name_desc">' + T('ui.sortTagZA') + '</option>
+        <option value="color">' + T('ui.sortByColor') + '</option>
+      </select>
+      <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;" id="tagManagerCount"></div>
+    </div>
     <div id="tagBatchBar" style="display:none;background:var(--accent-primary);border-radius:8px;padding:8px 12px;margin-bottom:8px;align-items:center;gap:8px;justify-content:space-between;">
       <span style="font-size:12px;color:white;"></span>
       <div style="display:flex;gap:6px;">
@@ -9666,6 +9679,11 @@ async function batchDeleteTags() {
 }
 
 async function showTagManager() {
+  _selectedTags = new Set();
+  _tagManagerSortOrder = 'count_desc';
+  _tagManagerSearchQ = '';
+  const sortSelect = document.getElementById('tagManagerSort');
+  if (sortSelect) sortSelect.value = 'count_desc';
   await loadTagColors();
   const res = await fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
   const data = await res.json();
@@ -9686,21 +9704,44 @@ function closeTagManager() {
 }
 
 let _tagManagerData = [];  // cache for filtering
-function filterTagManagerList(q) {
-  const list = document.getElementById('tagManagerList');
-  if (!q.trim()) {
-    renderTagManagerItems(_tagManagerData);
-    return;
+let _tagManagerSortOrder = 'count_desc';  // current sort order
+let _tagManagerSearchQ = '';  // current search query
+
+function sortTagManagerList(order) {
+  _tagManagerSortOrder = order;
+  applyTagManagerFilter();
+}
+
+function applyTagManagerFilter() {
+  let data = _tagManagerData;
+  // Apply search filter
+  if (_tagManagerSearchQ) {
+    const lq = _tagManagerSearchQ.toLowerCase();
+    data = data.filter(t => t.tag.toLowerCase().includes(lq));
   }
-  const lq = q.toLowerCase();
-  renderTagManagerItems(_tagManagerData.filter(t => t.tag.toLowerCase().includes(lq)));
+  // Apply sort
+  data = data.slice().sort((a, b) => {
+    if (_tagManagerSortOrder === 'name_asc') return a.tag.localeCompare(b.tag);
+    if (_tagManagerSortOrder === 'name_desc') return b.tag.localeCompare(a.tag);
+    if (_tagManagerSortOrder === 'color') return (a.color || '#667eea').localeCompare(b.color || '#667eea');
+    // count_desc (default)
+    return (b.count || 0) - (a.count || 0);
+  });
+  renderTagManagerItems(data);
+}
+
+function filterTagManagerList(q) {
+  _tagManagerSearchQ = q;
+  applyTagManagerFilter();
 }
 function renderTagManagerItems(tags) {
   const list = document.getElementById('tagManagerList');
   if (!tags.length) {
     list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('admin.noTags') + '</div>';
+    document.getElementById('tagManagerCount').textContent = '';
     return;
   }
+  document.getElementById('tagManagerCount').textContent = tags.length + ' 个';
   list.innerHTML = tags.map(t => {
     const color = t.color || '#667eea';
     const emoji = t.emoji || '🏷';
