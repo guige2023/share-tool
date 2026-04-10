@@ -1652,6 +1652,14 @@ function clearSearchHistory(userId = null) {
   }
 }
 
+function getPopularSearches(limit = 5) {
+  const db = getDb();
+  // Returns the most frequently searched queries (all users, all time)
+  return db.prepare(
+    'SELECT query, COUNT(*) as count FROM search_history WHERE length(query) >= 2 GROUP BY query ORDER BY count DESC LIMIT ?'
+  ).all(limit);
+}
+
 function exportAuditLogsCSV(filters = {}) {
   const db = getDb();
   const conditions = [];
@@ -2384,7 +2392,7 @@ module.exports = {
   // 速率限制
   checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig,
   // 搜索历史
-  addSearchHistory, getSearchHistory, clearSearchHistory,
+  addSearchHistory, getSearchHistory, clearSearchHistory, getPopularSearches,
   // 分享链接
   saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload,
   listShareLinks, cleanupExpiredShareLinks,
