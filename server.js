@@ -5507,6 +5507,8 @@ function renderFiles() {
     const isPdf = !isVirtualFolder && isPdfFile(f.name);
     const isMarkdown = !isVirtualFolder && /\.(md|markdown)$/i.test(f.name) && f.type === 'text';
     const isCode = !isVirtualFolder && !isMarkdown && isCodeFile(f.name);
+    const isCsv = !isVirtualFolder && isCsvFile(f.name);
+    const isArchive = !isVirtualFolder && isArchiveFile(f.name);
     const previewId = 'preview-' + btoaSafe(f.name).substring(0, 20);
     const thumbId = 'thumb-' + btoaSafe(f.name).substring(0, 20);
     const tags = f.tags ? f.tags.split(',').filter(t => t.trim()) : [];
@@ -5773,14 +5775,21 @@ function getCustomFileOrder() {
 }
 
 async function loadPreview(filename, previewId) {
+  const el = document.getElementById(previewId);
+  if (!el) return;
+  el.textContent = '⏳...';
   try {
     const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    const el = document.getElementById(previewId);
     if (el && data.content) {
       el.textContent = data.content.substring(0, 300) + (data.content.length > 300 ? '...' : '');
+    } else if (el) {
+      el.textContent = T('err.loadFailed') || '加载失败';
     }
-  } catch (e) {}
+  } catch (e) {
+    if (el) el.textContent = T('err.loadFailed') || '加载失败';
+  }
 }
 
 // 懒加载 PDF 缩略图：使用 PDF.js 渲染第一页
@@ -11246,6 +11255,14 @@ function isOfficeFile(filename) {
 function isCodeFile(filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   return CODE_EXTS.has(ext);
+}
+function isCsvFile(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return CSV_EXTS.has(ext);
+}
+function isArchiveFile(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return ARCHIVE_EXTS.has(ext);
 }
 
 
