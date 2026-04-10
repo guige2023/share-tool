@@ -1693,10 +1693,13 @@ function handleWebDAV(req, res, pathname, query) {
   const path = pathname.slice(WEBDAV_PREFIX.length);
   const depth = parseWebDAVDepth(req.headers.depth || '1');
 
-  // Auth required
-  const authResult = auth(req);
+  // Auth required (supports Bearer Token + HTTP Basic Auth)
+  const authResult = authWebDAV(req);
   if (!authResult) {
-    res.writeHead(401, { 'Content-Type': 'application/xml' });
+    res.writeHead(401, {
+      'Content-Type': 'application/xml',
+      'WWW-Authenticate': 'Bearer realm="ShareTool",Basic realm="ShareTool"'
+    });
     res.end('<?xml version="1.0"?><d:error xmlns:d="DAV:"><d:href>' + escapeHtml(pathname) + '</d:href><d:status>401 Unauthorized</d:status></d:error>');
     return true;
   }
@@ -2009,14 +2012,46 @@ function sendJson(res, data, status = 200) {
 function auth(req) {
   const token = req.headers['x-auth-token'] || req.headers['authorization']?.replace('Bearer ', '');
   if (!token) return null;
-  
+
   // 验证动态 Token
   const dynamicToken = db.validateToken(token);
   if (dynamicToken) return dynamicToken;
-  
+
   // 验证配置的共享 Token
   if (!SHARE_TOKEN) SHARE_TOKEN = getShareToken();
   if (token === SHARE_TOKEN) return { token: SHARE_TOKEN, isStatic: true };
+  return null;
+}
+
+// WebDAV 专用认证：支持 Bearer Token + HTTP Basic Auth
+function authWebDAV(req) {
+  const authHeader = req.headers['authorization'] || '';
+
+  // 1. Bearer Token
+  const bearer = req.headers['x-auth-token'] || authHeader.replace('Bearer ', '');
+  if (bearer) {
+    const dynamicToken = db.validateToken(bearer);
+    if (dynamicToken) return dynamicToken;
+    if (!SHARE_TOKEN) SHARE_TOKEN = getShareToken();
+    if (bearer === SHARE_TOKEN) return { token: SHARE_TOKEN, isStatic: true };
+  }
+
+  // 2. HTTP Basic Auth (username:share_token)
+  if (authHeader.toLowerCase().startsWith('basic ')) {
+    try {
+      const base64 = authHeader.slice(6);
+      const decoded = Buffer.from(base64, 'base64').toString('utf8');
+      const colonIdx = decoded.indexOf(':');
+      if (colonIdx !== -1) {
+        const password = decoded.slice(colonIdx + 1);
+        if (!SHARE_TOKEN) SHARE_TOKEN = getShareToken();
+        if (password === SHARE_TOKEN) {
+          return { token: SHARE_TOKEN, isStatic: true, isBasicAuth: true };
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
   return null;
 }
 
