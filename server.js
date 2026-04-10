@@ -4376,7 +4376,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">' + T('tag.mergeHint') + '</div>
       <div id="tagMergeSourceList" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;margin-bottom:12px;"></div>
       <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">' + T('tag.mergeTarget') + '</div>
-      <select id="tagMergeTarget" style="width:100%;padding:6px 10px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:13px;margin-bottom:10px;"></select>
+      <select id="tagMergeTarget" style="width:100%;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:16px;min-height:44px;margin-bottom:10px;box-sizing:border-box;"></select>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button class="btn btn-sm btn-secondary" onclick="hideTagMergeUI()">' + T('ui.cancel') + '</button>
         <button class="btn btn-sm" onclick="executeTagMerge()" style="background:var(--accent-primary);color:white;">' + T('tag.mergeConfirm') + '</button>

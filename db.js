@@ -234,9 +234,17 @@ function initSchemaV1(db) {
       tag        TEXT PRIMARY KEY,
       color      TEXT NOT NULL,
       emoji      TEXT,
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      last_used  INTEGER
     )
   `);
+
+  // 懒迁移：确保 last_used 列存在（已有数据库兼容性）
+  try {
+    db.prepare('SELECT last_used FROM tag_colors LIMIT 1').get();
+  } catch {
+    db.exec('ALTER TABLE tag_colors ADD COLUMN last_used INTEGER');
+  }
 
   // 标签统计表（维护每个标签的文件数量）
   db.exec(`
@@ -1948,7 +1956,7 @@ function getTagColor(tag) {
 
 function setTagColor(tag, color) {
   const db = getDb();
-  db.prepare(`INSERT OR REPLACE INTO tag_colors (tag, color, updated_at) VALUES (?, ?, unixepoch())`).run(tag, color);
+  db.prepare(`INSERT OR REPLACE INTO tag_colors (tag, color, updated_at, last_used) VALUES (?, ?, unixepoch(), unixepoch())`).run(tag, color);
   return { tag, color };
 }
 
@@ -1966,6 +1974,12 @@ function getSuggestedColor(tag) {
   return TAG_COLOR_PRESETS[Math.abs(hash) % TAG_COLOR_PRESETS.length];
 }
 
+// 更新标签最近使用时间（标签被添加到文件时调用）
+function touchTag(tag) {
+  const db = getDb();
+  db.prepare('INSERT INTO tag_colors (tag, color, updated_at, last_used) VALUES (?, ?, unixepoch(), unixepoch()) ON CONFLICT(tag) DO UPDATE SET last_used = unixepoch()').run(tag, getSuggestedColor(tag));
+}
+
 function getTagEmoji(tag) {
   const db = getDb();
   const row = db.prepare('SELECT emoji FROM tag_colors WHERE tag = ?').get(tag);
@@ -1977,10 +1991,10 @@ function setTagEmoji(tag, emoji) {
   // 确保 color 也存在（INSERT OR REPLACE 需要所有 NOT NULL 列有值）
   const existing = db.prepare('SELECT color FROM tag_colors WHERE tag = ?').get(tag);
   if (existing) {
-    db.prepare('UPDATE tag_colors SET emoji = ?, updated_at = unixepoch() WHERE tag = ?').run(emoji, tag);
+    db.prepare('UPDATE tag_colors SET emoji = ?, updated_at = unixepoch(), last_used = unixepoch() WHERE tag = ?').run(emoji, tag);
   } else {
     const color = getSuggestedColor(tag);
-    db.prepare('INSERT INTO tag_colors (tag, color, emoji, updated_at) VALUES (?, ?, ?, unixepoch())').run(tag, color, emoji);
+    db.prepare('INSERT INTO tag_colors (tag, color, emoji, updated_at, last_used) VALUES (?, ?, ?, unixepoch(), unixepoch())').run(tag, color, emoji);
   }
   return { tag, emoji };
 }
