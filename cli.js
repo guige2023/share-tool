@@ -1054,6 +1054,26 @@ async function main() {
         break;
       }
 
+      case 'duplicates': {
+        const res = await request('GET', '/api/duplicates');
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          process.exit(1);
+        }
+        const { count, duplicates } = res.data;
+        if (count === 0) {
+          console.log('No duplicate files found.');
+          break;
+        }
+        console.log(`Found ${count} duplicate group(s):\n`);
+        duplicates.forEach((group, i) => {
+          console.log(`Group ${i + 1} (${group.count} files, hash=${group.hash.slice(0, 12)}...)`);
+          group.files.forEach(f => console.log(`  - ${f.filename}`));
+          console.log('');
+        });
+        break;
+      }
+
       case 'renew-cert': {
         const opts = {
           hostname: parsed.hostname, port: parsed.port,

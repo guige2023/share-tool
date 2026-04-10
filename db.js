@@ -1237,6 +1237,32 @@ function pruneFileVersions(fileId, keepCount = 10) {
   return oldVersions.length;
 }
 
+// ============================================================
+// 重复文件检测
+// ============================================================
+function findDuplicates() {
+  const db = getDb();
+  // 找 hash 出现2次以上的文件（忽略 null hash）
+  const dupes = db.prepare(`
+    SELECT hash, COUNT(*) as count, GROUP_CONCAT(filename, '|||') as filenames, GROUP_CONCAT(id, '|||') as ids
+    FROM files
+    WHERE hash IS NOT NULL AND hash != ''
+    GROUP BY hash
+    HAVING count > 1
+    ORDER BY count DESC
+  `).all();
+
+  return dupes.map(row => {
+    const filenames = row.filenames.split('|||');
+    const ids = row.ids.split('|||');
+    return {
+      hash: row.hash,
+      count: row.count,
+      files: filenames.map((filename, i) => ({ id: parseInt(ids[i]), filename }))
+    };
+  });
+}
+
 function getFilesByHashSince(hash, timestamp) {
   const db = getDb();
   return db.prepare(`
@@ -2333,7 +2359,7 @@ module.exports = {
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
   setFilePositions,
-  searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize, getFolderSize, getAllFolderSizes,
+  searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize, getFolderSize, getAllFolderSizes, findDuplicates,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
   touchDevice, getOnlineDevices, cleanupStaleDevices,

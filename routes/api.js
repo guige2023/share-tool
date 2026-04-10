@@ -70,6 +70,15 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/duplicates — find duplicate files by hash
+  if (pathname === '/api/duplicates' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const duplicates = db.findDuplicates();
+    sendJson(res, { success: true, count: duplicates.length, duplicates });
+    return true;
+  }
+
   // DELETE /api/delete-all
   if (pathname === '/api/delete-all' && method === 'DELETE') {
     const authData = authRequired(req, res);
