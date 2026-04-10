@@ -4254,7 +4254,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div style="padding:16px 0;text-align:center;">
       <div style="font-size:48px;margin-bottom:12px;">📡</div>
       <h2 style="margin:0 0 8px;">ShareTool</h2>
-      <p style="color:var(--text-muted);margin:0 0 16px;">v3.78</p>
+      <p style="color:var(--text-muted);margin:0 0 16px;">v3.84</p>
       <p style="font-size:13px;color:var(--text-secondary);">' + T('about.desc') + '</p>
     </div>
   </div>
@@ -5837,26 +5837,35 @@ async function openMarkdownModal(filename) {
       pre.appendChild(btn);
     });
 
-    // Add line numbers to code blocks (before hljs so it sees the original structure)
-    document.querySelectorAll('#modalBody .markdown-body pre code').forEach(code => {
-      const lines = code.textContent.split('\n');
-      if (lines.length <= 1) return; // skip single-line code
-      const lang = code.className.replace('language-', '') || '';
-      const lineNumWidth = String(lines.length).length + 1; // +1 for gap
-      const tableHtml = '<div class="code-with-lines" style="display:table;width:100%;">' +
-        '<span class="line-nums" style="display:table-cell;user-select:none;color:var(--text-muted);padding-right:12px;text-align:right;font-size:12px;line-height:1.6;white-space:pre;vertical-align:top;min-width:' + lineNumWidth + 'ch;">' +
-        lines.map((_, i) => '<span>' + (i + 1) + '</span>').join('\n') +
-        '</span>' +
-        '<span class="code-content" style="display:table-cell;white-space:pre;word-break:break-all;line-height:1.6;">' + escapeHtml(code.textContent) + '</span>' +
-        '</div>';
-      const wrapper = document.createElement('div');
-      wrapper.className = 'code-lines-wrapper';
-      wrapper.innerHTML = tableHtml;
-      code.parentNode.replaceChild(wrapper, code);
-    });
-
     // Apply syntax highlighting to code blocks
     if (typeof hljs !== 'undefined') hljs.highlightAll();
+
+    // Add line numbers to code blocks after highlighting
+    document.querySelectorAll('#modalBody .markdown-body pre').forEach(pre => {
+      const code = pre.querySelector('code');
+      if (!code) return;
+      const lineCount = code.textContent.split('\n').length;
+      if (lineCount <= 1) return;
+      pre.style.counterSet = 'line ' + lineCount;
+      pre.setAttribute('data-lines', lineCount);
+      // Wrap code in a table for line numbers
+      const lineNumWidth = String(lineCount).length + 1;
+      const table = document.createElement('div');
+      table.className = 'code-with-lines';
+      table.style.cssText = 'display:table;width:100%;';
+      const numCol = document.createElement('span');
+      numCol.className = 'line-nums';
+      numCol.style.cssText = 'display:table-cell;user-select:none;color:var(--text-muted);padding-right:10px;text-align:right;font-size:12px;line-height:1.6;white-space:pre;vertical-align:top;min-width:' + lineNumWidth + 'ch;';
+      numCol.innerHTML = Array.from({length: lineCount}, (_, i) => '<span>' + (i+1) + '</span>').join('\n');
+      const codeCol = document.createElement('span');
+      codeCol.className = 'code-content';
+      codeCol.style.cssText = 'display:table-cell;white-space:pre;word-break:break-all;line-height:1.6;width:100%;';
+      codeCol.innerHTML = code.innerHTML;
+      table.appendChild(numCol);
+      table.appendChild(codeCol);
+      code.replaceWith(table);
+    });
+
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to render Markdown: ' + e.message); }
