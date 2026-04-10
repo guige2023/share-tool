@@ -6506,6 +6506,25 @@ function applySort(files) {
 }
 
 function setSort(value) {
+  if (value === 'manual') {
+    // 手动排序：使用 localStorage 中的自定义顺序，不触发服务器重载
+    localStorage.setItem('sharetool_sort', 'position');
+    localStorage.setItem('sharetool_order', 'asc');
+    currentSort = 'manual';
+    currentPage = 1;
+    // 直接应用自定义顺序并渲染（不走服务器）
+    const customOrder = getCustomFileOrder();
+    currentFiles.sort((a, b) => {
+      const ai = customOrder[a.name];
+      const bi = customOrder[b.name];
+      if (ai !== undefined && bi !== undefined) return ai - bi;
+      if (ai !== undefined) return -1;
+      if (bi !== undefined) return 1;
+      return 0;
+    });
+    renderFiles();
+    return;
+  }
   const [sortKey, sortOrder] = value.split('_');
   localStorage.setItem('sharetool_sort', sortKey === 'time' ? 'created_at' : sortKey === 'tag' ? 'tags' : sortKey);
   localStorage.setItem('sharetool_order', sortOrder);
@@ -7211,8 +7230,8 @@ function handleTagSuggestInput() {
 
     container.innerHTML = matches.map(t => {
       const color = tagColors[t];
-      const style = color ? `background:rgba(${hexToRgb(color)},0.2);color:${color};` : '';
-      return '<div class="tag-suggestion-item" style="padding:8px 12px;cursor:pointer;font-size:13px;' + style + '" onclick="applyTagSuggestion(\'' + t.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' + escapeHtml(t) + '</div>';
+      const colorStyle = color ? 'background:rgba(' + hexToRgb(color) + ',0.2);color:' + color + ';' : '';
+      return '<div class="tag-suggestion-item" style="padding:8px 12px;cursor:pointer;font-size:13px;' + colorStyle + '" onclick="applyTagSuggestion(\'' + t.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' + escapeHtml(t) + '</div>';
     }).join('');
     container.style.display = 'block';
   }, 150);
