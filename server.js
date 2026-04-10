@@ -562,6 +562,7 @@ const I18N = {
     'ui.sortMostDownloaded': '下载最多',
     'ui.sortLeastDownloaded': '下载最少',
     'ui.sortManual': '手动',
+    'ui.sortRelevance': '相关度',
     'ui.allFiles': '所有文件',
     'ui.trash': '回收站',
     'ui.trashEmpty': '清空回收站',
@@ -1056,6 +1057,7 @@ const I18N = {
     'ui.sortMostDownloaded': 'Most downloaded',
     'ui.sortLeastDownloaded': 'Least downloaded',
     'ui.sortManual': 'Manual',
+    'ui.sortRelevance': 'Relevance',
     'ui.allFiles': 'All files',
     'ui.trash': 'Trash',
     'ui.trashEmpty': 'Empty Trash',
@@ -4291,6 +4293,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span>' + T('ui.sortBy') + ':</span>
       <select id="sortSelect" onchange="changeSort(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:16px;">
         <option value="manual">' + T('ui.sortManual') + '</option>
+        <option value="relevance_desc">' + T('ui.sortRelevance') + ' 🎯</option>
         <option value="time_desc">' + T('ui.sortNewest') + ' ▼</option>
         <option value="time_asc">' + T('ui.sortOldest') + ' ▲</option>
         <option value="name_asc">' + T('ui.sortNameAZ') + ' A→Z</option>
@@ -7078,14 +7081,18 @@ function renderTagsModalBody(tags) {
   body.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;">' + tags.map(t => {
     const color = t.color || '#667eea';
     const bg = color + '22';
-    return '<div onclick="showFilesWithTag(\'' + escapeHtml(t.tag).replace(/'/g, "\\'") + '\')" ' +
+    const tagJs = escapeHtml(t.tag).replace(/'/g, "\\'");
+    return '<div onclick="showFilesWithTag(\'' + tagJs + '\')" ' +
+      'oncontextmenu="event.preventDefault();showTagsContextMenu(event,\'' + tagJs + '\')" ' +
       'style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:' + bg + ';border:1px solid ' + color + '44;border-radius:20px;font-size:13px;cursor:pointer;transition:transform 0.1s;" ' +
       'onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">' +
       (t.emoji ? '<span>' + escapeHtml(t.emoji) + '</span>' : '') +
       '<span style="color:' + escapeHtml(color) + ';font-weight:500;">' + escapeHtml(t.tag) + '</span>' +
       '<span style="background:' + color + '33' + ';padding:1px 6px;border-radius:10px;font-size:11px;color:var(--text-muted);">' + t.count + '</span>' +
       '</div>';
-  }).join('') + '</div>';
+  }).join('') + '</div>' +
+  '<div id="tagsCtxMenu" class="modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;display:none;background:transparent;" onclick="hideTagsContextMenu()">' +
+  '<div id="tagsCtxMenuInner" style="position:absolute;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:6px 0;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,0.3);z-index:10000;"></div></div>';
 }
 
 function filterTagsModal(query) {
@@ -8313,8 +8320,13 @@ function setSort(value) {
   localStorage.setItem('sharetool_order', sortOrder);
   currentSort = value;
   currentPage = 1;
-  loadFiles();
-  if (window.currentSearchQ) applySearchHighlight(window.currentSearchQ);
+  // 搜索模式下保持搜索结果，否则加载文件列表
+  if (window.isSearchMode && window.currentSearchQ) {
+    doSearch();
+  } else {
+    loadFiles();
+    if (window.currentSearchQ) applySearchHighlight(window.currentSearchQ);
+  }
 }
 
 function setView(mode) {
@@ -8497,6 +8509,25 @@ function doSearch() {
     .then(r => r.json())
     .then(data => {
       currentFiles = data.files || [];
+      // Apply current sort order to search results (relevance is default from API)
+      if (currentSort && currentSort !== 'manual') {
+        const [key, order] = currentSort.split('_');
+        if (key !== 'relevance') {
+          currentFiles.sort((a, b) => {
+            let va, vb;
+            if (key === 'time') { va = a.created_at; vb = b.created_at; }
+            else if (key === 'name') { va = (a.filename || a.name || '').toLowerCase(); vb = (b.filename || b.name || '').toLowerCase(); }
+            else if (key === 'size') { va = a.size || 0; vb = b.size || 0; }
+            else if (key === 'type') { va = (a.type || '').toLowerCase(); vb = (b.type || '').toLowerCase(); }
+            else if (key === 'tag') { va = (a.tags || '').toLowerCase(); vb = (b.tags || '').toLowerCase(); }
+            else if (key === 'download') { va = a.download_count || 0; vb = b.download_count || 0; }
+            else { va = a.score || 0; vb = b.score || 0; }
+            if (va < vb) return order === 'asc' ? -1 : 1;
+            if (va > vb) return order === 'asc' ? 1 : -1;
+            return 0;
+          });
+        }
+      }
       renderFiles();
       if (textQuery) applySearchHighlight(textQuery);
       if (data.files && data.files.length > 0) saveRecentSearch(q);
