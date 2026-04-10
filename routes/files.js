@@ -329,6 +329,15 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
           sendJson(res, { success: false, error: 'oldPath and newPath required' }, 400);
           return;
         }
+        // 安全验证
+        if (newPath.includes('..') || newPath.includes('/') || newPath.includes('\\')) {
+          sendJson(res, { success: false, error: '路径包含非法字符' }, 400);
+          return;
+        }
+        if (newPath.length > 255) {
+          sendJson(res, { success: false, error: '路径过长' }, 400);
+          return;
+        }
         const result = db.renameFilesByPrefix(oldPath, newPath);
         broadcastChange({ type: 'bulk_rename', oldPath, newPath, count: result.renamed });
         db.addAuditLog('rename_folder', `Renamed ${result.renamed} files from ${oldPath} to ${newPath}`, getClientIp(req), authData.token);
@@ -525,7 +534,26 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
           sendJson(res, { success: false, error: '新文件名不能为空' }, 400);
           return;
         }
+        // 安全验证
         const newName = newFilename.trim();
+        if (newName.length > 255) {
+          sendJson(res, { success: false, error: '文件名过长（最多255字符）' }, 400);
+          return;
+        }
+        if (newName.includes('..') || newName.includes('/') || newName.includes('\\')) {
+          sendJson(res, { success: false, error: '文件名包含非法字符' }, 400);
+          return;
+        }
+        // 检查控制字符（0x00-0x1F 除\t\n外）
+        if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(newName)) {
+          sendJson(res, { success: false, error: '文件名包含控制字符' }, 400);
+          return;
+        }
+        // 检查 null 字节
+        if (newName.includes('\0')) {
+          sendJson(res, { success: false, error: '文件名包含非法字符' }, 400);
+          return;
+        }
         const result = db.renameFile(oldFilename, newName);
         if (result.success) {
           broadcastChange({ type: 'rename', oldFilename, newFilename: newName, hash: result.hash });
