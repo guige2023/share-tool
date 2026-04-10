@@ -3256,7 +3256,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ShareTool</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#667eea" media="(prefers-color-scheme: light)">
@@ -3948,6 +3948,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   #fileInfoPanel .file-info-header { padding-right: max(16px, env(safe-area-inset-right)); }
   /* Modal: larger on mobile */
   .modal-content { max-width: 95vw; }
+  .modal-overlay, .qr-modal-overlay { align-items: flex-end; padding: 0; }
+  .modal-overlay.show .modal-content, .qr-modal-overlay.show .modal-content { transform: scale(1) translateY(0); border-radius: 16px 16px 0 0; max-height: 90vh; }
   .modal-close { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)); }
   /* Better touch targets */
   .filter-tab, .filter-tab.active { padding: 10px 16px; min-height: 44px; display: inline-flex; align-items: center; }
@@ -4362,7 +4364,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-wrapper">
     <div class="search-bar">
-      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}" onfocus="showSearchHint()" onblur="setTimeout(hideSearchHint,200)">
+      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="search" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}" onfocus="showSearchHint()" onblur="setTimeout(hideSearchHint,200)">
       <button class="btn btn-sm" onclick="doSearch()">' + T('ui.search') + '</button>
       <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
     </div>
