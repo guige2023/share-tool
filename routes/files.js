@@ -408,8 +408,14 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/search') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const q = query.q || '';
-    const tags = query.tags || null;
+    let q = query.q || '';
+    let tags = query.tags || null;
+    // Parse tag: prefix from query string (e.g. "report tag:work" → q="report" tags="work")
+    const tagMatch = q.match(/(?:^|\s)tag:(\S+)/);
+    if (tagMatch) {
+      tags = tagMatch[1];
+      q = q.replace(tagMatch[0], '').replace(/\s+/g, ' ').trim();
+    }
     const results = db.searchFiles(q, tags, { fuzzy: true });
     db.addAuditLog('search', `q=${q}, tags=${tags}`, getClientIp(req), authData.token);
     sendJson(res, { success: true, files: results.map(f => ({
@@ -422,7 +428,21 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
 
   // GET /api/search/suggest
   if (pathname === '/api/search/suggest' && method === 'GET') {
-    const q = (query.q || '').trim();
+    let q = (query.q || '').trim();
+    // Strip tag: prefix for display purposes
+    const tagMatch = q.match(/^tag:(\S+)$/);
+    if (tagMatch) {
+      const tagPrefix = tagMatch[1];
+      const allTagRows = db.getAllTagColors ? db.getAllTagColors() : [];
+      const filtered = allTagRows
+        .filter(t => t.tag.toLowerCase().includes(tagPrefix.toLowerCase()))
+        .slice(0, 8);
+      sendJson(res, {
+        success: true,
+        suggestions: filtered.map(t => ({ type: 'tag', text: t.tag, icon: '🏷', color: t.color || null }))
+      });
+      return true;
+    }
     if (q.length < 1) { sendJson(res, { success: true, suggestions: [] }); return true; }
     const suggestions = [];
     // Use search engine instead of loading all files
