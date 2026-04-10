@@ -2140,6 +2140,7 @@ function getDbStats() {
   const tokenCount = db.prepare('SELECT COUNT(*) as c FROM tokens').get().c;
   const auditCount = db.prepare('SELECT COUNT(*) as c FROM audit_log').get().c;
   const shareLinkCount = db.prepare('SELECT COUNT(*) as c FROM share_links').get().c;
+  const trashCount = db.prepare('SELECT COUNT(*) as c FROM trash').get().c;
   const totalSize = db.prepare('SELECT COALESCE(SUM(size), 0) as s FROM files').get().s;
   const unsyncedSize = db.prepare('SELECT COALESCE(SUM(size_bytes), 0) as s FROM sync_log WHERE synced = 0').get().s;
 
@@ -2160,6 +2161,7 @@ function getDbStats() {
     tokens: tokenCount,
     auditLog: auditCount,
     shareLinks: shareLinkCount,
+    trashCount,
     totalSize,
     dbSize
   };

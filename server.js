@@ -7388,6 +7388,23 @@ function handleFileItemClick(event, filename, isImage) {
   // Don't trigger if clicking interactive elements
   const tag = event.target.tagName;
   if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'SPAN' || event.target.closest('input') || event.target.closest('button')) return;
+
+  // If in batch selection mode (batch bar visible), clicking a file item toggles its checkbox
+  const batchBar = document.getElementById('batchBar');
+  if (batchBar && batchBar.classList.contains('show')) {
+    const item = event.target.closest('.file-item');
+    if (item) {
+      const cb = item.querySelector('.batch-checkbox');
+      if (cb) {
+        event.stopPropagation();
+        return; // let the checkbox click bubble naturally
+      }
+    }
+    // clicked on item background in selection mode — don't open file
+    event.stopPropagation();
+    return;
+  }
+
   if (isImage) return; // images already have their own click handler (thumbnail)
   if (isCodeFile(filename)) { openCodeModal(filename); return; }
   if (isAudioFile(filename) || isVideoFile(filename)) { openMediaModal(filename); return; }
