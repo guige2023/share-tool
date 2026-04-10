@@ -4270,7 +4270,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 </div>
 
 <div class="modal-overlay" id="aboutModal" onclick="if(event.target===this)closeAboutModal()">
-  <div class="modal-content" style="max-width:400px;">
+  <div class="modal-content" style="max-width:420px;">
     <div class="modal-header">
       <div class="modal-title">ℹ️ ' + T('about.about') + '</div>
       <button class="modal-close" onclick="closeAboutModal()">x</button>
@@ -4278,9 +4278,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div style="padding:16px 0;text-align:center;">
       <div style="font-size:48px;margin-bottom:12px;">📡</div>
       <h2 style="margin:0 0 8px;">ShareTool</h2>
-      <p style="color:var(--text-muted);margin:0 0 16px;">v3.84</p>
+      <p style="color:var(--text-muted);margin:0 0 16px;">v3.85</p>
       <p style="font-size:13px;color:var(--text-secondary);">' + T('about.desc') + '</p>
     </div>
+    <div id="aboutSystemStats" style="padding:0 16px 16px;font-size:12px;color:var(--text-muted)"></div>
   </div>
 </div>
 
@@ -6333,6 +6334,33 @@ function closeBackupModal() { unlockScroll(); document.getElementById('backupMod
 function showAboutModal() {
   lockScroll();
   document.getElementById('aboutModal').classList.add('show');
+  // Load system stats
+  fetch(API + '/api/system/stats', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) return;
+      const m = data.memory;
+      const c = data.cpu;
+      const p = data.process;
+      const d = data.disk;
+      const fmtMem = b => (b / 1024 / 1024).toFixed(0) + ' MB';
+      const fmtDisk = b => (b / 1024 / 1024 / 1024).toFixed(1) + ' GB';
+      const memPct = m ? Math.round((m.heapUsed / m.heapTotal) * 100) : 0;
+      const sysMemPct = m ? Math.round((m.systemUsed / m.systemTotal) * 100) : 0;
+      const days = p ? Math.floor(p.uptime / 86400) : 0;
+      const hours = p ? Math.floor((p.uptime % 86400) / 3600) : 0;
+      const mins = p ? Math.floor((p.uptime % 3600) / 60) : 0;
+      const secs = p ? Math.round(p.uptime % 60) : 0;
+      const uptimeStr = p ? (days > 0 ? days + 'd ' : '') + hours + 'h ' + mins + 'm ' + secs + 's' : '—';
+      let html = '<div style="border-top:1px solid var(--border-color);padding-top:12px;margin-top:4px;">';
+      if (m) html += '<div style="margin-bottom:8px;">💻 ' + fmtMem(m.heapUsed) + ' / ' + fmtMem(m.heapTotal) + ' heap (' + memPct + '%) <span style="opacity:0.6">· RSS ' + fmtMem(m.rss) + '</span></div>';
+      if (m) html += '<div style="margin-bottom:8px;">🖥 ' + sysMemPct + '% system memory used <span style="opacity:0.6">(' + fmtMem(m.systemFree) + ' free)</span></div>';
+      if (c) html += '<div style="margin-bottom:8px;">⚙️ ' + c.cores + ' cores · load ' + c.loadavg1m.toFixed(2) + ' <span style="opacity:0.6">(1m)</span></div>';
+      if (d) html += '<div style="margin-bottom:8px;">💾 ' + fmtDisk(d.used) + ' / ' + fmtDisk(d.total) + ' disk <span style="opacity:0.6">(' + Math.round((d.free / d.total) * 100) + '% free)</span></div>';
+      if (p) html += '<div style="margin-bottom:8px;">⏱ ' + uptimeStr + ' uptime · ' + p.nodeVersion + '</div>';
+      html += '</div>';
+      document.getElementById('aboutSystemStats').innerHTML = html;
+    }).catch(() => {});
 }
 function closeAboutModal() { unlockScroll(); document.getElementById('aboutModal').classList.remove('show'); }
 
