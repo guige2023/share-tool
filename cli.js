@@ -319,6 +319,7 @@ async function main() {
     console.log('  copy <src> <dest>  Copy a file to a new name');
     console.log('  rename <old> <new>  Rename a file');
     console.log('  batch-delete <name1> [name2] ...  Delete multiple files');
+    console.log('  batch-download <name1> [name2] .. Download multiple files [-o <dir>]');
     console.log('  batch-tag <tag> [files...]        Add tag to files (alias: share-tool batch-tag add <tag> [files])');
     console.log('  batch-tag remove <tag> [files]   Remove tag from files');
     console.log('  batch-tag set <tag> [files]       Set (replace) tag on files');
@@ -430,6 +431,37 @@ async function main() {
           process.exit(1);
         }
         printJson(res.data);
+        break;
+      }
+
+      case 'batch-download': {
+        const names = args.slice(1);
+        if (names.length === 0) {
+          printError('At least one file name required');
+          process.exit(1);
+        }
+        let outputDir = '.';
+        const oIndex = names.indexOf('-o');
+        if (oIndex !== -1) {
+          if (oIndex + 1 >= names.length) { printError('-o requires output directory'); process.exit(1); }
+          outputDir = names[oIndex + 1];
+          names.splice(oIndex, 2);
+        }
+        if (names.length === 0) { printError('No files specified'); process.exit(1); }
+        console.log('Downloading ' + names.length + ' file(s) to ' + outputDir + '/...');
+        const cliFs = require('fs');
+        if (!cliFs.existsSync(outputDir)) cliFs.mkdirSync(outputDir, { recursive: true });
+        let success = 0, failed = 0;
+        for (const name of names) {
+          process.stdout.write('  ' + name + '... ');
+          try {
+            const res = await downloadFile(name, outputDir);
+            if (res.status < 400) { console.log('OK'); success++; }
+            else { console.log('FAILED (' + res.status + ')'); failed++; }
+          } catch (e) { console.log('FAILED (' + e.message + ')'); failed++; }
+        }
+        console.log('\nDone: ' + success + ' succeeded, ' + failed + ' failed');
+        process.exit(failed > 0 ? 1 : 0);
         break;
       }
 
