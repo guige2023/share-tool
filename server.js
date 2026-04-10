@@ -3150,7 +3150,7 @@ h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #667
 .section-title::before { content: ''; width: 4px; height: 16px; background: linear-gradient(180deg, #667eea, #764ba2); border-radius: 2px; }
 textarea { width: 100%; padding: 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 16px; margin-bottom: 12px; resize: vertical; min-height: 100px; font-family: inherit; touch-action: manipulation; }
 textarea:focus { outline: none; border-color: var(--accent-primary); }
-input[type="text"], input[type="search"] { width: 100%; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 16px; margin-bottom: 12px; touch-action: manipulation; }
+input[type="text"], input[type="search"], input[type="password"] { width: 100%; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 16px; margin-bottom: 12px; touch-action: manipulation; }
 input:focus { outline: none; border-color: var(--accent-primary); }
 .btn { padding: 12px 20px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .btn:hover { opacity: 0.9; transform: translateY(-1px); }
@@ -3337,7 +3337,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .search-bar input { min-height: 44px; /* touch target */ font-size: 16px; /* prevent iOS zoom */ }
   .sort-bar select, .share-link-box input, input[type="password"] { font-size: 16px; min-height: 44px; }
   .file-grid { grid-template-columns: 1fr; }
-  .file-grid .file-item { flex-direction: row; min-height: 60px; }
+  .file-grid .file-item { flex-direction: column; min-height: auto; }
   .card > div > .btn { width: 100%; margin-bottom: 8px; }
   .card > div > .btn:last-child { margin-bottom: 0; }
   .code-box { font-size: 11px; word-break: break-all; }
