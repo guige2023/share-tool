@@ -2302,11 +2302,11 @@ self.addEventListener('push', (event) => {
 
       // Route context - shared dependencies for route handlers
       const routeCtx = {
-        db, config, sendJson, authRequired, getClientIp, broadcastChange,
+        db, config, sendJson, sendHtml, authRequired, getClientIp, broadcastChange,
         getUploadMaxSize, getFileIcon, isImageFile, archiver, crypto, cryptoModule,
         SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, LOCAL_IP, PORT,
         saveConfig, ensureSslCertificates, getCertInfo, checkAndRenewCertificate, QRCode,
-        fs, path, createShareLink, validateShareCode
+        fs, path, createShareLink, validateShareCode, escapeHtml
       };
 
       // API routes (non-share)
@@ -8244,9 +8244,9 @@ window.addEventListener('DOMContentLoaded', updateFabVisibility);
 // ============================================================
 // HTML Page Handler
 // ============================================================
-function sendHtml(res) {
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(HTML_PAGE);
+function sendHtml(res, html = HTML_PAGE, statusCode = 200) {
+  res.writeHead(statusCode, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(html);
 }
 
 // ============================================================
