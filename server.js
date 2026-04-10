@@ -390,6 +390,11 @@ const I18N = {
     'tag.renameSuccess': '已重命名，更新了 {n} 个文件',
     'tag.renameFailed': '重命名失败',
     'tag.confirmDelete': '确定删除标签 "{name}"？将从所有文件中移除。',
+    'tag.confirmDeleteWithCount': '确定删除标签 "{name}"？将从 {n} 个文件中移除。',
+    'tag.renameConflict': '标签 "{new}" 已存在（{n} 个文件使用）。\n\n这会将 "{old}" 合并到 "{new}"，确认继续？',
+    'tag.mergeConfirmDetail': '将以下标签合并到 "{target}"？\n\n来源: {sources}\n目标: {target}（{n} 个文件）\n\n确认合并？',
+    'tag.selectAll': '全选',
+    'tag.deselectAll': '取消',
     'tag.removed': '已删除，从 {n} 个文件中移除',
     'tag.removedLabel': '已移除标签',
     'tag.removePrompt': '请输入要移除的标签名称:',
@@ -864,6 +869,9 @@ const I18N = {
     'tag.mergeFailed': 'Merge failed',
     'tag.mergeSelectFirst': 'Please select tags to merge first',
     'tag.mergeNoTarget': 'Please select a target tag first',
+    'tag.mergeConfirmDetail': 'Merge the following tags into "{target}"?\n\nSources: {sources}\nTarget: {target} ({n} files)\n\nConfirm merge?',
+    'tag.selectAll': 'Select All',
+    'tag.deselectAll': 'Deselect',
     'tag.inputName': 'Enter tag name (multiple separated by comma):',
     'tag.added': 'Added tag to {n} files',
     'tag.addFailed': 'Batch add failed:',
@@ -1265,6 +1273,9 @@ const I18N = {
     'tag.mergeFailed': 'Merge failed',
     'tag.mergeSelectFirst': 'Please select tags to merge first',
     'tag.mergeNoTarget': 'Please select a target tag first',
+    'tag.mergeConfirmDetail': 'Merge the following tags into "{target}"?\n\nSources: {sources}\nTarget: {target} ({n} files)\n\nConfirm merge?',
+    'tag.selectAll': 'Select All',
+    'tag.deselectAll': 'Deselect',
     'tag.inputName': 'Enter tag name (multiple separated by comma):',
     'tag.added': 'Added tag to {n} files',
     'tag.addFailed': 'Batch add failed:',
@@ -4615,6 +4626,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <option value="color">' + T('ui.sortByColor') + '</option>
       </select>
       <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;" id="tagManagerCount"></div>
+      <button class="btn btn-sm" onclick="toggleSelectAllTags()" id="selectAllTagsBtn" style="font-size:11px;padding:4px 8px;min-height:32px;">☑ ' + T('tag.selectAll') + '</button>
     </div>
     <div id="tagBatchBar" style="display:none;background:var(--accent-primary);border-radius:8px;padding:8px 12px;margin-bottom:8px;align-items:center;gap:8px;justify-content:space-between;">
       <span style="font-size:12px;color:white;"></span>
@@ -10023,6 +10035,18 @@ async function executeTagMerge() {
     return;
   }
   const sources = Array.from(_tagMergeSelected);
+  // 合并确认：显示详情（影响文件数）
+  const sourceInfos = sources.map(s => {
+    const t = _tagManagerData.find(x => x.tag === s);
+    return s + (t ? ' (' + t.count + ')' : '');
+  }).join(', ');
+  const targetInfo = _tagManagerData.find(t => t.tag === targetTag);
+  const targetCount = targetInfo ? targetInfo.count : 0;
+  if (!confirm(T('tag.mergeConfirmDetail', null, {
+    sources: sourceInfos,
+    target: targetTag,
+    n: targetCount
+  }))) return;
   const res = await fetch(API + '/api/tags/merge', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
@@ -10063,6 +10087,29 @@ function toggleTagSelect(tag, checked) {
   } else {
     window._selectedTags.delete(tag);
   }
+  updateBatchTagBar();
+}
+
+let _selectAllMode = false;  // false = not all selected, true = all selected
+
+function toggleSelectAllTags() {
+  if (!_selectAllMode) {
+    // Select all visible tags
+    window._selectedTags = new Set(_tagManagerData.map(t => t.tag));
+    _selectAllMode = true;
+    document.getElementById('selectAllTagsBtn').textContent = '☐ ' + T('tag.deselectAll');
+  } else {
+    // Deselect all
+    window._selectedTags = new Set();
+    _selectAllMode = false;
+    document.getElementById('selectAllTagsBtn').textContent = '☑ ' + T('tag.selectAll');
+  }
+  // Update all checkboxes to reflect selection state
+  _tagManagerData.forEach(t => {
+    const tagId = t.tag.replace(/[^a-zA-Z0-9]/g, '_');
+    const checkbox = document.getElementById('tagchk_' + tagId);
+    if (checkbox) checkbox.checked = window._selectedTags.has(t.tag);
+  });
   updateBatchTagBar();
 }
 
@@ -10228,6 +10275,12 @@ function renderTagManagerItems(tags) {
 async function renameTag(oldTag) {
   const newTag = prompt(T('tag.renamePrompt', null, {old: oldTag}), oldTag);
   if (!newTag || newTag === oldTag) return;
+  // 冲突检测：检查目标标签名是否已存在
+  const tagData = _tagManagerData.find(t => t.tag === newTag);
+  if (tagData) {
+    const confirmed = confirm(T('tag.renameConflict', null, {old: oldTag, new: newTag, n: tagData.count}));
+    if (!confirmed) return;
+  }
   const res = await fetch(API + '/api/tags/rename/' + encodeURIComponent(oldTag), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
@@ -10244,7 +10297,9 @@ async function renameTag(oldTag) {
 }
 
 async function deleteTag(tag) {
-  if (!confirm(T('tag.confirmDelete', null, {name: tag}))) return;
+  const tagData = _tagManagerData.find(t => t.tag === tag);
+  const count = tagData ? tagData.count : 0;
+  if (!confirm(T('tag.confirmDeleteWithCount', null, {name: tag, n: count}))) return;
   const res = await fetch(API + '/api/tags/delete/' + encodeURIComponent(tag), {
     method: 'DELETE',
     headers: { 'x-auth-token': AUTH_TOKEN || '' }
