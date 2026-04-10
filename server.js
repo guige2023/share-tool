@@ -9887,21 +9887,41 @@ async function confirmBatchTagInput() {
   const { filenames, tags } = _batchTagState;
   if (!filenames.length) { closeBatchTagModal(); return; }
   closeBatchTagModal();
-  let success = 0, failed = 0;
-  for (const filename of filenames) {
-    try {
-      const res = await fetch(API + '/api/file-tags/' + encodeURIComponent(filename), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-        body: JSON.stringify({ action: 'replace', tags })
-      });
-      if (res.ok) success++; else failed++;
-    } catch { failed++; }
+  if (!tags.length) return;
+
+  // Auto-assign colors for new tags
+  for (const tag of tags) {
+    if (!tagColors[tag]) {
+      try {
+        const res = await fetch(API + '/api/tags/suggest-color?tag=' + encodeURIComponent(tag), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+        const data = await res.json();
+        if (data.success) {
+          tagColors[tag] = data.color;
+          await fetch(API + '/api/tags/color', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+            body: JSON.stringify({ tag, color: data.color })
+          });
+        }
+      } catch (_) {}
+    }
   }
-  if (success) {
-    showToast(success + ' 个文件已更新标签');
-    loadFiles();
-  } else if (failed) {
+
+  // Use batch API - single call for all files
+  try {
+    const res = await fetch(API + '/api/file-tags/batch', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ files: filenames, action: 'replace', tags })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(filenames.length + ' 个文件已更新标签');
+      loadFiles();
+    } else {
+      showToast('标签更新失败: ' + (data.error || ''), true);
+    }
+  } catch (e) {
     showToast('标签更新失败', true);
   }
 }
@@ -11106,7 +11126,7 @@ async function batchAddTag() {
   if (newTags.length === 0) return;
 
   setBatchOperation('标签中...');
-  const files = Array.from(checked).map(cb => cb.value);
+  const files = Array.from(checked).map(cb => decodeURIComponent(cb.value));
 
   // Auto-assign colors for new tags
   for (let i = 0; i < newTags.length; i++) {
@@ -11231,7 +11251,7 @@ function closeBatchRemoveTagModal() {
 async function confirmBatchRemoveTag() {
   if (_batchRemoveSelectedTags.length === 0) return;
   const checked = document.querySelectorAll('.batch-checkbox:checked');
-  const files = Array.from(checked).map(cb => cb.value);
+  const files = Array.from(checked).map(cb => decodeURIComponent(cb.value));
 
   try {
     const res = await fetch(API + '/api/file-tags/batch', {
