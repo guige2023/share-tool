@@ -411,6 +411,8 @@ const I18N = {
     'ver.noVersions': '暂无历史版本',
     'ver.loadFailed': '加载版本失败',
     'ver.backToList': '← 返回列表',
+    'ver.oldVersion': '旧版本',
+    'ver.newVersion': '新版本',
     'ver.empty': '(空)',
 
     // 文件操作
@@ -920,6 +922,8 @@ const I18N = {
     'ver.noVersions': 'No version history',
     'ver.loadFailed': 'Failed to load versions',
     'ver.backToList': '← Back to list',
+    'ver.oldVersion': 'Old version',
+    'ver.newVersion': 'New version',
     'ver.empty': '(empty)',
 
     // 文件操作
@@ -1339,6 +1343,8 @@ const I18N = {
     'ver.noVersions': 'No version history',
     'ver.loadFailed': 'Failed to load versions',
     'ver.backToList': '← Back to list',
+    'ver.oldVersion': 'Old version',
+    'ver.newVersion': 'New version',
     'ver.empty': '(empty)',
 
     // 文件操作
@@ -10131,7 +10137,7 @@ async function compareSelectedVersions() {
   const linesA = textA.split('\n'), linesB = textB.split('\n');
   // LCS-based line diff
   const lcs = computeLCS(linesA, linesB);
-  let html = '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(window._versionsFilename || '').replace(/'/g, "\\'") + '\')">← 返回列表</button></div>';
+  let html = '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(window._versionsFilename || '').replace(/'/g, "\\'") + '\')">' + T('ver.backToList') + '</button></div>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:500px;overflow-y:auto;">';
   html += '<div style="padding:8px;font-size:12px;">';
   for (let i = 0; i < linesA.length; i++) {
@@ -10147,7 +10153,7 @@ async function compareSelectedVersions() {
   }
   html += '</div></div>';
   html += '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">' +
-    '<span style="color:var(--danger-fg);">- 旧版本</span> · <span style="color:var(--success-fg);">+ 新版本</span>' +
+    '<span style="color:var(--danger-fg);">- ' + T('ver.oldVersion') + '</span> · <span style="color:var(--success-fg);">+ ' + T('ver.newVersion') + '</span>' +
     '</div>';
   document.getElementById('versionsContent').innerHTML = html;
 }
