@@ -248,7 +248,11 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
       const ext = (file.filename || '').split('.').pop().toLowerCase();
       const mimeFromExt = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon', mp4: 'video/mp4', webm: 'video/webm', avi: 'video/x-msvideo', mov: 'video/quicktime', mkv: 'video/x-matroska', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4', pdf: 'application/pdf' }[ext];
       const resolvedType = (file.type === 'text' || file.type === 'file') && mimeFromExt ? mimeFromExt : file.type;
-      sendJson(res, { success: true, content: file.content, type: resolvedType, size: file.size });
+      // SVG is stored as raw text; encode to base64 for data URL use
+      const content = (ext === 'svg' && file.type === 'text')
+        ? Buffer.from(file.content, 'utf8').toString('base64')
+        : file.content;
+      sendJson(res, { success: true, content, type: resolvedType, size: file.size });
     } else {
       sendJson(res, { success: false, error: 'File not found' }, 404);
     }

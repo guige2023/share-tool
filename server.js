@@ -5596,14 +5596,18 @@ async function loadPreview(filename, previewId) {
 // 懒加载图片缩略图：获取文件内容转为 data URL
 async function loadImageThumb(filename, thumbId) {
   const el = document.getElementById(thumbId);
-  if (!el || el.dataset.src) return; // T('file.skipAlreadyLoaded')
+  if (!el || el.dataset.src) return;
   try {
     const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.content && data.type && data.type.startsWith('image/')) {
       const ext = filename.split('.').pop().toLowerCase();
-      const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp' };
-      const mime = mimeMap[ext] || 'image/jpeg';
+      const mimeMap = {
+        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+        webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon',
+        avif: 'image/avif', heic: 'image/heic', tiff: 'image/tiff',tif: 'image/tiff'
+      };
+      const mime = mimeMap[ext] || data.type; // fall back to server-reported type
       el.src = 'data:' + mime + ';base64,' + data.content;
       el.dataset.src = 'loaded';
     }
