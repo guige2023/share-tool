@@ -6922,17 +6922,57 @@ function doSearch() {
     return;
   }
 
-  // Extract tag: expressions and remaining query text
+  // Extract inline search filters: tag:, content:, size:, date:, type:, ext:
   const tagMatches = q.match(/tag:\S+/g) || [];
   const tags = tagMatches.map(t => t.replace('tag:', '')).join(',');
-  const textQuery = q.replace(/tag:\S+/g, '').replace(/\s+/g, ' ').trim();
+  const contentMatch = q.match(/content:(\S+)/);
+  const contentQuery = contentMatch ? contentMatch[1] : null;
+
+  // size:>1m, size:<100k, size:>1g
+  let size_min = null, size_max = null;
+  const sizeMatch = q.match(/size:([<>])(\d+)([kmgt]?)/i);
+  if (sizeMatch) {
+    const unit = { k: 1024, m: 1024*1024, g: 1024*1024*1024, t: 1024*1024*1024*1024 };
+    const val = parseInt(sizeMatch[2]) * (unit[sizeMatch[3].toLowerCase()] || 1);
+    if (sizeMatch[1] === '>') size_min = val;
+    else size_max = val;
+  }
+
+  // date:>2024-01-01, date:<today, date:>yesterday
+  let date_from = null, date_to = null;
+  const dateMatch = q.match(/date:([<>])(today|yesterday|\d{4}-\d{2}-\d{2})/i);
+  if (dateMatch) {
+    let d;
+    if (dateMatch[2].toLowerCase() === 'today') d = new Date();
+    else if (dateMatch[2].toLowerCase() === 'yesterday') d = new Date(Date.now() - 86400000);
+    else d = new Date(dateMatch[2]);
+    if (!isNaN(d)) {
+      if (dateMatch[1] === '>') { date_from = Math.floor(d.getTime()/1000); date_to = null; }
+      else { date_to = Math.floor(d.getTime()/1000) + 86399; date_from = null; }
+    }
+  }
+
+  // type:pdf, ext:jpg
+  const typeMatch = q.match(/(?:type|ext):(\w+)/i);
+  const typeFilter = typeMatch ? typeMatch[1].toLowerCase() : null;
+
+  const textQuery = q
+    .replace(/tag:\S+/g, '')
+    .replace(/content:\S+/g, '')
+    .replace(/size:[<>]\d+[kmgt]*/gi, '')
+    .replace(/date:[<>](?:today|yesterday|\d{4}-\d{2}-\d{2})/gi, '')
+    .replace(/(?:type|ext):\w*/gi, '')
+    .replace(/\s+/g, ' ').trim();
 
   const params = new URLSearchParams();
   if (textQuery) params.set('q', textQuery);
-  if (tags) {
-    params.set('tags', tags);
-    params.set('tagMatch', window.currentTagMatch || 'all');
-  }
+  if (contentQuery) params.set('content', contentQuery);
+  if (tags) { params.set('tags', tags); params.set('tagMatch', window.currentTagMatch || 'all'); }
+  if (size_min != null) params.set('size_min', size_min);
+  if (size_max != null) params.set('size_max', size_max);
+  if (date_from != null) params.set('date_from', date_from);
+  if (date_to != null) params.set('date_to', date_to);
+  if (typeFilter) params.set('type', typeFilter);
   const queryString = params.toString();
 
   fetch(API + '/api/search' + (queryString ? '?' + queryString : ''), { headers: { 'x-auth-token': AUTH_TOKEN || '' } })

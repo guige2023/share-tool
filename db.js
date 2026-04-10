@@ -994,7 +994,7 @@ function tokenizeQuery(query) {
  */
 function searchFiles(query, tags = null, opts = {}) {
   const db = getDb();
-  const { limit = 100, fuzzy = true, size_min, size_max, date_from, date_to, tagMatch = 'all' } = opts;
+  const { limit = 100, fuzzy = true, size_min, size_max, date_from, date_to, tagMatch = 'all', content, type } = opts;
 
   // 构建 size 和 date 的 SQL 过滤条件
   const extraConditions = [];
@@ -1015,19 +1015,27 @@ function searchFiles(query, tags = null, opts = {}) {
     extraConditions.push('created_at <= ?');
     extraParams.push(parseInt(date_to));
   }
+  if (type) {
+    extraConditions.push(`LOWER(filename) LIKE ?`);
+    extraParams.push(`%.${type.toLowerCase()}`);
+  }
   const extraWhere = extraConditions.length > 0 ? ' AND ' + extraConditions.join(' AND ') : '';
 
-  if (!query && !tags && !extraWhere) {
+  if (!query && !tags && !content && !extraWhere) {
     return db.prepare(`SELECT ${FILE_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
   }
 
-  // 解析 content: 搜索词（保留原始 query 给 filename/tag 搜索用）
+  // 解析 content: 搜索词（opts.content 优先，query 内联 content: 作后备）
   let contentQuery = null;
   let cleanQuery = query;
-  const contentMatch = query.match(/content:(\S+)/);
-  if (contentMatch) {
-    contentQuery = contentMatch[1];
-    cleanQuery = query.replace(/content:\S+/g, '').replace(/\s+/g, ' ').trim();
+  if (content) {
+    contentQuery = content;
+  } else {
+    const contentMatch = query.match(/content:(\S+)/);
+    if (contentMatch) {
+      contentQuery = contentMatch[1];
+      cleanQuery = query.replace(/content:\S+/g, '').replace(/\s+/g, ' ').trim();
+    }
   }
 
   const queryTokens = tokenizeQuery(cleanQuery);
