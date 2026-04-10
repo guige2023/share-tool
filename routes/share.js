@@ -68,7 +68,13 @@ module.exports = function handleShareRoutes(req, res, pathname, query, ctx) {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const links = db.listShareLinks();
-    sendJson(res, { success: true, links });
+    const origin = req.headers.origin || '';
+    const baseUrl = origin.replace(/\/+$/, '');
+    const linksWithUrl = links.map(l => ({
+      ...l,
+      url: `${baseUrl}/s/${l.code}`
+    }));
+    sendJson(res, { success: true, links: linksWithUrl });
     return true;
   }
 

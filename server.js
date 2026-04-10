@@ -5322,7 +5322,7 @@ async function loadNotifications() {
       const icon = NOTIF_ICONS[n.type] || NOTIF_ICONS.info;
       const time = formatRelativeTime(n.created_at * 1000);
       const unread = n.read ? '' : 'unread';
-      return '<div class="notif-item ' + unread + '" onclick="handleNotifClick(' + n.id + ', \'' + escapeHtml(n.type) + '\')">' +
+      return '<div class="notif-item ' + unread + '" onclick="handleNotifClick(' + n.id + ', \'' + escapeHtml(n.type) + '\', \'' + escapeHtml(n.filename || '') + '\')">' +
         '<div class="notif-icon">' + icon + '</div>' +
         '<div class="notif-content">' +
         '<div class="notif-title">' + escapeHtml(n.title) + '</div>' +
