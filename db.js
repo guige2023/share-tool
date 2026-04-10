@@ -765,6 +765,7 @@ function moveFile(sourceFilename, destFilename) {
 
 // 前缀移动（用于虚拟文件夹移动）
 function moveFilesByPrefix(sourcePrefix, destPrefix) {
+  if (!validateFilename(sourcePrefix) || !validateFilename(destPrefix)) return { moved: 0, error: '无效的文件夹名' };
   const db = getDb();
   const oldPattern = sourcePrefix.endsWith('/') ? sourcePrefix + '%' : sourcePrefix + '/%';
   const newPatternPrefix = destPrefix.endsWith('/') ? destPrefix : destPrefix + '/';
