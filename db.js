@@ -920,7 +920,7 @@ function tokenizeQuery(query) {
  */
 function searchFiles(query, tags = null, opts = {}) {
   const db = getDb();
-  const { limit = 100, fuzzy = true, size_min, size_max, date_from, date_to } = opts;
+  const { limit = 100, fuzzy = true, size_min, size_max, date_from, date_to, tagMatch = 'all' } = opts;
 
   // 构建 size 和 date 的 SQL 过滤条件
   const extraConditions = [];
@@ -961,7 +961,8 @@ function searchFiles(query, tags = null, opts = {}) {
   // 如果没有查询词，只有标签过滤 + size/date：直接用 SQLite
   if (queryTokens.length === 0 && tags && !contentQuery) {
     const tagList = tags.split(',').map(t => t.trim().toLowerCase());
-    const tagConditions = tagList.map(() => `LOWER(tags) LIKE ?`).join(' AND ');
+    const tagJoin = tagMatch === 'any' ? ' OR ' : ' AND ';
+    const tagConditions = tagList.map(() => `LOWER(tags) LIKE ?`).join(tagJoin);
     const tagParams = tagList.map(t => `%${t}%`);
     return db.prepare(`SELECT ${FILE_FIELDS} FROM files WHERE ${tagConditions}${extraWhere} ORDER BY created_at DESC LIMIT ?`)
       .all(...tagParams, ...extraParams, limit);
@@ -1025,12 +1026,18 @@ function searchFiles(query, tags = null, opts = {}) {
       }
     }
 
-    // Tag filter
+    // Tag filter: AND (all tags) or OR (any tag)
     if (tags) {
-      const tagList = tags.split(',').map(t => t.trim().toLowerCase());
+      const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
       const hasAllTags = tagList.every(t => fileTags.includes(t));
-      if (!hasAllTags) return null;
-      score += 30; // tag filter bonus
+      const hasAnyTag = tagList.some(t => fileTags.includes(t));
+      if (tagMatch === 'any') {
+        if (!hasAnyTag) return null;
+        score += 30 * Math.min(tagList.filter(t => fileTags.includes(t)).length, 3); // bonus per matched tag
+      } else {
+        if (!hasAllTags) return null;
+        score += 30;
+      }
     }
 
     // Content search: 文件内容包含匹配

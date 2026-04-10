@@ -6631,31 +6631,33 @@ async function retryUploadItem(idx) {
   const { file, filename } = window._failedUploads[idx];
   // Remove from failed list
   window._failedUploads.splice(idx, 1);
-  // Re-trigger the upload by re-using file object
-  const reader = new FileReader();
-  reader.onload = async () => {
-    const base64 = reader.result.split(',')[1];
-    try {
-      const res = await fetch(API + '/api/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-        body: JSON.stringify({ filename, content: base64, type: 'file' })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast('✓ ' + filename + ' ' + T('msg.uploadSuccess'));
-        loadFiles();
-        broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
-      } else {
-        showAlert('uploadAlert', T('msg.retryFailed') + ': ' + data.error, 'error');
-        window._failedUploads.push({ file, filename });
-      }
-    } catch (e) {
-      showAlert('uploadAlert', T('msg.retryFailed') + ': ' + e.message, 'error');
+  // Re-upload with compression
+  let base64;
+  try {
+    const result = await compressImage(file);
+    base64 = result.base64 || await fileToBase64(file);
+  } catch (_) {
+    base64 = await fileToBase64(file);
+  }
+  try {
+    const res = await fetch(API + '/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ filename, content: base64, type: 'file' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('✓ ' + filename + ' ' + T('msg.uploadSuccess'));
+      loadFiles();
+      broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
+    } else {
+      showAlert('uploadAlert', T('msg.retryFailed') + ': ' + data.error, 'error');
       window._failedUploads.push({ file, filename });
     }
-  };
-  reader.readAsDataURL(file);
+  } catch (e) {
+    showAlert('uploadAlert', T('msg.retryFailed') + ': ' + e.message, 'error');
+    window._failedUploads.push({ file, filename });
+  }
 }
 
 async function retryAllFailed() {

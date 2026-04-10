@@ -272,18 +272,19 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // GET /api/search?q=xxx&tags=xxx&size_min=&size_max=&date_from=&date_to= — 高级搜索
+  // GET /api/search?q=xxx&tags=xxx&tagMatch=all|any&size_min=&size_max=&date_from=&date_to= — 高级搜索
   if (pathname === '/api/search' && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const q = (parsed.query.get('q') || '').trim();
     const tags = parsed.query.get('tags') || null;
+    const tagMatch = parsed.query.get('tagMatch') || 'all';  // 'all' = AND, 'any' = OR
     const fuzzy = parsed.query.get('fuzzy') !== 'false';
     const size_min = parsed.query.get('size_min') ? parseInt(parsed.query.get('size_min')) : null;
     const size_max = parsed.query.get('size_max') ? parseInt(parsed.query.get('size_max')) : null;
     const date_from = parsed.query.get('date_from') ? parseInt(parsed.query.get('date_from')) : null;
     const date_to = parsed.query.get('date_to') ? parseInt(parsed.query.get('date_to')) : null;
-    const files = db.searchFiles(q, tags, { fuzzy, limit: 200, size_min, size_max, date_from, date_to });
+    const files = db.searchFiles(q, tags, { fuzzy, limit: 200, size_min, size_max, date_from, date_to, tagMatch });
     sendJson(res, { success: true, files, query: q, count: files.length });
     return true;
   }
