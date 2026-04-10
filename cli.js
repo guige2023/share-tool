@@ -434,13 +434,35 @@ async function main() {
         if (oIndex !== -1 && args[oIndex + 1]) {
           outputDir = args[oIndex + 1];
         }
-        const res = await downloadFile(name, outputDir);
+
+        function formatBytes(b) {
+          if (b < 1024) return b + ' B';
+          if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+          if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+          return (b / 1073741824).toFixed(2) + ' GB';
+        }
+        const startTime = Date.now();
+        const BAR_W = 24;
+        let lastPct = -1;
+        const onProgress = (downloaded, total) => {
+          const pct = downloaded / total;
+          if (Math.floor(pct * 10) > Math.floor(lastPct * 10) || pct >= 1) {
+            lastPct = pct;
+            const speed = downloaded / ((Date.now() - startTime) / 1000);
+            const bar = '█'.repeat(Math.round(pct * BAR_W)) + '░'.repeat(BAR_W - Math.round(pct * BAR_W));
+            process.stdout.write('\r[' + bar + '] ' + formatBytes(downloaded) + '/' + formatBytes(total) + ' ' + Math.round(pct * 100) + '% ' + formatBytes(speed) + '/s   \r');
+          }
+        };
+
+        const res = await downloadFile(name, outputDir, onProgress);
+        process.stdout.write('\n');
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
           printJson(res.data);
           process.exit(1);
         }
-        printJson(res.data);
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log('Downloaded: ' + name + ' (' + formatBytes(res.data.size || 0) + ') in ' + elapsed + 's → ' + res.data.saved);
         break;
       }
 
