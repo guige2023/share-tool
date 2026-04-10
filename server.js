@@ -3543,6 +3543,31 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .batch-bar button { padding: 5px 8px; font-size: 11px; }
   .batch-bar .batch-status { font-size: 11px; }
 }
+
+.file-context-menu {
+  position: fixed;
+  z-index: 10000;
+  background: var(--bg-elevated, var(--bg-secondary));
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  display: none;
+}
+.file-context-menu.show { display: block; }
+.file-context-menu .ctx-item {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+.file-context-menu .ctx-item:hover { background: var(--bg-tertiary); }
+.file-context-menu .ctx-item.danger { color: var(--danger); }
+.file-context-menu .ctx-divider { height: 1px; background: var(--border-color); margin: 4px 0; }
 .drop-zone { border: 2px dashed var(--border-color); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 16px; transition: all 0.2s; color: var(--text-muted); font-size: 13px; }
 .drop-zone.drag-over { border-color: var(--accent-primary); background: rgba(102,126,234,0.1); color: var(--accent-primary); }
 .drop-zone-icon { font-size: 24px; margin-bottom: 8px; }
@@ -3726,7 +3751,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 .markdown-body h1 { font-size: 1.5em; } .markdown-body h2 { font-size: 1.25em; } .markdown-body h3 { font-size: 1.1em; }
 .markdown-body p { margin: 0.8em 0; }
 .markdown-body code { background: var(--bg-tertiary); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; font-family: monospace; color: var(--code-fg); }
-.markdown-body pre { background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; overflow-x: auto; margin: 1em 0; }
+.markdown-body pre { background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; overflow-x: auto; margin: 1em 0; position: relative; }
 .markdown-body pre code { background: none; padding: 0; color: var(--code-fg); }
 .markdown-body blockquote { border-left: 3px solid var(--accent-primary); margin: 1em 0; padding: 4px 12px; color: var(--text-muted); background: var(--bg-tertiary); border-radius: 0 4px 4px 0; }
 .markdown-body a { color: var(--accent-primary); }
@@ -3739,8 +3764,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 .markdown-body img[src^="http"] { cursor: pointer; }
 .markdown-body img[src^="http"]:hover { opacity: 0.85; }
 }
-/* Code block wrapper + copy button */
-.markdown-body pre { position: relative; }
+.markdown-body pre code { background: none; padding: 0; color: var(--code-fg); }
 .markdown-body pre .copy-btn {
   position: absolute; top: 8px; right: 8px;
   background: var(--bg-primary); border: 1px solid var(--border-color);
@@ -5199,7 +5223,7 @@ function renderFiles() {
 
     // Search highlight applied by applySearchHighlight() after render
 
-    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" draggable="true" ondragstart="handleDragStart(event, this)" ondragover="handleDragOver(event, this)" ondrop="handleDrop(event, this)" ondragend="handleDragEnd(event, this)" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '">' +
+    return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" draggable="true" ondragstart="handleDragStart(event, this)" ondragover="handleDragOver(event, this)" ondrop="handleDrop(event, this)" ondragend="handleDragEnd(event, this)" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '" oncontextmenu="showFileContextMenu(event, \'' + encodeURIComponent(f.name) + '\')">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
         (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>' + T('file.addTag') + '</span></button>' : '') +
         '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>' + T('tag.delete') + '</span></button>' +
@@ -8230,6 +8254,87 @@ function clearBatch() {
   updateBatchBar();
 }
 
+// File context menu
+let _ctxFilename = null;
+
+function showFileContextMenu(e, filename) {
+  e.preventDefault();
+  e.stopPropagation();
+  _ctxFilename = filename;
+  const menu = document.getElementById('fileContextMenu');
+  if (!menu) return;
+
+  const ext = filename.split('.').pop().toLowerCase();
+  const isImage = isImageFile(filename);
+  const isAudio = isAudioFile(filename);
+  const isVideo = isVideoFile(filename);
+  const isPdf = isPdfFile(filename);
+  const isCode = isCodeFile(filename);
+  const isMd = /\.(md|markdown)$/i.test(filename);
+  const isText = /text/i.test(ext);
+
+  const items = [];
+  items.push({ icon: '📖', label: '打开 / Open', action: "openFileByName('" + encodeURIComponent(filename) + "')" });
+  if (isImage) items.push({ icon: '🖼', label: '图片预览', action: "openImageModal('" + encodeURIComponent(filename) + "')" });
+  if (isAudio || isVideo) items.push({ icon: isAudio ? '🎵' : '🎬', label: '媒体预览', action: "openMediaModal('" + encodeURIComponent(filename) + "')" });
+  if (isPdf) items.push({ icon: '📕', label: 'PDF 预览', action: "openPdfModal('" + encodeURIComponent(filename) + "')" });
+  if (isCode || isMd || isText) items.push({ icon: '📝', label: '代码/MD预览', action: "openCodeModal('" + encodeURIComponent(filename) + "')" });
+  items.push({ divider: true });
+  items.push({ icon: '🏷', label: '添加标签', action: "addTag('" + encodeURIComponent(filename) + "', '')" });
+  items.push({ icon: '🔗', label: '创建分享链接', action: "createShareLink('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '📋', label: '复制到...', action: "promptCopy('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '✏️', label: '重命名', action: "startInlineRenameFromCtx('" + encodeURIComponent(filename) + "')" });
+  items.push({ divider: true });
+  items.push({ icon: '⬇', label: '下载', action: "downloadFile('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '🗑', label: '删除', action: "deleteFile('" + encodeURIComponent(filename) + "')", danger: true });
+
+  menu.innerHTML = items.map(item => {
+    if (item.divider) return '<div class="ctx-divider"></div>';
+    return '<div class="ctx-item' + (item.danger ? ' danger' : '') + '" onclick="closeContextMenu();' + item.action + '">' + item.icon + ' ' + item.label + '</div>';
+  }).join('');
+
+  // Position menu
+  const menuW = 180, menuH = items.length * 36 + 8;
+  let x = e.clientX, y = e.clientY;
+  if (x + menuW > window.innerWidth) x = window.innerWidth - menuW - 8;
+  if (y + menuH > window.innerHeight) y = window.innerHeight - menuH - 8;
+
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('show');
+}
+
+function closeContextMenu() {
+  const menu = document.getElementById('fileContextMenu');
+  if (menu) menu.classList.remove('show');
+  _ctxFilename = null;
+}
+
+function promptCopy(filename) {
+  const dest = prompt('复制到目标文件夹前缀（如 backup/）：', '');
+  if (!dest) return;
+  fetch(API + '/api/file-copy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ sourceFilename: filename, newFilename: dest + filename.split('/').pop() })
+  }).then(r => r.json()).then(d => {
+    showToast(d.success ? '已复制到 ' + dest : '复制失败: ' + d.error);
+    if (d.success) loadFiles();
+  }).catch(e => showToast('复制失败: ' + e.message));
+}
+
+function startInlineRenameFromCtx(filename) {
+  closeContextMenu();
+  setTimeout(() => startInlineRename(null, filename), 50);
+}
+
+function openFileByName(filename) {
+  closeContextMenu();
+  handleFileItemClick({ stopPropagation: () => {} }, filename, isImageFile(filename));
+}
+
+document.addEventListener('click', closeContextMenu);
+
 function setBatchOperation(op) {
   const status = document.getElementById('batchStatus');
   const statusText = document.getElementById('batchStatusText');
@@ -9786,7 +9891,8 @@ window.addEventListener('DOMContentLoaded', updateFabVisibility);
   </div>
 </div>
 
-</body>
+  </body>
+  <div class="file-context-menu" id="fileContextMenu"></div>
 </html>`;
 
 
