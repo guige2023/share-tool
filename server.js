@@ -9742,6 +9742,7 @@ function showBatchRenameModal() {
           '<option value="prefix">添加前缀</option>' +
           '<option value="suffix">添加后缀</option>' +
           '<option value="case">切换大小写</option>' +
+          '<option value="seq">顺序编号</option>' +
         '</select>' +
       '</div>' +
       '<div id="brReplaceFields">' +
@@ -9753,6 +9754,24 @@ function showBatchRenameModal() {
       '<div id="brPrefixSuffixField" style="display:none;">' +
         '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">文本</label>' +
         '<input id="brText" type="text" placeholder="输入前缀或后缀" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+      '</div>' +
+      '<div id="brSeqField" style="display:none;">' +
+        '<div style="display:flex;gap:8px;margin-bottom:4px;">' +
+          '<div style="flex:1;">' +
+            '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">前缀</label>' +
+            '<input id="brSeqPrefix" type="text" placeholder="文件名前缀" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+          '</div>' +
+          '<div style="width:100px;">' +
+            '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">起始号</label>' +
+            '<input id="brSeqStart" type="number" value="1" min="0" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+          '</div>' +
+          '<div style="width:80px;">' +
+            '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">位数</label>' +
+            '<input id="brSeqPad" type="number" value="3" min="1" max="6" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+          '</div>' +
+        '</div>' +
+        '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;margin-top:4px;">后缀（留空保留原扩展名）</label>' +
+        '<input id="brSeqSuffix" type="text" placeholder="如 .txt 或 _备注" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
       '</div>' +
       '<div id="brPreviewArea" style="background:var(--bg-tertiary);border-radius:8px;padding:12px;max-height:200px;overflow:auto;">' +
         '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">预览（前5个）</div>' +
@@ -9775,8 +9794,10 @@ function onBrOpTypeChange() {
   const op = document.getElementById('brOpType').value;
   const replaceFields = document.getElementById('brReplaceFields');
   const prefixSuffixField = document.getElementById('brPrefixSuffixField');
+  const seqField = document.getElementById('brSeqField');
   if (replaceFields) replaceFields.style.display = op === 'replace' ? 'block' : 'none';
-  if (prefixSuffixField) prefixSuffixField.style.display = op === 'replace' ? 'none' : 'block';
+  if (prefixSuffixField) prefixSuffixField.style.display = (op === 'prefix' || op === 'suffix' || op === 'seq') ? 'block' : 'none';
+  if (seqField) seqField.style.display = op === 'seq' ? 'block' : 'none';
 }
 
 function updateBatchRenamePreview() {
@@ -9785,7 +9806,7 @@ function updateBatchRenamePreview() {
   const repl = (document.getElementById('brReplace') || {}).value || '';
   const text = (document.getElementById('brText') || {}).value || '';
   const files = window._batchRenameFiles || [];
-  const preview = files.slice(0, 5).map(f => {
+  const preview = files.slice(0, 5).map((f, idx) => {
     const fn = decodeURIComponent(f);
     const ext = fn.includes('.') ? fn.split('.').pop() : '';
     const base = ext ? fn.slice(0, -(ext.length + 1)) : fn;
@@ -9794,6 +9815,19 @@ function updateBatchRenamePreview() {
     else if (op === 'prefix') newBase = text + base;
     else if (op === 'suffix') newBase = base + text;
     else if (op === 'case') newBase = base === base.toLowerCase() ? base.toUpperCase() : base.toLowerCase();
+    else if (op === 'seq') {
+      const start = parseInt((document.getElementById('brSeqStart') || {}).value) || 1;
+      const pad = parseInt((document.getElementById('brSeqPad') || {}).value) || 3;
+      const prefix = (document.getElementById('brSeqPrefix') || {}).value || '';
+      const suffix = (document.getElementById('brSeqSuffix') || {}).value || ('.' + ext);
+      const num = String(start + idx).padStart(pad, '0');
+      newBase = prefix + num;
+      const newFn = suffix ? newBase + suffix : newBase;
+      const changed = newFn !== fn;
+      return '<div style="font-size:12px;word-break:break-all;margin:3px 0;">' +
+        (changed ? '<span style="color:var(--text-muted);text-decoration:line-through;">' + escapeHtml(fn) + '</span> → <span style="color:var(--success-fg);">' + escapeHtml(newFn) + '</span>' :
+         '<span>' + escapeHtml(fn) + '</span>') + '</div>';
+    }
     const newFn = ext ? newBase + '.' + ext : newBase;
     const changed = newFn !== fn;
     return '<div style="font-size:12px;word-break:break-all;margin:3px 0;">' +

@@ -2,8 +2,11 @@
  * routes/api.js - System APIs: token, config, https, storage, db, audit, devices, sync
  */
 
+const path = require('path');
+const os = require('os');
+
 module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
-  const { db, config, sendJson, authRequired, getClientIp, saveConfig, SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, fs, path, ensureSslCertificates, getCertInfo, checkAndRenewCertificate, broadcastChange, execSync } = ctx;
+  const { db, config, sendJson, authRequired, getClientIp, saveConfig, SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, fs, ensureSslCertificates, getCertInfo, checkAndRenewCertificate, broadcastChange, execSync } = ctx;
   const { method } = req;
   const parsed = { query };
 
@@ -149,7 +152,14 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
       try {
         const updates = JSON.parse(body);
         if (updates.downloadDir) {
-          config.downloadDir = updates.downloadDir;
+          const downloadPath = path.resolve(updates.downloadDir);
+          // 限制在用户目录下，防止路径遍历覆盖系统文件
+          const homeDir = os.homedir();
+          if (!downloadPath.startsWith(homeDir)) {
+            sendJson(res, { success: false, error: 'downloadDir must be within home directory' }, 400);
+            return;
+          }
+          config.downloadDir = downloadPath;
           if (!fs.existsSync(config.downloadDir)) {
             fs.mkdirSync(config.downloadDir, { recursive: true });
           }
