@@ -9905,6 +9905,8 @@ async function copyContent(filename) {
 }
 
 function downloadFile(filename) {
+  const shortName = filename.length > 40 ? filename.substring(0, 37) + '...' : filename;
+  showToast(T('msg.downloading') + ' ' + shortName);
   window.open(API + '/download/' + filename, '_blank');
 }
 
@@ -10255,7 +10257,7 @@ async function deleteFile(filename) {
     }
     var data = await res.json();
     if (data.success) {
-      showAlert("listAlert", "Deleted", "success");
+      showAlert("listAlert", "✓ " + T('msg.deleted'), "success");
       loadFiles();
       broadcastWs({ type: "file_delete", payload: { filename: decodeURIComponent(filename) } });
     } else {
