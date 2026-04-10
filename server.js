@@ -539,6 +539,13 @@ const I18N = {
     'ui.page': '第',
     'ui.of': '页，共',
     'ui.search': '搜索',
+    'time.justNow': '刚刚',
+    'time.minutesAgo': '{n} 分钟前',
+    'time.hoursAgo': '{n} 小时前',
+    'time.daysAgo': '{n} 天前',
+    'time.weeksAgo': '{n} 周前',
+    'time.monthsAgo': '{n} 个月前',
+    'time.yearsAgo': '{n} 年前',
     'ui.filterAll': '全部',
     'ui.tagMatchAll': '匹配全部标签',
     'ui.tagMatchAny': '匹配任一标签',
@@ -1050,6 +1057,13 @@ const I18N = {
     'ui.page': 'Page',
     'ui.of': 'of',
     'ui.search': 'Search',
+    'time.justNow': 'just now',
+    'time.minutesAgo': '{n} min ago',
+    'time.hoursAgo': '{n} hr ago',
+    'time.daysAgo': '{n} days ago',
+    'time.weeksAgo': '{n} wk ago',
+    'time.monthsAgo': '{n} mo ago',
+    'time.yearsAgo': '{n} yr ago',
     'ui.filterAll': 'All',
     'ui.tagMatchAll': 'Match all tags',
     'ui.tagMatchAny': 'Match any tag',
@@ -5180,6 +5194,26 @@ function formatTime(ts) {
   return new Date(ts).toLocaleString('zh-CN');
 }
 
+function formatRelativeTime(ts) {
+  const now = Date.now();
+  const diff = now - ts; // ms
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const weeks = Math.floor(days / 7);
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+
+  if (seconds < 60) return T('time.justNow') || '刚刚';
+  if (minutes < 60) return (T('time.minutesAgo') || '{n} 分钟前').replace('{n}', minutes);
+  if (hours < 24) return (T('time.hoursAgo') || '{n} 小时前').replace('{n}', hours);
+  if (days < 7) return (T('time.daysAgo') || '{n} 天前').replace('{n}', days);
+  if (weeks < 4) return (T('time.weeksAgo') || '{n} 周前').replace('{n}', weeks);
+  if (months < 12) return (T('time.monthsAgo') || '{n} 个月前').replace('{n}', months);
+  return (T('time.yearsAgo') || '{n} 年前').replace('{n}', years);
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -5875,7 +5909,7 @@ function renderFiles() {
           return '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + tagEsc + '\')">' + tagHtml + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + tagEsc + '\')">×</span></span>';
         }).join('') + '</div>' : '') +
         (!isVirtualFolder ? '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + ((f.tags || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')">+' + T('file.addTag') + '</button>' : '') +
-        (!isVirtualFolder ? '<div class="file-meta">' + formatSize(f.size) + ' | ' + formatTime(f.time) + '</div>' : '<div class="file-meta" style="color:var(--text-muted);">' + T('file.enterFolder') + (window.folderSizes && window.folderSizes[f.name] ? ' | ' + formatSize(window.folderSizes[f.name]) : '') + '</div>') +
+        (!isVirtualFolder ? '<div class="file-meta" title="' + formatTime(f.time) + '">' + formatSize(f.size) + ' | ' + formatRelativeTime(f.time) + '</div>' : '<div class="file-meta" style="color:var(--text-muted);">' + T('file.enterFolder') + (window.folderSizes && window.folderSizes[f.name] ? ' | ' + formatSize(window.folderSizes[f.name]) : '') + '</div>') +
         (!isVirtualFolder && isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
         // Audio/Video/PDF inline player
         (!isVirtualFolder && isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
