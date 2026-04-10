@@ -227,7 +227,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/search/suggest' && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const q = (parsed.query.q || '').toLowerCase().trim();
+    const q = (parsed.query.get('q') || '').toLowerCase().trim();
     if (!q) { sendJson(res, { success: true, suggestions: [] }); return true; }
 
     const suggestions = [];
@@ -276,13 +276,13 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/search' && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const q = (parsed.query.q || '').trim();
-    const tags = parsed.query.tags || null;
-    const fuzzy = parsed.query.fuzzy !== 'false';
-    const size_min = parsed.query.size_min ? parseInt(parsed.query.size_min) : null;
-    const size_max = parsed.query.size_max ? parseInt(parsed.query.size_max) : null;
-    const date_from = parsed.query.date_from ? parseInt(parsed.query.date_from) : null;
-    const date_to = parsed.query.date_to ? parseInt(parsed.query.date_to) : null;
+    const q = (parsed.query.get('q') || '').trim();
+    const tags = parsed.query.get('tags') || null;
+    const fuzzy = parsed.query.get('fuzzy') !== 'false';
+    const size_min = parsed.query.get('size_min') ? parseInt(parsed.query.get('size_min')) : null;
+    const size_max = parsed.query.get('size_max') ? parseInt(parsed.query.get('size_max')) : null;
+    const date_from = parsed.query.get('date_from') ? parseInt(parsed.query.get('date_from')) : null;
+    const date_to = parsed.query.get('date_to') ? parseInt(parsed.query.get('date_to')) : null;
     const files = db.searchFiles(q, tags, { fuzzy, limit: 200, size_min, size_max, date_from, date_to });
     sendJson(res, { success: true, files, query: q, count: files.length });
     return true;
@@ -292,7 +292,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/tags/suggest-color' && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const tag = parsed.query.tag || '';
+    const tag = parsed.query.get('tag') || '';
     const color = db.getSuggestedColor(tag);
     sendJson(res, { success: true, color });
     return true;
@@ -352,7 +352,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
             const idx = tags.indexOf(oldTag);
             if (idx !== -1) {
               tags[idx] = newTag;
-              db.updateFile(f.filename, null, { tags: tags.join(',') });
+              db.updateFileByName(f.filename, { tags: tags.join(',') });
               updated++;
             }
           }
@@ -385,7 +385,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
       if (f.tags) {
         const tags = f.tags.split(',').map(s => s.trim()).filter(s => s !== tag);
         if (tags.length !== f.tags.split(',').map(s => s.trim()).filter(Boolean).length) {
-          db.updateFile(f.filename, null, { tags: tags.join(',') });
+          db.updateFileByName(f.filename, { tags: tags.join(',') });
           updated++;
         }
       }
@@ -507,13 +507,13 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/audit/logs') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const limit = parseInt(parsed.query.limit) || 100;
-    const offset = parseInt(parsed.query.offset) || 0;
+    const limit = parseInt(parsed.query.get('limit')) || 100;
+    const offset = parseInt(parsed.query.get('offset')) || 0;
     const filters = {
-      action: parsed.query.action || null,
-      ip: parsed.query.ip || null,
-      since: parsed.query.since ? parseInt(parsed.query.since) : null,
-      until: parsed.query.until ? parseInt(parsed.query.until) : null
+      action: parsed.query.get('action') || null,
+      ip: parsed.query.get('ip') || null,
+      since: parsed.query.get('since') ? parseInt(parsed.query.get('since')) : null,
+      until: parsed.query.get('until') ? parseInt(parsed.query.get('until')) : null
     };
     const result = db.listAuditLogs(limit, offset, filters);
     const stats = db.getAuditStats();

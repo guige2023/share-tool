@@ -6451,6 +6451,48 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// Compress JPEG/PNG images > 100KB before upload (canvas-based, no server needed)
+async function compressImage(file) {
+  const isCompressable = file.type === 'image/jpeg' || file.type === 'image/png';
+  if (!isCompressable || file.size <= 100 * 1024) {
+    return { base64: await fileToBase64(file), compressed: false };
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      const MAX_W = 1920, MAX_H = 1920;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > MAX_W || h > MAX_H) {
+        const r = Math.min(MAX_W / w, MAX_H / h);
+        w = Math.round(w * r); h = Math.round(h * r);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => {
+        if (!blob) { resolve({ base64: null, compressed: false }); return; }
+        if (blob.size < file.size) {
+          const saving = (((file.size - blob.size) / file.size) * 100).toFixed(0);
+          setTimeout(() => showToast('🖼 ' + file.name + ' 压缩节省 ' + saving + '%'), 500);
+        }
+        fileToBase64(blob).then(base64 => resolve({ base64, compressed: true, origSize: file.size, newSize: blob.size }));
+      }, 'image/jpeg', 0.8);
+    };
+    img.onerror = () => resolve({ base64: null, compressed: false });
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadFiles(files) {
   let successCount = 0;
   let failCount = 0;
@@ -6481,11 +6523,18 @@ async function uploadFiles(files) {
       uploadQueue.appendChild(item);
     }
 
-    await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64 = reader.result.split(',')[1];
-        // Animate progress during upload
+    await new Promise(async (resolve) => {
+      // Compress image client-side before upload (JPEG/PNG > 100KB)
+      let base64;
+      try {
+        const result = await compressImage(file);
+        if (!result.base64) throw new Error('compress failed');
+        base64 = result.base64;
+      } catch (e) {
+        // Fallback to direct read
+        try { base64 = await fileToBase64(file); } catch (_) { failCount++; resolve(); return; }
+      }
+      // Animate progress during upload
         let animFrame = 0;
         const animInterval = setInterval(() => {
           animFrame++;
@@ -6561,8 +6610,6 @@ async function uploadFiles(files) {
           queueItem.querySelector('.status').after(retryBtn);
         }
         resolve();
-      };
-      reader.readAsDataURL(file);
     });
   }
 
