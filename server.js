@@ -3574,6 +3574,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .filter-tab { padding: 6px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 20px; font-size: 12px; color: var(--text-muted); cursor: pointer; transition: all 0.2s; }
 .filter-tab:hover { border-color: var(--accent-primary); }
 .filter-tab.active { background: rgba(102,126,234,0.2); border-color: var(--accent-primary); }
+.filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 10px; background: rgba(102,126,234,0.15); border: 1px solid var(--accent-primary); border-radius: 14px; font-size: 11px; color: var(--accent-primary); }
+.filter-chip-remove { background: none; border: none; cursor: pointer; color: var(--accent-primary); font-size: 14px; line-height: 1; padding: 0 2px; opacity: 0.7; }
+.filter-chip-remove:hover { opacity: 1; }
 .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; background: var(--bg-tertiary); padding: 4px; border-radius: 10px; }
 .tab-item { flex: 1; padding: 10px; text-align: center; font-size: 14px; color: var(--text-muted); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
 .tab-item:hover { color: var(--text-primary); }
@@ -3694,7 +3697,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .share-link-box { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
   .share-link-box input { flex: 1; padding: 6px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 16px; font-family: monospace; min-height: 44px; /* prevent iOS zoom */ }
   .share-link-box button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 14px; cursor: pointer; min-height: 44px; /* touch target */ }
-  .upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
+  .upload-progress-bar { width: 100%; height: 4px; background: var(--bg-tertiary); border-radius: 2px; margin-top: 8px; overflow: visible; display: none; position: relative; }
   .upload-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); border-radius: 2px; transition: width 0.3s; }
   .upload-queue { display: none; margin-top: 8px; max-height: 120px; overflow-y: auto; }
   .upload-queue.show { display: block; }
@@ -3933,6 +3936,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <div class="upload-progress-bar" id="uploadProgressBar">
       <div class="upload-progress-fill" id="uploadProgressFill" style="width:0%"></div>
+      <span id="uploadProgressText" style="position:absolute;right:8px;font-size:11px;color:var(--text-muted);"></span>
     </div>
     <div class="upload-queue" id="uploadQueue"></div>
     <div class="share-link-box" id="shareLinkBox" style="display:none;">
@@ -4012,6 +4016,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button class="btn btn-sm" onclick="doSearch()">' + T('ui.search') + '</button>
       <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
     </div>
+    <div id="activeFilterChips" style="display:none;padding:4px 0 2px;flex-wrap:wrap;gap:6px;align-items:center;"></div>
     <div id="searchHint" style="display:none;font-size:11px;color:var(--text-muted);padding:2px 8px 6px;line-height:1.4;">
       <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('tag:')">tag:</span> tag &nbsp;
       <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('size:>1m')">size:</span> &gt;1m &nbsp;
@@ -5153,11 +5158,11 @@ function renderBreadcrumb() {
     return;
   }
   const parts = currentFolder.split('/');
-  let html = '<span class="breadcrumb-item" onclick="navigateFolder(null)" style="cursor:pointer;color:var(--accent-primary);">📁 T('ui.allFiles') + '</span>';
+  let html = '<span class="breadcrumb-item" onclick="navigateFolder(null)" style="cursor:pointer;color:var(--accent-primary);">📁 ' + T('ui.allFiles') + '</span>';
   let path = '';
   for (let i = 0; i < parts.length; i++) {
     path += (i > 0 ? '/' : '') + parts[i];
-    html += ' <span style="color:var(--text-muted);">/</span> ';
+    html += ' <span style="color:var(--text-muted);">›</span> ';
     if (i === parts.length - 1) {
       html += '<span class="breadcrumb-item" style="color:var(--text-secondary);font-weight:500;">' + escapeHtml(parts[i]) + '</span>';
     } else {
@@ -7653,9 +7658,32 @@ function doSearch() {
   window.currentSearchQ = q;
   document.getElementById('clearSearchBtn').style.display = q ? 'inline-block' : 'none';
   if (!q) {
+    document.getElementById('activeFilterChips').style.display = 'none';
     loadFiles();
     return;
   }
+
+  // Render active filter chips
+  (function renderActiveFilterChips() {
+    const chips = [];
+    const tagMatches = q.match(/tag:\S+/g) || [];
+    for (const t of tagMatches) chips.push({ label: '🏷 ' + t.replace('tag:', ''), remove: () => { const v = document.getElementById('searchInput').value.replace(t, '').replace(/\s+/g, ' ').trim(); document.getElementById('searchInput').value = v; doSearch(); } });
+    const contentMatch = q.match(/content:(\S+)/);
+    if (contentMatch) chips.push({ label: '📝 ' + contentMatch[1], remove: () => { document.getElementById('searchInput').value = q.replace('content:' + contentMatch[1], '').trim(); doSearch(); } });
+    const sizeMatch = q.match(/size:[<>]\d+[kmgt]?/i);
+    if (sizeMatch) chips.push({ label: '📦 ' + sizeMatch[0], remove: () => { document.getElementById('searchInput').value = q.replace(sizeMatch[0], '').trim(); doSearch(); } });
+    const dateMatch = q.match(/date:[<>][^\s]+/);
+    if (dateMatch) chips.push({ label: '📅 ' + dateMatch[0], remove: () => { document.getElementById('searchInput').value = q.replace(dateMatch[0], '').trim(); doSearch(); } });
+    const typeMatch = q.match(/type:\w+/);
+    if (typeMatch) chips.push({ label: '📄 ' + typeMatch[0].replace('type:', ''), remove: () => { document.getElementById('searchInput').value = q.replace(typeMatch[0], '').trim(); doSearch(); } });
+    const extMatch = q.match(/ext:\w+/);
+    if (extMatch) chips.push({ label: '🏁 ' + extMatch[0].replace('ext:', ''), remove: () => { document.getElementById('searchInput').value = q.replace(extMatch[0], '').trim(); doSearch(); } });
+
+    const container = document.getElementById('activeFilterChips');
+    if (chips.length === 0) { container.style.display = 'none'; return; }
+    container.style.display = 'flex';
+    container.innerHTML = chips.map(c => '<span class="filter-chip">' + escapeHtml(c.label) + ' <button class="filter-chip-remove" onclick="event.stopPropagation();' + (c.remove.toString().replace(/\s+/g, ' ')) + '()">×</button></span>').join('');
+  })();
 
   // Extract inline search filters: tag:, content:, size:, date:, type:, ext:
   const tagMatches = q.match(/tag:\S+/g) || [];
@@ -8092,6 +8120,7 @@ async function uploadFiles(files) {
   const totalFiles = files.length;
   const progressBar = document.getElementById('uploadProgressBar');
   const progressFill = document.getElementById('uploadProgressFill');
+  const progressText = document.getElementById('uploadProgressText');
   const uploadQueue = document.getElementById('uploadQueue');
 
   // Store failed file objects for retry
@@ -8154,6 +8183,7 @@ async function uploadFiles(files) {
         try { data = JSON.parse(xhr.responseText); } catch (_) { data = { success: false, error: 'Server error' }; }
         const finalPct = Math.round(((i + 1) / totalFiles) * 100);
         if (progressFill) progressFill.style.width = finalPct + '%';
+        if (progressText) progressText.textContent = (i + 1) + '/' + totalFiles;
         if (queueItem) {
           queueItem.classList.add(data.success ? 'done' : 'fail');
           queueItem.querySelector('.status').textContent = data.success ? '✓' : '✗';
@@ -8202,8 +8232,6 @@ async function uploadFiles(files) {
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('x-auth-token', AUTH_TOKEN || '');
       xhr.send(JSON.stringify({ filename, content: base64, type: 'file' }));
-    });
-  }
     });
   }
 
