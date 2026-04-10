@@ -340,6 +340,9 @@ const I18N = {
     'tag.confirmDelete': '确定删除标签 "{name}"？将从所有文件中移除。',
     'tag.removed': '已删除，从 {n} 个文件中移除',
     'tag.removedLabel': '已移除标签',
+    'tag.removePrompt': '请输入要移除的标签名称:',
+    'tag.removedN': '已从 {n} 个文件移除标签',
+    'tag.removeFailed': '批量移除标签失败:',
 
     // 版本历史
     'ver.history': '历史版本',
@@ -462,6 +465,7 @@ const I18N = {
     'ui.selectedN': '已选择 {n} 个文件',
     'ui.batchDownload': '下载',
     'ui.batchTag': '标签',
+    'ui.batchRemoveTag': '移除标签',
     'ui.batchStar': '收藏',
     'ui.batchRename': '重命名',
     'ui.batchCopy': '复制',
@@ -767,6 +771,9 @@ const I18N = {
     'tag.confirmDelete': 'Delete tag "{name}"? Will be removed from all files.',
     'tag.removed': 'Removed, from {n} files',
     'tag.removedLabel': 'Tag removed',
+    'tag.removePrompt': 'Enter tag name to remove:',
+    'tag.removedN': 'Removed tag from {n} files',
+    'tag.removeFailed': 'Batch remove tag failed:',
 
     // 版本历史
     'ver.history': 'Version history',
@@ -885,6 +892,7 @@ const I18N = {
     'ui.selectedN': '{n} files selected',
     'ui.batchDownload': 'Download',
     'ui.batchTag': 'Tag',
+    'ui.batchRemoveTag': 'Remove tag',
     'ui.batchStar': 'Star',
     'ui.batchRename': 'Rename',
     'ui.batchCopy': 'Copy',
@@ -1105,6 +1113,9 @@ const I18N = {
     'tag.confirmDelete': 'Delete tag "{name}"? Will be removed from all files.',
     'tag.removed': 'Removed, from {n} files',
     'tag.removedLabel': 'Tag removed',
+    'tag.removePrompt': 'Enter tag name to remove:',
+    'tag.removedN': 'Removed tag from {n} files',
+    'tag.removeFailed': 'Batch remove tag failed:',
 
     // 版本历史
     'ver.history': 'Version history',
@@ -2284,7 +2295,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v3.40',
+          version: 'v3.44',
         });
         return;
       }
@@ -3387,6 +3398,36 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .notif-badge { position: fixed; top: 12px; right: 12px; background: var(--danger); color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 11px; display: none; align-items: center; justify-content: center; z-index: 400; font-weight: bold; }
   .notif-badge.show { display: flex; }
   .filter-tab .kbd-hint { font-size: 9px; opacity: 0.6; }
+}
+
+/* Extra small screens (320px - 374px) */
+@media (max-width: 374px) {
+  .hero-title { font-size: 13px; }
+  .hero-desc { display: none; }
+  .hero-features { display: none; }
+  .container { padding: 8px; padding-bottom: max(100px, calc(100px + env(safe-area-inset-bottom))); }
+  .file-item { padding: 12px 8px; }
+  .file-item .file-name { font-size: 13px; }
+  .file-actions .btn { padding: 8px 6px; font-size: 11px; min-width: 50px; }
+  .btn { font-size: 13px; padding: 10px 12px; }
+  .filter-tab, .filter-tab.active { padding: 8px 10px; font-size: 12px; }
+  .status-bar { gap: 8px; }
+  .status-item { font-size: 11px; padding: 3px 8px; }
+  .modal-content { max-width: 98vw; }
+  .card { padding: 16px 12px; }
+  h1 { font-size: 24px; }
+  .section-title { font-size: 14px; }
+  .search-bar input { font-size: 15px; }
+  .fab { width: 44px; height: 44px; font-size: 18px; }
+  .fab-menu { bottom: max(80px, calc(80px + env(safe-area-inset-bottom))); right: 12px; }
+  .share-link-box input { font-size: 12px; }
+  .toast { font-size: 12px; padding: 8px 16px; }
+  .notif-badge { width: 16px; height: 16px; font-size: 10px; top: 8px; right: 8px; }
+  .conn-status { font-size: 10px; }
+  .storage-bar { font-size: 10px; }
+  .storage-bar progress { width: 60px; }
+}
+
 .fav-filter-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 14px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .fav-filter-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 .fav-filter-btn.active { background: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
@@ -3608,6 +3649,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span class="batch-count" id="batchCount">' + T('ui.selectedN').replace('{n}', '0') + '</span>
       <button onclick="batchDownload()">📦 ' + T('ui.batchDownload') + '</button>
       <button onclick="batchAddTag()">🏷 ' + T('ui.batchTag') + '</button>
+      <button onclick="batchRemoveTag()">🏷✕ ' + T('ui.batchRemoveTag') + '</button>
       <button onclick="batchStar()">⭐ ' + T('ui.batchStar') + '</button>
       <button onclick="batchCopy()">📋 ' + T('ui.batchCopy') + '</button>
       <button onclick="batchMove()">📁 ' + T('ui.batchMove') + '</button>
@@ -7340,6 +7382,34 @@ async function batchAddTag() {
     }
   } catch (e) {
     showToast(T('tag.addFailed') + ' ' + e.message, 'error');
+  }
+  clearBatch();
+  loadFiles();
+}
+
+async function batchRemoveTag() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  const tag = prompt(T('tag.removePrompt'));
+  if (!tag || !tag.trim()) return;
+  const tagsToRemove = tag.split(',').map(t => t.trim()).filter(t => t);
+  if (tagsToRemove.length === 0) return;
+
+  const files = Array.from(checked).map(cb => cb.value);
+  try {
+    const res = await fetch(API + '/api/file-tags/batch', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ files, action: 'remove', tags: tagsToRemove })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(T('tag.removedN', null, {n: data.updated}));
+    } else {
+      showToast(T('tag.removeFailed') + ' ' + (data.error || ''), 'error');
+    }
+  } catch (e) {
+    showToast(T('tag.removeFailed') + ' ' + e.message, 'error');
   }
   clearBatch();
   loadFiles();
