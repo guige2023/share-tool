@@ -3426,6 +3426,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .conn-status { font-size: 10px; }
   .storage-bar { font-size: 10px; }
   .storage-bar progress { width: 60px; }
+  /* File info panel: full screen on tiny screens */
+  #fileInfoPanel { height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .modal-content { max-height: 90dvh; }
 }
 
 .fav-filter-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 14px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
