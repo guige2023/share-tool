@@ -5335,13 +5335,55 @@ async function loadNotifications() {
   }
 }
 
-function handleNotifClick(id, type) {
+function handleNotifClick(id, type, filename) {
   // Mark single as read
   fetch(API + '/api/notifications/read', {
     method: 'POST',
     headers: { 'x-auth-token': AUTH_TOKEN || '' },
     body: JSON.stringify({ ids: [id] })
-  }).then(() => loadNotifications());
+  }).then(() => {
+    // Navigate to file if this is a file/share notification
+    if ((type === 'file' || type === 'share') && filename) {
+      toggleNotifPanel(); // close notification panel
+      navigateToFile(decodeURIComponent(filename));
+    } else {
+      loadNotifications();
+    }
+  });
+}
+
+function navigateToFile(filename) {
+  // Navigate to the folder containing the file and highlight it
+  const pathParts = filename.split('/');
+  if (pathParts.length > 1) {
+    // It's in a subfolder — navigate there
+    const folder = pathParts.slice(0, -1).join('/');
+    if (currentPath !== '/' + folder) {
+      goToFolder('/' + folder, function() {
+        highlightFile(filename);
+      });
+    } else {
+      highlightFile(filename);
+    }
+  } else {
+    // File is in current folder — just highlight
+    highlightFile(filename);
+  }
+}
+
+function highlightFile(filename) {
+  // Scroll to and briefly highlight the file item
+  const items = document.querySelectorAll('.file-item[data-filename]');
+  for (const item of items) {
+    if (decodeURIComponent(item.dataset.filename) === filename) {
+      item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      item.style.boxShadow = '0 0 0 3px var(--accent-primary)';
+      setTimeout(function() {
+        item.style.boxShadow = '';
+      }, 2000);
+      break;
+    }
+  }
 }
 
 async function updateNotifBadge() {
