@@ -3585,7 +3585,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .batch-bar .batch-status .spinner { width: 12px; height: 12px; border: 2px solid var(--border-color); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 600px) {
-  .batch-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 6px 8px; }
+  .batch-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 6px 8px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
   .batch-bar .batch-count { min-width: 60px; font-size: 12px; }
   .batch-bar button { padding: 5px 8px; font-size: 11px; flex-shrink: 0; }
   .batch-bar .batch-status { font-size: 11px; flex-shrink: 0; }
@@ -3619,11 +3619,12 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .drop-zone { border: 2px dashed var(--border-color); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 16px; transition: all 0.2s; color: var(--text-muted); font-size: 13px; }
 .drop-zone.drag-over { border-color: var(--accent-primary); background: rgba(102,126,234,0.1); color: var(--accent-primary); }
 .drop-zone-icon { font-size: 24px; margin-bottom: 8px; }
-.file-type-icon { font-size: 16px; margin-right: 6px; }
+.fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: white; border: none; border-radius: 50%; font-size: 24px; cursor: pointer; box-shadow: 0 4px 16px rgba(102,126,234,0.4); z-index: 300; transition: all 0.2s; display: none; /* shown via JS when files exist */ backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .fab:hover { transform: scale(1.1); }
 .fab-menu { display: none; position: fixed; bottom: 90px; right: 24px; flex-direction: column; gap: 8px; z-index: 350; }
 .fab-menu.show { display: flex; }
-.fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; }
+.fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.file-type-icon { font-size: 16px; margin-right: 6px; }
 
 .tag-filter-btn { cursor: pointer; transition: all 0.2s; }
 .search-highlight { background: rgba(102,126,234,0.4); color: var(--text-primary); border-radius: 2px; padding: 0 2px; }
