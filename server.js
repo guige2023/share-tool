@@ -4723,19 +4723,29 @@ function wsSend(type, payload) {
 function renderDevices(devices) {
   const container = document.getElementById('deviceList');
   document.getElementById('deviceCount').textContent = T('device.device') + ': ' + devices.length;
-  
+
   if (!devices.length) {
     container.innerHTML = '<div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">' + T('device.noOnlineDevices') + '</div></div>';
     return;
   }
-  
-  container.innerHTML = devices.map(d => 
-    '<div class="device-item">' +
+
+  // Sort: online first, then by last_seen descending (most recent first)
+  const sorted = [...devices].sort((a, b) => {
+    if (a.isOnline !== b.isOnline) return b.isOnline - a.isOnline;
+    return b.lastSeen - a.lastSeen;
+  });
+
+  container.innerHTML = sorted.map(d => {
+    const lastSeenText = d.lastSeen
+      ? new Date(d.lastSeen * 1000).toLocaleDateString() + ' ' +
+        new Date(d.lastSeen * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : '';
+    return '<div class="device-item">' +
       '<div class="indicator ' + (d.isOnline ? 'online' : '') + '"></div>' +
       '<div class="name">' + escapeHtml(d.deviceName || d.deviceId) + '</div>' +
-      '<div class="ip">' + escapeHtml(d.ip) + '</div>' +
-    '</div>'
-  ).join('');
+      '<div class="ip" style="font-size:11px;">' + escapeHtml(d.ip) + (lastSeenText ? ' · ' + lastSeenText : '') + '</div>' +
+    '</div>';
+  }).join('');
 }
 
 async function loadTagColors() {
