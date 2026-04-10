@@ -4875,7 +4875,9 @@ function isTouchDevice() {
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  if (bytes < 1024 * 1024 * 1024 * 1024) return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+  return (bytes / 1024 / 1024 / 1024 / 1024).toFixed(2) + ' TB';
 }
 
 function formatTime(ts) {
@@ -7402,6 +7404,9 @@ async function renderDashboardActivityFeed() {
       share_access: '👁', share_delete: '🗑', token_create: '🔑', token_revoke: '🔓',
       login: '🔐', logout: '🔒', audit_export: '📥', audit_query: '🔍',
       settings_change: '⚙️', device_register: '📱', device_remove: '📱',
+      data_export: '📤', data_import: '📥',
+      webdav_get: '📥', webdav_put: '📤', webdav_delete: '🗑', webdav_move: '✏️', webdav_copy: '📋',
+      auth_failed: '⚠️',
     };
     const ACTION_LABELS = {
       file_upload: '上传', file_delete: '删除', file_rename: '重命名',
@@ -7409,6 +7414,9 @@ async function renderDashboardActivityFeed() {
       token_create: '创建 Token', token_revoke: '撤销 Token',
       login: '登录', logout: '登出', audit_export: '导出日志', audit_query: '查询日志',
       settings_change: '设置变更', device_register: '注册设备', device_remove: '移除设备',
+      data_export: '数据导出', data_import: '数据导入',
+      webdav_get: 'WebDAV下载', webdav_put: 'WebDAV上传', webdav_delete: 'WebDAV删除', webdav_move: 'WebDAV移动', webdav_copy: 'WebDAV复制',
+      auth_failed: '认证失败',
     };
     el.innerHTML = data.logs.slice(0, 8).map(l => {
       const icon = ACTION_ICONS[l.action] || '📋';
@@ -9989,7 +9997,7 @@ function renderTagManagerItems(tags) {
       '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;">' +
         '<div style="width:36px;height:28px;border-radius:6px;background:' + color + ';display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);" title="' + T('tag.clickChangeColor') + '" onclick="document.getElementById(\'colorPicker_' + tagId + '\').click()">' +
           '<span style="font-size:14px;">' + escapeHtml(emoji) + '</span>' +
-          '<input type="color" id="colorPicker_' + tagId + '" value="' + color + '" style="position:absolute;width:0;height:0;opacity:0;" onchange="updateTagColor(\'' + tagJs + '\', this.value);">' +
+          '<input type="color" id="colorPicker_' + tagId + '" value="' + escapeHtml(color) + '" style="position:absolute;width:0;height:0;opacity:0;" onchange="updateTagColor(\'' + tagJs + '\', this.value);">' +
         '</div>' +
         // Emoji picker trigger
         '<span style="font-size:10px;color:var(--text-muted);cursor:pointer;" title="Change icon" onclick="changeTagEmoji(\'' + tagJs + '\')">✏️</span>' +

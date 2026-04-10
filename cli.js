@@ -468,7 +468,8 @@ async function main() {
           if (b < 1024) return b + ' B';
           if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
           if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
-          return (b / 1073741824).toFixed(2) + ' GB';
+          if (b < 1099511627776) return (b / 1073741824).toFixed(2) + ' GB';
+          return (b / 1099511627776).toFixed(2) + ' TB';
         }
         const startTime = Date.now();
         const BAR_W = 24;
@@ -523,7 +524,8 @@ async function main() {
           if (b < 1024) return b + ' B';
           if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
           if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
-          return (b / 1073741824).toFixed(2) + ' GB';
+          if (b < 1099511627776) return (b / 1073741824).toFixed(2) + ' GB';
+          return (b / 1099511627776).toFixed(2) + ' TB';
         }
 
         let success = 0, failed = 0;
