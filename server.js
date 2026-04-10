@@ -504,7 +504,7 @@ const I18N = {
     'ui.searchPlaceholder': '搜索文件名...',
     'ui.filterByTag': '标签筛选',
     'ui.searchTags': '搜索标签...',
-    'ui.clearFilter': '清除筛选',
+    'ui.clearSearchHistory': '清除历史',
     'ui.noFiles': '暂无分享内容',
     'ui.noFilesHint': '上传文件或分享文字开始使用',
     'ui.selectAll': '全选',
@@ -11405,7 +11405,7 @@ async function renderRecentSearches() {
       '<span class="recent-search-tag" style="background:rgba(255,100,0,0.1);border-color:rgba(255,100,0,0.3);" onclick="document.getElementById(\'searchInput\').value=\'' + escapeHtml(s).replace(/'/g, "\\'") + '\';doSearch()">' + escapeHtml(s) + '</span>'
     ).join('');
   }
-  html += '<span class="recent-search-tag" style="color:var(--danger);margin-left:auto;" onclick="clearRecentSearches()">' + T('ui.clearFilter') + '</span>';
+  html += '<span class="recent-search-tag" style="color:var(--danger);margin-left:auto;" onclick="clearRecentSearches()">' + T('ui.clearSearchHistory') + '</span>';
   container.innerHTML = html;
 }
 
@@ -11567,8 +11567,8 @@ init();
   <span style="font-size:24px;color:var(--text-inverse,#fff);">+</span>
 </div>
 <div class="fab-menu" id="fabMenu">
-  <button class="btn" onclick="fabUpload()" title="上传文件">' + T('file.upload') + '</button>
-  <button class="btn" onclick="fabText()" title="分享文字">' + T('file.textShare') + '</button>
+  <button class="btn" onclick="fabUpload()" title="上传文件" style="flex-direction:column;gap:2px;font-size:11px;padding:0;width:56px;height:56px;border-radius:50%;">📤<span style="font-size:10px;">' + T('file.upload') + '</span></button>
+  <button class="btn" onclick="fabText()" title="分享文字" style="flex-direction:column;gap:2px;font-size:11px;padding:0;width:56px;height:56px;border-radius:50%;">📝<span style="font-size:10px;">' + T('file.textShare') + '</span></button>
 </div>
 
 <script>
