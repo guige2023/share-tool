@@ -3407,6 +3407,31 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); }
 [data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 [data-theme="dark"] * { scrollbar-width: thin; scrollbar-color: var(--bg-tertiary) var(--bg-secondary); }
+
+/* File Info Panel dark mode */
+[data-theme="dark"] #fileInfoPanel {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+[data-theme="dark"] #fileInfoPanel .file-info-header {
+  background: var(--bg-tertiary);
+}
+[data-theme="dark"] #fileInfoPanel .file-info-section-title {
+  color: var(--text-secondary);
+}
+[data-theme="dark"] #fileInfoPanel .file-info-close {
+  color: var(--text-muted);
+}
+[data-theme="dark"] #fileInfoPanel .file-info-close:hover {
+  color: var(--text-primary);
+}
+[data-theme="dark"] #fileInfoPanel .file-info-share-item {
+  background: var(--bg-tertiary);
+}
+[data-theme="dark"] #fileInfoPanel .file-info-tags {
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+}
 [data-theme="light"] ::-webkit-scrollbar { background: var(--bg-secondary); }
 [data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--border-color); }
 [data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
@@ -8116,11 +8141,6 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     const inp = document.getElementById('fileInput');
     if (inp) inp.click();
-  } else if (e.key === '/') {
-    // /: focus search
-    e.preventDefault();
-    const si = document.getElementById('searchInput');
-    if (si) { si.focus(); si.select(); }
   } else if (e.key === 'm' || e.key === 'M') {
     // m: quick text note
     e.preventDefault();
