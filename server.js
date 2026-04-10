@@ -3410,12 +3410,14 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-upload-area .hint { color: var(--text-muted); font-size: 12px; margin-top: 8px; }
 .file-list { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+@media (max-width: 480px) { .file-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; } }
+@media (max-width: 360px) { .file-grid { grid-template-columns: 1fr; gap: 6px; } }
 .file-grid .file-item { flex-direction: column; align-items: stretch; padding: 16px; min-height: 140px; }
 .file-grid .file-content { flex: 1; }
 .file-grid .file-name { font-size: 13px; }
 .file-grid .file-meta { font-size: 11px; }
 .file-grid .file-actions { flex-wrap: wrap; justify-content: flex-start; margin-top: 8px; }
-.file-grid .file-actions .btn { font-size: 11px; padding: 6px 8px; min-height: 32px; }
+.file-grid .file-actions .btn { font-size: 11px; padding: 8px 6px; min-height: 44px; }
 .file-grid .file-tags { margin-top: 6px; }
 .file-grid .file-tag { font-size: 10px; padding: 2px 6px; }
 .file-grid .file-star { position: absolute; top: 8px; right: 8px; }
