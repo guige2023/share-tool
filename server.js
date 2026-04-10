@@ -3594,6 +3594,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   align-items: center;
   gap: 8px;
   color: var(--text-primary);
+  min-height: 44px;
 }
 .file-context-menu .ctx-item:hover { background: var(--bg-tertiary); }
 .file-context-menu .ctx-item.danger { color: var(--danger); }

@@ -693,6 +693,7 @@ function cleanupExpiredTrash() {
 }
 
 function renameFile(oldFilename, newFilename) {
+  if (!validateFilename(oldFilename) || !validateFilename(newFilename)) return { success: false, error: '无效的文件名' };
   const db = getDb();
   const existing = getFileByName(oldFilename);
   if (!existing) return { success: false, error: '文件不存在' };
@@ -724,6 +725,7 @@ function deleteFilesByPrefix(prefix) {
 
 // 前缀重命名（用于虚拟文件夹重命名）
 function renameFilesByPrefix(oldPrefix, newPrefix) {
+  if (!validateFilename(oldPrefix) || !validateFilename(newPrefix)) return { renamed: 0, error: '无效的文件夹名' };
   const db = getDb();
   const oldPattern = oldPrefix.endsWith('/') ? oldPrefix + '%' : oldPrefix + '/%';
   const newPatternPrefix = newPrefix.endsWith('/') ? newPrefix : newPrefix + '/';
@@ -740,6 +742,7 @@ function renameFilesByPrefix(oldPrefix, newPrefix) {
 
 // 移动文件到新路径（不生成副本，类似 rename 但保持 ID 和 created_at）
 function moveFile(sourceFilename, destFilename) {
+  if (!validateFilename(sourceFilename) || !validateFilename(destFilename)) return { success: false, error: '无效的文件名' };
   const db = getDb();
   const source = getFileByName(sourceFilename);
   if (!source) return { success: false, error: '源文件不存在' };
