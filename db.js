@@ -161,9 +161,18 @@ function initSchemaV1(db) {
       ip           TEXT,
       port         INTEGER DEFAULT 18790,
       last_seen    INTEGER NOT NULL DEFAULT (unixepoch()),
-      is_online    INTEGER NOT NULL DEFAULT 1
+      is_online    INTEGER NOT NULL DEFAULT 1,
+      last_sync_at INTEGER,
+      synced_files INTEGER DEFAULT 0
     )
   `);
+  
+  // 迁移：为 devices 表添加缺失的 last_sync_at 和 synced_files 列（如果表已存在）
+  try {
+    db.prepare("SELECT last_sync_at FROM devices LIMIT 1").get();
+  } catch {
+    db.exec("ALTER TABLE devices ADD COLUMN last_sync_at INTEGER; ALTER TABLE devices ADD COLUMN synced_files INTEGER DEFAULT 0;");
+  }
 
   // 同步日志表
   db.exec(`
@@ -1401,6 +1410,32 @@ function cleanupStaleDevices(minutesOffline = 5) {
   const db = getDb();
   const cutoff = Math.floor(Date.now() / 1000) - minutesOffline * 60;
   db.prepare('UPDATE devices SET is_online = 0 WHERE last_seen < ?').run(cutoff);
+}
+
+// 更新设备的最后同步时间和同步计数
+function updateDeviceSyncStats(deviceId, syncedCount = 1) {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  db.prepare(`
+    UPDATE devices
+    SET last_sync_at = ?, synced_files = synced_files + ?
+    WHERE device_id = ?
+  `).run(now, syncedCount, deviceId);
+}
+
+// 重置设备的同步计数
+function resetDeviceSyncCount(deviceId) {
+  const db = getDb();
+  db.prepare('UPDATE devices SET synced_files = 0 WHERE device_id = ?').run(deviceId);
+}
+
+// 获取设备的同步状态详情
+function getDeviceSyncInfo(deviceId) {
+  const db = getDb();
+  const device = db.prepare('SELECT device_id, device_name, is_online, last_seen, last_sync_at, synced_files FROM devices WHERE device_id = ?').get(deviceId);
+  if (!device) return null;
+  const pending = db.prepare('SELECT COUNT(*) as count FROM sync_log WHERE synced = 0').get().count;
+  return { ...device, pending_sync: pending };
 }
 
 // ============================================================
@@ -2654,6 +2689,7 @@ module.exports = {
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
   touchDevice, getOnlineDevices, cleanupStaleDevices,
+  updateDeviceSyncStats, resetDeviceSyncCount, getDeviceSyncInfo,
   // 同步
   addSyncLog, getUnsyncedLogs, markLogsSynced, getSyncStatus,
   // Token
