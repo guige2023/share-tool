@@ -3338,8 +3338,8 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .status-item { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
 [data-theme="dark"] .progress-bar { background: var(--bg-secondary); }
 [data-theme="dark"] .file-upload-area { background: var(--bg-tertiary); border-color: var(--border-color); }
-[data-theme="dark"] .file-upload-area:hover { border-color: #8b9dff; background: rgba(102, 126, 234, 0.12); }
-[data-theme="dark"] .file-upload-area.drag-over { border-color: #8b9dff; background: rgba(102, 126, 234, 0.2); transform: scale(1.02); }
+[data-theme="dark"] .file-upload-area:hover { border-color: var(--accent-primary); background: rgba(102, 126, 234, 0.12); }
+[data-theme="dark"] .file-upload-area.drag-over { border-color: var(--accent-primary); background: rgba(102, 126, 234, 0.2); transform: scale(1.02); }
 [data-theme="dark"] .file-preview { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
 [data-theme="light"] .file-preview { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
 [data-theme="dark"] .filter-tab { background: var(--bg-tertiary); color: var(--text-muted); border-color: var(--border-color); }
@@ -3368,7 +3368,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .recent-search-tag:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 [data-theme="light"] .recent-search-tag { background: var(--bg-tertiary); border-color: var(--border-color); color: var(--text-muted); }
 [data-theme="light"] .recent-search-tag:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
-[data-theme="dark"] .file-tag { background: rgba(102,126,234,0.25); color: #a5b4fc; }
+[data-theme="dark"] .file-tag { background: rgba(102,126,234,0.25); color: var(--accent-primary); }
 [data-theme="light"] .file-tag { background: rgba(102,126,234,0.15); color: var(--accent-primary); }
 [data-theme="dark"] .file-tag:hover { opacity: 0.9; }
 [data-theme="light"] .file-tag:hover { opacity: 0.9; }
@@ -3982,6 +3982,14 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 [data-theme="light"] .hljs-number,[data-theme="light"] .hljs-literal { color: #005cc5; }
 [data-theme="light"] .hljs-title,[data-theme="light"] .hljs-section { color: #6f42c1; }
 [data-theme="light"] .hljs-type,[data-theme="light"] .hljs-class { color: #22863a; }
+/* Dark mode hljs: soft colors on dark background */
+[data-theme="dark"] .hljs { background: var(--bg-tertiary); color: #e2e8f0; }
+[data-theme="dark"] .hljs-comment,[data-theme="dark"] .hljs-quote { color: #8b949e; }
+[data-theme="dark"] .hljs-keyword,[data-theme="dark"] .hljs-selector-tag { color: #ff7b72; }
+[data-theme="dark"] .hljs-string,[data-theme="dark"] .hljs-attr { color: #a5d6ff; }
+[data-theme="dark"] .hljs-number,[data-theme="dark"] .hljs-literal { color: #79c0ff; }
+[data-theme="dark"] .hljs-title,[data-theme="dark"] .hljs-section { color: #d2a8ff; }
+[data-theme="dark"] .hljs-type,[data-theme="dark"] .hljs-class { color: #7ee787; }
 /* Mobile lightbox nav buttons: larger touch targets */
 @media (max-width: 500px) {
   #imgNavPrev, #imgNavNext {
@@ -5683,6 +5691,7 @@ function renderFiles() {
         (!isVirtualFolder && isOfficeFile(f.name) ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openOfficeModal(\'' + encodeURIComponent(f.name) + '\')">📊 ' + T('file.previewOffice') + '</button>' : '') +
         (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 ' + T('file.previewMd') + '</button>' : '') +
         (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 ' + T('file.preview') + '</button>' : '') +
+        (!isVirtualFolder && isCsv ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><div id="csvthumb-' + btoaSafe(f.name).substring(0, 20) + '" style="font-size:10px;background:var(--bg-tertiary);border-radius:6px;padding:6px;max-height:100px;overflow:hidden;"></div></div>' : '') +
         (!isVirtualFolder && isCsv ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCsvModal(\'' + encodeURIComponent(f.name) + '\')">📊 CSV</button>' : '') +
         (!isVirtualFolder && isArchive ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openArchiveModal(\'' + encodeURIComponent(f.name) + '\')">📦 ' + T('file.preview') + '</button>' : '') +
       '</div>' +
@@ -5750,6 +5759,18 @@ function renderFiles() {
       if (el && !el.dataset.src) {
         el.dataset.filename = f.name;
         pdfObserver.observe(el);
+      }
+    }
+  }
+
+  // CSV 缩略图
+  const csvObserver = getLazyObserver('csv', loadCsvThumb);
+  for (const f of pagedFiles) {
+    if (!f.isVirtualFolder && isCsvFile(f.name) && f.size > 0 && f.size < 5 * 1024 * 1024) {
+      const el = document.getElementById('csvthumb-' + btoaSafe(f.name).substring(0, 20));
+      if (el && !el.dataset.src) {
+        el.dataset.filename = f.name;
+        csvObserver.observe(el);
       }
     }
   }
@@ -5962,6 +5983,57 @@ async function loadPreview(filename, previewId) {
     }
   } catch (e) {
     if (el) el.textContent = T('err.loadFailed') || '加载失败';
+  }
+}
+
+// 懒加载 CSV 缩略图：渲染表头 + 前3行
+async function loadCsvThumb(filename, thumbId) {
+  const el = document.getElementById(thumbId);
+  if (!el || el.dataset.src) return;
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.content) return;
+    const content = atob(data.content);
+    const lines = content.split('\n').filter(l => l.trim()).slice(0, 4);
+    if (lines.length === 0) return;
+    function parseCsvLine(line) {
+      const result = [];
+      let inQuotes = false, current = '';
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQuotes = !inQuotes; }
+        else if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+        else current += ch;
+      }
+      result.push(current.trim());
+      return result;
+    }
+    const rows = lines.map(parseCsvLine);
+    const headers = rows[0] || [];
+    const previewRows = rows.slice(1, 4);
+    const maxCols = Math.min(headers.length, 4);
+    let html = '<table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:4px;">';
+    html += '<tr>';
+    for (let j = 0; j < maxCols; j++) {
+      html += '<th style="padding:2px 4px;text-align:left;font-weight:600;color:var(--accent-primary);border-bottom:1px solid var(--border-color);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(headers[j] || '') + '</th>';
+    }
+    if (headers.length > maxCols) html += '<th style="padding:2px;color:var(--text-muted);">…</th>';
+    html += '</tr>';
+    for (const row of previewRows) {
+      html += '<tr>';
+      for (let j = 0; j < maxCols; j++) {
+        html += '<td style="padding:2px 4px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-bottom:1px solid var(--border-color);">' + escapeHtml(row[j] || '') + '</td>';
+      }
+      if (headers.length > maxCols) html += '<td style="padding:2px;color:var(--text-muted);">…</td>';
+      html += '</tr>';
+    }
+    html += '</table>';
+    el.innerHTML = html;
+    el.dataset.src = 'loaded';
+  } catch (e) {
+    if (el) el.dataset.src = 'loaded';
   }
 }
 
@@ -7056,7 +7128,7 @@ function showAboutModal() {
         html += '<div style="position:relative;width:48px;height:48px;flex-shrink:0;">';
         html += '<svg width="48" height="48" viewBox="0 0 48 48" style="transform:rotate(-90deg);">';
         html += '<circle cx="24" cy="24" r="20" fill="none" stroke="var(--border-color)" stroke-width="6"/>';
-        html += '<circle cx="24" cy="24" r="20" fill="none" stroke="#60a5fa" stroke-width="6"';
+        html += '<circle cx="24" cy="24" r="20" fill="none" stroke="var(--info-fg)" stroke-width="6"';
         html += ' stroke-dasharray="' + (heapPct * 1.256) + ' 125.6" stroke-linecap="round"/>';
         html += '</svg>';
         html += '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;color:var(--text-primary);">' + heapPct + '%</div>';
@@ -7065,7 +7137,7 @@ function showAboutModal() {
         html += '<div style="flex:1;min-width:120px;">';
         html += '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">🖥 ' + sysMemPct + '% ' + fmtMem(m.systemUsed) + ' / ' + fmtMem(m.systemTotal) + ' system</div>';
         html += '<div style="height:8px;background:var(--border-color);border-radius:4px;overflow:hidden;">';
-        html += '<div style="height:100%;width:' + sysMemPct + '%;background:#60a5fa;border-radius:4px;"></div>';
+        html += '<div style="height:100%;width:' + sysMemPct + '%;background:var(--info-fg);border-radius:4px;"></div>';
         html += '</div>';
         html += '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">RSS ' + fmtMem(m.rss) + ' · heap ' + fmtMem(m.heapUsed) + '</div>';
         html += '</div>';
@@ -7085,7 +7157,7 @@ function showAboutModal() {
         html += '<div>';
         html += '<div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">💾 ' + fmtDisk(d.used) + ' / ' + fmtDisk(d.total) + ' · ' + diskPct + '% used · ' + Math.round((d.free / d.total) * 100) + '% free</div>';
         html += '<div style="height:6px;background:var(--border-color);border-radius:3px;overflow:hidden;">';
-        html += '<div style="height:100%;width:' + diskPct + '%;background:#a78bfa;border-radius:3px;"></div>';
+        html += '<div style="height:100%;width:' + diskPct + '%;background:var(--accent-secondary);border-radius:3px;"></div>';
         html += '</div>';
         html += '</div>';
       }
@@ -8588,10 +8660,10 @@ function updatePasswordStrength(password) {
     el.style.color = '#dc2626';
   } else if (score <= 3) {
     el.textContent = '✓ ' + T('share.passwordMedium');
-    el.style.color = '#d97706';
+    el.style.color = 'var(--warning)';
   } else {
     el.textContent = '✓ ' + T('share.passwordStrong');
-    el.style.color = '#16a34a';
+    el.style.color = 'var(--success)';
   }
 }
 
