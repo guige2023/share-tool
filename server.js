@@ -3610,6 +3610,19 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .filter-tab .kbd-hint { font-size: 9px; opacity: 0.6; }
 }
 
+/* Mobile menu drawer */
+#mobileMenuOverlay { background: rgba(0,0,0,0.5); }
+#mobileMenuDrawer { transform: translateY(100%); }
+#mobileMenuDrawer.open { transform: translateY(0); }
+.menu-item { width: 100%; text-align: left; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px 16px; color: var(--text-primary); font-size: 15px; cursor: pointer; transition: background 0.15s; margin-bottom: 6px; display: block; box-sizing: border-box; }
+.menu-item:hover { background: var(--bg-primary); }
+.menu-item:active { background: var(--accent-primary); color: white; }
+
+@media (min-width: 769px) {
+  #menuToggle { display: none !important; }
+  #mobileMenuOverlay { display: none !important; }
+}
+
 /* Extra small screens (320px - 374px) */
 @media (max-width: 374px) {
   .hero-title { font-size: 13px; }
@@ -3751,7 +3764,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <h1>ShareTool<span class="conn-status"><span class="conn-dot" id="connDot"></span><span id="connText">' + T('ui.connecting') + '</span></span></h1>
         <p class="subtitle">' + T('ui.heroTitle').replace('文件/文字', ' / ') + '</p>
       </div>
-      <button id="themeToggle" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px;" title="' + T('ui.toggleTheme') + '">🌙</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="menuToggle" onclick="toggleMobileMenu()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;line-height:1;" title="Menu">☰</button>
+        <button id="themeToggle" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px;" title="' + T('ui.toggleTheme') + '">🌙</button>
+      </div>
     </div>
     <div class="status-bar">
       <span class="status-item disconnected" id="wsStatus">' + T('ui.wsDisconnected') + '</span>
@@ -4148,10 +4164,65 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   </div>
 </div>
 
+<div class="modal-overlay" id="storageModal" onclick="if(event.target===this)closeStorageModal()">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header">
+      <div class="modal-title">📊 ' + T('admin.storage') + '</div>
+      <button class="modal-close" onclick="closeStorageModal()">x</button>
+    </div>
+    <div id="storageModalBody" style="padding:8px 0;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="devicesModal" onclick="if(event.target===this)closeDevicesModal()">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header">
+      <div class="modal-title">📱 ' + T('ui.devices') + '</div>
+      <button class="modal-close" onclick="closeDevicesModal()">x</button>
+    </div>
+    <div id="devicesModalBody" style="padding:8px 0;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tagsModal" onclick="if(event.target===this)closeTagsModal()">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header">
+      <div class="modal-title">🏷️ ' + T('file.tags') + '</div>
+      <button class="modal-close" onclick="closeTagsModal()">x</button>
+    </div>
+    <div id="tagsModalBody" style="padding:8px 0;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="backupModal" onclick="if(event.target===this)closeBackupModal()">
+  <div class="modal-content" style="max-width:500px;">
+    <div class="modal-header">
+      <div class="modal-title">💾 ' + T('admin.backup') + '</div>
+      <button class="modal-close" onclick="closeBackupModal()">x</button>
+    </div>
+    <div id="backupModalBody" style="padding:8px 0;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="aboutModal" onclick="if(event.target===this)closeAboutModal()">
+  <div class="modal-content" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">ℹ️ ' + T('about.about') + '</div>
+      <button class="modal-close" onclick="closeAboutModal()">x</button>
+    </div>
+    <div style="padding:16px 0;text-align:center;">
+      <div style="font-size:48px;margin-bottom:12px;">📡</div>
+      <h2 style="margin:0 0 8px;">ShareTool</h2>
+      <p style="color:var(--text-muted);margin:0 0 16px;">v3.78</p>
+      <p style="font-size:13px;color:var(--text-secondary);">' + T('about.desc') + '</p>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="shortcutModal" onclick="if(event.target===this)closeShortcutModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <div class="modal-title">' + T('ui.shortcuts') + '</div>
+      <div class="modal-title">⌨️ Keyboard Shortcuts</div>
       <button class="modal-close" onclick="closeShortcutModal()">x</button>
     </div>
     <div class="shortcut-list">
@@ -4344,6 +4415,22 @@ function dismissPWAInstall() {
   const prompt = document.getElementById('pwaInstallPrompt');
   if (prompt) prompt.style.display = 'none';
   localStorage.setItem('pwaInstallDismissed', Date.now());
+}
+
+function toggleMobileMenu() {
+  const overlay = document.getElementById('mobileMenuOverlay');
+  const drawer = document.getElementById('mobileMenuDrawer');
+  if (!overlay || !drawer) return;
+  const isOpen = overlay.style.display !== 'none';
+  if (isOpen) {
+    drawer.style.transform = 'translateY(100%)';
+    overlay.style.display = 'none';
+  } else {
+    overlay.style.display = 'block';
+    // Force reflow for transition
+    drawer.offsetHeight;
+    drawer.style.transform = 'translateY(0)';
+  }
 }
 
 function toggleFavFilter() {
@@ -5993,6 +6080,79 @@ function closeShareLinksModal() {
   unlockScroll();
   document.getElementById('shareLinksModal').classList.remove('show');
 }
+
+function showStorageModal() {
+  const body = document.getElementById('storageModalBody');
+  fetch(API + '/api/db/stats', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      const used = (data.storageUsed || 0);
+      const limit = (data.storageLimit || 0);
+      const usedMB = (used / 1024 / 1024).toFixed(2);
+      const limitMB = (limit / 1024 / 1024).toFixed(0);
+      const pct = limit > 0 ? Math.min(100, (used / limit * 100)).toFixed(1) : 0;
+      body.innerHTML = '<div style="padding:12px;">' +
+        '<div style="font-size:24px;font-weight:600;">' + usedMB + ' <span style="font-size:14px;color:var(--text-muted);">/ ' + limitMB + ' MB</span></div>' +
+        '<div style="height:12px;background:var(--bg-tertiary);border-radius:6px;margin:12px 0;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:var(--accent-primary);border-radius:6px;"></div></div>' +
+        '<div style="font-size:12px;color:var(--text-muted);">' + pct + '% used · ' + (data.fileCount || 0) + ' files</div>' +
+        '</div>';
+    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">Failed to load storage info</div>'; });
+  lockScroll();
+  document.getElementById('storageModal').classList.add('show');
+}
+function closeStorageModal() { unlockScroll(); document.getElementById('storageModal').classList.remove('show'); }
+
+function showDevicesModal() {
+  const body = document.getElementById('devicesModalBody');
+  fetch(API + '/api/devices', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      const devs = data.devices || [];
+      body.innerHTML = devs.length ? devs.map(d =>
+        '<div style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--bg-tertiary);border-radius:8px;margin-bottom:6px;">' +
+        '<span>' + (d.is_online ? '🟢' : '⚫') + '</span>' +
+        '<span style="flex:1;font-size:13px;">' + escapeHtml(d.device_name || d.device_id) + '</span>' +
+        '<span style="font-size:11px;color:var(--text-muted);">' + (d.last_seen ? new Date(d.last_seen * 1000).toLocaleString() : 'Never') + '</span>' +
+        '</div>'
+      ).join('') : '<div style="padding:16px;text-align:center;color:var(--text-muted);">No devices</div>';
+    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">Failed</div>'; });
+  lockScroll();
+  document.getElementById('devicesModal').classList.add('show');
+}
+function closeDevicesModal() { unlockScroll(); document.getElementById('devicesModal').classList.remove('show'); }
+
+function showTagsModal() {
+  const body = document.getElementById('tagsModalBody');
+  fetch(API + '/api/tags', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      const tags = data.tags || [];
+      body.innerHTML = tags.length ? tags.map(t =>
+        '<span style="display:inline-block;padding:4px 10px;background:rgba(102,126,234,0.2);color:var(--accent-primary);border-radius:4px;font-size:12px;margin:3px;">' + escapeHtml(t) + '</span>'
+      ).join('') : '<div style="padding:16px;text-align:center;color:var(--text-muted);">No tags</div>';
+    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">Failed</div>'; });
+  lockScroll();
+  document.getElementById('tagsModal').classList.add('show');
+}
+function closeTagsModal() { unlockScroll(); document.getElementById('tagsModal').classList.remove('show'); }
+
+function showBackupModal() {
+  const body = document.getElementById('backupModalBody');
+  body.innerHTML = '<div style="padding:16px;text-align:center;">' +
+    '<p style="margin:0 0 16px;font-size:13px;color:var(--text-secondary);">' + T('admin.backupDesc') + '</p>' +
+    '<button class="btn" style="margin:4px;" onclick="doBackup()">' + T('admin.backupNow') + '</button>' +
+    '<button class="btn btn-secondary" style="margin:4px;" onclick="doRestore()">' + T('admin.restore') + '</button>' +
+    '</div>';
+  lockScroll();
+  document.getElementById('backupModal').classList.add('show');
+}
+function closeBackupModal() { unlockScroll(); document.getElementById('backupModal').classList.remove('show'); }
+
+function showAboutModal() {
+  lockScroll();
+  document.getElementById('aboutModal').classList.add('show');
+}
+function closeAboutModal() { unlockScroll(); document.getElementById('aboutModal').classList.remove('show'); }
 
 function showShareLinksModal() {
   fetch(API + '/api/share/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
@@ -9392,6 +9552,26 @@ window.addEventListener('DOMContentLoaded', updateFabVisibility);
   </div>
   <div class="file-info-body" id="fileInfoBody">
     <div class="file-info-loading">加载中...</div>
+  </div>
+</div>
+
+<!-- Mobile menu drawer -->
+<div id="mobileMenuOverlay" class="modal-overlay" style="display:none;z-index:500;" onclick="if(event.target===this)toggleMobileMenu()">
+  <div id="mobileMenuDrawer" style="position:fixed;bottom:0;left:0;right:0;background:var(--bg-secondary);border-radius:16px 16px 0 0;padding:24px 20px;padding-bottom:max(24px,env(safe-area-inset-bottom));max-height:70vh;overflow-y:auto;transform:translateY(100%);transition:transform 0.3s ease;z-index:501;" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <span style="font-size:16px;font-weight:600;">Menu</span>
+      <button onclick="toggleMobileMenu()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);padding:4px;">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <button class="menu-item" onclick="showStorageInfo();toggleMobileMenu()">📊 ' + T('admin.storage') + '</button>
+      <button class="menu-item" onclick="showAuditModal();toggleMobileMenu()">📋 ' + T('admin.auditLog') + '</button>
+      <button class="menu-item" onclick="showTokenModal();toggleMobileMenu()">🔑 ' + T('admin.changeToken') + '</button>
+      <button class="menu-item" onclick="showShareLinksModal();toggleMobileMenu()">🔗 ' + T('share.title') + '</button>
+      <button class="menu-item" onclick="showDevicesModal();toggleMobileMenu()">📱 ' + T('ui.devices') + '</button>
+      <button class="menu-item" onclick="showTagsModal();toggleMobileMenu()">🏷️ ' + T('file.tags') + '</button>
+      <button class="menu-item" onclick="showBackupModal();toggleMobileMenu()">💾 ' + T('admin.backup') + '</button>
+      <button class="menu-item" onclick="showAboutModal();toggleMobileMenu()">ℹ️ ' + T('about.about') + '</button>
+    </div>
   </div>
 </div>
 
