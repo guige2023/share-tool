@@ -520,6 +520,7 @@ const I18N = {
     'ui.shareQR': '分享二维码',
     'ui.textareaPlaceholder': '输入文字、代码或粘贴内容...',
     'ui.toggleTheme': '切换主题',
+    'ui.backToTop': '返回顶部',
     'ui.fileUpload': '上传文件',
     'ui.dragDropHint': '拖拽文件到此处上传',
     'ui.orUseButtons': '或继续使用下方按钮',
@@ -1059,6 +1060,7 @@ const I18N = {
     'ui.shareQR': 'Share QR Code',
     'ui.textareaPlaceholder': 'Enter text, code or paste content...',
     'ui.toggleTheme': 'Toggle theme',
+    'ui.backToTop': 'Back to top',
     'ui.fileUpload': 'File Upload',
     'ui.dragDropHint': 'Drag & drop files here to upload',
     'ui.orUseButtons': 'or use the buttons below',
@@ -7624,6 +7626,21 @@ document.addEventListener('visibilitychange', function() {
     if (typeof loadNotifications === 'function') loadNotifications();
   }
 });
+
+// Scroll-to-top button visibility
+const backToTopBtn = document.getElementById('backToTop');
+if (backToTopBtn) {
+  let _scrollTicking = false;
+  window.addEventListener('scroll', function() {
+    if (!_scrollTicking) {
+      requestAnimationFrame(function() {
+        backToTopBtn.style.display = window.scrollY > 400 ? 'block' : 'none';
+        _scrollTicking = false;
+      });
+      _scrollTicking = true;
+    }
+  }, { passive: true });
+}
 
 // Click outside panel to close / clear batch selection on mobile
 document.addEventListener('click', function(e) {

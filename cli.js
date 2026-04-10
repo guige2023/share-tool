@@ -717,7 +717,7 @@ async function main() {
         const maxDownloads = parseInt(args.find(a => a.startsWith('--max-downloads='))?.split('=')[1]) || 0;
         const password = args.find(a => a.startsWith('--password='))?.split('=')[1] || '';
         const body = {};
-        if (expiresDays > 0) body.expiresAt = Math.floor(Date.now() / 1000) + expiresDays * 86400;
+        if (expiresDays > 0) body.expiryHours = expiresDays * 24;
         if (maxDownloads > 0) body.maxDownloads = maxDownloads;
         if (password) body.password = password;
         const res = await request('POST', '/api/share/create', {
