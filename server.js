@@ -2295,7 +2295,7 @@ self.addEventListener('push', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v3.44',
+          version: 'v3.46',
         });
         return;
       }
@@ -5576,7 +5576,7 @@ async function refreshToken() {
     const res = await fetch(API + '/api/token/refresh', { method: 'POST', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.success) {
-      AUTH_TOKEN = data.token;
+      AUTH_TOKEN = data.token;  // update with new token from API
       localStorage.setItem('sharetool_token', AUTH_TOKEN);
       updateTokenDisplay(AUTH_TOKEN, data.expiresAt);
       showToast(T('admin.tokenRefreshed'));

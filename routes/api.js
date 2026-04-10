@@ -124,23 +124,16 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
 
   // POST /api/token/refresh
   if (pathname === '/api/token/refresh' && method === 'POST') {
-    let body = '';
-    req.on('data', d => body += d);
-    req.on('end', () => {
-      try {
-        const { refreshToken } = JSON.parse(body);
-        const result = db.refreshToken(refreshToken);
-        if (result && result.success) {
-          db.addAuditLog('token_refresh', 'Token 刷新成功', getClientIp(req));
-          sendJson(res, { success: true, token: result.token, refreshToken: result.refreshToken, expiresAt: result.expiresAt });
-        } else {
-          db.addAuditLog('token_refresh_fail', result?.error || '刷新失败', getClientIp(req));
-          sendJson(res, { success: false, error: result?.error || 'Invalid refresh token' }, 401);
-        }
-      } catch (e) {
-        sendJson(res, { success: false, error: e.message }, 400);
-      }
-    });
+    // Token sent via x-auth-token header (matches frontend)
+    const refreshToken = req.headers['x-auth-token'] || req.headers['authorization']?.replace('Bearer ', '');
+    const result = db.refreshToken(refreshToken);
+    if (result && result.success) {
+      db.addAuditLog('token_refresh', 'Token 刷新成功', getClientIp(req));
+      sendJson(res, { success: true, token: result.token, refreshToken: result.refreshToken, expiresAt: result.expiresAt });
+    } else {
+      db.addAuditLog('token_refresh_fail', result?.error || '刷新失败', getClientIp(req));
+      sendJson(res, { success: false, error: result?.error || 'Invalid refresh token' }, 401);
+    }
     return true;
   }
 
