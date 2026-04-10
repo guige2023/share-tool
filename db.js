@@ -46,9 +46,13 @@ function verifyPassword(password, stored) {
   if (!password || !stored) return false;
   // 兼容旧明文密码（无冒号格式）
   if (!stored.includes(':')) return password === stored;
-  const [salt, hash] = stored.split(':');
+  const [salt, storedHash] = stored.split(':');
   const inputHash = crypto.scryptSync(password, salt, PASSWORD_HASH_LEN).toString('hex');
-  return hash === inputHash;
+  // 使用 timingSafeEqual 防止计时攻击（Buffer 长度相同：64 char hex = 32 bytes）
+  const a = Buffer.from(storedHash, 'hex');
+  const b = Buffer.from(inputHash, 'hex');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 // ============================================================
