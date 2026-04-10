@@ -4255,7 +4255,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('date:>yesterday')">date:</span> &gt;date &nbsp;
       <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('type:pdf')">type:</span> pdf &nbsp;
       <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('content:')">content:</span> text &nbsp;
-      <span style="color:var(--text-muted);">ext:</span> jpg
+      <span style="color:var(--accent-primary);cursor:pointer;" onclick="insertSearchFilter('ext:')">ext:</span> jpg
     </div>
     <div class="search-suggestions" id="searchSuggestions" style="display:none;"></div>
     </div>
@@ -9783,40 +9783,6 @@ function showFileContextMenu(e, filename) {
   menu.style.left = x + 'px';
   menu.style.top = y + 'px';
   menu.classList.add('show');
-}
-
-function showTagsContextMenu(event, tag) {
-  event.preventDefault();
-  event.stopPropagation();
-  const menu = document.getElementById('tagsCtxMenuInner');
-  if (!menu) return;
-  const items = [
-    { label: '🔍 ' + T('file.showFilesWithTag', '查看此标签'), action: "showFilesWithTag('" + tag.replace(/'/g, "\\'") + "'); hideTagsContextMenu()" },
-    { label: '✏️ ' + T('tag.rename', '重命名'), action: "hideTagsContextMenu(); setTimeout(function(){ openRenameTagModal('" + tag.replace(/'/g, "\\'") + "'); }, 100)" },
-    { sep: true },
-    { label: '🗑 ' + T('tag.delete', '删除'), action: "hideTagsContextMenu(); setTimeout(function(){ doDeleteTag('" + tag.replace(/'/g, "\\'") + "'); }, 100)", danger: true },
-  ];
-  menu.innerHTML = items.map(item =>
-    item.sep ? '<div class="ctx-sep"></div>' :
-    '<div class="ctx-item' + (item.danger ? ' danger' : '') + '" onclick="event.stopPropagation();' + item.action + '">' + item.label + '</div>'
-  ).join('');
-  const menuEl = document.getElementById('tagsCtxMenu');
-  if (menuEl) {
-    menuEl.style.display = 'block';
-    const rect = menu.getBoundingClientRect();
-    const menuW = rect.width || 180, menuH = items.length * 42;
-    let top = event.clientY;
-    let left = event.clientX;
-    if (top + menuH > window.innerHeight - 8) top = event.clientY - menuH;
-    if (left + menuW > window.innerWidth - 8) left = event.clientX - menuW;
-    menu.style.top = Math.max(8, top) + 'px';
-    menu.style.left = Math.max(8, left) + 'px';
-  }
-}
-
-function hideTagsContextMenu() {
-  const menu = document.getElementById('tagsCtxMenu');
-  if (menu) menu.style.display = 'none';
 }
 
 function closeContextMenu() {
