@@ -3767,7 +3767,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .section-title { font-size: 14px; }
   .search-bar input { font-size: 15px; }
   .search-suggestion { min-height: 44px; padding: 8px 14px; }
-  .fab { width: 44px; height: 44px; font-size: 18px; }
+  .fab { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; font-size: 18px; }
   .fab-menu { bottom: max(80px, calc(80px + env(safe-area-inset-bottom))); right: 12px; }
   .share-link-box input { font-size: 12px; }
   .toast { font-size: 12px; padding: 8px 16px; }
@@ -3792,7 +3792,6 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .recent-searches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .recent-search-tag { padding: 3px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
 .recent-search-tag:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
-.fab { display: flex; align-items: center; justify-content: center; }
 .tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
 body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 .sort-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
