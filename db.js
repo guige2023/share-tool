@@ -1857,6 +1857,67 @@ function getAllTags() {
   return Array.from(tagSet).sort();
 }
 
+// 重建标签统计（全量扫描 files 表，用于初始化或修复）
+function rebuildTagStats() {
+  const db = getDb();
+  const rows = db.prepare('SELECT tags FROM files WHERE tags IS NOT NULL AND tags != ""').all();
+  const counts = {};
+  for (const row of rows) {
+    for (const t of row.tags.split(',').map(s => s.trim()).filter(Boolean)) {
+      counts[t] = (counts[t] || 0) + 1;
+    }
+  }
+  db.prepare('DELETE FROM tag_stats').run();
+  const stmt = db.prepare('INSERT OR REPLACE INTO tag_stats (tag, count) VALUES (?, ?)');
+  for (const [tag, count] of Object.entries(counts)) {
+    stmt.run(tag, count);
+  }
+  return Object.keys(counts).length;
+}
+
+// 增量更新标签统计（addFile/updateFile/deleteFile 时调用）
+function updateTagStats(oldTags, newTags) {
+  const db = getDb();
+  const diff = (tags) => tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+  const oldList = diff(oldTags);
+  const newList = diff(newTags);
+
+  // 删掉的标签计数-1
+  for (const t of oldList) {
+    if (!newList.includes(t)) {
+      db.prepare('UPDATE tag_stats SET count = count - 1 WHERE tag = ? AND count > 0').run(t);
+    }
+  }
+  // 新增的标签计数+1
+  for (const t of newList) {
+    if (!oldList.includes(t)) {
+      db.prepare('INSERT INTO tag_stats (tag, count) VALUES (?, 1) ON CONFLICT(tag) DO UPDATE SET count = count + 1').run(t);
+    }
+  }
+}
+
+// 获取所有标签及使用次数（使用 tag_stats 表，O(1) 而非全表扫描）
+function getAllTagsWithStats() {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT ts.tag, ts.count, tc.color, tc.emoji
+    FROM tag_stats ts
+    LEFT JOIN tag_colors tc ON tc.tag = ts.tag
+    WHERE ts.count > 0
+    ORDER BY ts.count DESC
+  `).all();
+  return rows.map(r => ({ tag: r.tag, count: r.count, color: r.color, emoji: r.emoji }));
+}
+
+// 确保 tag_stats 初始化（懒加载，在 getAllTagsWithStats 首次调用时）
+function ensureTagStats() {
+  const db = getDb();
+  const count = db.prepare('SELECT COUNT(*) as c FROM tag_stats').get().c;
+  if (count === 0) {
+    rebuildTagStats();
+  }
+}
+
 // ============================================================
 // 迁移旧文件（从文件系统迁移到数据库）
 // ============================================================
