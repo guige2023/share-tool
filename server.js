@@ -11321,14 +11321,12 @@ document.addEventListener('click', (e) => {
 function fabUpload() {
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   if (isMobile) {
-    // iOS Safari doesn't support webkitdirectory well — use plain file input instead
+    // iOS Safari doesn't support webkitdirectory — remove it so picker opens, keep multiple
     const fileInput = document.getElementById('fileInput');
     fileInput.removeAttribute('webkitdirectory');
-    fileInput.removeAttribute('multiple');
     const handler = () => {
       fileInput.removeEventListener('change', handler);
       fileInput.setAttribute('webkitdirectory', '');
-      fileInput.setAttribute('multiple', '');
     };
     fileInput.addEventListener('change', handler);
     fileInput.click();
