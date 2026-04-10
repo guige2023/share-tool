@@ -7643,6 +7643,13 @@ function hideSearchHint() {
   const el = document.getElementById('searchHint');
   if (el) el.style.display = 'none';
 }
+function removeFilterChip(type, value) {
+  const input = document.getElementById('searchInput');
+  if (!input) return;
+  input.value = input.value.replace(value, '').replace(/\s+/g, ' ').trim();
+  doSearch();
+}
+
 function insertSearchFilter(filter) {
   const input = document.getElementById('searchInput');
   if (!input) return;
@@ -7667,22 +7674,24 @@ function doSearch() {
   (function renderActiveFilterChips() {
     const chips = [];
     const tagMatches = q.match(/tag:\S+/g) || [];
-    for (const t of tagMatches) chips.push({ label: '🏷 ' + t.replace('tag:', ''), remove: () => { const v = document.getElementById('searchInput').value.replace(t, '').replace(/\s+/g, ' ').trim(); document.getElementById('searchInput').value = v; doSearch(); } });
+    for (const t of tagMatches) chips.push({ type: 'tag', value: t });
     const contentMatch = q.match(/content:(\S+)/);
-    if (contentMatch) chips.push({ label: '📝 ' + contentMatch[1], remove: () => { document.getElementById('searchInput').value = q.replace('content:' + contentMatch[1], '').trim(); doSearch(); } });
+    if (contentMatch) chips.push({ type: 'content', value: contentMatch[0] });
     const sizeMatch = q.match(/size:[<>]\d+[kmgt]?/i);
-    if (sizeMatch) chips.push({ label: '📦 ' + sizeMatch[0], remove: () => { document.getElementById('searchInput').value = q.replace(sizeMatch[0], '').trim(); doSearch(); } });
+    if (sizeMatch) chips.push({ type: 'size', value: sizeMatch[0] });
     const dateMatch = q.match(/date:[<>][^\s]+/);
-    if (dateMatch) chips.push({ label: '📅 ' + dateMatch[0], remove: () => { document.getElementById('searchInput').value = q.replace(dateMatch[0], '').trim(); doSearch(); } });
+    if (dateMatch) chips.push({ type: 'date', value: dateMatch[0] });
     const typeMatch = q.match(/type:\w+/);
-    if (typeMatch) chips.push({ label: '📄 ' + typeMatch[0].replace('type:', ''), remove: () => { document.getElementById('searchInput').value = q.replace(typeMatch[0], '').trim(); doSearch(); } });
+    if (typeMatch) chips.push({ type: 'type', value: typeMatch[0] });
     const extMatch = q.match(/ext:\w+/);
-    if (extMatch) chips.push({ label: '🏁 ' + extMatch[0].replace('ext:', ''), remove: () => { document.getElementById('searchInput').value = q.replace(extMatch[0], '').trim(); doSearch(); } });
+    if (extMatch) chips.push({ type: 'ext', value: extMatch[0] });
 
+    const labels = { tag: '🏷', content: '📝', size: '📦', date: '📅', type: '📄', ext: '🏁' };
     const container = document.getElementById('activeFilterChips');
     if (chips.length === 0) { container.style.display = 'none'; return; }
     container.style.display = 'flex';
-    container.innerHTML = chips.map(c => '<span class="filter-chip">' + escapeHtml(c.label) + ' <button class="filter-chip-remove" onclick="event.stopPropagation();' + (c.remove.toString().replace(/\s+/g, ' ')) + '()">×</button></span>').join('');
+    container.innerHTML = chips.map((c, i) => '<span class="filter-chip">' + labels[c.type] + ' ' + escapeHtml(c.value) + ' <button class="filter-chip-remove" onclick="event.stopPropagation();removeFilterChip(\'' + c.type + '\',\'' + c.value.replace(/'/g, "\\'") + '\')">×</button></span>').join('');
+    window._filterChips = chips;
   })();
 
   // Extract inline search filters: tag:, content:, size:, date:, type:, ext:
