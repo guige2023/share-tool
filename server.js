@@ -476,6 +476,8 @@ const I18N = {
     'ui.batchMove': '移动',
     'ui.batchDelete': '删除',
     'ui.batchCancel': '取消',
+    'ui.remove': '移除',
+    'ui.files': '个文件',
     'ui.sortBy': '排序',
     'ui.sortNewest': '最新优先',
     'ui.sortOldest': '最旧优先',
@@ -527,6 +529,8 @@ const I18N = {
     'ui.saveFailed': '保存失败',
     'ui.edit': '编辑',
     'ui.downloadDir': '下载目录',
+    'ui.remoteUpload': '远程下载',
+    'ui.download': '下载',
     'ui.deleteAll': '删除全部',
     'ui.delete1Week': '删除1周前',
     'ui.delete1Month': '删除1月前',
@@ -783,6 +787,7 @@ const I18N = {
     'tag.removePrompt': 'Enter tag name to remove:',
     'tag.removedN': 'Removed tag from {n} files',
     'tag.removeFailed': 'Batch remove tag failed:',
+    'tag.noneToRemove': 'No tags to remove',
 
     // 版本历史
     'ver.history': 'Version history',
@@ -908,6 +913,8 @@ const I18N = {
     'ui.batchMove': 'Move',
     'ui.batchDelete': 'Delete',
     'ui.batchCancel': 'Cancel',
+    'ui.remove': 'Remove',
+    'ui.files': 'files',
     'ui.sortBy': 'Sort',
     'ui.sortNewest': 'Newest first',
     'ui.sortOldest': 'Oldest first',
@@ -957,6 +964,8 @@ const I18N = {
     'ui.saveFailed': 'Save failed',
     'ui.edit': 'Edit',
     'ui.downloadDir': 'Download dir',
+    'ui.remoteUpload': 'Remote Download',
+    'ui.download': 'Download',
     'ui.deleteAll': 'Delete all',
     'ui.delete1Week': 'Delete 1 week ago',
     'ui.delete1Month': 'Delete 1 month ago',
@@ -1130,6 +1139,7 @@ const I18N = {
     'tag.removePrompt': 'Enter tag name to remove:',
     'tag.removedN': 'Removed tag from {n} files',
     'tag.removeFailed': 'Batch remove tag failed:',
+    'tag.noneToRemove': 'No tags to remove',
 
     // 版本历史
     'ver.history': 'Version history',
@@ -1214,6 +1224,8 @@ const I18N = {
     'msg.batchDownloadSuccess': 'Batch download successful',
     'msg.batchPackUnavailable': 'Batch pack unavailable, opening one by one...',
     'msg.downloadDirSaved': 'Download dir saved (local only)',
+    'msg.invalidUrl': 'Please enter a valid URL',
+    'msg.downloading': 'Downloading...',
     'msg.downloadFailed': 'Download failed',
 
     // 补充的 file keys
@@ -1400,6 +1412,7 @@ const rateLimitMap = new Map(); // ip -> Map<endpoint -> {timestamps[]}>
 const RATE_TIERS = {
   '/api/upload':              { tier: 'heavy',  anon: 5,  auth: 20 },  // 重操作
   '/api/search':              { tier: 'heavy',  anon: 5,  auth: 20 },  // 重操作
+  '/api/file/reorder':       { tier: 'write',  anon: 10, auth: 40 },  // 排序操作
   '/api/share/create':        { tier: 'write',  anon: 10, auth: 40 },  // 写操作
   '/api/share/access':        { tier: 'share',  anon: 5,  auth: 40 },  // 特殊：防暴力
   '/api/files':               { tier: 'read',   anon: 30, auth: 120 }  // 读操作
@@ -3727,6 +3740,16 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div class="hint">' + T('ui.supportFolderUpload') + '</div>
     </label>
     <div id="uploadList" class="file-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">🔗 ' + T('ui.remoteUpload') + '</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="text" id="remoteUrlInput" placeholder="https://example.com/file.zip" style="flex:1;min-width:200px;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">
+      <input type="text" id="remoteFilenameInput" placeholder="保存为（可选）" style="width:160px;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">
+      <button class="btn btn-sm" onclick="doRemoteUpload()">⬇️ ' + T('ui.download') + '</button>
+    </div>
+    <div id="remoteUploadStatus" style="font-size:12px;margin-top:6px;min-height:18px;"></div>
   </div>
 
   <div class="card">
@@ -6770,6 +6793,37 @@ function fileToBase64(file) {
   });
 }
 
+async function doRemoteUpload() {
+  const urlInput = document.getElementById('remoteUrlInput');
+  const nameInput = document.getElementById('remoteFilenameInput');
+  const statusEl = document.getElementById('remoteUploadStatus');
+  const url = (urlInput.value || '').trim();
+  if (!url) { statusEl.style.color = 'var(--danger)'; statusEl.textContent = T('msg.invalidUrl'); return; }
+  let filename = (nameInput.value || '').trim();
+  if (!filename) {
+    try { filename = decodeURIComponent(new URL(url).pathname.split('/').pop()) || 'download_' + Date.now(); }
+    catch (_) { filename = 'download_' + Date.now(); }
+  }
+  statusEl.style.color = 'var(--text-muted)'; statusEl.textContent = T('msg.downloading');
+  try {
+    const res = await fetch(API + '/api/remote-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ url, filename })
+    });
+    const data = await res.json();
+    if (data.success) {
+      statusEl.style.color = 'var(--success-fg)'; statusEl.textContent = '✓ ' + filename + ' (' + formatSize(data.size) + ')';
+      urlInput.value = ''; nameInput.value = '';
+      loadFiles();
+    } else {
+      statusEl.style.color = 'var(--danger)'; statusEl.textContent = data.error || 'Download failed';
+    }
+  } catch (e) {
+    statusEl.style.color = 'var(--danger)'; statusEl.textContent = e.message;
+  }
+}
+
 async function uploadFiles(files) {
   let successCount = 0;
   let failCount = 0;
@@ -7782,17 +7836,92 @@ async function batchAddTag() {
 async function batchRemoveTag() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
-  const tag = prompt(T('tag.removePrompt'));
-  if (!tag || !tag.trim()) return;
-  const tagsToRemove = tag.split(',').map(t => t.trim()).filter(t => t);
-  if (tagsToRemove.length === 0) return;
 
+  // Collect all tags from selected files
+  const tagSet = new Map();
+  Array.from(checked).forEach(cb => {
+    const fn = cb.value;
+    const file = currentFiles.find(f => encodeURIComponent(f.name) === fn);
+    if (file && file.tags) {
+      file.tags.split(',').map(t => t.trim()).filter(t => t).forEach(t => {
+        tagSet.set(t, (tagSet.get(t) || 0) + 1);
+      });
+    }
+  });
+
+  if (tagSet.size === 0) {
+    showToast(T('tag.noneToRemove') || 'No tags to remove', 'error');
+    return;
+  }
+
+  // Build modal content with existing tags as clickable chips
+  const tagChips = Array.from(tagSet.entries()).map(([tag, count]) => {
+    const style = getTagStyle(tag) || 'background:rgba(102,126,234,0.2);color:var(--accent-primary);';
+    return '<span class="batch-tag-chip" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:16px;font-size:13px;cursor:pointer;' + style + '" data-tag="' + escapeHtml(tag) + '" onclick="batchRemoveTagSelect(this)">' +
+      escapeHtml(tag) + ' <sup style="font-size:10px;opacity:0.7;">' + count + '</sup></span>';
+  }).join('');
+
+  const content = '<div style="padding:8px 0;text-align:center;color:var(--text-muted);font-size:12px;margin-bottom:12px;">' + T('tag.removePrompt') + '</div>' +
+    '<div id="batchRemoveTagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">' + tagChips + '</div>' +
+    '<div id="batchRemoveTagSelected" style="font-size:12px;color:var(--accent-primary);margin-bottom:12px;min-height:20px;"></div>' +
+    '<div style="display:flex;gap:8px;"><button class="btn" id="batchRemoveTagConfirm" style="flex:1;opacity:0.5;pointer-events:none;" disabled onclick="confirmBatchRemoveTag()">' + T('ui.remove') + '</button>' +
+    '<button class="btn btn-secondary" style="flex:1;" onclick="closeBatchRemoveTagModal()">' + T('ui.cancel') + '</button></div>';
+
+  _batchRemoveSelectedTags = [];
+  // Reuse tagInputModal structure
+  document.getElementById('tagInputModalTitle').textContent = '\u0001\u000f ' + T('ui.batchRemoveTag');
+  document.getElementById('tagInputFileName').textContent = T('ui.selectedN').replace('{n}', files.length) + ' ' + T('ui.files');
+  document.getElementById('tagInputExisting').innerHTML = content;
+  document.getElementById('tagInputField').style.display = 'none';
+  document.getElementById('tagInputColorPicker').style.display = 'none';
+  document.querySelector('#tagInputModal .modal-content').querySelector('div[style*="font-size:11px"]').style.display = 'none';
+  lockScroll();
+  document.getElementById('tagInputModal').classList.add('show');
+}
+
+let _batchRemoveSelectedTags = [];
+
+function batchRemoveTagSelect(el) {
+  const tag = el.dataset.tag;
+  el.classList.toggle('selected');
+  if (_batchRemoveSelectedTags.includes(tag)) {
+    _batchRemoveSelectedTags = _batchRemoveSelectedTags.filter(t => t !== tag);
+  } else {
+    _batchRemoveSelectedTags.push(tag);
+  }
+  const confirmBtn = document.getElementById('batchRemoveTagConfirm');
+  const selectedDiv = document.getElementById('batchRemoveTagSelected');
+  if (_batchRemoveSelectedTags.length > 0) {
+    confirmBtn.style.opacity = '1';
+    confirmBtn.style.pointerEvents = 'auto';
+    selectedDiv.textContent = T('ui.selectedN').replace('{n}', _batchRemoveSelectedTags.length) + ': ' + _batchRemoveSelectedTags.join(', ');
+  } else {
+    confirmBtn.style.opacity = '0.5';
+    confirmBtn.style.pointerEvents = 'none';
+    selectedDiv.textContent = '';
+  }
+}
+
+function closeBatchRemoveTagModal() {
+  document.getElementById('tagInputModal').classList.remove('show');
+  // Restore tagInputModal state for normal tag input usage
+  document.getElementById('tagInputField').style.display = '';
+  document.getElementById('tagInputColorPicker').style.display = '';
+  const hint = document.querySelector('#tagInputModal .modal-content [style*="font-size:11px"]');
+  if (hint) hint.style.display = '';
+  unlockScroll();
+}
+
+async function confirmBatchRemoveTag() {
+  if (_batchRemoveSelectedTags.length === 0) return;
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
   const files = Array.from(checked).map(cb => cb.value);
+
   try {
     const res = await fetch(API + '/api/file-tags/batch', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ files, action: 'remove', tags: tagsToRemove })
+      body: JSON.stringify({ files, action: 'remove', tags: _batchRemoveSelectedTags })
     });
     const data = await res.json();
     if (data.success) {
@@ -7803,6 +7932,7 @@ async function batchRemoveTag() {
   } catch (e) {
     showToast(T('tag.removeFailed') + ' ' + e.message, 'error');
   }
+  closeBatchRemoveTagModal();
   clearBatch();
   loadFiles();
 }

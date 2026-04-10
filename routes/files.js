@@ -992,5 +992,28 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/file/reorder - 批量设置文件排序位置
+  if (pathname === '/api/file/reorder' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { positions } = JSON.parse(body); // [{id, position}, ...]
+        if (!Array.isArray(positions)) {
+          sendJson(res, { success: false, error: 'positions must be an array' }, 400);
+          return;
+        }
+        db.setFilePositions(positions);
+        db.addAuditLog('file_reorder', `count=${positions.length}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };

@@ -113,6 +113,7 @@ function initSchemaV1(db) {
       tags         TEXT    DEFAULT '',
       encrypted    INTEGER NOT NULL DEFAULT 0,
       starred      INTEGER NOT NULL DEFAULT 0,
+      position     INTEGER NOT NULL DEFAULT 0,
       created_at   INTEGER NOT NULL DEFAULT (unixepoch()),
       updated_at   INTEGER NOT NULL DEFAULT (unixepoch())
     )
@@ -121,6 +122,13 @@ function initSchemaV1(db) {
   // Migration: add starred column if not exists
   try {
     db.exec(`ALTER TABLE files ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {
+    // Column may already exist in older dbs
+  }
+
+  // Migration: add position column if not exists
+  try {
+    db.exec(`ALTER TABLE files ADD COLUMN position INTEGER NOT NULL DEFAULT 0`);
   } catch (e) {
     // Column may already exist in older dbs
   }
@@ -448,7 +456,7 @@ function runMigrations(db, fromVersion) {
 // ============================================================
 // 文件操作
 // ============================================================
-const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, starred, created_at, updated_at';
+const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, starred, position, created_at, updated_at';
 
 function addFile(filename, content, type = 'file', hash = null, encrypted = false) {
   const db = getDb();
@@ -457,12 +465,14 @@ function addFile(filename, content, type = 'file', hash = null, encrypted = fals
     hash = content ? crypto.createHash('md5').update(content).digest('hex') : null;
   }
   try {
+    // 新文件 position = 当前最大 + 1
+    const maxPos = db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM files').get().m;
     const contentType = type === 'text' ? 'text/plain' : 'application/octet-stream';
     const stmt = db.prepare(`
-      INSERT INTO files (filename, content, type, size, hash, encrypted, content_type, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())
+      INSERT INTO files (filename, content, type, size, hash, encrypted, content_type, position, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())
     `);
-    const result = stmt.run(filename, content || null, type, size, hash, encrypted ? 1 : 0, contentType);
+    const result = stmt.run(filename, content || null, type, size, hash, encrypted ? 1 : 0, contentType, maxPos + 1);
     const fileId = result.lastInsertRowid;
 
     // 记录同步日志（使用真实的 fileId）
@@ -489,10 +499,24 @@ function getFile(id) {
   return db.prepare(`SELECT ${FILE_FIELDS} FROM files WHERE id = ?`).get(id);
 }
 
+// 设置文件排序位置（批量）
+// positions: [{id, position}, ...]
+function setFilePositions(positions) {
+  const db = getDb();
+  const stmt = db.prepare('UPDATE files SET position = ? WHERE id = ?');
+  const updateMany = db.transaction((items) => {
+    for (const { id, position } of items) {
+      stmt.run(position, id);
+    }
+  });
+  updateMany(positions);
+  return true;
+}
+
 function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null, starred = false) {
   const db = getDb();
   const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-  const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type', 'tags'].includes(sort) ? sort : 'created_at';
+  const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type', 'tags', 'position'].includes(sort) ? sort : 'created_at';
 
   // Build WHERE clause
   const conditions = [];
@@ -2101,6 +2125,7 @@ module.exports = {
   addFile, getFile, getFileByName, toggleStar, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
+  setFilePositions,
   searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,

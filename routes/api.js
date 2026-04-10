@@ -942,5 +942,43 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/remote-upload - Download file from remote URL
+  if (pathname === '/api/remote-upload' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', async () => {
+      try {
+        const { url, filename } = JSON.parse(body);
+        if (!url || !filename) {
+          sendJson(res, { success: false, error: 'url and filename required' }, 400);
+          return;
+        }
+        const parsed = new URL(url);
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          sendJson(res, { success: false, error: 'Only http/https URLs allowed' }, 400);
+          return;
+        }
+        const response = await fetch(url, { timeout: 30000 });
+        if (!response.ok) {
+          sendJson(res, { success: false, error: `HTTP ${response.status} ${response.statusText}` }, 400);
+          return;
+        }
+        const buffer = await response.arrayBuffer();
+        const content = Buffer.from(buffer).toString('base64');
+        const size = buffer.byteLength;
+        const contentType = response.headers.get('content-type') || 'application/octet-stream';
+        const result = db.addFile(filename, content, 'file', size, null, { content_type: contentType });
+        broadcastChange('file_create', { filename, type: 'file' });
+        db.addAuditLog('remote_upload', `url=${url}, filename=${filename}, size=${size}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, filename, size, hash: result?.hash });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };
