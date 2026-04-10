@@ -2586,7 +2586,8 @@ self.addEventListener('fetch', (event) => {
     // 同时在 HTTP 端口运行 HTTP（重定向到 HTTPS）
     const redirectHandler = (req, res) => {
       const host = req.headers.host || `localhost:${PORT}`;
-      const destination = `https://${host}${req.url}`;
+      const hostname = host.split(':')[0];  // strip port
+      const destination = `https://${hostname}:${HTTPS_PORT}${req.url}`;
       // 排除 WebSocket 升级请求
       if (req.headers.upgrade === 'websocket') {
         res.writeHead(426, { 'Content-Type': 'text/plain' });
