@@ -359,6 +359,7 @@ const I18N = {
     'tag.confirmBatchDelete': '确认删除这 {n} 个标签？',
     'tag.batchDeleted': '已删除 {n} 个标签',
     'tag.doubleClickRename': '双击重命名',
+    'tag.viewFiles': '点击查看使用该标签的文件',
     'tag.count': '个',
     'tag.iconChanged': '图标已更新',
     'tag.changeIcon': '修改图标',
@@ -629,6 +630,8 @@ const I18N = {
     'file.addTag': 'Add tag',
     'file.dblclickRename': 'Double-click to rename',
     'file.enterFolder': 'Click to enter folder',
+    'tag.viewFiles': 'Click to view files with this tag',
+    'tag.count': '',
     'file.previewPdf': 'Preview PDF',
     'file.previewMd': 'Preview MD',
     'file.orText': 'or',
@@ -838,6 +841,8 @@ const I18N = {
     'tag.colorChanged': 'Color updated',
     'tag.batchColorChanged': 'Batch color updated for {n} tags',
     'tag.clickChangeColor': 'Click to change color',
+    'tag.doubleClickRename': 'Double-click to rename',
+    'tag.viewFiles': 'Click to view files with this tag',
     'tag.count': '',
     'tag.iconChanged': 'Icon updated',
     'tag.changeIcon': 'Change icon',
@@ -1070,6 +1075,8 @@ const I18N = {
     'file.addTag': 'Add tag',
     'file.dblclickRename': 'Double-click to rename',
     'file.enterFolder': 'Click to enter folder',
+    'tag.viewFiles': 'Click to view files with this tag',
+    'tag.count': '',
     'file.previewPdf': 'Preview PDF',
     'file.previewMd': 'Preview MD',
     'file.orText': 'or',
@@ -1227,6 +1234,8 @@ const I18N = {
     'tag.colorChanged': 'Color updated',
     'tag.batchColorChanged': 'Batch color updated for {n} tags',
     'tag.clickChangeColor': 'Click to change color',
+    'tag.doubleClickRename': 'Double-click to rename',
+    'tag.viewFiles': 'Click to view files with this tag',
     'tag.count': '',
     'tag.iconChanged': 'Icon updated',
     'tag.changeIcon': 'Change icon',
@@ -9464,7 +9473,7 @@ function renderTagManagerItems(tags) {
       '</div>' +
       '<div style="flex:1;min-width:0;">' +
         '<div style="font-size:14px;font-weight:500;color:var(--text-primary);cursor:pointer;" ondblclick="renameTag(\'' + tagJs + '\')" title="' + T('tag.doubleClickRename') + '">' + tagHtml + '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + t.count + ' ' + T('tag.count') + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;cursor:pointer;" onclick="filterByTag(\'' + tagJs + '\');closeTagManager()" title="' + T('tag.viewFiles') + '"><span style="color:var(--accent-primary);">' + t.count + '</span> ' + T('tag.count') + '</div>' +
       '</div>' +
       '<div style="display:flex;gap:6px;align-items:center;">' +
         '<button class="btn btn-sm" style="font-size:11px;padding:8px 10px;min-height:44px;" onclick="renameTag(\'' + tagJs + '\')" title="' + T('tag.rename') + '">✏️</button>' +
