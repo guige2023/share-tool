@@ -1571,6 +1571,30 @@ function setRateLimitConfig(overrides) {
   }
 }
 
+function addSearchHistory(query, userId = null) {
+  const db = getDb();
+  db.prepare('INSERT INTO search_history(query, user_id) VALUES(?, ?)').run(query, userId);
+  // 只保留最近 100 条
+  db.prepare('DELETE FROM search_history WHERE id NOT IN (SELECT id FROM search_history ORDER BY timestamp DESC LIMIT 100)').run();
+}
+
+function getSearchHistory(userId = null, limit = 10) {
+  const db = getDb();
+  if (userId) {
+    return db.prepare('SELECT query, timestamp FROM search_history WHERE user_id = ? GROUP BY query ORDER BY MAX(timestamp) DESC LIMIT ?').all(userId, limit);
+  }
+  return db.prepare('SELECT query, MAX(timestamp) as ts FROM search_history GROUP BY query ORDER BY ts DESC LIMIT ?').all(limit);
+}
+
+function clearSearchHistory(userId = null) {
+  const db = getDb();
+  if (userId) {
+    db.prepare('DELETE FROM search_history WHERE user_id = ?').run(userId);
+  } else {
+    db.prepare('DELETE FROM search_history').run();
+  }
+}
+
 function exportAuditLogsCSV(filters = {}) {
   const db = getDb();
   const conditions = [];
