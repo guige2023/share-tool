@@ -274,14 +274,31 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // DELETE /api/file/
+  // DELETE /api/file/ — soft delete (move to trash)
   if (pathname === '/api/file/' && method === 'DELETE') {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const filename = decodeURIComponent(query.filename || '');
-    if (db.deleteFileByName(filename)) {
+    const moved = db.moveToTrash(filename);
+    if (moved) {
       broadcastChange({ type: 'delete', filename });
-      db.addAuditLog('delete_file', filename, getClientIp(req), authData.token);
+      db.addAuditLog('file_trash', `filename=${filename}`, getClientIp(req), authData.token);
+      sendJson(res, { success: true, trashed: true });
+    } else {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+    }
+    return true;
+  }
+
+  // DELETE /api/file/:filename/permanent — hard delete (skip trash)
+  const permanentMatch = pathname.match(/^\/api\/file\/(.+)\/permanent$/);
+  if (permanentMatch && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = decodeURIComponent(permanentMatch[1]);
+    if (db.permanentlyDeleteFile(filename)) {
+      broadcastChange({ type: 'delete', filename });
+      db.addAuditLog('delete_file', `permanent=true, filename=${filename}`, getClientIp(req), authData.token);
       sendJson(res, { success: true });
     } else {
       sendJson(res, { success: false, error: 'File not found' }, 404);
