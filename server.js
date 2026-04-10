@@ -2547,7 +2547,7 @@ self.addEventListener('fetch', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v3.48',
+          version: 'v' + (require('./package.json').version || 'unknown'),
         });
         return;
       }

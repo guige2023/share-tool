@@ -328,5 +328,361 @@ btn.textContent='验证并访问';
     return true;
   }
 
+  // ============================================================
+  // 文件收集链接（公开上传页面）
+  // ============================================================
+
+  // POST /api/request/create - 创建收集链接（需认证）
+  if (pathname === '/api/request/create' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { name, targetFolder, expiresInDays, maxUploads, password } = JSON.parse(body);
+        const result = db.createRequestLink({
+          name: name || '文件收集',
+          targetFolder: targetFolder || '',
+          expiresInDays: expiresInDays || 30,
+          maxUploads: maxUploads || null,
+          password: password || null,
+          createdBy: authData.token
+        });
+        const linkUrl = `https://${ctx.LOCAL_IP || 'localhost'}:${ctx.config?.httpsPort || 18793}/r/${result.code}`;
+        db.addAuditLog('request_link_create', `code=${result.code}, name=${name}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, code: result.code, url: linkUrl });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // GET /api/request/list - 列出收集链接（需认证）
+  if (pathname === '/api/request/list' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const links = db.listRequestLinks(authData.token);
+    sendJson(res, { success: true, links });
+    return true;
+  }
+
+  // DELETE /api/request/:code - 删除收集链接（需认证）
+  if (pathname.match(/^\/api\/request\/[a-zA-Z0-9]+$/) && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const code = pathname.slice('/api/request/'.length);
+    db.deleteRequestLink(code);
+    db.addAuditLog('request_link_delete', `code=${code}`, getClientIp(req), authData.token);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // POST /api/request/:code/toggle - 启用/停用收集链接（需认证）
+  if (pathname.match(/^\/api\/request\/[a-zA-Z0-9]+\/toggle$/) && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const code = pathname.slice('/api/request/'.length).replace('/toggle', '');
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { active } = JSON.parse(body);
+        db.toggleRequestLinkActive(code, active);
+        sendJson(res, { success: true });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // GET /r/:code - 公开收集页面上传页面（无需认证）
+  if (pathname.startsWith('/r/') && method === 'GET' && !pathname.includes('/upload')) {
+    const code = pathname.slice(3);
+    const link = db.getRequestLink(code);
+    if (!link) {
+      sendHtml(res, '<html><body style="font-family:sans-serif;text-align:center;padding:40px;"><h2>收集链接不存在或已失效</h2></body></html>', 404);
+      return true;
+    }
+    if (!link.active) {
+      sendHtml(res, '<html><body style="font-family:sans-serif;text-align:center;padding:40px;"><h2>此收集链接已停用</h2></body></html>', 410);
+      return true;
+    }
+    // 检查过期
+    if (link.expires_at && Date.now() / 1000 > link.expires_at) {
+      sendHtml(res, '<html><body style="font-family:sans-serif;text-align:center;padding:40px;"><h2>此收集链接已过期</h2></body></html>', 410);
+      return true;
+    }
+    // 检查上传次数上限
+    if (link.max_uploads && link.upload_count >= link.max_uploads) {
+      sendHtml(res, '<html><body style="font-family:sans-serif;text-align:center;padding:40px;"><h2>已达到最大上传次数</h2></body></html>', 410);
+      return true;
+    }
+    // 密码验证
+    if (link.password) {
+      const token = query && query.token;
+      if (!token || !ctx._requestLinkTokens || !ctx._requestLinkTokens[token] || ctx._requestLinkTokens[token] !== code) {
+        // 显示密码输入页
+        const page = `<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(link.name)} - 密码验证</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#fff;border-radius:16px;padding:40px;max-width:360px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,.1)}
+h1{font-size:20px;margin-bottom:8px;color:#1a1a1a}
+p{color:#666;font-size:14px;margin-bottom:24px}
+input{width:100%;padding:12px 16px;border:2px solid #e5e5e5;border-radius:10px;font-size:16px;outline:none;transition:border-color .2s}
+input:focus{border-color:#3b82f6}
+.btn{width:100%;padding:14px;background:#3b82f6;color:#fff;border:none;border-radius:10px;font-size:16px;cursor:pointer;margin-top:16px}
+.btn:hover{background:#2563eb}
+.error{color:#ef4444;font-size:13px;margin-top:10px;display:none}
+@media(prefers-color-scheme:dark){
+body{background:#1a1a2e}
+.card{background:#16213e}
+h1{color:#e0e0e0}
+p{color:#a0a0a0}
+input{background:#0f3460;border-color:#0f3460;color:#e0e0e0}
+}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>🔐 ${escapeHtml(link.name)}</h1>
+<p>请输入访问密码</p>
+<form id="f">
+<input type="password" id="pwd" placeholder="输入密码" autofocus required>
+<div class="error" id="e"></div>
+<button type="submit" class="btn">验证</button>
+</form>
+</div>
+<script>
+document.getElementById('f').onsubmit=function(e){
+e.preventDefault();
+fetch('/r/${code}/verify?pwd='+encodeURIComponent(document.getElementById('pwd').value))
+.then(r=>r.json())
+.then(d=>{if(d.success)location.reload();else{document.getElementById('e').style.display='block';document.getElementById('e').textContent=d.error||'密码错误';}});
+};
+</script>
+</body>
+</html>`;
+        sendHtml(res, page);
+        return true;
+      }
+    }
+    // 渲染上传页面
+    const uploadPage = `<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(link.name)} - 文件收集</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;min-height:100vh;padding:20px}
+.header{text-align:center;margin-bottom:32px}
+.header h1{font-size:24px;color:#1a1a1a;margin-bottom:4px}
+.header p{color:#666;font-size:14px}
+.drop-zone{border:3px dashed #e5e5e5;border-radius:20px;padding:60px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#fff}
+.drop-zone.dragover{border-color:#3b82f6;background:#eff6ff}
+.drop-zone:hover{border-color:#3b82f6}
+.drop-icon{font-size:48px;margin-bottom:12px}
+.drop-text{font-size:16px;color:#666}
+.drop-hint{font-size:12px;color:#999;margin-top:8px}
+input[type="file"]{display:none}
+.btn{background:#3b82f6;color:#fff;border:none;border-radius:10px;padding:12px 24px;font-size:15px;cursor:pointer;margin-top:16px}
+.btn:hover{background:#2563eb}
+.progress{margin-top:16px}
+.progress-bar{height:6px;background:#e5e5e5;border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;background:#3b82f6;transition:width .3s}
+.progress-text{font-size:13px;color:#666;margin-top:6px;text-align:center}
+.file-list{margin-top:24px;max-width:500px;margin-left:auto;margin-right:auto;text-align:left}
+.file-item{background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.file-name{font-size:14px;color:#1a1a1a;word-break:break-all;flex:1}
+.file-size{font-size:12px;color:#999;margin-left:12px;flex-shrink:0}
+.msg{margin-top:16px;text-align:center;font-size:14px;padding:12px;border-radius:8px}
+.msg.ok{background:#dcfce7;color:#166534}
+.msg.err{background:#fee2e2;color:#991b1b}
+@media(prefers-color-scheme:dark){
+body{background:#1a1a2e}
+.drop-zone{background:#16213e;border-color:#0f3460}
+.drop-zone:hover,.drop-zone.dragover{border-color:#3b82f6;background:#1e3a5f}
+.drop-text{color:#a0a0a0}
+h1{color:#e0e0e0}
+.file-item{background:#16213e}
+.file-name{color:#e0e0e0}
+}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>📤 ${escapeHtml(link.name)}</h1>
+<p>已上传 ${link.upload_count}${link.max_uploads ? ' / ' + link.max_uploads : ''} 个文件</p>
+</div>
+<div class="drop-zone" id="dz">
+<div class="drop-icon">📁</div>
+<div class="drop-text">拖拽文件到此处或点击选择</div>
+<div class="drop-hint">支持所有文件类型，单个文件不超过 200MB</div>
+</div>
+<input type="file" id="fi" multiple>
+<div class="progress" id="pr" style="display:none">
+<div class="progress-bar"><div class="progress-fill" id="pf" style="width:0%"></div></div>
+<div class="progress-text" id="pt">0%</div>
+</div>
+<div class="file-list" id="fl"></div>
+<div id="msg"></div>
+<script>
+const dz=document.getElementById('dz'),fi=document.getElementById('fi'),pr=document.getElementById('pr'),pf=document.getElementById('pf'),pt=document.getElementById('pt'),fl=document.getElementById('fl'),msg=document.getElementById('msg');
+dz.onclick=()=>fi.click();
+dz.ondragover=e=>{e.preventDefault();dz.classList.add('dragover')};
+dz.ondragleave=()=>dz.classList.remove('dragover');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('dragover');handleFiles(e.dataTransfer.files)};
+fi.onchange=()=>handleFiles(fi.files);
+function fmt(n){if(n<1024)return n+'B';if(n<1048576)return(n/1024).toFixed(1)+'KB';return(n/1048576).toFixed(1)+'MB'}
+function handleFiles(files){
+  Array.from(files).forEach(f=>upload(f));
+}
+function upload(file){
+  pr.style.display='block';
+  pf.style.width='0%';
+  pt.textContent='0%';
+  const x=new XMLHttpRequest(),fd=new FormData();
+  fd.append('file',file);
+  x.upload.onprogress=e=>{
+    if(e.lengthComputable){
+      const pct=Math.round(e.loaded/e.total*100);
+      pf.style.width=pct+'%';
+      pt.textContent=file.name+': '+pct+'% ('+fmt(e.loaded)+'/'+fmt(e.total)+')';
+    }
+  };
+  x.onload=()=>{
+    if(x.status===200){
+      const r=JSON.parse(x.responseText);
+      if(r.success){
+        fl.innerHTML+=`<div class="file-item"><span class="file-name">${(''+file.name).replace(new RegExp('<','g'),'&lt;')}</span><span class="file-size">${fmt(file.size)} \u2713</span></div>`;
+        msg.innerHTML='<div class="msg ok">文件上传成功！可以继续上传更多文件。</div>';
+        msg.scrollIntoView({behavior:'smooth'});
+        setTimeout(()=>msg.innerHTML='',3000);
+      } else {
+        msg.innerHTML='<div class="msg err">上传失败: '+(r.error||'未知错误')+'</div>';
+      }
+    } else {
+      msg.innerHTML='<div class="msg err">上传失败 (HTTP '+x.status+')</div>';
+    }
+    pf.style.width='100%';
+    pt.textContent='完成';
+    setTimeout(()=>pr.style.display='none',2000);
+  };
+  x.onerror=()=>{msg.innerHTML='<div class="msg err">网络错误</div>';pr.style.display='none'};
+  x.open('POST','/r/${code}/upload');
+  x.send(fd);
+}
+</script>
+</body>
+</html>`;
+    sendHtml(res, uploadPage);
+    return true;
+  }
+
+  // GET /r/:code/verify - 验证收集链接密码
+  if (pathname.match(/^\/r\/[a-zA-Z0-9]+\/verify$/) && method === 'GET') {
+    const code = pathname.match(/^\/r\/([a-zA-Z0-9]+)\/verify$/)[1];
+    const pwd = query && query.pwd;
+    if (!pwd) {
+      sendJson(res, { success: false, error: '需要密码' }, 400);
+      return true;
+    }
+    if (!ctx._requestLinkTokens) ctx._requestLinkTokens = {};
+    const valid = db.verifyRequestLinkPassword(code, pwd);
+    if (valid) {
+      const token = Math.random().toString(36).slice(2);
+      ctx._requestLinkTokens[token] = code;
+      setTimeout(() => { if (ctx._requestLinkTokens) delete ctx._requestLinkTokens[token]; }, 3600000);
+      sendJson(res, { success: true, token });
+    } else {
+      sendJson(res, { success: false, error: '密码错误' }, 401);
+    }
+    return true;
+  }
+
+  // POST /r/:code/upload - 收集链接文件上传（公开）
+  if (pathname.match(/^\/r\/[a-zA-Z0-9]+\/upload$/) && method === 'POST') {
+    const code = pathname.match(/^\/r\/([a-zA-Z0-9]+)\/upload$/)[1];
+    const link = db.getRequestLink(code);
+    if (!link || !link.active) {
+      sendJson(res, { success: false, error: '收集链接不存在或已停用' }, 404);
+      return true;
+    }
+    if (link.expires_at && Date.now() / 1000 > link.expires_at) {
+      sendJson(res, { success: false, error: '收集链接已过期' }, 410);
+      return true;
+    }
+    if (link.max_uploads && link.upload_count >= link.max_uploads) {
+      sendJson(res, { success: false, error: '已达到最大上传次数' }, 410);
+      return true;
+    }
+    if (link.password) {
+      const token = query && query.token;
+      if (!token || !ctx._requestLinkTokens || ctx._requestLinkTokens[token] !== code) {
+        sendJson(res, { success: false, error: '请先验证密码' }, 403);
+        return true;
+      }
+    }
+    // 处理文件上传
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('multipart/form-data')) {
+      sendJson(res, { success: false, error: '需要 multipart/form-data' }, 400);
+      return true;
+    }
+    // 简单解析：读取全部内容
+    let body = Buffer.alloc(0);
+    req.on('data', d => { body = Buffer.concat([body, d]); });
+    req.on('end', () => {
+      try {
+        const boundary = contentType.split('boundary=')[1];
+        if (!boundary) {
+          sendJson(res, { success: false, error: 'Missing boundary' }, 400);
+          return;
+        }
+        // 解析 multipart
+        const parts = body.toString('binary').split('--' + boundary);
+        let filename = null, fileContent = null;
+        for (const part of parts) {
+          if (part.includes('filename=')) {
+            const fnMatch = part.match(/filename="([^"]+)"/);
+            const match = part.match(/Content-Type:[^\r\n]+\r\n\r\n([\s\S]+?)\r\n--/);
+            if (fnMatch) filename = fnMatch[1];
+            if (match) {
+              // Remove trailing \r\n before boundary end
+              let content = match[1];
+              if (content.endsWith('\r\n--')) content = content.slice(0, -3);
+              fileContent = Buffer.from(content, 'binary');
+            }
+          }
+        }
+        if (!filename || !fileContent) {
+          sendJson(res, { success: false, error: '无法解析上传文件' }, 400);
+          return;
+        }
+        // 清理文件名
+        filename = filename.replace(/[/\\:*?"<>|]/g, '_').slice(0, 255);
+        // 保存到目标文件夹
+        const targetName = link.target_folder ? link.target_folder + '/' + filename : filename;
+        db.addFile(targetName, fileContent.toString('base64'), 'file', null);
+        db.incrementRequestLinkUpload(code);
+        db.addAuditLog('request_link_upload', `code=${code}, filename=${targetName}`, getClientIp(req));
+        sendJson(res, { success: true, filename: targetName, size: fileContent.length });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 500);
+      }
+    });
+    return true;
+  }
+
   return false;
 };

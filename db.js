@@ -254,6 +254,25 @@ function initSchemaV1(db) {
     )
   `);
 
+  // 文件收集链接表（公开上传页面）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS request_links (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      code          TEXT    NOT NULL UNIQUE,
+      name          TEXT    NOT NULL,
+      target_folder TEXT    NOT NULL DEFAULT '',
+      password      TEXT,
+      max_uploads   INTEGER,
+      upload_count  INTEGER NOT NULL DEFAULT 0,
+      expires_at    INTEGER,
+      active        INTEGER NOT NULL DEFAULT 1,
+      created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
+      created_by    TEXT
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_request_links_code ON request_links(code)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_request_links_active ON request_links(active)`);
+
   // 懒迁移：确保 last_used 列存在（已有数据库兼容性）
   try {
     db.prepare('SELECT last_used FROM tag_colors LIMIT 1').get();
@@ -1878,6 +1897,80 @@ function cleanupExpiredShareLinks() {
 }
 
 // ============================================================
+// 文件收集链接（公开上传页面）
+// ============================================================
+function generateRequestCode() {
+  const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 10; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function createRequestLink(opts = {}) {
+  const db = getDb();
+  const code = generateRequestCode();
+  const now = Math.floor(Date.now() / 1000);
+  // 默认 30 天过期
+  const expiresAt = opts.expiresInDays ? now + opts.expiresInDays * 86400 : null;
+  const hashedPassword = opts.password ? hashPassword(opts.password) : null;
+  const stmt = db.prepare(`
+    INSERT INTO request_links (code, name, target_folder, password, max_uploads, expires_at, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  const result = stmt.run(code, opts.name || '文件收集', opts.targetFolder || '', hashedPassword, opts.maxUploads || null, expiresAt, opts.createdBy || null);
+  return { id: result.lastInsertRowid, code };
+}
+
+function getRequestLink(code) {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM request_links WHERE code = ?').get(code);
+  if (!row) return null;
+  // 兼容旧明文密码
+  if (row.password && row.password.length !== 128) {
+    // plain-text fallback handled in verifyPassword
+  }
+  return row;
+}
+
+function verifyRequestLinkPassword(code, inputPwd) {
+  const db = getDb();
+  const row = db.prepare('SELECT password FROM request_links WHERE code = ?').get(code);
+  if (!row) return false;
+  if (!row.password) return true; // no password required
+  return verifyPassword(inputPwd, row.password);
+}
+
+function incrementRequestLinkUpload(code) {
+  const db = getDb();
+  db.prepare('UPDATE request_links SET upload_count = upload_count + 1 WHERE code = ?').run(code);
+}
+
+function toggleRequestLinkActive(code, active) {
+  const db = getDb();
+  db.prepare('UPDATE request_links SET active = ? WHERE code = ?').run(active ? 1 : 0, code);
+}
+
+function deleteRequestLink(code) {
+  const db = getDb();
+  db.prepare('DELETE FROM request_links WHERE code = ?').run(code);
+}
+
+function listRequestLinks(createdBy = null) {
+  const db = getDb();
+  if (createdBy) {
+    return db.prepare('SELECT * FROM request_links WHERE created_by = ? ORDER BY created_at DESC').all(createdBy);
+  }
+  return db.prepare('SELECT * FROM request_links ORDER BY created_at DESC').all();
+}
+
+function cleanupExpiredRequestLinks() {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const result = db.prepare('DELETE FROM request_links WHERE expires_at < ? AND expires_at IS NOT NULL').run(now);
+  return result.changes;
+}
+
+// ============================================================
 // 同步日志清理 + DB 健康检查
 // ============================================================
 function cleanupSyncLog(daysToKeep = 7) {
@@ -2558,6 +2651,10 @@ module.exports = {
   // 分享链接
   saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload,
   listShareLinks, cleanupExpiredShareLinks,
+  // 文件收集链接
+  createRequestLink, getRequestLink, verifyRequestLinkPassword,
+  toggleRequestLinkActive, deleteRequestLink, listRequestLinks,
+  incrementRequestLinkUpload, cleanupExpiredRequestLinks,
   // 迁移
   migrateFromFileSystem,
   // 清理

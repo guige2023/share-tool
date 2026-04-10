@@ -559,6 +559,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
+    if (filename === 'batch') { sendJson(res, { success: false, error: 'Not found' }, 404); return; }
     const file = db.getFileByName(filename);
     if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
     const tags = file.tags ? file.tags.split(',').map(s => s.trim()).filter(Boolean) : [];
@@ -571,6 +572,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
+    if (filename === 'batch') { sendJson(res, { success: false, error: 'Not found' }, 404); return; }
     const file = db.getFileByName(filename);
     if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
     let body = '';
@@ -608,6 +610,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const filename = decodeURIComponent(pathname.slice('/api/file-tags/'.length));
+    if (filename === 'batch') { sendJson(res, { success: false, error: 'Not found' }, 404); return; }
     const file = db.getFileByName(filename);
     if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
     db.updateFileByName(filename, { tags: '' });
