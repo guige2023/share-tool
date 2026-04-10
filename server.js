@@ -89,6 +89,7 @@ const I18N = {
     'batch.confirmRename': '确认重命名',
     'batch.cancel': '取消',
     'ui.confirmDelete': '确定删除',
+    'ui.confirmRename': '确认重命名',
     'msg.confirmDeleteAll': '确定删除所有文件?',
     'msg.confirmDeleteSelected': '确定删除选中的 {n} 个文件?',
     'msg.confirmDeleteDays': '确定删除 {n} 天前的文件?',
@@ -4441,7 +4442,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div id="listAlert" class="alert"></div>
     <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ ' + T('fav.favorite') + '</button>
     <button class="fav-filter-btn" onclick="showFavoritesManager()">☰ ' + T('fav.favorites') + '</button>
-    <button class="fav-filter-btn" onclick="showTrashModal()">🗑 ' + T('ui.trash') + '</button>
+    <button class="fav-filter-btn" onclick="showTrashModal()">🗑 ' + T('ui.trash') + '<span id="trashCountBadge" style="display:none;margin-left:4px;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;line-height:1.4;">0</span></button>
 
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-wrapper">
@@ -5011,6 +5012,24 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <button class="btn" style="flex:1;" onclick="confirmTagInput()">' + T('ui.save') + '</button>
         <button class="btn btn-secondary" style="flex:1;" onclick="closeTagInputModal()">' + T('ui.cancel') + '</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Rename File Modal -->
+<div class="modal-overlay" id="renameModal" onclick="if(event.target===this)closeRenameModal()">
+  <div class="modal-content" style="max-width:420px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">✏️ <span id="renameModalTitle">' + T('file.rename') + '</span></div>
+      <button class="modal-close" onclick="closeRenameModal()">x</button>
+    </div>
+    <div style="padding:12px 0;">
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;" id="renameModalOldName"></div>
+      <input type="text" id="renameModalInput" placeholder="' + T('file.inputNewName') + '" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();doRenameFile()}">
+    </div>
+    <div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--border-color);">
+      <button class="btn btn-secondary" onclick="closeRenameModal()">' + T('msg.cancel') + '</button>
+      <button class="btn btn-primary" onclick="doRenameFile()">' + T('ui.confirmRename') + '</button>
     </div>
   </div>
 </div>
@@ -10286,17 +10305,37 @@ async function deleteFile(filename) {
 }
 
 async function renameFile(oldFilename) {
-  const isVirtual = oldFilename.includes('/');
-  const promptMsg = isVirtual
-    ? T('file.inputFolderName') : T('file.inputNewName');
-  const newFilename = prompt(promptMsg, decodeURIComponent(oldFilename));
+  // Show rename modal instead of prompt()
+  _renameTarget = { oldFilename, isVirtual: oldFilename.includes('/') };
+  document.getElementById('renameModalOldName').textContent = decodeURIComponent(oldFilename);
+  const input = document.getElementById('renameModalInput');
+  input.value = decodeURIComponent(oldFilename);
+  input.dataset.isVirtual = _renameTarget.isVirtual;
+  lockScroll();
+  document.getElementById('renameModal').classList.add('show');
+  setTimeout(() => { input.focus(); input.select(); }, 50);
+}
+
+let _renameTarget = null;
+
+function closeRenameModal() {
+  unlockScroll();
+  document.getElementById('renameModal').classList.remove('show');
+  _renameTarget = null;
+}
+
+async function doRenameFile() {
+  if (!_renameTarget) return;
+  const { oldFilename, isVirtual } = _renameTarget;
+  const input = document.getElementById('renameModalInput');
+  const newFilename = input.value.trim();
+  closeRenameModal();
   if (!newFilename || newFilename === decodeURIComponent(oldFilename)) return;
   try {
     let res;
     if (isVirtual) {
-      // Virtual folder rename: compute new path
       const parts = oldFilename.split('/');
-      parts[parts.length - 1] = newFilename.trim();
+      parts[parts.length - 1] = newFilename;
       const newPath = parts.join('/');
       res = await fetch(API + '/api/folder/rename', {
         method: 'POST',
@@ -10307,7 +10346,7 @@ async function renameFile(oldFilename) {
       res = await fetch(API + '/api/file-rename/' + oldFilename, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-        body: JSON.stringify({ newFilename: newFilename.trim() })
+        body: JSON.stringify({ newFilename })
       });
     }
     const data = await res.json();
@@ -10822,6 +10861,7 @@ async function showTrashModal() {
     return;
   }
   const trash = data.trash || [];
+  updateTrashBadge(trash.length);
   let html = '';
   if (trash.length === 0) {
     html = '<div style="color:var(--text-muted);text-align:center;padding:20px;">' + T('ui.trashNoItems') + '</div>';
@@ -10877,12 +10917,24 @@ async function permanentDeleteTrashItem(id) {
   }
 }
 
+function updateTrashBadge(count) {
+  const badge = document.getElementById('trashCountBadge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : count;
+    badge.style.display = 'inline';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 async function emptyTrash() {
   if (!confirm(T('ui.trashEmptyConfirm'))) return;
   const res = await fetch(API + '/api/trash', { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
   const data = await res.json();
   if (data.success) {
     showToast(T('ui.trashEmptySuccess'));
+    updateTrashBadge(0);
     closeTrashModal();
   } else {
     showToast(T('ui.trashRestoreFailed'), 'error');
