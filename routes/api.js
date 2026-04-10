@@ -1259,6 +1259,45 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/search/history — 获取搜索历史
+  if (pathname === '/api/search/history' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const limit = parseInt(query.get('limit') || '20', 10);
+    const history = db.getSearchHistory(authData.userId, limit);
+    sendJson(res, { success: true, history });
+    return true;
+  }
+
+  // POST /api/search/history — 添加搜索记录
+  if (pathname === '/api/search/history' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { query: q } = JSON.parse(body);
+        if (q && q.trim().length > 0) {
+          db.addSearchHistory(q.trim(), authData.userId);
+        }
+        sendJson(res, { success: true });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // DELETE /api/search/history — 清除搜索历史
+  if (pathname === '/api/search/history' && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    db.clearSearchHistory(authData.userId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
   // GET /api/export — 全量数据导出（JSON）
   if (pathname === '/api/export' && method === 'GET') {
     const authData = authRequired(req, res);
