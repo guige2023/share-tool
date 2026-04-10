@@ -5775,10 +5775,11 @@ function showContextMenu(filename, el) {
     ...(isVideo ? [{ label: '🎬 ' + T('media.playVideo'), action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
     ...(isPdf ? [{ label: '📕 ' + T('media.viewPdf'), action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" }] : []),
     { sep: true },
-    { label: '📋 复制', action: "copyText('" + filename.replace(/'/g, "\\'") + "'); hideContextMenu()" },
+    { label: '📋 复制文件名', action: "copyText('" + filename.replace(/'/g, "\\'") + "'); hideContextMenu()" },
+    { label: '↗️ 新标签页打开', action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" },
+    { label: '⭐ 收藏', action: "toggleStar('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
     { label: '✏️ 重命名', action: "startInlineRename(null, '" + encodeURIComponent(filename) + "'); hideContextMenu()" },
     { label: '📤 分享', action: "showShareModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
-    { label: '🔗 复制链接', action: "createShareLink('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
     { sep: true },
     { label: '🗑 ' + T('tag.delete'), action: "deleteFile('" + encodeURIComponent(filename) + "'); hideContextMenu()", danger: true },
   ];
@@ -8382,6 +8383,25 @@ async function confirmTagInput() {
       showAlert('listAlert', T('msg.update.failed') + ': ' + data.error, 'error');
     }
   } catch (e) { showAlert('listAlert', T('msg.update.failed') + ': ' + e.message, 'error'); }
+}
+
+async function toggleStar(filename) {
+  try {
+    const res = await fetch(API + '/api/star/' + encodeURIComponent(filename), {
+      method: 'POST',
+      headers: { 'x-auth-token': AUTH_TOKEN || '' }
+    });
+    const data = await res.json();
+    if (data.success) {
+      // Update UI: toggle star icon on the file item
+      const decodedName = decodeURIComponent(filename);
+      const el = document.querySelector('[data-filename="' + CSS.escape(decodedName) + '"]');
+      if (el) {
+        const starIcon = el.querySelector('.star-icon');
+        if (starIcon) starIcon.textContent = data.starred ? '⭐' : '☆';
+      }
+    }
+  } catch (e) { /* silent */ }
 }
 
 async function deleteFile(filename) {
