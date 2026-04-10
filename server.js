@@ -3527,11 +3527,22 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .qr-section canvas { border-radius: 8px; margin: 0 auto 8px; }
 .qr-url { font-size: 12px; color: var(--text-muted); word-break: break-all; font-family: monospace; }
 .file-checkbox { width: 18px; height: 18px; accent-color: var(--accent-primary); cursor: pointer; flex-shrink: 0; }
-.batch-bar { display: none; gap: 8px; align-items: center; padding: 8px 12px; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
+.batch-bar { display: none; gap: 8px; align-items: center; padding: 8px 12px; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 12px; font-size: 13px; flex-wrap: wrap; }
 .batch-bar.show { display: flex; }
-.batch-bar .batch-count { color: var(--text-muted); flex: 1; }
-.batch-bar button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; }
+.batch-bar .batch-count { color: var(--text-muted); flex: 1; min-width: 80px; }
+.batch-bar button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
 .batch-bar button.danger { background: var(--danger); }
+.batch-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+.batch-bar .batch-status { display: none; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 12px; padding: 4px 8px; background: var(--bg-secondary); border-radius: 6px; }
+.batch-bar .batch-status.active { display: flex; }
+.batch-bar .batch-status .spinner { width: 12px; height: 12px; border: 2px solid var(--border-color); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 600px) {
+  .batch-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 6px 8px; }
+  .batch-bar .batch-count { min-width: 60px; font-size: 12px; }
+  .batch-bar button { padding: 5px 8px; font-size: 11px; }
+  .batch-bar .batch-status { font-size: 11px; }
+}
 .drop-zone { border: 2px dashed var(--border-color); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 16px; transition: all 0.2s; color: var(--text-muted); font-size: 13px; }
 .drop-zone.drag-over { border-color: var(--accent-primary); background: rgba(102,126,234,0.1); color: var(--accent-primary); }
 .drop-zone-icon { font-size: 24px; margin-bottom: 8px; }
@@ -3911,6 +3922,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="batch-bar" id="batchBar">
       <input type="checkbox" id="selectAllBatch" onchange="toggleSelectAll(this.checked)" style="width:18px;height:18px;cursor:pointer;">
       <span class="batch-count" id="batchCount">' + T('ui.selectedN').replace('{n}', '0') + '</span>
+      <span class="batch-status" id="batchStatus"><span class="spinner"></span><span id="batchStatusText"></span></span>
       <button onclick="batchDownload()">📦 ' + T('ui.batchDownload') + '</button>
       <button onclick="batchAddTag()">🏷 ' + T('ui.batchTag') + '</button>
       <button onclick="batchRemoveTag()">🏷✕ ' + T('ui.batchRemoveTag') + '</button>
@@ -8163,32 +8175,54 @@ function clearBatch() {
   updateBatchBar();
 }
 
+function setBatchOperation(op) {
+  const status = document.getElementById('batchStatus');
+  const statusText = document.getElementById('batchStatusText');
+  const buttons = document.querySelectorAll('.batch-bar button');
+  if (status) {
+    status.classList.toggle('active', !!op);
+    if (statusText) statusText.textContent = op || '';
+  }
+  buttons.forEach(btn => {
+    if (btn) btn.disabled = !!op;
+  });
+}
+
+function endBatchOperation(msg, fn) {
+  setBatchOperation('');
+  if (msg) showToast(msg);
+  if (fn) fn();
+}
+
 async function batchDelete() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
   if (!confirm(T('ui.confirmDeleteSelected', {n: checked.length}))) return;
-  let deleted = 0;
-  for (const cb of checked) {
-    const filename = cb.value;
+  const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+  setBatchOperation('删除中...');
+  let deleted = 0, failed = 0;
+  for (let i = 0; i < filenames.length; i++) {
+    const filename = filenames[i];
+    const statusText = document.getElementById('batchStatusText');
+    if (statusText) statusText.textContent = '删除中 ' + (i + 1) + '/' + filenames.length;
     try {
       await fetch(API + '/api/file/' + filename + '?filename=' + encodeURIComponent(filename), { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
       deleted++;
-    } catch (e) {}
+    } catch (e) { failed++; }
   }
-  showToast(T('msg.deletedN', { n: deleted }));
-  clearBatch();
-  loadFiles();
+  endBatchOperation(T('msg.deletedN', { n: deleted }) + (failed ? ' (' + failed + ' 失败)' : ''), () => { clearBatch(); loadFiles(); });
 }
 
 async function batchCopy() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
-  const destPrefix = prompt(T('file.inputFolderPrefix') + '（如 work/backup/）:\n选中的 ' + checked.length + ' 个文件将被复制到此目录下');
-  if (destPrefix === null) return; // cancelled
+  const destPrefix = prompt(T('file.inputFolderPrefix') + ' (work/backup/): ' + checked.length + ' files');
+  if (destPrefix === null) return;
   const cleanPrefix = destPrefix.trim();
   if (!cleanPrefix) return;
 
   const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+  setBatchOperation('复制中...');
   try {
     const res = await fetch(API + '/api/file/batch-copy', {
       method: 'POST',
@@ -8197,25 +8231,25 @@ async function batchCopy() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast(T('msg.copiedTo', { n: filenames.length, dest: cleanPrefix }));
+      endBatchOperation(T('msg.copiedTo', { n: filenames.length, dest: cleanPrefix }), () => { clearBatch(); loadFiles(); });
     } else {
-      showToast(T('msg.copyFailedN', { n: 0, m: filenames.length }) + ': ' + data.error);
+      endBatchOperation(T('msg.copyFailedN', { n: 0, m: filenames.length }) + ': ' + data.error, () => clearBatch());
     }
   } catch (e) {
-    showToast('复制失败: ' + e.message);
+    endBatchOperation('复制失败: ' + e.message, () => clearBatch());
   }
-  clearBatch();
 }
 
 async function batchMove() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
-  const destPrefix = prompt(T('file.inputMoveFolderPrefix').replace('{n}', checked.length));
+  const destPrefix = prompt(T('ui.confirmMoveSelected').replace('{n}', checked.length));
   if (destPrefix === null) return;
   const cleanPrefix = destPrefix.trim();
   if (!cleanPrefix) return;
 
   const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+  setBatchOperation('移动中...');
   try {
     const res = await fetch(API + '/api/file/batch-move', {
       method: 'POST',
@@ -8224,14 +8258,13 @@ async function batchMove() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast(T('msg.movedTo', { n: filenames.length, dest: cleanPrefix }));
+      endBatchOperation(T('ui.confirmMoveSelected').replace('{n}', filenames.length), () => { clearBatch(); loadFiles(); });
     } else {
-      showToast(T('msg.moveFailedN', { n: filenames.length }) + ': ' + data.error);
+      endBatchOperation(T('ui.confirmMoveSelected').replace('{n}', filenames.length) + ': ' + data.error, () => clearBatch());
     }
   } catch (e) {
-    showToast('移动失败: ' + e.message);
+    endBatchOperation('移动失败: ' + e.message, () => clearBatch());
   }
-  clearBatch();
 }
 
 async function batchCreateShare() {
