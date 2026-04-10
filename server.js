@@ -5267,8 +5267,11 @@ function applyFavoritesFilter(files) {
 function showToast(msg, duration = 2500) {
   const el = document.getElementById('toast');
   el.textContent = msg;
+  el.classList.remove('error', 'success', 'info');
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), duration);
+  // Clear any previous auto-hide timer
+  if (el._toastTimer) clearTimeout(el._toastTimer);
+  el._toastTimer = setTimeout(() => el.classList.remove('show'), duration);
 }
 
 // ============================================================
