@@ -5384,7 +5384,7 @@ function renderFiles() {
         // Audio/Video/PDF inline player
         (!isVirtualFolder && isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
         (!isVirtualFolder && isVideo ? '<div class="file-video-wrapper" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
-        (!isVirtualFolder && isPdf ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')">📕 ' + T('file.previewPdf') + '</button>' : '') +
+        (!isVirtualFolder && isPdf ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;position:relative;"><img class="file-thumb-img" id="thumb-' + btoaSafe(f.name).substring(0, 20) + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;background:var(--bg-tertiary);" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')" /><div style="position:absolute;top:4px;left:6px;font-size:11px;background:rgba(0,0,0,0.5);color:white;padding:2px 6px;border-radius:4px;">📕 PDF</div></div>' : '') +
         (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 ' + T('file.previewMd') + '</button>' : '') +
         (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 ' + T('file.preview') + '</button>' : '') +
       '</div>' +
@@ -5416,6 +5416,13 @@ function renderFiles() {
   for (const f of pagedFiles) {
     if (!f.isVirtualFolder && isImageFile(f.name) && f.size > 0 && f.size < 2 * 1024 * 1024) {
       loadImageThumb(f.name, 'thumb-' + btoaSafe(f.name).substring(0, 20));
+    }
+  }
+
+  // 懒加载 PDF 缩略图（使用 PDF.js 渲染第一页）
+  for (const f of pagedFiles) {
+    if (!f.isVirtualFolder && isPdfFile(f.name) && f.size > 0 && f.size < 20 * 1024 * 1024) {
+      loadPdfThumb(f.name, 'thumb-' + btoaSafe(f.name).substring(0, 20));
     }
   }
 
@@ -5615,6 +5622,50 @@ async function loadPreview(filename, previewId) {
       el.textContent = data.content.substring(0, 300) + (data.content.length > 300 ? '...' : '');
     }
   } catch (e) {}
+}
+
+// 懒加载 PDF 缩略图：使用 PDF.js 渲染第一页
+async function loadPdfThumb(filename, thumbId) {
+  const el = document.getElementById(thumbId);
+  if (!el || el.dataset.src) return;
+  try {
+    // 确保 PDF.js 已加载
+    if (!window.pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      }).catch(() => {});
+    }
+    if (!window.pdfjsLib) return;
+
+    // 获取 PDF 原始内容（base64）
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.content) return;
+
+    // base64 → ArrayBuffer
+    const binary = atob(data.content);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+    // 渲染 PDF 第一页
+    const pdf = await window.pdfjsLib.getDocument({ data: bytes }).promise;
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 0.5 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    el.src = canvas.toDataURL('image/jpeg', 0.6);
+    el.dataset.src = 'loaded';
+  } catch (e) {
+    // PDF 无法渲染，显示默认图标（el.src 保持空，CSS background 显示）
+  }
 }
 
 // 懒加载图片缩略图：获取文件内容转为 data URL
@@ -10521,6 +10572,7 @@ init();
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <!-- PWA Install Prompt -->
 <div id="pwaInstallPrompt" style="display:none;position:fixed;bottom:max(90px,calc(90px + env(safe-area-inset-bottom)));right:24px;left:24px;background:var(--bg-secondary,#1e293b);border:1px solid var(--border,#334155);border-radius:12px;padding:12px 16px;z-index:99;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
