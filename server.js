@@ -3230,6 +3230,10 @@ const HTML_PAGE = `<!DOCTYPE html>
 }
 
 /* iOS Safari 100vh fix: use 100dvh for dynamic viewport height */
+/* Theme transition: smooth color changes when switching */
+*, *::before, *::after {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, fill 0.15s ease;
+}
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100dvh; overscroll-behavior: none; /* prevent pull-to-refresh on mobile */ -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
 /* iOS safe-area support for notch/Dynamic Island devices */
 header { text-align: center; margin-bottom: 32px; padding: env(safe-area-inset-top) 16px 0; }
@@ -8253,20 +8257,20 @@ function applySystemTheme() {
 }
 
 let _systemWatcher = null;
+let _systemThemeHandler = null;
 function attachSystemThemeWatcher() {
   if (_systemWatcher) return;
   _systemWatcher = window.matchMedia('(prefers-color-scheme: dark)');
-  _systemWatcher.addEventListener('change', () => {
-    // 只有在非手动设置时才跟随系统
-    if (!localStorage.getItem('shareTool_theme')) {
-      applySystemTheme();
-    }
-  });
+  _systemThemeHandler = () => {
+    if (!localStorage.getItem('shareTool_theme')) applySystemTheme();
+  };
+  _systemWatcher.addEventListener('change', _systemThemeHandler);
 }
 function detachSystemThemeWatcher() {
-  if (_systemWatcher) {
-    _systemWatcher.removeEventListener('change', applySystemTheme);
+  if (_systemWatcher && _systemThemeHandler) {
+    _systemWatcher.removeEventListener('change', _systemThemeHandler);
     _systemWatcher = null;
+    _systemThemeHandler = null;
   }
 }
 
