@@ -6534,56 +6534,32 @@ async function uploadFiles(files) {
         // Fallback to direct read
         try { base64 = await fileToBase64(file); } catch (_) { failCount++; resolve(); return; }
       }
-      // Animate progress during upload
-        let animFrame = 0;
-        const animInterval = setInterval(() => {
-          animFrame++;
-          const basePct = Math.round((i / totalFiles) * 100);
-          const animPct = Math.min(basePct + Math.round(animFrame / 10), basePct + 20);
-          if (progressFill) progressFill.style.width = animPct + '%';
-        }, 50);
 
-        try {
-          const res = await fetch(API + '/api/upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-            body: JSON.stringify({ filename, content: base64, type: 'file' })
-          });
-          clearInterval(animInterval);
-          const data = await res.json();
-          if (progressFill) progressFill.style.width = Math.round(((i + 1) / totalFiles) * 100) + '%';
-          const queueItem = document.getElementById('upload-item-' + i);
-          if (queueItem) {
-            queueItem.classList.add(data.success ? 'done' : 'fail');
-            queueItem.querySelector('.status').textContent = data.success ? '✓' : '✗';
-            if (!data.success) {
-              window._failedUploads.push({ file, filename, index: i });
-              // Add retry button
-              const retryBtn = document.createElement('button');
-              retryBtn.className = 'retry-btn';
-              retryBtn.textContent = T('file.retry');
-              retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;cursor:pointer;';
-              retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
-              queueItem.querySelector('.status').after(retryBtn);
-            }
-          }
-          if (data.success) {
-            successCount++;
-            showToast('✓ ' + filename);
-            loadFiles();
-            broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
-          } else {
-            failCount++;
-            showAlert('uploadAlert', T('msg.failed') + ': ' + data.error, 'error');
-          }
-        } catch (e) {
-          clearInterval(animInterval);
-          failCount++;
-          const queueItem = document.getElementById('upload-item-' + i);
-          if (queueItem) {
-            queueItem.classList.add('fail');
-            queueItem.querySelector('.status').textContent = '✗';
+      // Animate progress during upload
+      let animFrame = 0;
+      const animInterval = setInterval(() => {
+        animFrame++;
+        const basePct = Math.round((i / totalFiles) * 100);
+        const animPct = Math.min(basePct + Math.round(animFrame / 10), basePct + 20);
+        if (progressFill) progressFill.style.width = animPct + '%';
+      }, 50);
+
+      try {
+        const res = await fetch(API + '/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+          body: JSON.stringify({ filename, content: base64, type: 'file' })
+        });
+        clearInterval(animInterval);
+        const data = await res.json();
+        if (progressFill) progressFill.style.width = Math.round(((i + 1) / totalFiles) * 100) + '%';
+        const queueItem = document.getElementById('upload-item-' + i);
+        if (queueItem) {
+          queueItem.classList.add(data.success ? 'done' : 'fail');
+          queueItem.querySelector('.status').textContent = data.success ? '✓' : '✗';
+          if (!data.success) {
             window._failedUploads.push({ file, filename, index: i });
+            // Add retry button
             const retryBtn = document.createElement('button');
             retryBtn.className = 'retry-btn';
             retryBtn.textContent = T('file.retry');
@@ -6591,9 +6567,34 @@ async function uploadFiles(files) {
             retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
             queueItem.querySelector('.status').after(retryBtn);
           }
-          showAlert('uploadAlert', T('msg.failed') + ': ' + e.message, 'error');
         }
-        resolve();
+        if (data.success) {
+          successCount++;
+          showToast('✓ ' + filename);
+          loadFiles();
+          broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
+        } else {
+          failCount++;
+          showAlert('uploadAlert', T('msg.failed') + ': ' + data.error, 'error');
+        }
+      } catch (e) {
+        clearInterval(animInterval);
+        failCount++;
+        const queueItem = document.getElementById('upload-item-' + i);
+        if (queueItem) {
+          queueItem.classList.add('fail');
+          queueItem.querySelector('.status').textContent = '✗';
+          window._failedUploads.push({ file, filename, index: i });
+          const retryBtn = document.createElement('button');
+          retryBtn.className = 'retry-btn';
+          retryBtn.textContent = T('file.retry');
+          retryBtn.style.cssText = 'margin-left:8px;padding:2px 8px;font-size:11px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;cursor:pointer;';
+          retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
+          queueItem.querySelector('.status').after(retryBtn);
+        }
+        showAlert('uploadAlert', T('msg.failed') + ': ' + e.message, 'error');
+      }
+      resolve();
     });
   }
 
