@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 6; // 当前 Schema 版本
+const SCHEMA_VERSION = 7; // 当前 Schema 版本
 
 let db = null;
 
@@ -486,6 +486,16 @@ function initSchemaV6(db) {
   } catch (e) { /* column already exists or table missing */ }
 }
 
+function initSchemaV7(db) {
+  // v7 修复：trash 表存储 tags（恢复时需要）
+  try {
+    db.exec("ALTER TABLE trash ADD COLUMN tags TEXT DEFAULT ''");
+    console.log('[DB] Migrated: trash.tags column');
+  } catch (e) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
+}
+
 function runMigrations(db, fromVersion) {
   console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
   for (let v = fromVersion + 1; v <= SCHEMA_VERSION; v++) {
@@ -499,6 +509,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV5(db);
     } else if (v === 6) {
       initSchemaV6(db);
+    } else if (v === 7) {
+      initSchemaV7(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -689,9 +701,9 @@ function moveToTrash(filename) {
   if (!existing) return false;
   // 软删除：写入 trash 表，30天后自动清理
   db.prepare(`
-    INSERT INTO trash (file_id, filename, content, size, type, hash, deleted_at, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, unixepoch(), unixepoch() + 2592000)
-  `).run(existing.id, existing.filename, existing.content, existing.size, existing.type, existing.hash);
+    INSERT INTO trash (file_id, filename, content, size, type, hash, tags, deleted_at, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch() + 2592000)
+  `).run(existing.id, existing.filename, existing.content, existing.size, existing.type, existing.hash, existing.tags || '');
   addSyncLog(existing.id, filename, 'delete', existing.hash, null, existing.size);
   db.prepare('DELETE FROM files WHERE filename = ?').run(filename);
   return true;
@@ -725,17 +737,24 @@ function restoreFromTrash(trashId) {
   // 检查原文件名是否已存在（可能被占用）
   const conflict = getFileByName(item.filename);
   if (conflict) return { success: false, error: '文件名已存在，请先删除或重命名现有文件' };
-  // 恢复文件
+  // 恢复文件（保留 tags，从 trash 中取出）
+  const tags = item.tags || '';
   db.prepare(`
     INSERT INTO files (filename, content, size, type, hash, tags, encrypted, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, '', 0, unixepoch(), unixepoch())
-  `).run(item.filename, item.content, item.size, item.type, item.hash);
+    VALUES (?, ?, ?, ?, ?, ?, 0, unixepoch(), unixepoch())
+  `).run(item.filename, item.content, item.size, item.type, item.hash, tags);
+  // 恢复标签统计
+  if (tags) updateTagStats(null, tags);
   db.prepare('DELETE FROM trash WHERE id = ?').run(trashId);
   return { success: true, filename: item.filename };
 }
 
 function permanentlyDeleteTrash(trashId) {
   const db = getDb();
+  const item = db.prepare('SELECT * FROM trash WHERE id = ?').get(trashId);
+  if (!item) return;
+  // 更新标签统计
+  if (item.tags) updateTagStats(item.tags, null);
   db.prepare('DELETE FROM trash WHERE id = ?').run(trashId);
 }
 
