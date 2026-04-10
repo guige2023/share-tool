@@ -13,12 +13,33 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     // Default 5000 to cover most use cases; client-side pagination handles display
     const limit = parseInt(query.limit) || 5000;
     const offset = parseInt(query.offset) || 0;
-    const sort = ['name', 'size', 'created_at', 'updated_at'].includes(query.sort) ? query.sort : 'created_at';
-    const order = query.order === 'asc' ? 'ASC' : 'DESC';
+    const sortRaw = query.sort || 'created_at';
+    const orderRaw = query.order || 'desc';
+    // Map client-side sort keys (name_asc, time_desc, etc.) to DB column names
+    let sortField = 'created_at', order = 'DESC';
+    if (sortRaw === 'name_asc') { sortField = 'filename'; order = 'ASC'; }
+    else if (sortRaw === 'name_desc') { sortField = 'filename'; order = 'DESC'; }
+    else if (sortRaw === 'size_asc') { sortField = 'size'; order = 'ASC'; }
+    else if (sortRaw === 'size_desc') { sortField = 'size'; order = 'DESC'; }
+    else if (sortRaw === 'time_asc') { sortField = 'updated_at'; order = 'ASC'; }
+    else if (sortRaw === 'time_desc') { sortField = 'updated_at'; order = 'DESC'; }
+    else if (sortRaw === 'type_asc') { sortField = 'type'; order = 'ASC'; }
+    else if (sortRaw === 'type_desc') { sortField = 'type'; order = 'DESC'; }
+    else if (sortRaw === 'tag_asc') { sortField = 'tags'; order = 'ASC'; }
+    else if (sortRaw === 'tag_desc') { sortField = 'tags'; order = 'DESC'; }
+    else if (sortRaw === 'manual') { sortField = 'position'; order = 'ASC'; }
+    else if (sortRaw === 'created_at') { sortField = 'created_at'; order = orderRaw === 'asc' ? 'ASC' : 'DESC'; }
+    else if (sortRaw === 'updated_at') { sortField = 'updated_at'; order = orderRaw === 'asc' ? 'ASC' : 'DESC'; }
+    else if (sortRaw === 'name') { sortField = 'filename'; order = orderRaw === 'asc' ? 'ASC' : 'DESC'; }
+    else if (sortRaw === 'size') { sortField = 'size'; order = orderRaw === 'asc' ? 'ASC' : 'DESC'; }
+    // download_*: no download_count column, fallback to updated_at
+    else if (sortRaw.startsWith('download')) { sortField = 'updated_at'; order = sortRaw.endsWith('asc') ? 'ASC' : 'DESC'; }
+    // relevance_*: not applicable to file list, fallback to filename
+    else if (sortRaw.startsWith('relevance')) { sortField = 'filename'; order = 'ASC'; }
     const folder = query.folder || null;
     const starred = query.starred === '1' || query.starred === 'true';
-    const { files, total } = db.listFiles(limit, offset, sort, order, folder, starred);
-    db.addAuditLog('list_files', `Total: ${total}, sort: ${sort} ${order}${folder ? ', folder: ' + folder : ''}${starred ? ', starred: true' : ''}`, getClientIp(req), authData.token);
+    const { files, total } = db.listFiles(limit, offset, sortField, order, folder, starred);
+    db.addAuditLog('list_files', `Total: ${total}, sort: ${sortField} ${order}${folder ? ', folder: ' + folder : ''}${starred ? ', starred: true' : ''}`, getClientIp(req), authData.token);
     sendJson(res, { success: true, files: files.map(f => ({
       id: f.id, name: f.filename, size: f.size, time: f.created_at * 1000,
       updatedAt: f.updated_at * 1000,

@@ -4,6 +4,8 @@
  * 特性: SQLite 数据库 / WebSocket 实时同步 / 设备发现 / 动态 Token / HTTPS / 审计日志
  */
 
+const VERSION = require('./package.json').version;
+
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -2657,7 +2659,7 @@ self.addEventListener('fetch', (event) => {
             rss: Math.round(memUsage.rss / 1024 / 1024),
             heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024)
           },
-          version: 'v' + (require('./package.json').version || 'unknown'),
+          version: 'v' + VERSION,
         });
         return;
       }
@@ -4716,7 +4718,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div style="padding:16px 0;text-align:center;">
       <div style="font-size:48px;margin-bottom:12px;">📡</div>
       <h2 style="margin:0 0 8px;">ShareTool</h2>
-      <p style="color:var(--text-muted);margin:0 0 16px;">v3.85</p>
+      <p style="color:var(--text-muted);margin:0 0 16px;">v' + VERSION + '</p>
       <p style="font-size:13px;color:var(--text-secondary);">' + T('about.desc') + '</p>
     </div>
     <div id="aboutSystemStats" style="padding:0 16px 16px;font-size:12px;color:var(--text-muted)"></div>
@@ -4726,7 +4728,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="shortcutModal" onclick="if(event.target===this)closeShortcutModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <div class="modal-title">⌨️ Keyboard Shortcuts</div>
+      <div class="modal-title">⌨️ ' + T('ui.shortcuts') + '</div>
       <button class="modal-close" onclick="closeShortcutModal()">x</button>
     </div>
     <div class="shortcut-list">
