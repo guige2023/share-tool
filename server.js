@@ -3662,9 +3662,9 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .drop-zone { border: 2px dashed var(--border-color); border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 16px; transition: all 0.2s; color: var(--text-muted); font-size: 13px; }
 .drop-zone.drag-over { border-color: var(--accent-primary); background: rgba(102,126,234,0.1); color: var(--accent-primary); }
 .drop-zone-icon { font-size: 24px; margin-bottom: 8px; }
-.fab { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: white; border: none; border-radius: 50%; font-size: 24px; cursor: pointer; box-shadow: 0 4px 16px rgba(102,126,234,0.4); z-index: 300; transition: all 0.2s; display: none; /* shown via JS when files exist */ backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.fab { position: fixed; bottom: max(24px, calc(24px + env(safe-area-inset-bottom))); right: max(24px, calc(24px + env(safe-area-inset-right))); width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); color: white; border: none; border-radius: 50%; font-size: 24px; cursor: pointer; box-shadow: 0 4px 16px rgba(102,126,234,0.4); z-index: 300; transition: all 0.2s; display: none; /* shown via JS when files exist */ backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .fab:hover { transform: scale(1.1); }
-.fab-menu { display: none; position: fixed; bottom: 90px; right: 24px; flex-direction: column; gap: 8px; z-index: 350; }
+.fab-menu { display: none; position: fixed; bottom: max(90px, calc(90px + env(safe-area-inset-bottom))); right: max(24px, calc(24px + env(safe-area-inset-right))); flex-direction: column; gap: 8px; z-index: 350; }
 .fab-menu.show { display: flex; }
 .fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .file-type-icon { font-size: 16px; margin-right: 6px; }
@@ -4042,6 +4042,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <input type="text" id="shareLinkInput" readonly>
       <button onclick="copyShareLink()">' + T('ui.copyLink') + '</button>
       <button onclick="showShareQRModal()">📷 ' + T('ui.qrCode') + '</button>
+      <button onclick="systemShare()" id="systemShareBtn" style="display:none;">📤 ' + T('ui.share') + '</button>
     </div>
     <div class="qr-modal-overlay" id="qrModal" onclick="if(event.target===this)closeShareQRModal()">
       <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:360px;width:90%;text-align:center;">
@@ -5548,6 +5549,8 @@ function renderFiles() {
         (!isVirtualFolder && isOfficeFile(f.name) ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openOfficeModal(\'' + encodeURIComponent(f.name) + '\')">📊 ' + T('file.previewOffice') + '</button>' : '') +
         (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 ' + T('file.previewMd') + '</button>' : '') +
         (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 ' + T('file.preview') + '</button>' : '') +
+        (!isVirtualFolder && isCsv ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCsvModal(\'' + encodeURIComponent(f.name) + '\')">📊 CSV</button>' : '') +
+        (!isVirtualFolder && isArchive ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openArchiveModal(\'' + encodeURIComponent(f.name) + '\')">📦 ' + T('file.preview') + '</button>' : '') +
       '</div>' +
       '<div class="file-actions">' +
         (isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFolder(\'' + encodeURIComponent(f.name) + '\')">📦 ' + T('file.download') + '</button>' : '') +
@@ -6324,6 +6327,96 @@ async function openCodeModal(filename) {
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open code file: ' + e.message); }
+}
+
+async function openCsvModal(filename) {
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.content) return;
+    const content = atob(data.content);
+    const lines = content.split('\n').filter(l => l.trim());
+    const maxRows = 100;
+    const displayLines = lines.slice(0, maxRows);
+
+    // Simple CSV parser (handles quoted fields)
+    function parseCsvLine(line) {
+      const result = [];
+      let inQuotes = false, current = '';
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQuotes = !inQuotes; }
+        else if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+        else current += ch;
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    const rows = displayLines.map(l => parseCsvLine(l));
+    const headers = rows[0] || [];
+    const dataRows = rows.slice(1);
+
+    let tableHtml = '<div style="overflow:auto;max-height:65vh;border-radius:8px;border:1px solid var(--border-color);">';
+    tableHtml += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    tableHtml += '<thead style="position:sticky;top:0;z-index:1;">';
+    tableHtml += '<tr style="background:var(--accent-primary);color:white;">';
+    headers.forEach(h => { tableHtml += '<th style="padding:8px 12px;text-align:left;font-weight:600;white-space:nowrap;">' + escapeHtml(h) + '</th>'; });
+    tableHtml += '</tr></thead><tbody>';
+    dataRows.forEach((row, i) => {
+      const bg = i % 2 === 0 ? 'var(--bg-secondary)' : 'var(--bg-tertiary)';
+      tableHtml += '<tr style="background:' + bg + ';border-bottom:1px solid var(--border-color);">';
+      headers.forEach((_, j) => { tableHtml += '<td style="padding:6px 12px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(row[j] || '') + '</td>'; });
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</tbody></table></div>';
+    if (lines.length > maxRows) {
+      tableHtml = '<div style="color:var(--text-muted);font-size:12px;margin-bottom:8px;">Showing ' + maxRows + ' of ' + lines.length + ' rows</div>' + tableHtml;
+    }
+    tableHtml = '<div style="padding:12px;">' + tableHtml + '</div>';
+
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('modalMeta').textContent = formatSize(data.size || 0) + ' | ' + headers.length + ' columns | ' + (lines.length - 1) + ' rows';
+    document.getElementById('modalBody').innerHTML = tableHtml;
+    lockScroll();
+    document.getElementById('fileModal').classList.add('show');
+  } catch (e) { showToast('Failed to open CSV: ' + e.message); }
+}
+
+async function openArchiveModal(filename) {
+  try {
+    const res = await fetch(API + '/api/archive-list/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const result = await res.json();
+    if (!result.success || !result.files) {
+      showToast(result.error || 'Failed to read archive'); return;
+    }
+    const files = result.files.slice(0, 200);
+    const total = result.total || files.length;
+
+    let html = '<div style="padding:12px;overflow:auto;max-height:65vh;">';
+    if (total > 200) html = '<div style="color:var(--text-muted);font-size:12px;padding:0 12px 8px;">Showing 200 of ' + total + ' files</div><div style="overflow:auto;max-height:calc(65vh - 30px);border-radius:8px;border:1px solid var(--border-color);">' + html;
+    else html = '<div style="overflow:auto;max-height:65vh;border-radius:8px;border:1px solid var(--border-color);">' + html;
+
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    html += '<thead style="position:sticky;top:0;z-index:1;"><tr style="background:var(--accent-primary);color:white;">';
+    html += '<th style="padding:8px 12px;text-align:left;">Name</th><th style="padding:8px 12px;text-align:right;">Size</th><th style="padding:8px 12px;text-align:left;">Type</th>';
+    html += '</tr></thead><tbody>';
+    files.forEach((f, i) => {
+      const bg = i % 2 === 0 ? 'var(--bg-secondary)' : 'var(--bg-tertiary)';
+      html += '<tr style="background:' + bg + ';border-bottom:1px solid var(--border-color);">';
+      html += '<td style="padding:6px 12px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escapeHtml(f.name) + '">' + escapeHtml(f.name) + '</td>';
+      html += '<td style="padding:6px 12px;text-align:right;white-space:nowrap;color:var(--text-muted);">' + formatSize(f.size) + '</td>';
+      html += '<td style="padding:6px 12px;color:var(--text-muted);">' + (f.dir ? '📁' : '📄') + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('modalMeta').textContent = formatSize(result.size || 0) + ' | ' + total + ' entries';
+    document.getElementById('modalBody').innerHTML = html;
+    lockScroll();
+    document.getElementById('fileModal').classList.add('show');
+  } catch (e) { showToast('Failed to open archive: ' + e.message); }
 }
 
 async function openTextEditor(filename) {
@@ -8109,6 +8202,30 @@ function copyShareLink() {
     document.execCommand('copy');
     showToast(T('msg.linkCopied'));
   });
+}
+
+async function systemShare() {
+  const input = document.getElementById('shareLinkInput');
+  if (!input || !input.value) return;
+  const url = input.value;
+  // Check if Web Share API is available (mobile)
+  if (navigator.canShare && navigator.canShare({ url })) {
+    try {
+      await navigator.share({ url, title: 'ShareTool ' + T('share.link'), text: T('share.sharedVia') + ' ' + url });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;  // user cancelled
+    }
+  }
+  // Fallback: use copy
+  copyShareLink();
+}
+
+// Show/hide system share button based on Web Share API support
+function updateSystemShareBtn() {
+  const btn = document.getElementById('systemShareBtn');
+  if (!btn) return;
+  btn.style.display = navigator.canShare ? 'inline-flex' : 'none';
 }
 
 function copyText(text) {

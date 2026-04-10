@@ -130,6 +130,67 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/archive-list?filename=xxx → {files: [{name, size, dir}], total}
+  if (pathname === '/api/archive-list' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = query.filename;
+    if (!filename) {
+      sendJson(res, { success: false, error: 'filename required' }, 400);
+      return true;
+    }
+    const decoded = decodeURIComponent(filename);
+    if (decoded.includes('..') || decoded.includes('/') || decoded.includes('\\')) {
+      sendJson(res, { success: false, error: 'Invalid filename' }, 400);
+      return true;
+    }
+    const file = db.getFileByName(decoded);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    const ext = (decoded.split('.').pop() || '').toLowerCase();
+    const validExts = ['zip', 'tar', 'gz', 'tgz', 'bz2'];
+    if (!validExts.includes(ext)) {
+      sendJson(res, { success: false, error: 'Not an archive file' }, 400);
+      return true;
+    }
+    try {
+      const content = Buffer.from(file.content || '', 'base64');
+      const os = require('os');
+      const path = require('path');
+      const fs = require('fs');
+      const tmpDir = os.tmpdir();
+      const tmpFile = path.join(tmpDir, 'archive-list-' + Date.now() + '-' + decoded.replace(/[^a-zA-Z0-9.]/g, '_'));
+
+      let files = [];
+      if (ext === 'zip') {
+        // Write to temp file and use unzip -l
+        fs.writeFileSync(tmpFile, content);
+        const stdout = execSync('unzip', ['-l', tmpFile]);
+        fs.unlinkSync(tmpFile);
+        const lines = stdout.toString().split('\n').slice(3, -2);
+        files = lines.map(line => {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length < 5) return null;
+          const size = parseInt(parts[0]) || 0;
+          const name = parts.slice(4).join(' ');
+          return { name, size, dir: name.endsWith('/') };
+        }).filter(Boolean).slice(0, 500);
+      } else if (['tar', 'gz', 'tgz', 'bz2'].includes(ext)) {
+        fs.writeFileSync(tmpFile, content);
+        const stdout = execSync('tar', ['-tf', tmpFile]);
+        fs.unlinkSync(tmpFile);
+        files = stdout.toString().split('\n').filter(n => n.trim()).map(name => ({ name, size: 0, dir: name.endsWith('/') })).slice(0, 500);
+      }
+
+      sendJson(res, { success: true, files, total: files.length, size: file.size });
+    } catch (e) {
+      sendJson(res, { success: false, error: e.message }, 500);
+    }
+    return true;
+  }
+
   // DELETE /api/delete-all
   if (pathname === '/api/delete-all' && method === 'DELETE') {
     const authData = authRequired(req, res);
