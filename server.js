@@ -512,6 +512,7 @@ const I18N = {
     'sort.byCount': '按使用量',
     'sort.alpha': '按名称',
     'sort.byColor': '按颜色',
+    'sort.byRecent': '最近使用',
     'tags.empty': '暂无标签',
     'ui.sortTagAZ': '标签 A-Z',
     'ui.sortTagZA': '标签 Z-A',
@@ -980,6 +981,7 @@ const I18N = {
     'sort.byCount': 'By count',
     'sort.alpha': 'By name',
     'sort.byColor': 'By color',
+    'sort.byRecent': 'Recent',
     'tags.empty': 'No tags yet',
     'ui.sortTagAZ': 'Tag A-Z',
     'ui.sortTagZA': 'Tag Z-A',
@@ -4298,7 +4300,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <input type="text" id="tagsModalSearch" placeholder="' + T('ui.searchPlaceholder') + '" oninput="filterTagsModal(this.value)"
         style="flex:1;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
       <select id="tagsModalSort" onchange="sortTagsModal(this.value)"
-        style="padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;">
+        style="padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;min-height:44px;">
         <option value="count">' + T('sort.byCount') + '</option>
         <option value="recent">' + T('sort.byRecent') + '</option>
         <option value="alpha">' + T('sort.alpha') + '</option>
