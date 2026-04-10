@@ -7586,6 +7586,21 @@ document.addEventListener('keydown', function(e) {
   hideContextMenu();
 });
 
+// Auto-refresh when tab becomes visible again (sync changes from other devices)
+let _lastVisibleAt = Date.now();
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    _lastVisibleAt = Date.now();
+    return;
+  }
+  // Tab became visible — refresh if hidden for more than 30 seconds
+  if (Date.now() - _lastVisibleAt > 30000) {
+    loadFiles();
+    // Also refresh notifications
+    if (typeof loadNotifications === 'function') loadNotifications();
+  }
+});
+
 // Click outside panel to close / clear batch selection on mobile
 document.addEventListener('click', function(e) {
   const panel = document.getElementById('fileInfoPanel');
