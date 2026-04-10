@@ -484,6 +484,7 @@ const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, s
 // Security helper: validate filename against path traversal
 function validateFilename(filename) {
   if (!filename || typeof filename !== 'string') return false;
+  if (filename.length > 255) return false;  // 文件名过长
   if (filename.includes('..') || filename.startsWith('/') || filename.startsWith('\\') || filename.includes('\x00')) return false;
   return true;
 }
@@ -2312,6 +2313,7 @@ function isTextFile(filename) {
 // 分片上传管理
 // ============================================================
 function initChunkUpload(uploadId, filename, totalChunks, fileHash = null, size = 0) {
+  if (!validateFilename(filename)) throw new Error('Invalid filename');
   const db = getDb();
   db.prepare(`INSERT OR REPLACE INTO upload_chunks (upload_id, filename, total_chunks, file_hash, size, received_chunks) VALUES (?, ?, ?, ?, ?, '[]')`)
     .run(uploadId, filename, totalChunks, fileHash, size);
