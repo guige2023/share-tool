@@ -244,7 +244,11 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     const file = db.getFileByName(filename);
     if (file) {
       db.addAuditLog('read_content', filename, getClientIp(req), authData.token);
-      sendJson(res, { success: true, content: file.content, type: file.type, size: file.size });
+      // Infer MIME type from extension for non-text files
+      const ext = (file.filename || '').split('.').pop().toLowerCase();
+      const mimeFromExt = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', svg: 'image/svg+xml', bmp: 'image/bmp', ico: 'image/x-icon', mp4: 'video/mp4', webm: 'video/webm', avi: 'video/x-msvideo', mov: 'video/quicktime', mkv: 'video/x-matroska', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4', pdf: 'application/pdf' }[ext];
+      const resolvedType = (file.type === 'text' || file.type === 'file') && mimeFromExt ? mimeFromExt : file.type;
+      sendJson(res, { success: true, content: file.content, type: resolvedType, size: file.size });
     } else {
       sendJson(res, { success: false, error: 'File not found' }, 404);
     }
