@@ -5232,8 +5232,8 @@ function handleWsMessage(msg) {
     }
     case 'sync_response': {
       // 处理定时增量同步响应
-      if (payload.sync && payload.sync.serverTs) {
-        lastSyncTs = payload.sync.serverTs;
+      if (payload.serverTs) {
+        lastSyncTs = payload.serverTs;
         localStorage.setItem('sharetool_last_sync', lastSyncTs);
       }
       if (payload.changes && payload.changes.length > 0) {
@@ -5352,10 +5352,29 @@ function applyIncrementalChanges(changes) {
       currentFiles = currentFiles.filter(f => f.name !== filename);
       updated = true;
     } else if (action === 'rename') {
-      const idx = currentFiles.findIndex(f => f.name === change.oldFilename);
-      if (idx >= 0) {
-        currentFiles[idx].name = change.newFilename;
-        updated = true;
+      // 从 metadata 或 change.oldFilename 获取源文件名
+      let oldName = change.oldFilename;
+      if (!oldName && change.metadata) {
+        try { oldName = JSON.parse(change.metadata).oldFilename; } catch (e) {}
+      }
+      if (oldName) {
+        const idx = currentFiles.findIndex(f => f.name === oldName);
+        if (idx >= 0) {
+          currentFiles[idx].name = filename;
+          updated = true;
+        }
+      }
+    } else if (action === 'move') {
+      let oldName = change.oldFilename || change.old;
+      if (!oldName && change.metadata) {
+        try { oldName = JSON.parse(change.metadata).oldFilename; } catch (e) {}
+      }
+      if (oldName) {
+        const idx = currentFiles.findIndex(f => f.name === oldName);
+        if (idx >= 0) {
+          currentFiles[idx].name = filename;
+          updated = true;
+        }
       }
     }
   }

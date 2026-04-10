@@ -807,10 +807,11 @@ function moveFile(sourceFilename, destFilename) {
   const now = Math.floor(Date.now() / 1000);
   db.prepare('UPDATE files SET filename = ?, updated_at = ? WHERE filename = ?').run(destFilename, now, sourceFilename);
 
-  // 记录同步日志
+  // 记录同步日志：metadata 存源文件名，供客户端 applyIncrementalChanges 使用
   const updated = getFileByName(destFilename);
   if (updated) {
-    addSyncLog(updated.id, destFilename, 'rename', updated.hash, null, updated.size);
+    addSyncLog(updated.id, destFilename, 'rename', updated.hash, null, updated.size,
+      JSON.stringify({ oldFilename: sourceFilename }));
   }
 
   return { success: true, oldFilename: sourceFilename, newFilename: destFilename, hash: source.hash, size: source.size };
