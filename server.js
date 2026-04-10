@@ -7765,28 +7765,31 @@ function applySearchHighlight(q) {
   if (!q || !q.trim()) return;
   const targets = document.querySelectorAll('.search-target');
   // Escape regex special chars for safe text matching
-  var s = q.trim().replace(/[\[\\\]\\*\.\+\?\^\$\{\}\(\)\|\-]/g, '\\\\$&');
+  const s = q.trim().replace(/[\[\]\\\*\.\+\?\^\$\{\}\(\)\|\-]/g, '\\\\$&');
   try {
     const regex = new RegExp('(' + s + ')', 'gi');
     targets.forEach(el => {
       const text = el.textContent || '';
-      if (!regex.test(text)) return;
-      regex.lastIndex = 0;
-      const fragments = text.split(regex);
-      regex.lastIndex = 0;
+      const matches = [...text.matchAll(regex)];
+      if (matches.length === 0) return;
       el.innerHTML = '';
-      fragments.forEach(frag => {
-        if (!frag) return;
-        if (regex.test(frag)) {
-          regex.lastIndex = 0;
-          const span = document.createElement('span');
-          span.className = 'search-highlight';
-          span.textContent = frag;
-          el.appendChild(span);
-        } else {
-          el.appendChild(document.createTextNode(frag));
+      let lastIndex = 0;
+      for (const m of matches) {
+        // Text node before match
+        if (m.index > lastIndex) {
+          el.appendChild(document.createTextNode(text.slice(lastIndex, m.index)));
         }
-      });
+        // Highlighted match
+        const span = document.createElement('span');
+        span.className = 'search-highlight';
+        span.textContent = m[0];
+        el.appendChild(span);
+        lastIndex = m.index + m[0].length;
+      }
+      // Trailing text
+      if (lastIndex < text.length) {
+        el.appendChild(document.createTextNode(text.slice(lastIndex)));
+      }
     });
   } catch (e) {}
 }

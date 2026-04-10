@@ -480,6 +480,7 @@ function runMigrations(db, fromVersion) {
 // 文件操作
 // ============================================================
 const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, starred, position, created_at, updated_at';
+const FILE_LIST_FIELDS = 'id, filename, type, size, hash, tags, encrypted, starred, position, created_at, updated_at';
 
 // Security helper: validate filename against path traversal
 function validateFilename(filename) {
@@ -559,7 +560,7 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
 
   const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
   const files = db.prepare(`
-    SELECT ${FILE_FIELDS} FROM files
+    SELECT ${FILE_LIST_FIELDS} FROM files
     ${where}
     ORDER BY ${safeSort} ${safeOrder}
     LIMIT ? OFFSET ?
@@ -1083,35 +1084,46 @@ function searchFiles(query, tags = null, opts = {}) {
     const tagJoin = tagMatch === 'any' ? ' OR ' : ' AND ';
     const tagConditions = tagList.map(() => `LOWER(tags) LIKE ?`).join(tagJoin);
     const tagParams = tagList.map(t => `%${t}%`);
-    return db.prepare(`SELECT ${FILE_FIELDS} FROM files WHERE ${tagConditions}${extraWhere} ORDER BY created_at DESC LIMIT ?`)
+    return db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files WHERE ${tagConditions}${extraWhere} ORDER BY created_at DESC LIMIT ?`)
       .all(...tagParams, ...extraParams, limit);
   }
 
   // 有查询词：先用 SQLite LIKE 过滤候选集（避免全表扫描）
   // 对每个 token 构建 OR 条件，减少内存中处理的文件数
+  const candidateLimit = 500;
   let candidateFiles;
-  if (queryTokens.length > 0) {
+  if (queryTokens.length > 0 || tags || contentQuery) {
     // 构建 OR 条件：任一 token 匹配即入选（宽泛初筛）
-    const conditions = queryTokens.flatMap(token => [
-      `LOWER(filename) LIKE ?`,
-      `LOWER(tags) LIKE ?`
-    ]);
-    const params = queryTokens.flatMap(token => [`%${token}%`, `%${token}%`]);
-    // 限制候选集上限，避免 LIKE %% 全表扫描返回过多结果
-    const candidateLimit = 500;
+    const conditions = [];
+    const params = [];
+    if (queryTokens.length > 0) {
+      queryTokens.forEach(token => {
+        conditions.push(`LOWER(filename) LIKE ?`, `LOWER(tags) LIKE ?`);
+        params.push(`%${token}%`, `%${token}%`);
+      });
+    }
+    if (tags) {
+      const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+      tagList.forEach(t => {
+        conditions.push(`LOWER(tags) LIKE ?`);
+        params.push(`%${t}%`);
+      });
+    }
+    if (contentQuery) {
+      conditions.push(`type = 'text'`);
+    }
+    // content 查询：使用不含 content 的字段，避免大文件内容撑爆内存
+    // 仅在需要评分时按 id 单独获取 content
     candidateFiles = db.prepare(
-      `SELECT ${FILE_FIELDS} FROM files WHERE ${conditions.join(' OR ')}${extraWhere} LIMIT ?`
+      `SELECT ${FILE_LIST_FIELDS} FROM files WHERE ${conditions.join(' OR ')}${extraWhere} ORDER BY created_at DESC LIMIT ?`
     ).all(...params, ...extraParams, candidateLimit);
-  } else if (contentQuery && !queryTokens.length && !tags) {
-    // 只有 content: 搜索：搜所有 text 类型文件
-    candidateFiles = db.prepare(
-      `SELECT ${FILE_FIELDS} FROM files WHERE type = 'text'${extraWhere} ORDER BY created_at DESC LIMIT ?`
-    ).all(...extraParams, limit);
   } else {
-    candidateFiles = db.prepare(`SELECT ${FILE_FIELDS} FROM files${extraWhere}`).all(...extraParams);
+    candidateFiles = db.prepare(
+      `SELECT ${FILE_LIST_FIELDS} FROM files${extraWhere} LIMIT ?`
+    ).all(...extraParams, candidateLimit);
   }
 
-  if (queryTokens.length === 0 && !tags && !contentQuery) {
+  if (!queryTokens.length && !tags && !contentQuery) {
     return candidateFiles.slice(0, limit);
   }
 
@@ -1159,16 +1171,19 @@ function searchFiles(query, tags = null, opts = {}) {
       }
     }
 
-    // Content search: 文件内容包含匹配
+    // Content search: content 列不在 FILE_LIST_FIELDS 中，需要按 id 单独加载
     if (contentQuery) {
+      // 只加载需要的文件的 content，避免全量加载
+      const fileContent = db.prepare('SELECT content FROM files WHERE id = ?').get(f.id);
+      const lcContent = ((fileContent && fileContent.content) || '').toLowerCase();
       const lcContentQuery = contentQuery.toLowerCase();
-      if (!content.includes(lcContentQuery)) {
+      if (!lcContent.includes(lcContentQuery)) {
         return null; // 内容不匹配，直接过滤
       }
       // 内容匹配加分：精确匹配高分，模糊包含低分
-      if (content.startsWith(lcContentQuery)) {
+      if (lcContent.startsWith(lcContentQuery)) {
         score += 80;
-      } else if (content.includes(' ' + lcContentQuery) || content.includes('\n' + lcContentQuery)) {
+      } else if (lcContent.includes(' ' + lcContentQuery) || lcContent.includes('\n' + lcContentQuery)) {
         score += 50;
       } else {
         score += 30;
