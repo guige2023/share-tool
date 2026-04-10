@@ -3875,8 +3875,10 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .shortcut-desc { color: var(--text-secondary); align-self: center; }
 .paste-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 .recent-searches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.recent-search-tag { padding: 3px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
+.recent-search-tag { padding: 3px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; font-size: 11px; color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .recent-search-tag:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+.recent-search-remove { font-size: 12px; color: var(--text-muted); line-height: 1; padding: 0 1px; border-radius: 50%; }
+.recent-search-remove:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
 .tab-bar { position: sticky; top: 0; background: var(--bg-tertiary); z-index: 50; margin-bottom: 12px; }
 body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 .sort-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap; }
@@ -11391,9 +11393,10 @@ async function renderRecentSearches() {
   container.style.display = 'flex';
   let html = '';
   if (hasRecent) {
-    html += searches.map(s =>
-      '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + escapeHtml(s).replace(/'/g, "\\'") + '\';doSearch()">' + escapeHtml(s) + '</span>'
-    ).join('');
+    html += searches.map(s => {
+      const escapedS = escapeHtml(s).replace(/'/g, "\\'");
+      return '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + escapedS + '\';doSearch()">' + escapeHtml(s) + '<span class="recent-search-remove" onclick="event.stopPropagation();removeRecentSearch(\'' + escapedS + '\')">×</span></span>';
+    }).join('');
   }
   if (hasPopular) {
     html += '<span style="font-size:11px;color:var(--text-muted);padding:0 4px;align-self:center;">|</span>';
@@ -11404,6 +11407,12 @@ async function renderRecentSearches() {
   }
   html += '<span class="recent-search-tag" style="color:var(--danger);margin-left:auto;" onclick="clearRecentSearches()">' + T('ui.clearFilter') + '</span>';
   container.innerHTML = html;
+}
+
+function removeRecentSearch(q) {
+  let searches = getRecentSearches().filter(s => s !== q);
+  try { localStorage.setItem('sharetool_recent_searches', JSON.stringify(searches)); } catch (e) {}
+  renderRecentSearches();
 }
 
 function clearRecentSearches() {
