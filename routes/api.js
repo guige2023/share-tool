@@ -199,26 +199,7 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/tags/list' && method === 'GET') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const files = db.listFiles();
-    // 统计每个标签的使用次数
-    const tagCounts = {};
-    for (const f of files) {
-      if (f.tags) {
-        for (const t of f.tags.split(',').map(s => s.trim()).filter(Boolean)) {
-          tagCounts[t] = (tagCounts[t] || 0) + 1;
-        }
-      }
-    }
-    const colors = db.getAllTagColors();
-    // Build map: tag -> {color, emoji}
-    const colorMap = {};
-    for (const c of colors) { colorMap[c.tag] = c; }
-    const tags = Object.keys(tagCounts).map(tag => ({
-      tag,
-      count: tagCounts[tag],
-      color: colorMap[tag]?.color || null,
-      emoji: colorMap[tag]?.emoji || null
-    })).sort((a, b) => b.count - a.count);
+    const tags = db.getAllTagsWithStats();
     sendJson(res, { success: true, tags });
     return true;
   }
@@ -345,31 +326,13 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
         const { newTag } = JSON.parse(body);
         if (!newTag) { sendJson(res, { success: false, error: 'newTag required' }, 400); return; }
         if (oldTag === newTag) { sendJson(res, { success: false, error: 'same as old' }, 400); return; }
-        const files = db.listFiles();
-        let updated = 0;
-        for (const f of files) {
-          if (f.tags) {
-            const tags = f.tags.split(',').map(s => s.trim());
-            const idx = tags.indexOf(oldTag);
-            if (idx !== -1) {
-              tags[idx] = newTag;
-              db.updateFileByName(f.filename, { tags: tags.join(',') });
-              updated++;
-            }
-          }
-        }
+        // 批量更新所有文件的标签（使用 SQL 直接替换，避免 listFiles 100 条限制）
+        const result = db.renameTagGlobally(oldTag, newTag);
         // 更新标签颜色
         const oldColor = db.getTagColor(oldTag);
         if (oldColor) { db.setTagColor(newTag, oldColor); db.deleteTagColor(oldTag); }
-        db.addAuditLog('tag_rename', `old=${oldTag}, new=${newTag}, updated=${updated} files`, getClientIp(req), authData.token);
-        if (updated > 0) {
-          for (const f of files) {
-            if (f.tags && f.tags.split(',').map(s => s.trim()).includes(newTag)) {
-              broadcastChange({ type: 'update', filename: f.filename, tags: f.tags });
-            }
-          }
-        }
-        sendJson(res, { success: true, updated });
+        db.addAuditLog('tag_rename', `old=${oldTag}, new=${newTag}, updated=${result.updated} files`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, updated: result.updated });
       } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
     });
     return true;
@@ -380,19 +343,9 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     const authData = authRequired(req, res);
     if (!authData) return true;
     const tag = decodeURIComponent(pathname.slice('/api/tags/delete/'.length));
-    const files = db.listFiles();
-    let updated = 0;
-    for (const f of files) {
-      if (f.tags) {
-        const tags = f.tags.split(',').map(s => s.trim()).filter(s => s !== tag);
-        if (tags.length !== f.tags.split(',').map(s => s.trim()).filter(Boolean).length) {
-          db.updateFileByName(f.filename, { tags: tags.join(',') });
-          updated++;
-        }
-      }
-    }
+    const result = db.deleteTagFromAllFiles(tag);
     db.deleteTagColor(tag);
-    sendJson(res, { success: true, updated });
+    sendJson(res, { success: true, updated: result.updated });
     return true;
   }
 

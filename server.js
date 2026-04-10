@@ -218,6 +218,7 @@ const I18N = {
     'share.lifetime': '有效期',
     'share.copyLink': '复制链接',
     'share.qrCode': '二维码',
+    'share.downloads': '次下载',
     'share.linkCopied': '✓ 链接已复制',
     'share.linkCopyFailed': '复制失败',
     'share.confirmDelete': '确定删除此分享链接？',
@@ -654,6 +655,7 @@ const I18N = {
     'share.lifetime': 'Lifetime',
     'share.copyLink': 'Copy link',
     'share.qrCode': 'QR Code',
+    'share.downloads': 'downloads',
     'share.linkCopied': '✓ Link copied',
     'share.linkCopyFailed': 'Copy failed',
     'share.confirmDelete': 'Delete this share link?',
@@ -1009,6 +1011,7 @@ const I18N = {
     // 分享
     'share.copyLink': 'Copy link',
     'share.qrCode': 'QR Code',
+    'share.downloads': 'downloads',
     'share.linkCopied': '✓ Link copied',
     'share.linkCopyFailed': 'Copy failed',
     'share.confirmDelete': 'Delete this share link?',
@@ -5528,6 +5531,10 @@ function showShareLinksModal() {
             '<div style="display:flex;justify-content:space-between;align-items:center;">' +
               '<span style="font-weight:600;cursor:pointer;" onclick="copyText(\'' + l.filename.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')" title="Click to copy filename">' + escapeHtml(l.filename) + (l.password ? ' 🔒' : '') + '</span>' +
               '<span style="font-size:11px;color:' + (isExpired ? '#dc2626' : 'var(--text-muted)') + ';">' + (isExpired ? T('share.expired') : expires) + '</span>' +
+            '</div>' +
+            '<div style="display:flex;gap:16px;font-size:11px;color:var(--text-muted);">' +
+              '<span>📥 ' + (l.downloadCount || 0) + (l.maxDownloads ? ' / ' + l.maxDownloads : '') + ' ' + T('share.downloads') + '</span>' +
+              '<span>🕐 ' + (l.createdAt ? new Date(l.createdAt * 1000).toLocaleDateString() : '—') + '</span>' +
             '</div>' +
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
             '<div style="display:flex;gap:8px;margin-top:4px;">' +
