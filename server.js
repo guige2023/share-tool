@@ -490,6 +490,7 @@ const I18N = {
     'fileInfo.loading': '加载中...',
     'fileInfo.loadFailed': '加载失败',
     'fileInfo.copyHash': '复制哈希',
+    'fileInfo.downloads': '下载次数',
     'file.openNewTab': '新标签页打开',
     'file.previewImage': '图片预览',
     'file.previewCode': '代码/MD预览',
@@ -993,6 +994,7 @@ const I18N = {
     'fileInfo.loading': 'Loading...',
     'fileInfo.loadFailed': 'Failed to load',
     'fileInfo.copyHash': 'Copy Hash',
+    'fileInfo.downloads': 'Downloads',
     'file.openNewTab': 'Open in New Tab',
     'file.previewImage': 'Image Preview',
     'file.previewCode': 'Code/MD Preview',
@@ -6962,7 +6964,7 @@ function renderFileInfoContent(meta) {
   html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
   html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="window.open(\'' + API + '/download/' + encodeURIComponent(meta.filename) + '?auth=' + (AUTH_TOKEN || '') + '\', \'_blank\')">⬇️ ' + T('file.download') + '</button>';
   html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="closeFileInfoPanel();createShareLink(\'' + encodeURIComponent(meta.filename) + '\')">🔗 ' + T('share.create') + '</button>';
-  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="copyText(\'' + escapeHtml(meta.filename) + '\')">📋 ' + T('ui.copyFilename') + '</button>';
+  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="copyText(\'' + escapeHtml(meta.filename) + '\')">📋 ' + T('file.copyFilename') + '</button>';
   html += '</div>';
   html += '</div>';
 
