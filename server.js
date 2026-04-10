@@ -5582,43 +5582,60 @@ function renderFiles() {
     }
   }
 
-  // 懒加载图片缩略图（IntersectionObserver，仅可见时加载）
-  let thumbObserver;
-  if (!window._thumbObserver) {
-    window._thumbObserver = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          const el = entry.target;
-          const filename = el.dataset.filename;
-          if (filename) loadImageThumb(filename, el.id);
-          window._thumbObserver.unobserve(el);
+  // 懒加载管理器：统一的 IntersectionObserver 处理图片/PDF/音视频
+  function getLazyObserver(type, loadFn) {
+    if (!window._lazyObservers) window._lazyObservers = {};
+    if (!window._lazyObservers[type]) {
+      window._lazyObservers[type] = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const el = entry.target;
+            const filename = el.dataset.filename;
+            if (filename) loadFn(filename, el.id);
+            window._lazyObservers[type].unobserve(el);
+          }
         }
-      }
-    }, { rootMargin: '200px' });
+      }, { rootMargin: '200px' });
+    }
+    return window._lazyObservers[type];
   }
-  thumbObserver = window._thumbObserver;
+
+  // 图片缩略图
+  const imgObserver = getLazyObserver('img', loadImageThumb);
   for (const f of pagedFiles) {
     if (!f.isVirtualFolder && isImageFile(f.name) && f.size > 0 && f.size < 2 * 1024 * 1024) {
       const thumbId = 'thumb-' + btoaSafe(f.name).substring(0, 20);
       const el = document.getElementById(thumbId);
       if (el && !el.dataset.src) {
         el.dataset.filename = f.name;
-        thumbObserver.observe(el);
+        imgObserver.observe(el);
       }
     }
   }
 
-  // 懒加载 PDF 缩略图（使用 PDF.js 渲染第一页）
+  // PDF 缩略图
+  const pdfObserver = getLazyObserver('pdf', loadPdfThumb);
   for (const f of pagedFiles) {
     if (!f.isVirtualFolder && isPdfFile(f.name) && f.size > 0 && f.size < 20 * 1024 * 1024) {
-      loadPdfThumb(f.name, 'thumb-' + btoaSafe(f.name).substring(0, 20));
+      const thumbId = 'thumb-' + btoaSafe(f.name).substring(0, 20);
+      const el = document.getElementById(thumbId);
+      if (el && !el.dataset.src) {
+        el.dataset.filename = f.name;
+        pdfObserver.observe(el);
+      }
     }
   }
 
-  // 懒加载音视频内联播放器
+  // 音视频内联播放器
+  const mediaObserver = getLazyObserver('media', loadMediaPlayer);
   for (const f of pagedFiles) {
     if (!f.isVirtualFolder && (isAudioFile(f.name) || isVideoFile(f.name))) {
-      loadMediaPlayer(f.name, 'player-' + btoaSafe(f.name).substring(0, 20));
+      const playerId = 'player-' + btoaSafe(f.name).substring(0, 20);
+      const el = document.getElementById(playerId);
+      if (el && !el.dataset.src) {
+        el.dataset.filename = f.name;
+        mediaObserver.observe(el);
+      }
     }
   }
 
@@ -5861,6 +5878,7 @@ async function loadPdfThumb(filename, thumbId) {
     el.dataset.src = 'loaded';
   } catch (e) {
     // PDF 无法渲染，显示默认图标（el.src 保持空，CSS background 显示）
+    if (el) el.dataset.src = 'loaded';
   }
 }
 
@@ -5882,17 +5900,17 @@ async function loadImageThumb(filename, thumbId) {
       el.src = 'data:' + mime + ';base64,' + data.content;
       el.dataset.src = 'loaded';
     }
-  } catch (e) {}
+  } catch (e) { if (el) el.dataset.src = 'loaded'; }
 }
 
 // 懒加载音视频内联播放器
 async function loadMediaPlayer(filename, playerId) {
   const el = document.getElementById(playerId);
-  if (!el || el.dataset.loaded) return;
+  if (!el || el.dataset.src) return;
   try {
     const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
-    if (!data.content) return;
+    if (!data.content) { if (el) el.dataset.src = 'loaded'; return; }
     const ext = filename.split('.').pop().toLowerCase();
     const isAudio = isAudioFile(filename);
     const mimeMap = {
@@ -5906,8 +5924,8 @@ async function loadMediaPlayer(filename, playerId) {
     } else {
       el.innerHTML = '<video controls style="width:100%;max-height:200px;border-radius:8px;background:var(--bg-modal,#000);"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '视频</video>';
     }
-    el.dataset.loaded = '1';
-  } catch (e) {}
+    el.dataset.src = 'loaded';
+  } catch (e) { if (el) el.dataset.src = 'loaded'; }
 }
 
 // 点击图片缩略图打开全屏预览
