@@ -363,7 +363,7 @@ async function main() {
     console.log('  batch-tag remove <tag> [files]   Remove tag from files');
     console.log('  batch-tag set <tag> [files]       Set (replace) tag on files');
     console.log('  batch-rename <old1> <new1> [old2 new2...]  Batch rename files');
-    console.log('  search <query> Search files');
+    console.log('  search <query> [-l]  Search files (-l: long format)');
     console.log('  cat <name>     Print file content to stdout');
     console.log('  find <query> [--tag=x] [--type=x] [--limit=n]  Advanced search');
     console.log('  share <text>   Share text snippet');
@@ -649,18 +649,36 @@ async function main() {
       }
 
       case 'search': {
-        const query = args.slice(1).join(' ');
-        if (!query) {
+        const queryParts = args.slice(1);
+        const longFlag = queryParts.includes('-l') || queryParts.includes('--long');
+        const cleanQuery = queryParts.filter(a => !a.startsWith('-')).join(' ');
+        if (!cleanQuery) {
           printError('Search query required');
           process.exit(1);
         }
-        const res = await request('GET', `/api/search?q=${encodeURIComponent(query)}`);
+        const res = await request('GET', `/api/search?q=${encodeURIComponent(cleanQuery)}`);
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
           printJson(res.data);
           process.exit(1);
         }
-        printJson(res.data);
+        if (longFlag) {
+          const files = res.data.results || res.data.files || res.data || [];
+          if (files.length === 0) { console.log('No results.'); break; }
+          console.log(`Results for "${cleanQuery}":\n`);
+          const nameW = 40;
+          for (const f of files) {
+            const name = f.filename || f.name || '';
+            const size = formatSize(f.size || 0);
+            const score = f.score || 0;
+            const tags = f.tags || '';
+            const truncated = name.length > nameW - 1 ? name.slice(0, nameW-2) + '..' : name;
+            console.log(`  ${truncated.padEnd(nameW)} ${size.padStart(8)}  ${tags ? '🏷 ' + tags : ''}`);
+          }
+          console.log(`\n${files.length} result(s)`);
+        } else {
+          printJson(res.data);
+        }
         break;
       }
 

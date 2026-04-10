@@ -1995,14 +1995,19 @@ function listShareLinks(filename = null) {
   return rows.map(row => ({
     code: row.code,
     filename: row.filename,
-    isText: row.is_text === 1,
-    password: !!row.password,
+    is_text: row.is_text === 1,
+    hasPassword: !!row.password,
+    expires_at: row.expires_at,
     expiresAt: row.expires_at * 1000,
     expired: row.expires_at > 0 && row.expires_at < now,
+    max_downloads: row.max_downloads,
     maxDownloads: row.max_downloads,
+    download_count: row.download_count,
     downloadCount: row.download_count,
     description: row.description || '',
+    created_at: row.created_at,
     createdAt: row.created_at * 1000,
+    created_by: row.created_by,
     createdBy: row.created_by
   }));
 }
