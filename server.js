@@ -8066,6 +8066,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     const el = document.getElementById('searchInput');
     if (el) { el.focus(); el.select(); }
+    return;
   } else if (isInput) {
     // Enter in search input triggers search (or apply selected suggestion)
     if (e.key === 'Enter') {
@@ -8253,7 +8254,7 @@ document.addEventListener('keydown', (e) => {
     const items = getVisibleFileItems();
     if (items[focusedFileIndex]) {
       const fn = items[focusedFileIndex].dataset.filename;
-      if (fn && confirm(T('ui.confirmDelete') + ' ' + decodeURIComponent(fn) + '？')) {
+      if (fn && confirm(T('msg.confirmDelete', {name: decodeURIComponent(fn)}))) {
         deleteFile(decodeURIComponent(fn));
       }
     }
