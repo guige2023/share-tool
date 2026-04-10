@@ -4637,6 +4637,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 </div>
 
 <div id="toast" class="toast"></div>
+<button id="scrollToTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="display:none;position:fixed;bottom:24px;right:24px;width:44px;height:44px;border-radius:50%;background:var(--accent-primary);color:#fff;border:none;cursor:pointer;font-size:18px;z-index:900;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.2s;opacity:0.85;" title="Scroll to top">↑</button>
 
 <div class="ctx-backdrop" id="ctxBackdrop" onclick="hideContextMenu()"></div>
 <div id="contextMenu"></div>
@@ -12812,7 +12813,17 @@ window.addEventListener('DOMContentLoaded', updateFabVisibility);
   </div>
 </div>
 
-  </body>
+<script>
+// Scroll-to-top button visibility
+const scrollBtn = document.getElementById('scrollToTopBtn');
+if (scrollBtn) {
+  window.addEventListener('scroll', () => {
+    scrollBtn.style.display = window.scrollY > 400 ? 'block' : 'none';
+  }, { passive: true });
+}
+</script>
+
+</body>
   <div class="file-context-menu" id="fileContextMenu"></div>
 </html>`;
 
