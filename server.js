@@ -3687,6 +3687,20 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .hero-url { flex-direction: column; }
   .status-bar { flex-direction: column; align-items: center; }
   .search-bar { flex-direction: column; gap: 8px; }
+  #tagQuickBar::-webkit-scrollbar { display: none; }
+  .tag-quick-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-right: 6px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
   .search-bar .btn { width: 100%; min-height: 44px; }
   .search-bar input { min-height: 44px; font-size: 16px; width: 100%; box-sizing: border-box; }
   .search-suggestions { max-height: 60vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -4037,6 +4051,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <div class="search-suggestions" id="searchSuggestions" style="display:none;"></div>
     </div>
+    <div id="tagQuickBar" style="display:none;margin-bottom:10px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px;"></div>
     <div class="filter-tabs">
       <span class="filter-tab active" data-filter="all">' + T('ui.filterAll') + '</span>
       <span class="filter-tab" data-filter="starred">' + T('ui.filterStarred') + '</span>
@@ -6161,6 +6176,7 @@ async function openCodeModal(filename) {
       swift: 'swift', kt: 'kotlin', scala: 'scala', lua: 'lua', r: 'r', pl: 'perl', pm: 'perl'
     };
     const lang = langMap[ext] || 'plaintext';
+    const lineCount = content.split('\n').length;
     let highlighted;
     if (typeof hljs !== 'undefined') {
       try {
@@ -6173,11 +6189,14 @@ async function openCodeModal(filename) {
       highlighted = escapeHtml(content);
     }
     document.getElementById('modalTitle').textContent = filename;
-    document.getElementById('modalMeta').textContent = formatSize(data.size || 0) + ' | ' + lang;
+    document.getElementById('modalMeta').textContent = formatSize(data.size || 0) + ' | ' + lang + ' | ' + lineCount + ' lines';
     document.getElementById('modalBody').innerHTML =
       '<div style="position:relative;">' +
-        '<button onclick="navigator.clipboard.writeText(document.getElementById(\'codeContentClone\').textContent).then(()=>{this.textContent=\'' + T('file.copied') + '!\';this.classList.add(\'copied\');setTimeout(()=>{this.textContent=\'' + T('ui.copy') + '\';this.classList.remove(\'copied\')},2000)})" ' +
-           'style="position:absolute;top:8px;right:8px;padding:4px 10px;font-size:12px;border-radius:6px;border:none;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;z-index:1;">' + T('ui.copy') + '</button>' +
+        '<div style="position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:1;">' +
+          '<button onclick="downloadFile(\'' + filename.replace(/'/g, "\\'") + '\')" style="padding:4px 10px;font-size:12px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">⬇ ' + T('ui.download') + '</button>' +
+          '<button onclick="navigator.clipboard.writeText(document.getElementById(\'codeContentClone\').textContent).then(()=>{this.textContent=\'' + T('file.copied') + '!\';this.classList.add(\'copied\');setTimeout(()=>{this.textContent=\'' + T('ui.copy') + '\';this.classList.remove(\'copied\')},2000)})" ' +
+           'style="padding:4px 10px;font-size:12px;border-radius:6px;border:none;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">' + T('ui.copy') + '</button>' +
+        '</div>' +
         '<pre id="codeContentClone" style="margin:0;overflow:auto;max-height:70vh;background:var(--bg-tertiary);border-radius:8px;padding:16px;font-size:13px;line-height:1.5;display:none;">' + escapeHtml(content) + '</pre>' +
         '<pre style="margin:0;overflow:auto;max-height:70vh;background:var(--bg-tertiary);border-radius:8px;padding:16px;font-size:13px;line-height:1.5;"><code class="hljs language-' + lang + '">' + highlighted + '</code></pre>' +
       '</div>';
@@ -6192,19 +6211,26 @@ async function openTextEditor(filename) {
     const data = await res.json();
     if (!data.content && data.content !== '') { showToast('Failed to load file'); return; }
     const content = atob(data.content);
+    const lineCount = content.split('\n').length;
+    const charCount = content.length;
 
     document.getElementById('modalTitle').textContent = filename + ' (editing)';
-    document.getElementById('modalMeta').textContent = formatSize(data.size || 0) + ' | ' + T('ui.save');
+    document.getElementById('modalMeta').textContent = formatSize(data.size || 0) + ' | ' + lineCount + ' lines | ' + formatSize(charCount) + ' | ' + T('ui.save');
     document.getElementById('modalBody').innerHTML =
       '<div style="display:flex;flex-direction:column;height:70vh;">' +
-        '<textarea id="textEditorContent" spellcheck="false" ' +
-          'style="flex:1;width:100%;padding:16px;border:1px solid var(--border-color);border-radius:8px;' +
-                 'background:var(--bg-tertiary);color:var(--text-primary);font-family:ui-monospace,Menlo,monospace;' +
-                 'font-size:13px;line-height:1.5;resize:none;outline:none;box-sizing:border-box;">' +
-          escapeHtml(content) +
-        '</textarea>' +
-        '<div id="editorStatus" style="padding:8px 0;font-size:12px;color:var(--text-muted);"></div>' +
-        '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+        '<div id="editorWrapper" style="flex:1;display:flex;overflow:hidden;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);">' +
+          '<div id="lineNumbers" style="padding:16px 12px 16px 16px;min-width:3ch;text-align:right;color:var(--text-muted);font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.5;user-select:none;overflow:hidden;background:var(--bg-secondary);border-right:1px solid var(--border-color);" ></div>' +
+          '<textarea id="textEditorContent" spellcheck="false" ' +
+            'style="flex:1;padding:16px;border:none;background:var(--bg-tertiary);color:var(--text-primary);font-family:ui-monospace,Menlo,monospace;' +
+                   'font-size:13px;line-height:1.5;resize:none;outline:none;box-sizing:border-box;overflow:auto;" ' +
+            'oninput="updateEditorLineNumbers();updateEditorStats();">' + escapeHtml(content) + '</textarea>' +
+        '</div>' +
+        '<div id="editorStatus" style="display:flex;justify-content:space-between;padding:6px 0;font-size:12px;color:var(--text-muted);">' +
+          '<span id="editorStats">' + lineCount + ' lines | ' + formatSize(charCount) + '</span>' +
+          '<span id="editorDirty"></span>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">' +
+          '<button class="btn btn-secondary" onclick="downloadFile(\'' + filename.replace(/'/g, "\\'") + '\')">⬇ ' + T('ui.download') + '</button>' +
           '<button class="btn" onclick="saveTextEditor(\'' + filename.replace(/'/g, "\\'") + '\')" id="saveEditorBtn">' + T('ui.save') + '</button>' +
           '<button class="btn btn-secondary" onclick="closeModal()">' + T('ui.cancel') + '</button>' +
         '</div>' +
@@ -6213,19 +6239,52 @@ async function openTextEditor(filename) {
 
     const originalContent = content;
     const textarea = document.getElementById('textEditorContent');
+
+    // Init line numbers
+    window._editorOriginalContent = originalContent;
+    updateEditorLineNumbers();
     textarea.addEventListener('input', () => {
-      document.getElementById('editorStatus').textContent = textarea.value !== originalContent ? '● unsaved changes' : '';
+      document.getElementById('editorDirty').textContent = textarea.value !== originalContent ? '● unsaved changes' : '';
     });
     textarea.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         saveTextEditor(filename);
       }
+      // Tab key support
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        textarea.value = textarea.value.substring(0, start) + '  ' + textarea.value.substring(end);
+        textarea.selectionStart = textarea.selectionEnd = start + 2;
+        textarea.dispatchEvent(new Event('input'));
+      }
+    });
+    textarea.addEventListener('scroll', () => {
+      document.getElementById('lineNumbers').scrollTop = textarea.scrollTop;
     });
 
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open editor: ' + e.message); }
+}
+
+function updateEditorLineNumbers() {
+  const textarea = document.getElementById('textEditorContent');
+  const lineNumbers = document.getElementById('lineNumbers');
+  if (!textarea || !lineNumbers) return;
+  const lines = textarea.value.split('\n').length;
+  lineNumbers.innerHTML = Array.from({length: lines}, (_, i) => '<div style="height:1.5em;">' + (i+1) + '</div>').join('');
+}
+
+function updateEditorStats() {
+  const textarea = document.getElementById('textEditorContent');
+  const stats = document.getElementById('editorStats');
+  if (!textarea || !stats) return;
+  const lines = textarea.value.split('\n').length;
+  const chars = textarea.value.length;
+  stats.textContent = lines + ' lines | ' + formatSize(chars);
 }
 
 async function saveTextEditor(filename) {
