@@ -1456,5 +1456,34 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/star/batch — 批量收藏/取消收藏
+  if (pathname === '/api/star/batch' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { filenames = [], starred = true } = JSON.parse(body);
+        if (!Array.isArray(filenames) || filenames.length === 0) {
+          sendJson(res, { success: false, error: 'filenames array required' }, 400);
+          return;
+        }
+        let updated = 0, failed = 0;
+        for (const filename of filenames) {
+          try {
+            db.updateFileByName(filename, { starred: starred ? 1 : 0 });
+            updated++;
+          } catch (e) { failed++; }
+        }
+        db.addAuditLog('batch_star', `updated=${updated}, failed=${failed}, starred=${starred}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, updated, failed });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };

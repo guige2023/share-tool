@@ -10319,19 +10319,21 @@ async function batchDelete() {
   if (!confirm(T('ui.confirmDeleteSelected', {n: checked.length}))) return;
   const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
   setBatchOperation('删除中...');
-  let deleted = 0, failed = 0;
-  for (let i = 0; i < filenames.length; i++) {
-    const filename = filenames[i];
-    const statusText = document.getElementById('batchStatusText');
-    const progressFill = document.getElementById('batchProgressFill');
-    if (statusText) statusText.textContent = '删除中 ' + (i + 1) + '/' + filenames.length;
-    if (progressFill) progressFill.style.width = Math.round(((i + 1) / filenames.length) * 100) + '%';
-    try {
-      await fetch(API + '/api/file/' + filename + '?filename=' + encodeURIComponent(filename), { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
-      deleted++;
-    } catch (e) { failed++; }
+  try {
+    const res = await fetch(API + '/api/files/batch', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ filenames })
+    });
+    const data = await res.json();
+    if (data.success) {
+      endBatchOperation(T('msg.deletedN', { n: data.deleted }) + (data.failed ? ' (' + data.failed + ' 失败)' : ''), () => { clearBatch(); loadFiles(); });
+    } else {
+      endBatchOperation('删除失败: ' + (data.error || ''), () => clearBatch());
+    }
+  } catch (e) {
+    endBatchOperation('删除失败: ' + e.message, () => clearBatch());
   }
-  endBatchOperation(T('msg.deletedN', { n: deleted }) + (failed ? ' (' + failed + ' 失败)' : ''), () => { clearBatch(); loadFiles(); });
 }
 
 async function batchCopy() {
@@ -10411,7 +10413,7 @@ async function batchCreateShare() {
   window._batchCreateShareFilenames = filenames;
   window._batchCreateShareOriginal = window.doCreateShareLink;
 
-  // Patch doCreateShareLink temporarily
+  // Patch doCreateShareLink to use batch API
   window.doCreateShareLink = async function() {
     const filenames = window._batchCreateShareFilenames || [];
     if (!filenames.length) return;
@@ -10420,25 +10422,21 @@ async function batchCreateShare() {
     const password = document.getElementById('sharePassword').value || null;
     closeShareOptionsModal();
     setBatchOperation('创建链接中...');
-    let success = 0, failed = 0;
-    for (let i = 0; i < filenames.length; i++) {
-      const filename = filenames[i];
-      const statusText = document.getElementById('batchStatusText');
-      const progressFill = document.getElementById('batchProgressFill');
-      if (statusText) statusText.textContent = '创建链接 ' + (i + 1) + '/' + filenames.length;
-      if (progressFill) progressFill.style.width = Math.round(((i + 1) / filenames.length) * 100) + '%';
-      try {
-        const res = await fetch(API + '/api/share/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-          body: JSON.stringify({ filename, expiryHours: expiryHours || null, maxDownloads, password })
-        });
-        const data = await res.json();
-        if (data.success) success++;
-        else failed++;
-      } catch (_) { failed++; }
+    try {
+      const res = await fetch(API + '/api/share/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ filenames, expiryHours, maxDownloads, password })
+      });
+      const data = await res.json();
+      if (data.success) {
+        endBatchOperation(T('share.batchResult').replace('{n}', data.successCount).replace('{m}', data.failedCount), () => { clearBatch(); loadFiles(); });
+      } else {
+        endBatchOperation('批量创建失败: ' + (data.error || ''), () => clearBatch());
+      }
+    } catch (e) {
+      endBatchOperation('批量创建失败: ' + e.message, () => clearBatch());
     }
-    endBatchOperation(T('share.batchResult').replace('{n}', success).replace('{m}', failed), () => { clearBatch(); loadFiles(); });
     window.doCreateShareLink = window._batchCreateShareOriginal;
   };
 
@@ -10450,25 +10448,21 @@ async function batchStar() {
   if (checked.length === 0) return;
   const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
   setBatchOperation('收藏中...');
-  let starred = 0, errors = 0;
-  for (let i = 0; i < filenames.length; i++) {
-    const filename = filenames[i];
-    const statusText = document.getElementById('batchStatusText');
-    const progressFill = document.getElementById('batchProgressFill');
-    if (statusText) statusText.textContent = '收藏中 ' + (i + 1) + '/' + filenames.length;
-    if (progressFill) progressFill.style.width = Math.round(((i + 1) / filenames.length) * 100) + '%';
-    try {
-      const res = await fetch(API + '/api/star/' + encodeURIComponent(filename), {
-        method: 'POST',
-        headers: { 'x-auth-token': AUTH_TOKEN || '' }
-      });
-      const data = await res.json();
-      if (data.success && data.starred) starred++;
-      else if (data.success) starred++;
-      else errors++;
-    } catch (e) { errors++; }
+  try {
+    const res = await fetch(API + '/api/star/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ filenames, starred: true })
+    });
+    const data = await res.json();
+    if (data.success) {
+      endBatchOperation(T('msg.batchStarred').replace('{n}', data.updated), () => { clearBatch(); loadFiles(); });
+    } else {
+      endBatchOperation('收藏失败: ' + (data.error || ''), () => clearBatch());
+    }
+  } catch (e) {
+    endBatchOperation('收藏失败: ' + e.message, () => clearBatch());
   }
-  endBatchOperation(T('msg.batchStarred').replace('{n}', starred), () => { clearBatch(); loadFiles(); });
 }
 
 async function showFileVersions(filename) {

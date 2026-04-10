@@ -1072,6 +1072,39 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // DELETE /api/files/batch — 批量删除（软删除，移动到回收站）
+  if (pathname === '/api/files/batch' && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { filenames = [] } = JSON.parse(body);
+        if (!Array.isArray(filenames) || filenames.length === 0) {
+          sendJson(res, { success: false, error: 'filenames array required' }, 400);
+          return;
+        }
+        let deleted = 0, failed = 0;
+        for (const filename of filenames) {
+          try {
+            if (db.moveToTrash(filename)) {
+              broadcastChange({ type: 'delete', filename });
+              deleted++;
+            } else {
+              failed++;
+            }
+          } catch (e) { failed++; }
+        }
+        db.addAuditLog('batch_delete', `deleted=${deleted}, failed=${failed}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, deleted, failed, total: filenames.length });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   // POST /api/file/reorder - 批量设置文件排序位置
   if (pathname === '/api/file/reorder' && method === 'POST') {
     const authData = authRequired(req, res);

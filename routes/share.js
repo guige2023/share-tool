@@ -693,5 +693,40 @@ function upload(file){
     return true;
   }
 
+  // POST /api/share/batch — 批量创建分享链接
+  if (pathname === '/api/share/batch' && method === 'POST') {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { filenames = [], expiryHours = 168, maxDownloads = null, password = null } = JSON.parse(body);
+        if (!Array.isArray(filenames) || filenames.length === 0) {
+          sendJson(res, { success: false, error: 'filenames array required' }, 400);
+          return;
+        }
+        const results = [];
+        for (const filename of filenames) {
+          try {
+            const file = db.getFileByName(filename);
+            if (!file) { results.push({ filename, success: false, error: 'File not found' }); continue; }
+            const shareData = createShareLink(filename, {
+              expiryHours, maxDownloads, password,
+              isText: file.type === 'text', description: ''
+            });
+            const shareUrl = `${req.headers.origin}/s/${shareData.code}`;
+            results.push({ filename, success: true, code: shareData.code, url: shareUrl, expiresAt: shareData.expiresAt });
+          } catch (e) { results.push({ filename, success: false, error: e.message }); }
+        }
+        const successCount = results.filter(r => r.success).length;
+        const failedCount = results.filter(r => !r.success).length;
+        db.addAuditLog('batch_share_create', `success=${successCount}, failed=${failedCount}`, getClientIp(req));
+        sendJson(res, { success: true, results, successCount, failedCount });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };
