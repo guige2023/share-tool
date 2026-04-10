@@ -349,6 +349,10 @@ const I18N = {
     'tag.addFailed': '批量添加失败:',
     'tag.colorChanged': '颜色已更新',
     'tag.clickChangeColor': '点击修改颜色',
+    'tag.changeColor': '批量改颜色',
+    'tag.selected': '已选择',
+    'tag.confirmBatchDelete': '确认删除这 {n} 个标签？',
+    'tag.batchDeleted': '已删除 {n} 个标签',
     'tag.doubleClickRename': '双击重命名',
     'tag.count': '个',
     'tag.iconChanged': '图标已更新',
@@ -4377,8 +4381,15 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <button class="modal-close" onclick="closeTagManager()">x</button>
       </div>
     </div>
-    <input type="text" id="tagManagerSearch" placeholder="' + T('ui.searchTags') + '" style="width:100%;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;min-height:44px;margin-bottom:12px;box-sizing:border-box;" oninput="filterTagManagerList(this.value)">
-    <div id="tagMergeUI" style="display:none;background:var(--bg-tertiary);border-radius:8px;padding:12px;margin-bottom:12px;">
+    <input type="text" id="tagManagerSearch" placeholder="' + T('ui.searchTags') + '" style="width:100%;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;min-height:44px;margin-bottom:8px;box-sizing:border-box;" oninput="filterTagManagerList(this.value)">
+    <div id="tagBatchBar" style="display:none;background:var(--accent-primary);border-radius:8px;padding:8px 12px;margin-bottom:8px;align-items:center;gap:8px;justify-content:space-between;">
+      <span style="font-size:12px;color:white;"></span>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-sm" onclick="openBatchColorPicker()" style="background:rgba(255,255,255,0.2);color:white;border:none;font-size:11px;padding:4px 8px;min-height:32px;">🎨 ' + T('tag.changeColor') + '</button>
+        <button class="btn btn-sm btn-danger" onclick="batchDeleteTags()" style="font-size:11px;padding:4px 8px;min-height:32px;">🗑 ' + T('tag.delete') + '</button>
+      </div>
+    </div>
+    <div id="tagMergeUI" style="display:none;background:var(--bg-tertiary);border-radius:8px;padding:12px;margin-bottom:8px;">
       <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">' + T('tag.mergeHint') + '</div>
       <div id="tagMergeSourceList" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;margin-bottom:12px;"></div>
       <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">' + T('tag.mergeTarget') + '</div>
@@ -8611,13 +8622,14 @@ function showFileContextMenu(e, filename) {
 
   const items = [];
   items.push({ icon: '📖', label: '打开 / Open', action: "openFileByName('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '🔗', label: '新标签页打开', action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank')" });
   if (isImage) items.push({ icon: '🖼', label: '图片预览', action: "openImageModal('" + encodeURIComponent(filename) + "')" });
   if (isAudio || isVideo) items.push({ icon: isAudio ? '🎵' : '🎬', label: '媒体预览', action: "openMediaModal('" + encodeURIComponent(filename) + "')" });
   if (isPdf) items.push({ icon: '📕', label: 'PDF 预览', action: "openPdfModal('" + encodeURIComponent(filename) + "')" });
   if (isCode || isMd || isText) items.push({ icon: '📝', label: '代码/MD预览', action: "openCodeModal('" + encodeURIComponent(filename) + "')" });
   items.push({ divider: true });
   items.push({ icon: '🏷', label: '添加标签', action: "addTag('" + encodeURIComponent(filename) + "', '')" });
-  items.push({ icon: '🔗', label: '创建分享链接', action: "createShareLink('" + encodeURIComponent(filename) + "')" });
+  items.push({ icon: '🔗', label: '创建分享链接', action: "shareFile('" + encodeURIComponent(filename) + "')" });
   items.push({ icon: '📋', label: '复制到...', action: "promptCopy('" + encodeURIComponent(filename) + "')" });
   items.push({ icon: '✏️', label: '重命名', action: "startInlineRenameFromCtx('" + encodeURIComponent(filename) + "')" });
   items.push({ divider: true });
@@ -9170,12 +9182,65 @@ function updateBatchTagBar() {
   if (!bar) return;
   const count = window._selectedTags ? window._selectedTags.size : 0;
   if (count === 0) {
-    bar.innerHTML = '';
     bar.style.display = 'none';
     return;
   }
   bar.style.display = 'flex';
-  bar.innerHTML = '<span style="font-size:12px;color:var(--text-secondary);">' + count + ' selected</span>';
+  bar.querySelector('span').textContent = count + ' ' + T('tag.selected');
+}
+
+async function openBatchColorPicker() {
+  const tags = Array.from(window._selectedTags || []);
+  if (!tags.length) return;
+  const colors = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899','#6b7280'];
+  const selected = await new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show';
+    overlay.style.zIndex = '10000';
+    overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); resolve(null); } };
+    overlay.innerHTML = '<div class="modal-content" style="max-width:320px;padding:20px;">' +
+      '<div style="font-size:14px;font-weight:500;margin-bottom:16px;">' + T('tag.changeColor') + '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:16px;">' +
+      colors.map(c => '<div style="width:40px;height:40px;border-radius:50%;background:' + c + ';cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);" data-color="' + c + '"></div>').join('') +
+      '</div>' +
+      '<button class="btn btn-secondary" style="width:100%;" id="batchColorCancelBtn">' + T('ui.cancel') + '</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.querySelectorAll('[data-color]').forEach(el => {
+      el.addEventListener('click', () => { const color = el.dataset.color; overlay.remove(); resolve(color); });
+    });
+    document.getElementById('batchColorCancelBtn').addEventListener('click', () => { overlay.remove(); resolve(null); });
+  });
+  if (!selected) return;
+  // Single batch request for all selected tags
+  const res = await fetch(API + '/api/tags/colors', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ colors: tags.map(tag => ({ tag, color: selected })) })
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast(T('tag.colorChanged', null, { n: data.updated }));
+    showTagManager();
+    loadFiles();
+  }
+}
+
+async function batchDeleteTags() {
+  const tags = Array.from(window._selectedTags || []);
+  if (!tags.length) return;
+  if (!confirm(T('tag.confirmBatchDelete', null, { n: tags.length }))) return;
+  let deleted = 0;
+  for (const tag of tags) {
+    const res = await fetch(API + '/api/tags/delete/' + encodeURIComponent(tag), {
+      method: 'DELETE',
+      headers: { 'x-auth-token': AUTH_TOKEN || '' }
+    });
+    if (res.ok) deleted++;
+  }
+  showToast(T('tag.batchDeleted', null, { n: deleted }));
+  showTagManager();
+  loadFiles();
 }
 
 async function showTagManager() {

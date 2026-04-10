@@ -323,6 +323,25 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // PUT /api/tags/colors — 批量更新标签颜色
+  if (pathname === '/api/tags/colors' && method === 'PUT') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { colors } = JSON.parse(body);  // [{tag, color}, ...]
+        if (!Array.isArray(colors)) { sendJson(res, { success: false, error: 'colors array required' }, 400); return; }
+        for (const { tag, color } of colors) {
+          if (tag && color) db.setTagColor(tag, color);
+        }
+        sendJson(res, { success: true, updated: colors.length });
+      } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
+    });
+    return true;
+  }
+
   // PUT /api/tags/emoji — 更新标签图标
   if (pathname === '/api/tags/emoji' && method === 'PUT') {
     const authData = authRequired(req, res);
