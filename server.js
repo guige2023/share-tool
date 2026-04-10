@@ -2159,17 +2159,26 @@ async function generateSelfSignedCert() {
     }
   }
   
+  // 强制使用 RSA 密钥（LibreSSL 对 ECDSA P-256 的 TLS 1.3 握手存在兼容性问题）
+  const { generateKeyPairSync } = require('crypto');
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+  });
+
   const attrs = [{ name: 'commonName', value: 'ShareTool' }];
-  // selfsigned v5 uses notBeforeDate/notAfterDate (days ignored)
   const notBefore = new Date();
   const notAfter = new Date(notBefore);
-  notAfter.setFullYear(notAfter.getFullYear() + 1); // 1 year validity
+  notAfter.setFullYear(notAfter.getFullYear() + 1);
   const pems = await selfsigned.generate(attrs, {
     algorithm: 'sha256',
     notBeforeDate: notBefore,
     notAfterDate: notAfter,
     keySize: 2048,
-    extensions: [{ name: 'subjectAltName', altNames }]
+    extensions: [{ name: 'subjectAltName', altNames }],
+    primaryKey: privateKey,
+    publicKey: publicKey
   });
   
   logger.info(`[HTTPS] SANs: localhost, 127.0.0.1, ${ips.filter(ip => ip !== '127.0.0.1').join(', ')}`);
@@ -3075,13 +3084,16 @@ function startSyncScheduler() {
     }
   }, 60000);
   
-  // 每小时清理一次过期 Token、分享链接、sync_log、audit_log
+  // 每小时清理一次过期 Token、分享链接、sync_log、audit_log、rate_limit、未完成上传、搜索历史
   setInterval(() => {
     try {
       db.cleanupExpiredTokens();
       db.cleanupExpiredShareLinks();
       db.cleanupSyncLog(7);  // 保留7天已同步的 sync_log
       db.cleanupAuditLog(90); // 保留90天审计日志
+      db.cleanupRateLimit();  // 清理过期/失效 rate_limit 记录
+      db.cleanupIncompleteUploads(); // 清理24小时前的未完成分片上传
+      db.cleanupSearchHistory(); // 清理90天前的搜索历史
     } catch (e) {
       logger.error({ err: e }, '[Cleanup]');
     }
@@ -7786,36 +7798,36 @@ function getSearchMatchInsight(f, q) {
   const filename = (f.name || '').toLowerCase();
   const fileTags = (f.tags || '').toLowerCase();
 
-  // 优先级：文件名开头匹配 > 文件名包含 > 标签匹配 > 内容匹配
+  // Cache i18n strings
+  const _ = (k, fallback) => T(k) || fallback;
+  const _prefix = _('search.matchPrefix', 'name starts with');
+  const _exact = _('search.matchExact', 'exact name');
+  const _contain = _('search.matchContain', 'name contains');
+  const _tag = _('search.matchTag', 'tagged');
+  const _filter = _('search.matchFilter', 'filter match');
+  const _other = _('search.matchOther', 'match');
+
+  // Single-pass: find best match (priority: prefix > exact > contains > tag)
+  let result = null;
   for (const token of tokens) {
     const t = token.toLowerCase();
-    if (filename.startsWith(t)) {
-      return { type: 'prefix', label: '🔤', desc: T('search.matchPrefix') || 'name starts with' };
+    if (!result) {
+      if (filename.startsWith(t)) {
+        result = { type: 'prefix', label: '🔤', desc: _prefix };
+      } else if (filename === t) {
+        result = { type: 'exact', label: '🔤', desc: _exact };
+      } else if (filename.includes(t)) {
+        result = { type: 'contain', label: '🔤', desc: _contain };
+      } else if (fileTags.includes(t)) {
+        result = { type: 'tag', label: '🏷', desc: _tag };
+      }
     }
   }
-  for (const token of tokens) {
-    const t = token.toLowerCase();
-    if (filename === t) {
-      return { type: 'exact', label: '🔤', desc: T('search.matchExact') || 'exact name' };
-    }
-  }
-  for (const token of tokens) {
-    const t = token.toLowerCase();
-    if (filename.includes(t)) {
-      return { type: 'contain', label: '🔤', desc: T('search.matchContain') || 'name contains' };
-    }
-  }
-  for (const token of tokens) {
-    const t = token.toLowerCase();
-    if (fileTags.includes(t)) {
-      return { type: 'tag', label: '🏷', desc: T('search.matchTag') || 'tagged' };
-    }
-  }
-  // content: 匹配（仅当有 content: 参数时由后端返回，前端只检查标签/名称）
+  if (result) return result;
   if (q.includes('tag:')) {
-    return { type: 'filter', label: '🔍', desc: T('search.matchFilter') || 'filter match' };
+    return { type: 'filter', label: '🔍', desc: _filter };
   }
-  return { type: 'other', label: '🔍', desc: T('search.matchOther') || 'match' };
+  return { type: 'other', label: '🔍', desc: _other };
 }
 
 async function removeTag(filename, tag) {

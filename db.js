@@ -1493,6 +1493,34 @@ function cleanupExpiredTokens() {
   return result.changes;
 }
 
+// 清理过期 rate_limit 记录（锁定已过期 或 窗口期已过的记录）
+function cleanupRateLimit() {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const WINDOW = 900; // 15分钟窗口
+  // 删除：已过期锁定 OR 超过窗口期未使用的记录
+  const result = db.prepare(
+    'DELETE FROM rate_limit WHERE locked_until < ? OR (locked_until IS NULL AND last_attempt < ?)'
+  ).run(now, now - WINDOW);
+  return result.changes;
+}
+
+// 清理过期的未完成分片上传（24小时前的未完成上传）
+function cleanupIncompleteUploads() {
+  const db = getDb();
+  const cutoff = Math.floor(Date.now() / 1000) - 86400;
+  const result = db.prepare('DELETE FROM upload_chunks WHERE created_at < ?').run(cutoff);
+  return result.changes;
+}
+
+// 清理过期的搜索历史（90天前）
+function cleanupSearchHistory() {
+  const db = getDb();
+  const cutoff = Math.floor(Date.now() / 1000) - 90 * 86400;
+  const result = db.prepare('DELETE FROM search_history WHERE timestamp < ?').run(cutoff);
+  return result.changes;
+}
+
 // ============================================================
 // 审计日志
 // ============================================================
@@ -2518,7 +2546,7 @@ module.exports = {
   // 迁移
   migrateFromFileSystem,
   // 清理
-  cleanupExpiredTokens,
+  cleanupExpiredTokens, cleanupRateLimit, cleanupIncompleteUploads, cleanupSearchHistory,
   // DB 健康
   cleanupSyncLog, cleanupAuditLog, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
