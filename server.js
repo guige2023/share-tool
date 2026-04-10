@@ -253,6 +253,8 @@ const I18N = {
     'share.passwordOptional': '密码保护（可选）',
     'share.linkCreateFailed': '创建分享链接失败',
     'share.successCreated': '✓ 分享链接已创建',
+    'share.batchCreate': '🔗 批量创建分享（{n}个）',
+    'share.batchResult': '✓ 成功创建{n}个分享，失败{m}个',
     'share.failed': '分享失败:',
     'share.generateFirst': '请先生成分享链接',
 
@@ -467,6 +469,9 @@ const I18N = {
     'ui.of': '页，共',
     'ui.search': '搜索',
     'ui.filterAll': '全部',
+    'ui.tagMatchAll': '匹配全部标签',
+    'ui.tagMatchAny': '匹配任一标签',
+    'ui.tagMatch': '标签',
     'ui.filterStarred': '收藏',
     'ui.filterText': '文字',
     'ui.filterFile': '文件',
@@ -701,6 +706,8 @@ const I18N = {
     'share.passwordOptional': 'Password protection (optional)',
     'share.linkCreateFailed': 'Failed to create share link',
     'share.successCreated': '✓ Share link created',
+    'share.batchCreate': '🔗 Batch Create Share ({n} files)',
+    'share.batchResult': '✓ Created {n} share links, {m} failed',
     'share.failed': 'Share failed:',
     'share.generateFirst': 'Please generate a share link first',
     'share.noLinks': 'No share links',
@@ -909,6 +916,9 @@ const I18N = {
     'ui.of': 'of',
     'ui.search': 'Search',
     'ui.filterAll': 'All',
+    'ui.tagMatchAll': 'Match all tags',
+    'ui.tagMatchAny': 'Match any tag',
+    'ui.tagMatch': 'Tag',
     'ui.filterStarred': 'Starred',
     'ui.filterText': 'Text',
     'ui.filterFile': 'File',
@@ -1069,6 +1079,8 @@ const I18N = {
     'share.passwordOptional': 'Password protection (optional)',
     'share.linkCreateFailed': 'Failed to create share link',
     'share.successCreated': '✓ Share link created',
+    'share.batchCreate': '🔗 Batch Create Share ({n} files)',
+    'share.batchResult': '✓ Created {n} share links, {m} failed',
     'share.failed': 'Share failed:',
     'share.generateFirst': 'Please generate a share link first',
 
@@ -3852,6 +3864,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button onclick="batchRemoveTag()">🏷✕ ' + T('ui.batchRemoveTag') + '</button>
       <button onclick="batchStar()">⭐ ' + T('ui.batchStar') + '</button>
       <button onclick="batchCopy()">📋 ' + T('ui.batchCopy') + '</button>
+      <button onclick="batchCreateShare()">🔗 ' + T('share.create') + '</button>
       <button onclick="batchMove()">📁 ' + T('ui.batchMove') + '</button>
       <button onclick="showBatchRenameModal()">✏️ ' + T('ui.batchRename') + '</button>
       <button class="danger" onclick="batchDelete()">🗑 ' + T('ui.batchDelete') + '</button>
@@ -4889,7 +4902,7 @@ function updateTagFilterBar() {
     const style = getTagStyle(t) || '';
     const count = tagCount.get(t);
     return '<span class="filter-tab ' + active + '" onclick="filterByTag(\'' + t.replace(/'/g, "\\'") + '\')" style="font-size:11px;' + style + '">🏷 ' + escapeHtml(t) + '<sup style="font-size:9px;opacity:0.7;margin-left:3px;">' + count + '</sup></span>';
-  }).join('') + clearBtn + manageBtn;
+  }).join('') + clearBtn + (sorted.length > 0 ? '<span class="filter-tab tag-match-toggle" id="tagMatchToggle" onclick="toggleTagMatch()" style="font-size:10px;opacity:0.7;cursor:pointer;" title="' + T('ui.tagMatchHint') + '">' + (window.currentTagMatch === 'any' ? 'OR' : 'AND') + '</span>' : '') + manageBtn;
 }
 
 function clearTagFilter() {
@@ -6643,8 +6656,17 @@ async function removeTag(filename, tag) {
 }
 
 function filterByTag(tag) {
-  document.getElementById('searchInput').value = 'tag:' + tag;
-  window.currentSearchQ = 'tag:' + tag;
+  const input = document.getElementById('searchInput');
+  const existing = input.value.trim();
+  const tagExpr = 'tag:' + tag;
+
+  // Remove any existing instance of this tag using simple string replace
+  let cleaned = existing.split(/\s+/).filter(t => t !== tagExpr && t !== 'tag:' + tag).join(' ');
+
+  // Append new tag
+  const newQ = cleaned ? cleaned + ' ' + tagExpr : tagExpr;
+  input.value = newQ;
+  window.currentSearchQ = newQ;
   doSearch();
 }
 
@@ -7754,6 +7776,59 @@ async function batchMove() {
     showToast('移动失败: ' + e.message);
   }
   clearBatch();
+}
+
+async function batchCreateShare() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+
+  // Reuse the share options modal: pre-fill filename with count
+  const filenameEl = document.getElementById('shareOptionsFilename');
+  const fileNameDisplayEl = document.getElementById('shareOptionsFileName');
+  const titleEl = document.getElementById('shareOptionsTitle');
+
+  if (filenameEl) filenameEl.value = filenames.join(',');
+  if (titleEl) titleEl.textContent = '🔗 ' + T('share.batchCreate').replace('{n}', filenames.length);
+  if (fileNameDisplayEl) {
+    fileNameDisplayEl.textContent = filenames.length + ' ' + T('ui.files') + ':\n' + filenames.map(f => '  · ' + f).join('\n');
+    fileNameDisplayEl.style.whiteSpace = 'pre-wrap';
+    fileNameDisplayEl.style.maxHeight = '120px';
+    fileNameDisplayEl.style.overflowY = 'auto';
+  }
+
+  // Override doCreateShareLink to handle batch
+  window._batchCreateShareFilenames = filenames;
+  window._batchCreateShareOriginal = window.doCreateShareLink;
+
+  // Patch doCreateShareLink temporarily
+  window.doCreateShareLink = async function() {
+    const filenames = window._batchCreateShareFilenames || [];
+    if (!filenames.length) return;
+    const expiryHours = parseInt(document.getElementById('shareExpiryHours').value) || 168;
+    const maxDownloads = parseInt(document.getElementById('shareMaxDownloads').value) || null;
+    const password = document.getElementById('sharePassword').value || null;
+    closeShareOptionsModal();
+
+    let success = 0, failed = 0;
+    for (const filename of filenames) {
+      try {
+        const res = await fetch(API + '/api/share/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+          body: JSON.stringify({ filename, expiryHours: expiryHours || null, maxDownloads, password })
+        });
+        const data = await res.json();
+        if (data.success) success++;
+        else failed++;
+      } catch (_) { failed++; }
+    }
+    showToast(T('share.batchResult').replace('{n}', success).replace('{m}', failed));
+    window.doCreateShareLink = window._batchCreateShareOriginal;
+    clearBatch();
+  };
+
+  document.getElementById('shareOptionsModal').classList.add('show');
 }
 
 async function batchStar() {
