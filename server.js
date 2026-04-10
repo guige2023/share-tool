@@ -212,6 +212,25 @@ const I18N = {
     // 分享
     'share.link': '分享链接',
     'share.sharedVia': '通过 ShareTool 分享',
+    // 文件收集链接
+    'request.title': '文件收集链接',
+    'request.create': '创建收集链接',
+    'request.manage': '管理收集链接',
+    'request.noLinks': '暂无收集链接',
+    'request.getFailed': '获取收集链接失败',
+    'request.deleteExpired': '删除过期',
+    'request.name': '链接名称',
+    'request.expiresIn': '有效期',
+    'request.maxUploads': '最大上传次数',
+    'request.unlimited': '不限',
+    'request.password': '访问密码（可选）',
+    'request.createSuccess': '✓ 收集链接已创建',
+    'request.createFailed': '创建收集链接失败',
+    'request.linkCopied': '✓ 链接已复制',
+    'request.deleteConfirm': '确定删除此收集链接？',
+    'request.toggleOn': '已启用',
+    'request.toggleOff': '已停用',
+    'request.uploadCount': '已上传',
     'share.expired': '已过期',
     'share.neverExpire': '永不过期',
     'share.manualRenew': '手动续期',
@@ -3764,7 +3783,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .upload-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); border-radius: 2px; transition: width 0.3s; }
   .upload-queue { display: none; margin-top: 8px; max-height: 120px; overflow-y: auto; }
   .upload-queue.show { display: block; }
-  .upload-queue-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
+  .upload-queue-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); position: relative; overflow: hidden; }
   .upload-queue-item:last-child { border-bottom: none; }
   .upload-queue-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .upload-queue-item .status { font-size: 14px; flex-shrink: 0; }
@@ -4260,6 +4279,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div style="margin-top:12px;">
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔗 <span id="adminShareLabel">' + T('share.link').replace('链接', '') + '</span></div>
       <button class="btn btn-sm" onclick="showShareLinksModal()">' + T('share.manage') + '</button>
+      <button class="btn btn-sm" onclick="showRequestLinksModal()">' + T('request.title') + '</button>
       <button class="btn btn-sm" onclick="showTagManager()">🏷 <span id="adminTagBtn">' + T('tag.manager') + '</span></button>
     </div>
     <div style="margin-top:12px;">
@@ -4386,6 +4406,58 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button class="modal-close" onclick="closeShareLinksModal()">x</button>
     </div>
     <div id="shareLinksList" style="padding:8px 0;"></div>
+  </div>
+</div>
+
+<!-- 文件收集链接 Modal -->
+<div class="modal-overlay" id="requestLinksModal" onclick="if(event.target===this)closeRequestLinksModal()">
+  <div class="modal-content" style="max-width:600px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">📥 ' + T('request.manage') + '</div>
+      <button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="showCreateRequestLinkModal()">' + T('request.create') + '</button>
+      <button class="modal-close" onclick="closeRequestLinksModal()">x</button>
+    </div>
+    <div id="requestLinksList" style="padding:8px 0;"></div>
+  </div>
+</div>
+
+<!-- 创建收集链接 Modal -->
+<div class="modal-overlay" id="createRequestLinkModal" onclick="if(event.target===this)closeCreateRequestLinkModal()">
+  <div class="modal-content" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">📥 ' + T('request.create') + '</div>
+      <button class="modal-close" onclick="closeCreateRequestLinkModal()">x</button>
+    </div>
+    <div style="padding:8px 0;">
+      <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.name') + '</label>
+        <input type="text" id="requestLinkName" placeholder="文件收集" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
+      </div>
+      <div style="margin-bottom:12px;display:flex;gap:8px;">
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.expiresIn') + '</label>
+          <select id="requestLinkExpires" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
+            <option value="1">1 天</option>
+            <option value="7">7 天</option>
+            <option value="30" selected>30 天</option>
+            <option value="90">90 天</option>
+            <option value="0">永不过期</option>
+          </select>
+        </div>
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.maxUploads') + '</label>
+          <input type="number" id="requestLinkMaxUploads" placeholder="' + T('request.unlimited') + '" min="1" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.password') + '</label>
+        <input type="password" id="requestLinkPassword" placeholder="（可选）" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="doCreateRequestLink()" style="flex:1;">' + T('request.create') + '</button>
+        <button class="btn btn-secondary" onclick="closeCreateRequestLinkModal()">' + T('msg.cancel') + '</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -7043,6 +7115,131 @@ function emailShareLink(code, filename) {
   window.open('mailto:?subject=' + subject + '&body=' + body, '_blank');
 }
 
+// ============================================================
+// 文件收集链接
+// ============================================================
+function showRequestLinksModal() {
+  fetch(API + '/api/request/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success) { showToast(T('request.getFailed')); return; }
+      const links = data.links || [];
+      const el = document.getElementById('requestLinksList');
+      if (!el) return;
+      if (!links.length) {
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('request.noLinks') + '</div>';
+      } else {
+        el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' + links.map(l => {
+          const url = location.origin + '/r/' + l.code;
+          const isExpired = l.expires_at && l.expires_at !== 9999999999 && l.expires_at < Date.now() / 1000;
+          const expires = (!l.expires_at || l.expires_at === 9999999999) ? T('share.neverExpire') :
+            (isExpired ? T('share.expired') : Math.ceil((l.expires_at * 1000 - Date.now()) / 86400000) + ' 天后过期');
+          const uploaded = l.upload_count || 0;
+          const maxUploadText = l.max_uploads ? ' / ' + l.max_uploads : '';
+          return '<div style="padding:12px;background:var(--bg-tertiary);border-radius:8px;display:flex;flex-direction:column;gap:6px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+              '<span style="font-weight:600;">' + escapeHtml(l.name) + (l.password ? ' 🔒' : '') + '</span>' +
+              '<div style="display:flex;align-items:center;gap:8px;">' +
+                '<span style="font-size:11px;color:' + (l.active ? 'var(--success)' : 'var(--text-muted)') + ';">' + (l.active ? T('request.toggleOn') : T('request.toggleOff')) + '</span>' +
+                '<label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;">' +
+                  '<input type="checkbox" ' + (l.active ? 'checked' : '') + ' onchange="toggleRequestLink(\'' + l.code + '\', this.checked)" style="opacity:0;width:0;height:0;position:absolute;">' +
+                  '<span style="position:absolute;inset:0;background:' + (l.active ? 'var(--success)' : 'var(--border-color)') + ';border-radius:20px;transition:background .2s;"></span>' +
+                  '<span style="position:absolute;top:2px;left:' + (l.active ? '18px' : '2px') + ';width:16px;height:16px;background:#fff;border-radius:50%;transition:left .2s;"></span>' +
+                '</label>' +
+              '</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:16px;font-size:11px;color:var(--text-muted);">' +
+              '<span>📤 ' + uploaded + maxUploadText + ' ' + T('request.uploadCount') + '</span>' +
+              '<span>🕐 ' + expires + '</span>' +
+            '</div>' +
+            '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
+            '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">' +
+              '<button class="btn btn-sm" onclick="copyRequestLink(\'' + l.code + '\')">' + T('share.copyLink') + '</button>' +
+              '<button class="btn btn-sm" onclick="emailRequestLink(\'' + l.code + '\', \'' + escapeHtml(l.name).replace(/'/g, "\\'") + '\')">' + T('share.email') + '</button>' +
+              '<button class="btn btn-sm btn-danger" onclick="deleteRequestLink(\'' + l.code + '\')">' + T('tag.delete') + '</button>' +
+            '</div>' +
+          '</div>';
+        }).join('') + '</div>';
+      }
+      document.getElementById('requestLinksModal').classList.add('show');
+    }).catch(() => showToast(T('request.getFailed')));
+}
+
+function closeRequestLinksModal() {
+  document.getElementById('requestLinksModal').classList.remove('show');
+}
+
+function showCreateRequestLinkModal() {
+  closeRequestLinksModal();
+  document.getElementById('requestLinkName').value = '';
+  document.getElementById('requestLinkExpires').value = '30';
+  document.getElementById('requestLinkMaxUploads').value = '';
+  document.getElementById('requestLinkPassword').value = '';
+  document.getElementById('createRequestLinkModal').classList.add('show');
+}
+
+function closeCreateRequestLinkModal() {
+  document.getElementById('createRequestLinkModal').classList.remove('show');
+}
+
+function doCreateRequestLink() {
+  const name = document.getElementById('requestLinkName').value.trim() || '文件收集';
+  const expiresDays = parseInt(document.getElementById('requestLinkExpires').value) || 30;
+  const maxUploads = parseInt(document.getElementById('requestLinkMaxUploads').value) || 0;
+  const password = document.getElementById('requestLinkPassword').value;
+  const expiresInDays = expiresDays === 0 ? 0 : expiresDays;
+
+  fetch(API + '/api/request/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ name, expiresInDays, maxUploads: maxUploads || null, password: password || null })
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      showToast(T('request.createSuccess'));
+      closeCreateRequestLinkModal();
+      showRequestLinksModal();
+    } else {
+      showToast(T('request.createFailed') + ': ' + (data.error || ''));
+    }
+  }).catch(() => showToast(T('request.createFailed')));
+}
+
+function copyRequestLink(code) {
+  const url = location.origin + '/r/' + code;
+  navigator.clipboard.writeText(url).then(() => showToast(T('request.linkCopied'))).catch(() => showToast(T('share.linkCopyFailed')));
+}
+
+function emailRequestLink(code, name) {
+  const url = location.origin + '/r/' + code;
+  const subject = encodeURIComponent('文件收集: ' + name);
+  const body = encodeURIComponent('请上传文件到收集链接：\n\n' + url + '\n\n—— via ShareTool');
+  window.open('mailto:?subject=' + subject + '&body=' + body, '_blank');
+}
+
+function toggleRequestLink(code, active) {
+  fetch(API + '/api/request/' + code + '/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ active })
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      showToast(active ? T('request.toggleOn') : T('request.toggleOff'));
+    }
+  }).catch(() => showToast('操作失败'));
+}
+
+function deleteRequestLink(code) {
+  if (!confirm(T('request.deleteConfirm'))) return;
+  fetch(API + '/api/request/' + code, {
+    method: 'DELETE',
+    headers: { 'x-auth-token': AUTH_TOKEN || '' }
+  }).then(r => r.json()).then(data => {
+    if (data.success) {
+      showRequestLinksModal();
+    }
+  }).catch(() => showToast('删除失败'));
+}
+
 function showShareLinkQR(code) {
   // Reuse the QR modal
   showShareQRModalForCode(code);
@@ -8577,7 +8774,7 @@ async function uploadFiles(files) {
       const item = document.createElement('div');
       item.className = 'upload-queue-item';
       item.id = 'upload-item-' + i;
-      item.innerHTML = '<span class="spinner"></span><span class="name">' + escapeHtml(filename) + '</span><span class="status">⏳</span>';
+      item.innerHTML = '<span class="spinner"></span><span class="name">' + escapeHtml(filename) + '</span><span class="status">⏳</span><div class="item-progress" style="position:absolute;bottom:0;left:0;height:2px;background:var(--accent-primary);width:0;transition:width 0.2s;border-radius:1px;"></div>';
       uploadQueue.appendChild(item);
     }
 
@@ -8667,6 +8864,20 @@ async function uploadFiles(files) {
       xhr.open('POST', API + '/api/upload');
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('x-auth-token', AUTH_TOKEN || '');
+
+      // Real-time upload progress for the progress bar
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          if (progressFill) progressFill.style.width = pct + '%';
+          if (progressText) progressText.textContent = pct + '%';
+          if (queueItem) {
+            const p = queueItem.querySelector('.item-progress');
+            if (p) p.style.width = pct + '%';
+          }
+        }
+      });
+
       xhr.send(JSON.stringify({ filename, content: base64, type: 'file' }));
     });
   }
@@ -11375,6 +11586,7 @@ window.addEventListener('DOMContentLoaded', updateFabVisibility);
       <button class="menu-item" onclick="showAuditModal();toggleMobileMenu()">📋 ' + T('admin.auditLog') + '</button>
       <button class="menu-item" onclick="showTokenModal();toggleMobileMenu()">🔑 ' + T('admin.changeToken') + '</button>
       <button class="menu-item" onclick="showShareLinksModal();toggleMobileMenu()">🔗 ' + T('share.title') + '</button>
+      <button class="menu-item" onclick="showRequestLinksModal();toggleMobileMenu()">📥 ' + T('request.title') + '</button>
       <button class="menu-item" onclick="showDevicesModal();toggleMobileMenu()">📱 ' + T('ui.devices') + '</button>
       <button class="menu-item" onclick="showTagsModal();toggleMobileMenu()">🏷️ ' + T('file.tags') + '</button>
       <button class="menu-item" onclick="showBackupModal();toggleMobileMenu()">💾 ' + T('admin.backup') + '</button>
