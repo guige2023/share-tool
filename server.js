@@ -1852,9 +1852,13 @@ ${allFiles.map(f => `  <d:response xmlns:d="DAV:">
       if (db.getFileByName(destFile)) {
         res.writeHead(412); res.end('Destination already exists'); return true;
       }
-      // Move: delete old, add with new name
-      db.addFile(destFile, file.content, file.type, file.size, null, { content_type: file.content_type || 'application/octet-stream' });
-      db.deleteFileByName(srcFile);
+      // Move: use renameFile (handles sync_log, conflict checks)
+      const renameResult = db.renameFile(srcFile, destFile);
+      if (!renameResult.success) {
+        if (renameResult.error.includes('已存在')) { res.writeHead(412); res.end('Destination already exists'); return true; }
+        if (renameResult.error.includes('不存在')) { res.writeHead(404); res.end(); return true; }
+        res.writeHead(500); res.end(renameResult.error); return true;
+      }
       db.addAuditLog('webdav_move', `src=${srcFile}, dest=${destFile}`, getClientIp(req));
       res.writeHead(201, { 'Location': WEBDAV_PREFIX + '/' + encodeURIPath(destFile) });
       res.end();
@@ -1883,10 +1887,11 @@ ${allFiles.map(f => `  <d:response xmlns:d="DAV:">
       }
       const file = db.getFileByName(srcFile);
       if (!file) { res.writeHead(404); res.end(); return true; }
+      if (file.encrypted) { res.writeHead(403); res.end('Encrypted files not accessible via WebDAV'); return true; }
       if (db.getFileByName(destFile)) {
         res.writeHead(412); res.end('Destination already exists'); return true;
       }
-      db.addFile(destFile, file.content, file.type, file.size, null, { content_type: file.content_type || 'application/octet-stream' });
+      db.addFile(destFile, file.content, file.type, file.hash, false);
       db.addAuditLog('webdav_copy', `src=${srcFile}, dest=${destFile}`, getClientIp(req));
       res.writeHead(201, { 'Location': WEBDAV_PREFIX + '/' + encodeURIPath(destFile) });
       res.end();
