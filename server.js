@@ -3547,8 +3547,10 @@ const HTML_PAGE = `<!DOCTYPE html>
 
 /* iOS Safari 100vh fix: use 100dvh for dynamic viewport height */
 /* Theme transition: smooth color changes when switching */
+/* Only animate color/opacity transitions - NOT layout properties (performance on mobile) */
 *, *::before, *::after {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, fill 0.15s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease, fill 0.15s ease, opacity 0.15s ease, box-shadow 0.2s ease;
+  transition-property: background-color, border-color, color, fill, opacity, box-shadow;
 }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100dvh; overscroll-behavior: none; /* prevent pull-to-refresh on mobile */ -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
 /* iOS safe-area support for notch/Dynamic Island devices */
