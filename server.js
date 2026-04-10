@@ -12822,9 +12822,8 @@ if (scrollBtn) {
   }, { passive: true });
 }
 </script>
-
-</body>
   <div class="file-context-menu" id="fileContextMenu"></div>
+</body>
 </html>`;
 
 

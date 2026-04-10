@@ -1002,6 +1002,16 @@ async function main() {
           const ss = Math.round(h.uptime % 60);
           console.log('   Uptime:  ' + (days > 0 ? days + 'd ' : '') + hh + 'h ' + mm + 'm ' + ss + 's');
         }
+        // Fetch stats
+        try {
+          const statsRes = await request('GET', '/api/db/stats');
+          if (statsRes.status < 400 && statsRes.data.success) {
+            const s = statsRes.data;
+            console.log('   Files:   ' + (s.fileCount || 0));
+            console.log('   Storage: ' + formatSize(s.totalSize || 0));
+            if (s.shareLinks !== undefined) console.log('   Shares:  ' + s.shareLinks);
+          }
+        } catch (_) {}
         break;
       }
       case 'open': {
