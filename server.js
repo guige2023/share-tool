@@ -4032,6 +4032,9 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <input type="checkbox" id="selectAllBatch" onchange="toggleSelectAll(this.checked)" style="width:18px;height:18px;cursor:pointer;">
       <span class="batch-count" id="batchCount">' + T('ui.selectedN').replace('{n}', '0') + '</span>
       <span class="batch-status" id="batchStatus"><span class="spinner"></span><span id="batchStatusText"></span></span>
+      <div id="batchProgressBar" style="display:none;width:100px;height:6px;background:var(--border-color);border-radius:3px;overflow:hidden;flex-shrink:0;">
+        <div id="batchProgressFill" style="height:100%;background:var(--accent-primary);width:0%;transition:width 0.1s;"></div>
+      </div>
       <button onclick="batchDownload()">📦 ' + T('ui.batchDownload') + '</button>
       <button onclick="batchAddTagViaModal()">🏷 ' + T('ui.batchTag') + '</button>
       <button onclick="batchRemoveTag()">🏷✕ ' + T('ui.batchRemoveTag') + '</button>
@@ -7625,6 +7628,11 @@ function goPage(p) {
 function showSearchHint() {
   const el = document.getElementById('searchHint');
   if (el) el.style.display = 'block';
+  // 空搜索时显示热门搜索
+  const input = document.getElementById('searchInput');
+  if (!input || !input.value.trim()) {
+    fetchTrendingSearches();
+  }
 }
 function hideSearchHint() {
   const el = document.getElementById('searchHint');
@@ -8862,11 +8870,15 @@ document.addEventListener('click', closeContextMenu);
 function setBatchOperation(op) {
   const status = document.getElementById('batchStatus');
   const statusText = document.getElementById('batchStatusText');
+  const progressBar = document.getElementById('batchProgressBar');
+  const progressFill = document.getElementById('batchProgressFill');
   const buttons = document.querySelectorAll('.batch-bar button');
   if (status) {
     status.classList.toggle('active', !!op);
     if (statusText) statusText.textContent = op || '';
   }
+  if (progressBar) progressBar.style.display = op ? 'flex' : 'none';
+  if (progressFill) progressFill.style.width = '0%';
   buttons.forEach(btn => {
     if (btn) btn.disabled = !!op;
   });
@@ -8888,7 +8900,9 @@ async function batchDelete() {
   for (let i = 0; i < filenames.length; i++) {
     const filename = filenames[i];
     const statusText = document.getElementById('batchStatusText');
+    const progressFill = document.getElementById('batchProgressFill');
     if (statusText) statusText.textContent = '删除中 ' + (i + 1) + '/' + filenames.length;
+    if (progressFill) progressFill.style.width = Math.round(((i + 1) / filenames.length) * 100) + '%';
     try {
       await fetch(API + '/api/file/' + filename + '?filename=' + encodeURIComponent(filename), { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } });
       deleted++;
@@ -9007,9 +9021,15 @@ async function batchCreateShare() {
 async function batchStar() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
+  const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+  setBatchOperation('收藏中...');
   let starred = 0, errors = 0;
-  for (const cb of checked) {
-    const filename = decodeURIComponent(cb.value);
+  for (let i = 0; i < filenames.length; i++) {
+    const filename = filenames[i];
+    const statusText = document.getElementById('batchStatusText');
+    const progressFill = document.getElementById('batchProgressFill');
+    if (statusText) statusText.textContent = '收藏中 ' + (i + 1) + '/' + filenames.length;
+    if (progressFill) progressFill.style.width = Math.round(((i + 1) / filenames.length) * 100) + '%';
     try {
       const res = await fetch(API + '/api/star/' + encodeURIComponent(filename), {
         method: 'POST',
@@ -9021,9 +9041,7 @@ async function batchStar() {
       else errors++;
     } catch (e) { errors++; }
   }
-  showToast(T('msg.batchStarred').replace('{n}', starred));
-  clearBatch();
-  loadFiles();
+  endBatchOperation(T('msg.batchStarred').replace('{n}', starred), () => { clearBatch(); loadFiles(); });
 }
 
 async function showFileVersions(filename) {
@@ -9897,7 +9915,9 @@ async function batchRename() {
     }
     if (!newFn || newFn === oldFn) continue;
     const statusText = document.getElementById('batchStatusText');
+    const progressFill = document.getElementById('batchProgressFill');
     if (statusText) statusText.textContent = '重命名中 ' + (i + 1) + '/' + files.length;
+    if (progressFill) progressFill.style.width = Math.round(((i + 1) / files.length) * 100) + '%';
     try {
       const res = await fetch(API + '/api/file-rename/' + oldEnc, {
         method: 'POST',
@@ -10209,13 +10229,30 @@ async function fetchSuggestions(q) {
   } catch (e) { hideSuggestions(); }
 }
 
+async function fetchTrendingSearches() {
+  try {
+    const res = await fetch(API + '/api/search/popular?limit=5', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (data.success && data.popular && data.popular.length > 0) {
+      const trending = data.popular.map(item => ({
+        text: item.query,
+        type: 'trending',
+        icon: '🔥',
+        count: item.count,
+        color: null
+      }));
+      renderSuggestions(trending);
+    }
+  } catch (e) { /* silent fail */ }
+}
+
 function renderSuggestions(suggestions) {
   const container = document.getElementById('searchSuggestions');
   currentSuggestions = suggestions;
   selectedSuggestionIndex = -1;
   container.innerHTML = suggestions.map((s, i) => {
     const tagStyle = s.color ? 'background:rgba(' + hexToRgb(s.color) + ',0.2);color:' + s.color + ';' : 'background:rgba(102,126,234,0.2);color:var(--accent-primary);';
-    const tagLabel = s.type === 'tag' ? '<span class="suggestion-tag" style="' + tagStyle + '">tag</span>' : s.type === 'syntax' ? '<span class="suggestion-tag" style="background:rgba(102,126,234,0.2);color:var(--accent-primary);">content</span>' : '';
+    const tagLabel = s.type === 'tag' ? '<span class="suggestion-tag" style="' + tagStyle + '">tag</span>' : s.type === 'syntax' ? '<span class="suggestion-tag" style="background:rgba(102,126,234,0.2);color:var(--accent-primary);">content</span>' : s.type === 'trending' ? '<span class="suggestion-tag" style="background:rgba(255,100,50,0.15);color:#ff6432;">' + (s.count || '') + '</span>' : '';
     return '<div class="search-suggestion' + (i === 0 ? ' selected' : '') + '" data-idx="' + i + '" onclick="applySuggestion(\'' + escapeHtml(s.text).replace(/'/g, "\\'") + '\', \'' + s.type + '\')">' +
       '<span class="suggestion-icon">' + escapeHtml(s.icon || '') + '</span>' +
       '<span>' + escapeHtml(s.text) + '</span>' +
@@ -10242,7 +10279,7 @@ function hideSuggestions() {
 }
 
 function applySuggestion(text, type) {
-  document.getElementById('searchInput').value = type === 'tag' ? 'tag:' + text : type === 'syntax' ? text : text;
+  document.getElementById('searchInput').value = type === 'tag' ? 'tag:' + text : text;
   hideSuggestions();
   doSearch();
 }
@@ -10491,7 +10528,7 @@ async function init() {
   fetchStorageInfo();
 
   // Load recent searches (localStorage + server merge)
-  renderRecentSearches();
+  await renderRecentSearches();
   loadSearchHistoryFromServer();
 
   // Load HTTPS status + token display
@@ -10558,15 +10595,35 @@ function saveRecentSearch(q) {
   }).catch(() => {});
 }
 
-function renderRecentSearches() {
+async function renderRecentSearches() {
   const container = document.getElementById('recentSearches');
   if (!container) return;
   const searches = getRecentSearches();
-  if (!searches.length) { container.style.display = 'none'; return; }
+  const popular = await loadPopularSearches();
+  const hasRecent = searches.length > 0;
+  const hasPopular = popular.length > 0;
+
+  if (!hasRecent && !hasPopular) {
+    container.style.display = 'none';
+    return;
+  }
+
   container.style.display = 'flex';
-  container.innerHTML = searches.map(s =>
-    '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + escapeHtml(s).replace(/'/g, "\\'") + '\';doSearch()">' + escapeHtml(s) + '</span>'
-  ).join('') + '<span class="recent-search-tag" style="color:var(--danger)" onclick="clearRecentSearches()">' + T('ui.clearFilter') + '</span>';
+  let html = '';
+  if (hasRecent) {
+    html += searches.map(s =>
+      '<span class="recent-search-tag" onclick="document.getElementById(\'searchInput\').value=\'' + escapeHtml(s).replace(/'/g, "\\'") + '\';doSearch()">' + escapeHtml(s) + '</span>'
+    ).join('');
+  }
+  if (hasPopular) {
+    html += '<span style="font-size:11px;color:var(--text-muted);padding:0 4px;align-self:center;">|</span>';
+    html += '<span style="font-size:11px;color:var(--text-muted);padding:0 2px;align-self:center;">🔥 热门</span>';
+    html += popular.map(s =>
+      '<span class="recent-search-tag" style="background:rgba(255,100,0,0.1);border-color:rgba(255,100,0,0.3);" onclick="document.getElementById(\'searchInput\').value=\'' + escapeHtml(s).replace(/'/g, "\\'") + '\';doSearch()">' + escapeHtml(s) + '</span>'
+    ).join('');
+  }
+  html += '<span class="recent-search-tag" style="color:var(--danger);margin-left:auto;" onclick="clearRecentSearches()">' + T('ui.clearFilter') + '</span>';
+  container.innerHTML = html;
 }
 
 function clearRecentSearches() {
@@ -10577,6 +10634,19 @@ function clearRecentSearches() {
     method: 'DELETE',
     headers: { 'x-auth-token': AUTH_TOKEN || '' }
   }).catch(() => {});
+}
+
+async function loadPopularSearches() {
+  try {
+    const res = await fetch(API + '/api/search/popular?limit=5', {
+      headers: { 'x-auth-token': AUTH_TOKEN || '' }
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.popular || []).map(p => p.query);
+  } catch (e) {
+    return [];
+  }
 }
 
 // Load search history from server and merge with localStorage

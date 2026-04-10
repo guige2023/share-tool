@@ -721,6 +721,14 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/search/popular — 获取热门搜索（所有用户的搜索热词）
+  if (pathname === '/api/search/popular' && method === 'GET') {
+    const limit = parseInt(parsed.query.get('limit')) || 5;
+    const popular = db.getPopularSearches(limit);
+    sendJson(res, { success: true, popular });
+    return true;
+  }
+
   // GET /api/https/cert
   if (pathname === '/api/https/cert') {
     const certInfo = getCertInfo();
