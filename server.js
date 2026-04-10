@@ -3879,9 +3879,9 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div id="themeDropdown" style="display:none;position:absolute;top:56px;right:16px;z-index:1000;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:12px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
         <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-secondary);">主题模式</div>
         <div style="display:flex;gap:6px;margin-bottom:12px;">
-          <button onclick="setTheme('light');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">☀️ 浅色</button>
-          <button onclick="setTheme('dark');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">🌙 深色</button>
-          <button onclick="setTheme('system');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">🖥️ 自动</button>
+          <button id="themeBtn_light" onclick="setTheme('light');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">☀️ 浅色</button>
+          <button id="themeBtn_dark" onclick="setTheme('dark');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">🌙 深色</button>
+          <button id="themeBtn_system" onclick="setTheme('system');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">🖥️ 自动</button>
         </div>
         <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-secondary);">强调色</div>
         <div id="accentColorPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
@@ -10271,6 +10271,7 @@ function toggleTheme() {
   updateThemeColor(next);
   // 取消系统跟随监听（用户已手动选择）
   detachSystemThemeWatcher();
+  updateThemeDropdownActive(next);
 }
 
 const ACCENT_PRESETS = [
@@ -10303,6 +10304,7 @@ function toggleThemeDropdown() {
   const isOpen = dd.style.display !== 'none';
   if (isOpen) { dd.style.display = 'none'; return; }
   dd.style.display = 'block';
+  updateThemeDropdownActive();
   renderAccentColorPicker();
   // Close on outside click
   const close = (e) => { if (!dd.contains(e.target) && e.target.id !== 'themeToggle') { dd.style.display = 'none'; document.removeEventListener('click', close); } };
@@ -10337,6 +10339,20 @@ function setTheme(theme) {
     updateThemeColor(theme);
     detachSystemThemeWatcher();
   }
+  // 更新下拉菜单激活状态
+  updateThemeDropdownActive(theme);
+}
+
+function updateThemeDropdownActive(theme) {
+  const current = theme || (localStorage.getItem('shareTool_theme') || 'system');
+  ['light', 'dark', 'system'].forEach(t => {
+    const btn = document.getElementById('themeBtn_' + t);
+    if (btn) {
+      btn.style.fontWeight = t === current ? '700' : '400';
+      btn.style.background = t === current ? 'var(--accent-primary)' : 'var(--bg-tertiary)';
+      btn.style.color = t === current ? '#fff' : 'var(--text-primary)';
+    }
+  });
 }
 
 function updateThemeColor(theme) {
@@ -10415,7 +10431,6 @@ async function init() {
   } catch (e) {}
 
   initTheme();
-  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
   loadRateLimitStatus();
   loadDashboard();
 
