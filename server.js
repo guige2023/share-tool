@@ -7489,6 +7489,27 @@ function renderFileInfoContent(meta) {
   body.innerHTML = html;
 }
 
+// Escape key closes topmost modal
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  // Close modals in reverse z-index order (most recently opened first)
+  const modals = [
+    'tagInputModal', 'shareOptionsModal', 'fileModal', 'shortcutModal',
+    'auditModal', 'aboutModal', 'fileInfoPanel', 'qrModal',
+    'batchRemoveTagModal', 'batchRenameModal'
+  ];
+  for (const id of modals) {
+    const el = document.getElementById(id);
+    if (el && el.classList.contains('show')) {
+      el.classList.remove('show');
+      unlockScroll();
+      break;
+    }
+  }
+  // Also close context menus
+  hideContextMenu();
+});
+
 // Click outside panel to close / clear batch selection on mobile
 document.addEventListener('click', function(e) {
   const panel = document.getElementById('fileInfoPanel');
