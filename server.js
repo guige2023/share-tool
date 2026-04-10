@@ -6472,7 +6472,10 @@ function showTagsModal() {
     .then(data => {
       window._tagsModalData = data.tags || [];
       document.getElementById('tagsModalSearch').value = '';
-      renderTagsModalBody(window._tagsModalData);
+      // Default to recent sort, then re-render with current sort selection
+      document.getElementById('tagsModalSort').value = 'recent';
+      const sorted = applyTagsModalSort(window._tagsModalData, 'recent');
+      renderTagsModalBody(sorted);
     }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">Failed</div>'; });
   lockScroll();
   document.getElementById('tagsModal').classList.add('show');

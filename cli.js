@@ -250,7 +250,7 @@ function uploadFileSimple(filePath) {
   });
 }
 
-function downloadFile(name, outputDir) {
+function downloadFile(name, outputDir, onProgress) {
   return new Promise((resolve, reject) => {
     const serverUrl = getServerUrl();
     const parsedUrl = parseUrl(serverUrl, `/download/${encodeURIComponent(name)}`);
@@ -278,15 +278,25 @@ function downloadFile(name, outputDir) {
         if (match) fileName = match[1];
       }
 
-      const outputPath = outputDir 
+      const outputPath = outputDir
         ? path.join(outputDir, fileName)
         : path.join(process.cwd(), fileName);
 
       const writeStream = fs.createWriteStream(outputPath);
+      const totalSize = parseInt(res.headers['content-length'], 10);
+      let downloaded = 0;
+
+      res.on('data', (chunk) => {
+        downloaded += chunk.length;
+        if (onProgress && totalSize > 0) {
+          onProgress(downloaded, totalSize, fileName);
+        }
+      });
+
       res.pipe(writeStream);
 
       writeStream.on('finish', () => {
-        resolve({ status: res.statusCode, data: { saved: outputPath } });
+        resolve({ status: res.statusCode, data: { saved: outputPath, size: totalSize } });
       });
       writeStream.on('error', reject);
     });
@@ -448,19 +458,59 @@ async function main() {
           names.splice(oIndex, 2);
         }
         if (names.length === 0) { printError('No files specified'); process.exit(1); }
-        console.log('Downloading ' + names.length + ' file(s) to ' + outputDir + '/...');
+        console.log('Downloading ' + names.length + ' file(s) to ' + outputDir + '/...\n');
         const cliFs = require('fs');
         if (!cliFs.existsSync(outputDir)) cliFs.mkdirSync(outputDir, { recursive: true });
-        let success = 0, failed = 0;
-        for (const name of names) {
-          process.stdout.write('  ' + name + '... ');
-          try {
-            const res = await downloadFile(name, outputDir);
-            if (res.status < 400) { console.log('OK'); success++; }
-            else { console.log('FAILED (' + res.status + ')'); failed++; }
-          } catch (e) { console.log('FAILED (' + e.message + ')'); failed++; }
+
+        // Progress bar helpers
+        const BAR_W = 24;
+        function renderBar(pct) {
+          const filled = Math.round(pct * BAR_W);
+          return '[' + '█'.repeat(filled) + '░'.repeat(BAR_W - filled) + ']';
         }
-        console.log('\nDone: ' + success + ' succeeded, ' + failed + ' failed');
+        function formatBytes(b) {
+          if (b < 1024) return b + ' B';
+          if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+          if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
+          return (b / 1073741824).toFixed(2) + ' GB';
+        }
+
+        let success = 0, failed = 0;
+        let overallDone = 0;
+        for (const name of names) {
+          const startTime = Date.now();
+          let fileDone = false;
+          let lastPct = -1;
+
+          const progressCallback = (downloaded, total, fname) => {
+            const pct = downloaded / total;
+            if (Math.floor(pct * 10) > Math.floor(lastPct * 10) || pct >= 1) {
+              lastPct = pct;
+              const speed = downloaded / ((Date.now() - startTime) / 1000);
+              process.stdout.write('\r  ' + renderBar(pct) + ' ' + formatBytes(downloaded) + '/' + formatBytes(total) + ' ' + Math.round(pct * 100) + '% ' + formatBytes(speed) + '/s   \n');
+            }
+            fileDone = true;
+          };
+
+          process.stdout.write('  ▼ ' + name + '\n');
+          try {
+            const res = await downloadFile(name, outputDir, progressCallback);
+            if (res.status < 400) {
+              const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+              const size = formatBytes(res.data.size || 0);
+              console.log('  ✓ ' + name + ' ' + size + ' in ' + elapsed + 's\n');
+              success++;
+            } else {
+              console.log('  ✗ ' + name + ' FAILED (' + res.status + ')\n');
+              failed++;
+            }
+          } catch (e) {
+            console.log('  ✗ ' + name + ' ERROR: ' + e.message + '\n');
+            failed++;
+          }
+          overallDone++;
+        }
+        console.log('Done: ' + success + ' succeeded, ' + failed + ' failed');
         process.exit(failed > 0 ? 1 : 0);
         break;
       }
