@@ -4098,7 +4098,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
 
     <label class="file-upload-area">
-      <input type="file" id="fileInput" multiple webkitdirectory>
+      <input type="file" id="fileInput" multiple>
       <div class="icon">📁</div>
       <div class="text">' + T('ui.clickOrDrag') + '</div>
       <div class="hint">' + T('ui.supportFolderUpload') + '</div>

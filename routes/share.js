@@ -349,7 +349,7 @@ btn.textContent='验证并访问';
           password: password || null,
           createdBy: authData.token
         });
-        const linkUrl = `https://${ctx.LOCAL_IP || 'localhost'}:${ctx.config?.httpsPort || 18793}/r/${result.code}`;
+        const linkUrl = `${req.headers.origin}/r/${result.code}`;
         db.addAuditLog('request_link_create', `code=${result.code}, name=${name}`, getClientIp(req), authData.token);
         sendJson(res, { success: true, code: result.code, url: linkUrl });
       } catch (e) {
@@ -564,7 +564,7 @@ function upload(file){
     if(x.status===200){
       const r=JSON.parse(x.responseText);
       if(r.success){
-        fl.innerHTML+=`<div class="file-item"><span class="file-name">${(''+file.name).replace(new RegExp('<','g'),'&lt;')}</span><span class="file-size">${fmt(file.size)} \u2713</span></div>`;
+        fl.innerHTML+='<div class="file-item"><span class="file-name">'+(''+file.name).replace(/</g,'&lt;')+'</span><span class="file-size">'+fmt(file.size)+' \u2713</span></div>';
         msg.innerHTML='<div class="msg ok">文件上传成功！可以继续上传更多文件。</div>';
         msg.scrollIntoView({behavior:'smooth'});
         setTimeout(()=>msg.innerHTML='',3000);

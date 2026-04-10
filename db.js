@@ -1908,6 +1908,22 @@ function generateRequestCode() {
 
 function createRequestLink(opts = {}) {
   const db = getDb();
+  // 懒建表：已有数据库兼容性
+  db.exec(`CREATE TABLE IF NOT EXISTS request_links (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    code          TEXT    NOT NULL UNIQUE,
+    name          TEXT    NOT NULL,
+    target_folder TEXT    NOT NULL DEFAULT '',
+    password      TEXT,
+    max_uploads   INTEGER,
+    upload_count  INTEGER NOT NULL DEFAULT 0,
+    expires_at    INTEGER,
+    active        INTEGER NOT NULL DEFAULT 1,
+    created_at    INTEGER NOT NULL DEFAULT (unixepoch()),
+    created_by    TEXT
+  )`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_request_links_code ON request_links(code)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_request_links_active ON request_links(active)`);
   const code = generateRequestCode();
   const now = Math.floor(Date.now() / 1000);
   // 默认 30 天过期
