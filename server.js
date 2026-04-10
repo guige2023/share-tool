@@ -2514,7 +2514,8 @@ self.addEventListener('fetch', (event) => {
         getUploadMaxSize, getFileIcon, isImageFile, archiver, crypto, cryptoModule,
         SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, LOCAL_IP, PORT,
         saveConfig, ensureSslCertificates, getCertInfo, checkAndRenewCertificate, QRCode,
-        fs, path, createShareLink, validateShareCode, escapeHtml
+        fs, path, createShareLink, validateShareCode, escapeHtml,
+        execSync: require('child_process').execSync
       };
 
       // API routes (non-share)
@@ -5385,6 +5386,7 @@ function renderFiles() {
         (!isVirtualFolder && isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
         (!isVirtualFolder && isVideo ? '<div class="file-video-wrapper" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
         (!isVirtualFolder && isPdf ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;position:relative;"><img class="file-thumb-img" id="thumb-' + btoaSafe(f.name).substring(0, 20) + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;background:var(--bg-tertiary);" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')" /><div style="position:absolute;top:4px;left:6px;font-size:11px;background:rgba(0,0,0,0.5);color:white;padding:2px 6px;border-radius:4px;">📕 PDF</div></div>' : '') +
+        (!isVirtualFolder && isOfficeFile(f.name) ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openOfficeModal(\'' + encodeURIComponent(f.name) + '\')">📊 ' + T('file.previewOffice') + '</button>' : '') +
         (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 ' + T('file.previewMd') + '</button>' : '') +
         (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 ' + T('file.preview') + '</button>' : '') +
       '</div>' +
@@ -5982,6 +5984,30 @@ async function openPdfModal(filename) {
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open PDF: ' + e.message); }
+}
+
+async function openOfficeModal(filename) {
+  try {
+    document.getElementById('modalTitle').textContent = filename;
+    document.getElementById('modalMeta').textContent = T('file.loading');
+    document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">' + T('file.loading') + '</div>';
+    lockScroll();
+    document.getElementById('fileModal').classList.add('show');
+
+    const res = await fetch(API + '/api/office-preview?filename=' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.success) {
+      document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">' + escapeHtml(data.error || 'Failed to load preview') + '</div>';
+      return;
+    }
+    const text = data.text || '';
+    const slideCount = data.slides || 0;
+    const sheetCount = data.sheets || 0;
+    const info = slideCount > 0 ? slideCount + ' slides' : (sheetCount > 0 ? sheetCount + ' sheets' : '');
+    document.getElementById('modalMeta').textContent = info;
+    const safeText = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize('<pre style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5;max-height:70vh;overflow-y:auto;background:var(--bg-tertiary);padding:16px;border-radius:8px;">' + escapeHtml(text.substring(0, 50000)) + '</pre>') : '<pre style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5;max-height:70vh;overflow-y:auto;background:var(--bg-tertiary);padding:16px;border-radius:8px;">' + escapeHtml(text.substring(0, 50000)) + '</pre>';
+    document.getElementById('modalBody').innerHTML = safeText;
+  } catch (e) { showToast('Failed to open Office file: ' + e.message); }
 }
 
 async function openMarkdownModal(filename) {
@@ -10705,6 +10731,7 @@ const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico']);
 const AUDIO_EXTS = new Set(['mp3','wav','ogg','aac','flac','m4a','wma','opus']);
 const VIDEO_EXTS = new Set(['mp4','webm','avi','mov','mkv','flv','wmv','m4v','mpeg','mpg']);
 const PDF_EXTS = new Set(['pdf']);
+const OFFICE_EXTS = new Set(['docx','xlsx','pptx','doc','xls','ppt']);
 const CODE_EXTS = new Set(['js','jsx','ts','tsx','json','html','css','scss','py','rb','go','rs','java','c','cpp','h','hpp','cs','php','sh','bash','zsh','sql','xml','yaml','yml','toml','ini','cfg','conf','md','markdown','txt','log','swift','kt','scala','lua','r','pl','pm','lua']);
 
 function isImageFile(filename) {
@@ -10722,6 +10749,10 @@ function isVideoFile(filename) {
 function isPdfFile(filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   return PDF_EXTS.has(ext);
+}
+function isOfficeFile(filename) {
+  const ext = (filename.split('.').pop() || '').toLowerCase();
+  return OFFICE_EXTS.has(ext);
 }
 function isCodeFile(filename) {
   const ext = (filename.split('.').pop() || '').toLowerCase();

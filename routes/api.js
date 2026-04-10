@@ -3,7 +3,7 @@
  */
 
 module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
-  const { db, config, sendJson, authRequired, getClientIp, saveConfig, SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, fs, path, ensureSslCertificates, getCertInfo, checkAndRenewCertificate, broadcastChange } = ctx;
+  const { db, config, sendJson, authRequired, getClientIp, saveConfig, SHARE_TOKEN, TOKEN_EXPIRES_IN, DEVICE_ID, fs, path, ensureSslCertificates, getCertInfo, checkAndRenewCertificate, broadcastChange, execSync } = ctx;
   const { method } = req;
   const parsed = { query };
 
@@ -76,6 +76,54 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     if (!authData) return true;
     const duplicates = db.findDuplicates();
     sendJson(res, { success: true, count: duplicates.length, duplicates });
+    return true;
+  }
+
+  // GET /api/office-preview?filename=xxx → {text, slides, sheets}
+  if (pathname === '/api/office-preview' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const filename = query.filename;
+    if (!filename) {
+      sendJson(res, { success: false, error: 'filename required' }, 400);
+      return true;
+    }
+    // 路径安全检查
+    const decoded = decodeURIComponent(filename);
+    if (decoded.includes('..') || decoded.includes('/') || decoded.includes('\\')) {
+      sendJson(res, { success: false, error: 'Invalid filename' }, 400);
+      return true;
+    }
+    const file = db.getFileByName(decoded);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    const ext = (decoded.split('.').pop() || '').toLowerCase();
+    const validExts = ['docx', 'xlsx', 'pptx', 'doc', 'xls', 'ppt'];
+    if (!validExts.includes(ext)) {
+      sendJson(res, { success: false, error: 'Not an Office file' }, 400);
+      return true;
+    }
+    try {
+      const content = Buffer.from(file.content || '', 'base64').toString('binary');
+      const os = require('os');
+      const tmpDir = os.tmpdir();
+      const tmpFile = require('path').join(tmpDir, 'office-preview-' + Date.now() + '-' + decoded.replace(/[^a-zA-Z0-9.]/g, '_'));
+      require('fs').writeFileSync(tmpFile, content);
+      const script = require('path').join(__dirname, '..', 'scripts', 'office-preview.py');
+      const fmt = ext === 'doc' ? 'docx' : ext === 'xls' ? 'xlsx' : ext === 'ppt' ? 'pptx' : ext;
+      const stdout = execSync('python3', [script, fmt, tmpFile]);
+      const result = JSON.parse(stdout.toString());
+      require('fs').unlinkSync(tmpFile);
+      if (result.error) {
+        sendJson(res, { success: false, error: result.error }, 500);
+      } else {
+        sendJson(res, { success: true, ...result });
+      }
+    } catch (e) {
+      sendJson(res, { success: false, error: e.message }, 500);
+    }
     return true;
   }
 
