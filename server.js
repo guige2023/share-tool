@@ -501,6 +501,10 @@ const I18N = {
     'ui.sortSmallest': '最小优先',
     'ui.sortTypeAZ': '类型 A-Z',
     'ui.sortTypeZA': '类型 Z-A',
+    'sort.byCount': '按使用量',
+    'sort.alpha': '按名称',
+    'sort.byColor': '按颜色',
+    'tags.empty': '暂无标签',
     'ui.sortTagAZ': '标签 A-Z',
     'ui.sortTagZA': '标签 Z-A',
     'ui.sortManual': '手动',
@@ -953,6 +957,10 @@ const I18N = {
     'ui.sortSmallest': 'Smallest first',
     'ui.sortTypeAZ': 'Type A-Z',
     'ui.sortTypeZA': 'Type Z-A',
+    'sort.byCount': 'By count',
+    'sort.alpha': 'By name',
+    'sort.byColor': 'By color',
+    'tags.empty': 'No tags yet',
     'ui.sortTagAZ': 'Tag A-Z',
     'ui.sortTagZA': 'Tag Z-A',
     'ui.sortManual': 'Manual',
@@ -4185,12 +4193,22 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 </div>
 
 <div class="modal-overlay" id="tagsModal" onclick="if(event.target===this)closeTagsModal()">
-  <div class="modal-content" style="max-width:500px;">
+  <div class="modal-content" style="max-width:600px;">
     <div class="modal-header">
       <div class="modal-title">🏷️ ' + T('file.tags') + '</div>
       <button class="modal-close" onclick="closeTagsModal()">x</button>
     </div>
-    <div id="tagsModalBody" style="padding:8px 0;"></div>
+    <div style="padding:0 16px 12px;display:flex;gap:8px;align-items:center;">
+      <input type="text" id="tagsModalSearch" placeholder="' + T('ui.searchPlaceholder') + '" oninput="filterTagsModal(this.value)"
+        style="flex:1;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
+      <select id="tagsModalSort" onchange="sortTagsModal(this.value)"
+        style="padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;">
+        <option value="count">' + T('sort.byCount') + '</option>
+        <option value="alpha">' + T('sort.alpha') + '</option>
+        <option value="color">' + T('sort.byColor') + '</option>
+      </select>
+    </div>
+    <div id="tagsModalBody" style="padding:0 16px 16px;max-height:400px;overflow-y:auto;"></div>
   </div>
 </div>
 
@@ -6002,7 +6020,7 @@ function renderFileInfoContent(meta) {
     if (tags.length > 0) {
       html += '<div class="file-info-tags">';
       for (const tag of tags) {
-        const color = getTagColor(tag.trim());
+        const color = db.getTagColor(tag.trim());
         html += '<span class="file-tag" style="background:' + color + ';color:' + getContrastColor(color) + ';padding:2px 8px;border-radius:10px;font-size:11px;">' + escapeHtml(tag.trim()) + '</span>';
       }
       html += '</div>';
@@ -6123,16 +6141,76 @@ function closeDevicesModal() { unlockScroll(); document.getElementById('devicesM
 
 function showTagsModal() {
   const body = document.getElementById('tagsModalBody');
-  fetch(API + '/api/tags', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+  body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);">Loading...</div>';
+  fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
     .then(r => r.json())
     .then(data => {
-      const tags = data.tags || [];
-      body.innerHTML = tags.length ? tags.map(t =>
-        '<span style="display:inline-block;padding:4px 10px;background:rgba(102,126,234,0.2);color:var(--accent-primary);border-radius:4px;font-size:12px;margin:3px;">' + escapeHtml(t) + '</span>'
-      ).join('') : '<div style="padding:16px;text-align:center;color:var(--text-muted);">No tags</div>';
+      window._tagsModalData = data.tags || [];
+      document.getElementById('tagsModalSearch').value = '';
+      renderTagsModalBody(window._tagsModalData);
     }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">Failed</div>'; });
   lockScroll();
   document.getElementById('tagsModal').classList.add('show');
+}
+
+function renderTagsModalBody(tags) {
+  const body = document.getElementById('tagsModalBody');
+  if (!tags.length) {
+    body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);">' + T('tags.empty') || 'No tags yet' + '</div>';
+    return;
+  }
+  body.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;">' + tags.map(t => {
+    const color = t.color || '#667eea';
+    const bg = color + '22';
+    return '<div onclick="showFilesWithTag(\'' + escapeHtml(t.tag).replace(/'/g, "\\'") + '\')" ' +
+      'style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:' + bg + ';border:1px solid ' + color + '44;border-radius:20px;font-size:13px;cursor:pointer;transition:transform 0.1s;" ' +
+      'onmouseover="this.style.transform=\'scale(1.05)\'" onmouseout="this.style.transform=\'scale(1)\'">' +
+      (t.emoji ? '<span>' + escapeHtml(t.emoji) + '</span>' : '') +
+      '<span style="color:' + escapeHtml(color) + ';font-weight:500;">' + escapeHtml(t.tag) + '</span>' +
+      '<span style="background:' + color + '33' + ';padding:1px 6px;border-radius:10px;font-size:11px;color:var(--text-muted);">' + t.count + '</span>' +
+      '</div>';
+  }).join('') + '</div>';
+}
+
+function filterTagsModal(query) {
+  if (!window._tagsModalData) return;
+  const q = query.toLowerCase();
+  const sortBy = document.getElementById('tagsModalSort').value;
+  let filtered = window._tagsModalData.filter(t => t.tag.toLowerCase().includes(q));
+  filtered = applyTagsModalSort(filtered, sortBy);
+  renderTagsModalBody(filtered);
+}
+
+function sortTagsModal(sortBy) {
+  if (!window._tagsModalData) return;
+  const query = document.getElementById('tagsModalSearch').value;
+  const q = query.toLowerCase();
+  let filtered = window._tagsModalData.filter(t => t.tag.toLowerCase().includes(q));
+  filtered = applyTagsModalSort(filtered, sortBy);
+  renderTagsModalBody(filtered);
+}
+
+function applyTagsModalSort(tags, sortBy) {
+  const colorOrder = ['red','orange','yellow','green','teal','blue','purple','pink','gray'];
+  if (sortBy === 'count') return [...tags].sort((a, b) => b.count - a.count);
+  if (sortBy === 'alpha') return [...tags].sort((a, b) => a.tag.localeCompare(b.tag));
+  if (sortBy === 'color') {
+    return [...tags].sort((a, b) => {
+      const ca = colorOrder.indexOf(a.color) >= 0 ? colorOrder.indexOf(a.color) : 999;
+      const cb = colorOrder.indexOf(b.color) >= 0 ? colorOrder.indexOf(b.color) : 999;
+      return ca - cb;
+    });
+  }
+  return tags;
+}
+
+function showFilesWithTag(tag) {
+  closeTagsModal();
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.value = 'tag:' + tag;
+    doSearch();
+  }
 }
 function closeTagsModal() { unlockScroll(); document.getElementById('tagsModal').classList.remove('show'); }
 
