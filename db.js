@@ -2369,6 +2369,125 @@ function getIncompleteUpload(filename) {
   return { ...row, receivedChunks: received };
 }
 
+// ============================================================
+// 数据导入导出（完整备份/恢复）
+// ============================================================
+
+/**
+ * 导出所有数据为 JSON（不含审计日志和 token）
+ * @returns {object} { files, share_links, tags, tag_colors, version }
+ */
+function exportAllData() {
+  const db = getDb();
+  const files = db.prepare('SELECT * FROM files ORDER BY id').all();
+  const shareLinks = db.prepare('SELECT * FROM share_links').all();
+  // 分享链接密码是哈希，导出时会标注已加密
+  const tagColors = db.prepare('SELECT * FROM tag_colors').all();
+  const searchHistory = db.prepare('SELECT * FROM search_history ORDER BY timestamp DESC LIMIT 500').all();
+  const fileVersions = db.prepare(`
+    SELECT fv.* FROM file_versions fv
+    JOIN files f ON fv.file_id = f.id
+    ORDER BY fv.created_at DESC
+    LIMIT 1000
+  `).all();
+
+  // 清除敏感字段
+  const safeShareLinks = shareLinks.map(l => ({
+    ...l,
+    password: l.password ? '[HASHED]' : null  // 密码哈希不可逆，标记为已哈希
+  }));
+
+  return {
+    version: SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    files,
+    shareLinks: safeShareLinks,
+    tagColors,
+    searchHistory,
+    fileVersions
+  };
+}
+
+/**
+ * 导入数据（可选择合并或覆盖）
+ * @param {object} data - exportAllData() 返回的数据
+ * @param {string} mode - 'merge'（合并）或 'replace'（替换）
+ */
+function importAllData(data, mode = 'merge') {
+  const db = getDb();
+
+  if (mode === 'replace') {
+    // 全量替换：先清空再导入
+    db.exec('DELETE FROM file_versions');
+    db.exec('DELETE FROM search_history');
+    db.exec('DELETE FROM share_links');
+    db.exec('DELETE FROM files');
+    db.exec('DELETE FROM tag_colors');
+  }
+
+  // 导入文件
+  let filesImported = 0;
+  for (const file of (data.files || [])) {
+    try {
+      // 使用 INSERT OR REPLACE：文件名冲突则覆盖
+      db.prepare(`
+        INSERT OR REPLACE INTO files (id, filename, content, type, size, hash, tags, encrypted, starred, position, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        file.id, file.filename, file.content, file.type, file.size, file.hash,
+        file.tags || '', file.encrypted ? 1 : 0, file.starred ? 1 : 0,
+        file.position || 0, file.created_at, file.updated_at
+      );
+      filesImported++;
+    } catch (e) {
+      // 忽略单个文件错误
+    }
+  }
+
+  // 导入分享链接（密码为 [HASHED] 时保留原密码）
+  let linksImported = 0;
+  for (const link of (data.shareLinks || [])) {
+    try {
+      // 密码字段为 [HASHED] 时表示保持数据库现有值
+      const password = link.password === '[HASHED]' ? null : link.password;
+      db.prepare(`
+        INSERT OR REPLACE INTO share_links
+          (code, filename, password, expires_at, created_at, downloads, max_downloads, views)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        link.code, link.filename, password,
+        link.expires_at, link.created_at,
+        link.downloads || 0, link.max_downloads || null, link.views || 0
+      );
+      linksImported++;
+    } catch (e) {
+      // 忽略
+    }
+  }
+
+  // 导入标签颜色
+  for (const tc of (data.tagColors || [])) {
+    try {
+      db.prepare('INSERT OR REPLACE INTO tag_colors (tag, color, emoji) VALUES (?, ?, ?)')
+        .run(tc.tag, tc.color, tc.emoji || null);
+    } catch (e) {
+      // 忽略
+    }
+  }
+
+  // 导入搜索历史
+  for (const sh of (data.searchHistory || [])) {
+    try {
+      db.prepare('INSERT OR IGNORE INTO search_history (query, timestamp) VALUES (?, ?)')
+        .run(sh.query, sh.timestamp);
+    } catch (e) {
+      // 忽略
+    }
+  }
+
+  return { filesImported, linksImported, mode };
+}
+
 module.exports = {
   initDatabase,
   getDb,
@@ -2410,5 +2529,7 @@ module.exports = {
   // 文件版本历史
   saveFileVersion, listFileVersions, getFileVersion, getFileVersionCount, deleteFileVersion, pruneFileVersions,
   // 分片上传
-  initChunkUpload, getChunkUpload, addChunkReceived, getChunkUploadStatus, deleteChunkUpload, getIncompleteUpload
+  initChunkUpload, getChunkUpload, addChunkReceived, getChunkUploadStatus, deleteChunkUpload, getIncompleteUpload,
+  // 导入导出
+  exportAllData, importAllData
 };

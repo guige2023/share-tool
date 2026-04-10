@@ -1256,5 +1256,53 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/export — 全量数据导出（JSON）
+  if (pathname === '/api/export' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    try {
+      const data = db.exportAllData();
+      const json = JSON.stringify(data, null, 2);
+      const filename = `sharetool-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': Buffer.byteLength(json)
+      });
+      res.end(json);
+      db.addAuditLog('data_export', `files=${data.files.length}, links=${data.shareLinks.length}`, getClientIp(req), authData.token);
+    } catch (e) {
+      sendJson(res, { success: false, error: e.message }, 500);
+    }
+    return true;
+  }
+
+  // POST /api/import — 数据导入
+  if (pathname === '/api/import' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { data, mode = 'merge' } = JSON.parse(body);
+        if (!data || !data.files) {
+          sendJson(res, { success: false, error: 'Invalid backup data' }, 400);
+          return;
+        }
+        if (!['merge', 'replace'].includes(mode)) {
+          sendJson(res, { success: false, error: 'Mode must be "merge" or "replace"' }, 400);
+          return;
+        }
+        const result = db.importAllData(data, mode);
+        db.addAuditLog('data_import', `mode=${mode}, files=${result.filesImported}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, ...result });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };
