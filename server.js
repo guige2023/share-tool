@@ -486,6 +486,12 @@ const I18N = {
     'ui.deleteSelected': '删除选中',
     'ui.noResults': '未找到匹配结果',
     'ui.tryOtherKeywords': '尝试其他关键词或清除筛选',
+    'search.matchPrefix': '名称开头匹配',
+    'search.matchExact': '精确名称',
+    'search.matchContain': '名称包含',
+    'search.matchTag': '标签匹配',
+    'search.matchFilter': '筛选匹配',
+    'search.matchOther': '匹配',
     'ui.items': '个文件',
     'ui.page': '第',
     'ui.of': '页，共',
@@ -966,6 +972,12 @@ const I18N = {
     'ui.deleteSelected': 'Delete selected',
     'ui.noResults': 'No matching results',
     'ui.tryOtherKeywords': 'Try other keywords or clear filter',
+    'search.matchPrefix': 'name starts with',
+    'search.matchExact': 'exact name',
+    'search.matchContain': 'name contains',
+    'search.matchTag': 'tagged',
+    'search.matchFilter': 'filter match',
+    'search.matchOther': 'match',
     'ui.items': 'items',
     'ui.page': 'Page',
     'ui.of': 'of',
@@ -3660,6 +3672,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .tag-filter-btn { cursor: pointer; transition: all 0.2s; }
 .search-highlight { background: rgba(102,126,234,0.4); color: var(--text-primary); border-radius: 2px; padding: 0 2px; }
 [data-theme="dark"] .search-highlight { background: rgba(102,126,234,0.4); color: var(--text-primary); }
+.match-insight { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; color: var(--text-muted); background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; font-family: system-ui, sans-serif; }
+.match-insight-tag { background: rgba(102,126,234,0.15); border-color: rgba(102,126,234,0.3); color: var(--accent-primary); }
 .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--text-muted); border-top-color: var(--accent-primary); border-radius: 50%; animation: spin 0.6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -5489,6 +5503,7 @@ function renderFiles() {
     const isImage = !isVirtualFolder && isImageFile(f.name);
     const isAudio = !isVirtualFolder && isAudioFile(f.name);
     const isVideo = !isVirtualFolder && isVideoFile(f.name);
+    const searchInsight = window.isSearchMode ? getSearchMatchInsight(f, searchQ) : null;
     const isPdf = !isVirtualFolder && isPdfFile(f.name);
     const isMarkdown = !isVirtualFolder && /\.(md|markdown)$/i.test(f.name) && f.type === 'text';
     const isCode = !isVirtualFolder && !isMarkdown && isCodeFile(f.name);
@@ -5515,7 +5530,7 @@ function renderFiles() {
           ? '<div class="file-name" style="cursor:pointer;"><span class="file-type-icon">📁</span><span class="search-target" style="color:var(--accent-primary);">' + escapeHtml(f.name) + '</span></div>'
           : (isImage
               ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><img class="file-thumb-img" id="' + thumbId + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')" /></div>'
-              : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="' + T('file.dblclickRename') + '"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(displayName) + '</span></div>')) +
+              : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="' + T('file.dblclickRename') + '"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(displayName) + '</span>' + (searchInsight ? '<span class="match-insight ' + (searchInsight.type === 'tag' ? 'match-insight-tag' : '') + '" title="' + searchInsight.desc + '">' + searchInsight.label + ' ' + searchInsight.desc + '</span>' : '') + '</div>')) +
         (!isVirtualFolder && tags.length ? '<div class="file-tags">' + tags.map(t => {
           const tagEsc = t.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'");
           const tagHtml = escapeHtml(t.trim());
@@ -7626,6 +7641,45 @@ function applySearchHighlight(q) {
   } catch (e) {}
 }
 
+// 分析文件为何匹配搜索词，返回匹配原因
+function getSearchMatchInsight(f, q) {
+  if (!q || !window.isSearchMode) return null;
+  const tokens = (q.match(/\S+/g) || []).filter(t => !/^(tag|content|size|date|type|ext):/i.test(t));
+  const filename = (f.name || '').toLowerCase();
+  const fileTags = (f.tags || '').toLowerCase();
+
+  // 优先级：文件名开头匹配 > 文件名包含 > 标签匹配 > 内容匹配
+  for (const token of tokens) {
+    const t = token.toLowerCase();
+    if (filename.startsWith(t)) {
+      return { type: 'prefix', label: '🔤', desc: T('search.matchPrefix') || 'name starts with' };
+    }
+  }
+  for (const token of tokens) {
+    const t = token.toLowerCase();
+    if (filename === t) {
+      return { type: 'exact', label: '🔤', desc: T('search.matchExact') || 'exact name' };
+    }
+  }
+  for (const token of tokens) {
+    const t = token.toLowerCase();
+    if (filename.includes(t)) {
+      return { type: 'contain', label: '🔤', desc: T('search.matchContain') || 'name contains' };
+    }
+  }
+  for (const token of tokens) {
+    const t = token.toLowerCase();
+    if (fileTags.includes(t)) {
+      return { type: 'tag', label: '🏷', desc: T('search.matchTag') || 'tagged' };
+    }
+  }
+  // content: 匹配（仅当有 content: 参数时由后端返回，前端只检查标签/名称）
+  if (q.includes('tag:')) {
+    return { type: 'filter', label: '🔍', desc: T('search.matchFilter') || 'filter match' };
+  }
+  return { type: 'other', label: '🔍', desc: T('search.matchOther') || 'match' };
+}
+
 async function removeTag(filename, tag) {
   const decodedTag = tag;
   try {
@@ -7831,6 +7885,7 @@ function insertSearchFilter(filter) {
 function doSearch() {
   const q = document.getElementById('searchInput').value.trim();
   window.currentSearchQ = q;
+  window.isSearchMode = !!q;
   document.getElementById('clearSearchBtn').style.display = q ? 'inline-block' : 'none';
   if (!q) {
     document.getElementById('activeFilterChips').style.display = 'none';
@@ -7939,6 +7994,7 @@ function doSearch() {
 function clearSearch() {
   document.getElementById('searchInput').value = '';
   window.currentSearchQ = '';
+  window.isSearchMode = false;
   window.currentTagMatch = 'all';
   document.getElementById('clearSearchBtn').style.display = 'none';
   const countEl = document.getElementById('searchResultCount');
@@ -10278,7 +10334,9 @@ function navigateToFav(encodedFilename) {
     const folder = filename.substring(0, lastSlash);
     window.currentFolder = folder;
     window.currentSearchQ = '';
+    window.isSearchMode = false;
     document.getElementById('searchInput').value = '';
+    document.getElementById('clearSearchBtn').style.display = 'none';
     loadFiles();
   }
   // Highlight and scroll to the file
@@ -11161,6 +11219,8 @@ const AUDIO_EXTS = new Set(['mp3','wav','ogg','aac','flac','m4a','wma','opus']);
 const VIDEO_EXTS = new Set(['mp4','webm','avi','mov','mkv','flv','wmv','m4v','mpeg','mpg']);
 const PDF_EXTS = new Set(['pdf']);
 const OFFICE_EXTS = new Set(['docx','xlsx','pptx','doc','xls','ppt']);
+const CSV_EXTS = new Set(['csv','tsv']);
+const ARCHIVE_EXTS = new Set(['zip','tar','gz','tgz','bz2','rar','7z']);
 const CODE_EXTS = new Set(['js','jsx','ts','tsx','json','html','css','scss','py','rb','go','rs','java','c','cpp','h','hpp','cs','php','sh','bash','zsh','sql','xml','yaml','yml','toml','ini','cfg','conf','md','markdown','txt','log','swift','kt','scala','lua','r','pl','pm','lua']);
 
 function isImageFile(filename) {
