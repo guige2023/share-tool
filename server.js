@@ -574,12 +574,27 @@ const I18N = {
     'ui.sortBy': '排序',
     'ui.sortNewest': '最新优先',
     'ui.sortOldest': '最旧优先',
-    'ui.sortNameAZ': '名称 A-Z',
-    'ui.sortNameZA': '名称 Z-A',
+    'ui.sortManual': '手动排序',
+    'ui.sortRelevance': '相关度',
+    'ui.sortNameAZ': '名称 A→Z',
+    'ui.sortNameZA': '名称 Z→A',
     'ui.sortLargest': '最大优先',
     'ui.sortSmallest': '最小优先',
-    'ui.sortTypeAZ': '类型 A-Z',
-    'ui.sortTypeZA': '类型 Z-A',
+    'ui.sortTypeAZ': '类型 A→Z',
+    'ui.sortTypeZA': '类型 Z→A',
+    'ui.sortTagAZ': '标签 A→Z',
+    'ui.sortTagZA': '标签 Z→A',
+    'ui.sortMostDownloaded': '下载最多',
+    'ui.sortLeastDownloaded': '下载最少',
+    'ui.sortDesc_time': '按最后修改时间排序',
+    'ui.sortDesc_name': '按文件名字母顺序',
+    'ui.sortDesc_size': '按文件大小',
+    'ui.sortDesc_type': '按文件类型',
+    'ui.sortDesc_tag': '按标签名称',
+    'ui.sortDesc_download': '按下载次数',
+    'ui.sortDesc_manual': '拖拽文件自定义顺序',
+    'ui.sortDesc_relevance': '按搜索匹配度',
+
     'sort.byCount': '按使用量',
     'sort.alpha': '按名称',
     'sort.byColor': '按颜色',
@@ -1097,12 +1112,26 @@ const I18N = {
     'ui.sortBy': 'Sort',
     'ui.sortNewest': 'Newest first',
     'ui.sortOldest': 'Oldest first',
-    'ui.sortNameAZ': 'Name A-Z',
-    'ui.sortNameZA': 'Name Z-A',
+    'ui.sortManual': 'Manual',
+    'ui.sortRelevance': 'Relevance',
+    'ui.sortNameAZ': 'Name A→Z',
+    'ui.sortNameZA': 'Name Z→A',
     'ui.sortLargest': 'Largest first',
     'ui.sortSmallest': 'Smallest first',
-    'ui.sortTypeAZ': 'Type A-Z',
-    'ui.sortTypeZA': 'Type Z-A',
+    'ui.sortTypeAZ': 'Type A→Z',
+    'ui.sortTypeZA': 'Type Z→A',
+    'ui.sortTagAZ': 'Tag A→Z',
+    'ui.sortTagZA': 'Tag Z→A',
+    'ui.sortMostDownloaded': 'Most downloaded',
+    'ui.sortLeastDownloaded': 'Least downloaded',
+    'ui.sortDesc_time': 'Sort by last modified time',
+    'ui.sortDesc_name': 'Sort alphabetically by filename',
+    'ui.sortDesc_size': 'Sort by file size',
+    'ui.sortDesc_type': 'Sort by file type',
+    'ui.sortDesc_tag': 'Sort by tag name',
+    'ui.sortDesc_download': 'Sort by download count',
+    'ui.sortDesc_manual': 'Drag to reorder files manually',
+    'ui.sortDesc_relevance': 'Sort by search relevance',
     'sort.byCount': 'By count',
     'sort.alpha': 'By name',
     'sort.byColor': 'By color',
@@ -4463,20 +4492,20 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="sort-bar">
       <span>' + T('ui.sortBy') + ':</span>
       <select id="sortSelect" onchange="changeSort(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:16px;">
-        <option value="manual">' + T('ui.sortManual') + '</option>
-        <option value="relevance_desc">' + T('ui.sortRelevance') + ' 🎯</option>
-        <option value="time_desc">' + T('ui.sortNewest') + ' ▼</option>
-        <option value="time_asc">' + T('ui.sortOldest') + ' ▲</option>
-        <option value="name_asc">' + T('ui.sortNameAZ') + ' A→Z</option>
-        <option value="name_desc">' + T('ui.sortNameZA') + ' Z→A</option>
-        <option value="size_desc">' + T('ui.sortLargest') + ' ▼</option>
-        <option value="size_asc">' + T('ui.sortSmallest') + ' ▲</option>
-        <option value="type_asc">' + T('ui.sortTypeAZ') + ' A→Z</option>
-        <option value="type_desc">' + T('ui.sortTypeZA') + ' Z→A</option>
-        <option value="tag_asc">' + T('ui.sortTagAZ') + '</option>
-        <option value="tag_desc">' + T('ui.sortTagZA') + '</option>
-        <option value="download_desc">🔥 ' + T('ui.sortMostDownloaded') + '</option>
-        <option value="download_asc">💤 ' + T('ui.sortLeastDownloaded') + '</option>
+        <option value="manual" title="' + T('ui.sortDesc_manual') + '">' + T('ui.sortManual') + '</option>
+        <option value="relevance_desc" title="' + T('ui.sortDesc_relevance') + '">' + T('ui.sortRelevance') + ' 🎯</option>
+        <option value="time_desc" title="' + T('ui.sortDesc_time') + '">' + T('ui.sortNewest') + ' ▼</option>
+        <option value="time_asc" title="' + T('ui.sortDesc_time') + '">' + T('ui.sortOldest') + ' ▲</option>
+        <option value="name_asc" title="' + T('ui.sortDesc_name') + '">' + T('ui.sortNameAZ') + ' A→Z</option>
+        <option value="name_desc" title="' + T('ui.sortDesc_name') + '">' + T('ui.sortNameZA') + ' Z→A</option>
+        <option value="size_desc" title="' + T('ui.sortDesc_size') + '">' + T('ui.sortLargest') + ' ▼</option>
+        <option value="size_asc" title="' + T('ui.sortDesc_size') + '">' + T('ui.sortSmallest') + ' ▲</option>
+        <option value="type_asc" title="' + T('ui.sortDesc_type') + '">' + T('ui.sortTypeAZ') + ' A→Z</option>
+        <option value="type_desc" title="' + T('ui.sortDesc_type') + '">' + T('ui.sortTypeZA') + ' Z→A</option>
+        <option value="tag_asc" title="' + T('ui.sortDesc_tag') + '">' + T('ui.sortTagAZ') + '</option>
+        <option value="tag_desc" title="' + T('ui.sortDesc_tag') + '">' + T('ui.sortTagZA') + '</option>
+        <option value="download_desc" title="' + T('ui.sortDesc_download') + '">🔥 ' + T('ui.sortMostDownloaded') + '</option>
+        <option value="download_asc" title="' + T('ui.sortDesc_download') + '">💤 ' + T('ui.sortLeastDownloaded') + '</option>
       </select>
       <span id="fileCount" style="margin-left:auto;"></span>
       <span id="searchResultCount" style="display:none;color:var(--accent-primary);font-weight:500;margin-left:8px;"></span>
