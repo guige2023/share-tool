@@ -221,6 +221,10 @@ const I18N = {
     'share.downloads': '次下载',
     'share.linkCopied': '✓ 链接已复制',
     'share.linkCopyFailed': '复制失败',
+    'share.email': '📧 邮件',
+    'share.emailSubject': '与你分享',
+    'share.emailBody': '我通过 ShareTool 向你分享了文件',
+    'share.emailVia': '—— via ShareTool',
     'share.confirmDelete': '确定删除此分享链接？',
     'share.editLink': '编辑分享链接',
     'share.leaveBlank': '留空则不修改密码',
@@ -658,6 +662,10 @@ const I18N = {
     'share.downloads': 'downloads',
     'share.linkCopied': '✓ Link copied',
     'share.linkCopyFailed': 'Copy failed',
+    'share.email': '📧 Email',
+    'share.emailSubject': 'Sharing with you',
+    'share.emailBody': 'I shared a file with you via ShareTool',
+    'share.emailVia': '—— via ShareTool',
     'share.confirmDelete': 'Delete this share link?',
     'share.editLink': 'Edit share link',
     'share.leaveBlank': 'Leave blank to keep current password',
@@ -1014,6 +1022,10 @@ const I18N = {
     'share.downloads': 'downloads',
     'share.linkCopied': '✓ Link copied',
     'share.linkCopyFailed': 'Copy failed',
+    'share.email': '📧 Email',
+    'share.emailSubject': 'Sharing with you',
+    'share.emailBody': 'I shared a file with you via ShareTool',
+    'share.emailVia': '—— via ShareTool',
     'share.confirmDelete': 'Delete this share link?',
     'share.deleted': '✓ Deleted',
     'share.deleteFailed': 'Delete failed',
@@ -5572,6 +5584,8 @@ function showShareLinksModal() {
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
             '<div style="display:flex;gap:8px;margin-top:4px;">' +
               '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(url) + '\')">' + T('share.copyLink') + '</button>' +
+              '<button class="btn btn-sm" style="margin-left:4px;" onclick="emailShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\')">✉️</button>' +
+              '<button class="btn btn-sm" onclick="emailShareLink(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(l.filename).replace(/'/g, "\\'") + '\')">' + T('share.email') + '</button>' +
               '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('share.qrCode') + '</button>' +
               '<button class="btn btn-sm" onclick="showEditShareLinkModal(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('ui.edit') + '</button>' +
               '<button class="btn btn-sm btn-danger" onclick="deleteShareLink(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('tag.delete') + '</button>' +
@@ -5586,6 +5600,20 @@ function showShareLinksModal() {
 
 function copyShareLinkOf(code, url) {
   navigator.clipboard.writeText(url).then(() => showToast(T('share.linkCopied'))).catch(() => showToast(T('share.linkCopyFailed')));
+}
+
+function emailShareLinkOf(code) {
+  const shareUrl = location.origin + '/s/' + code + '?utm_source=sharetool&utm_medium=email_button&utm_campaign=sharetool';
+  window.open('mailto:?subject=' + encodeURIComponent('与你分享文件') + '&body=' + encodeURIComponent('我通过 ShareTool 向你分享了文件。\n\n点击查看: ' + shareUrl + '\n\n—— via ShareTool'), '_blank');
+}
+
+function emailShareLink(code, filename) {
+  // Build URL with UTM parameters for analytics
+  const baseUrl = location.origin + '/s/' + code;
+  const shareUrl = baseUrl + '?utm_source=sharetool&utm_medium=share_link&utm_campaign=email_share';
+  const subject = encodeURIComponent('与你分享: ' + filename);
+  const body = encodeURIComponent('我通过 ShareTool 向你分享了文件「' + filename + '」\n\n点击查看: ' + shareUrl + '\n\n—— via ShareTool');
+  window.open('mailto:?subject=' + subject + '&body=' + body, '_blank');
 }
 
 function showShareLinkQR(code) {
@@ -6396,7 +6424,7 @@ async function copyShareLinkByFilename(filename) {
     });
     const data = await res.json();
     if (data.success) {
-      const url = window.location.origin + '/s/' + data.code;
+      const url = window.location.origin + '/s/' + data.code + '?utm_source=sharetool&utm_medium=copy_link&utm_campaign=sharetool';
       navigator.clipboard.writeText(url).then(() => {
         showToast('✓ ' + T('file.linkCopied'));
       }).catch(() => {
