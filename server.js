@@ -510,7 +510,7 @@ const I18N = {
     'ui.clickOrDrag': '点击或拖拽文件到此处',
     'ui.supportFolderUpload': '支持文件和文件夹上传',
     'ui.recentShares': '最近分享',
-    'ui.searchPlaceholder': '搜索文件名...',
+    'ui.searchPlaceholder': '搜索文件名... (/ 聚焦)',
     'ui.filterByTag': '标签筛选',
     'ui.searchTags': '搜索标签...',
     'ui.clearSearchHistory': '清除历史',
@@ -1014,7 +1014,7 @@ const I18N = {
     'ui.clickOrDrag': 'Click or drag files here',
     'ui.supportFolderUpload': 'Supports file and folder upload',
     'ui.recentShares': 'Recent Shares',
-    'ui.searchPlaceholder': 'Search filenames...',
+    'ui.searchPlaceholder': 'Search filenames... (/ to focus)',
     'ui.filterByTag': 'Filter by tag',
     'ui.searchTags': 'Search tags...',
     'ui.clearSearchHistory': 'Clear history',
@@ -6957,14 +6957,24 @@ function renderFileInfoContent(meta) {
 
   let html = '';
 
+  // Quick actions
+  html += '<div class="file-info-section" style="padding-bottom:8px;">';
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="window.open(\'' + API + '/download/' + encodeURIComponent(meta.filename) + '?auth=' + (AUTH_TOKEN || '') + '\', \'_blank\')">⬇️ ' + T('file.download') + '</button>';
+  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="closeFileInfoPanel();createShareLink(\'' + encodeURIComponent(meta.filename) + '\')">🔗 ' + T('share.create') + '</button>';
+  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="copyText(\'' + escapeHtml(meta.filename) + '\')">📋 ' + T('ui.copyFilename') + '</button>';
+  html += '</div>';
+  html += '</div>';
+
   // Basic info section
   html += '<div class="file-info-section">';
   html += '<div class="file-info-section-title">' + T('fileInfo.basic') + '</div>';
   html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.size') + '</span><span class="file-info-value">' + formatSize(meta.size) + '</span></div>';
   html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.type') + '</span><span class="file-info-value">' + (meta.type || 'file') + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.downloads') + '</span><span class="file-info-value">⬇️ ' + (meta.totalDownloads || 0) + '</span></div>';
   html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.encrypted') + '</span><span class="file-info-value">' + (meta.encrypted ? T('fileInfo.yes') : T('fileInfo.no')) + '</span></div>';
   html += '<div class="file-info-row" style="flex-direction:column;align-items:flex-start;gap:4px;">';
-  html += '<span class="file-info-label" style="margin-bottom:2px;">' + T('fileInfo.hash') + '</span>';
+  html += '<span class="file-info-label" style="margin-bottom:2px;">' + T('fileInfo.hash') + ' <button class="btn btn-sm" style="font-size:9px;padding:1px 5px;" onclick="copyText(\'' + escapeHtml(meta.hash || '') + '\')">📋</button></span>';
   html += '<span class="file-info-value" style="max-width:100%;font-size:10px;word-break:break-all;">' + (meta.hash || '--') + '</span>';
   html += '</div>';
   html += '</div>';
@@ -6996,15 +7006,23 @@ function renderFileInfoContent(meta) {
 
   // Share links
   html += '<div class="file-info-section">';
-  html += '<div class="file-info-section-title">' + T('fileInfo.share') + ' (' + meta.shareCount + ')</div>';
+  const activeLinks = meta.shareLinks ? meta.shareLinks.filter(l => !l.expired) : [];
+  html += '<div class="file-info-section-title">' + T('fileInfo.share') + ' (' + activeLinks.length + ')</div>';
   if (meta.shareLinks && meta.shareLinks.length > 0) {
     for (const link of meta.shareLinks) {
-      const shareUrl = location.origin + '/s/' + link.code + '?utm_source=sharetool&utm_medium=file_info_copy&utm_campaign=sharetool';
-      html += '<div class="file-info-share-item">';
-      html += '<div style="font-size:12px;color:var(--text-primary);">' + escapeHtml(link.filename || meta.filename) + ' <button class="btn btn-sm" style="font-size:9px;padding:1px 4px;" onclick="copyText(\'' + escapeHtml(link.filename || meta.filename) + '\')">📋</button></div>';
-      html += '<div class="file-info-share-url" title="' + escapeHtml(shareUrl) + '">' + escapeHtml(shareUrl) + '</div>';
+      const shareUrl = location.origin + '/s/' + link.code;
+      const expiredStyle = link.expired ? 'opacity:0.5;' : '';
+      html += '<div class="file-info-share-item" style="' + expiredStyle + '">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+      html += '<div style="font-size:11px;color:var(--text-muted);">';
+      if (link.expired) html += '<span style="color:var(--danger);">⛔ ' + T('share.expired') + '</span> ';
+      else if (link.hasPassword) html += '<span style="color:var(--warning);">🔑</span> ';
+      if (link.maxDownloads) html += '<span>⬇️ ' + link.downloadCount + '/' + link.maxDownloads + '</span>';
+      else if (!link.expired) html += '<span>⬇️ ' + link.downloadCount + '</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '<div class="file-info-share-url" title="' + escapeHtml(shareUrl) + '" style="font-size:10px;">' + escapeHtml(shareUrl) + '</div>';
       html += '<div style="display:flex;gap:4px;flex-shrink:0;">';
-      if (link.hasPassword) html += '<span style="font-size:10px;color:var(--warning);">🔑</span>';
       html += '<button class="btn btn-sm" style="font-size:10px;padding:2px 6px;" onclick="copyText(\'' + escapeHtml(shareUrl) + '\')">📋</button>';
       html += '</div></div>';
     }
@@ -8085,6 +8103,11 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     const inp = document.getElementById('fileInput');
     if (inp) inp.click();
+  } else if (e.key === '/') {
+    // /: focus search
+    e.preventDefault();
+    const si = document.getElementById('searchInput');
+    if (si) { si.focus(); si.select(); }
   } else if (e.key === 'm' || e.key === 'M') {
     // m: quick text note
     e.preventDefault();
