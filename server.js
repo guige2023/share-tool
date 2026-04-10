@@ -5558,6 +5558,8 @@ function handleWsMessage(msg) {
         showToast(T('sync.incSync', { n: payload.changes.length }));
       }
       logger.info('[Sync] sync_response:', payload.changes ? payload.changes.length : 0, 'changes');
+      if (syncTimeoutId) { clearTimeout(syncTimeoutId); syncTimeoutId = null; }
+      syncInProgress = false;  // 解锁，允许下一次同步
       break;
     }
     case 'conflict': {
@@ -5595,6 +5597,8 @@ function handleWsMessage(msg) {
 }
 
 // 离线队列：操作符发送失败时缓存
+let syncInProgress = false;  // 防止并发增量同步
+
 function addToOfflineQueue(action, payload) {
   offlineQueue.push({ action, payload, ts: Math.floor(Date.now() / 1000) });
   localStorage.setItem('sharetool_offline_queue', JSON.stringify(offlineQueue));
@@ -5627,13 +5631,25 @@ function flushOfflineQueue() {
 let syncIntervalId = null;
 
 // 手动触发一次增量同步
+let syncTimeoutId = null;
 function doIncrementalSync(sinceTs = 0) {
   if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) {
     logger.info('[Sync] Cannot sync: not connected');
     return;
   }
+  if (syncInProgress) {
+    logger.info('[Sync] Sync already in progress, skipping');
+    return;
+  }
+  syncInProgress = true;
   ws.send(JSON.stringify({ type: 'sync_request', payload: { since: sinceTs || lastSyncTs, deviceId: DEVICE_ID } }));
-  logger.info('[Sync] Manual sync_request sent, since:', sinceTs || lastSyncTs);
+  logger.info('[Sync] sync_request sent, since:', sinceTs || lastSyncTs);
+  // 30秒超时保护
+  if (syncTimeoutId) clearTimeout(syncTimeoutId);
+  syncTimeoutId = setTimeout(() => {
+    syncInProgress = false;
+    logger.warn('[Sync] Sync timeout, releasing lock');
+  }, 30000);
 }
 
 function startPeriodicSync(intervalMs = 30000) {
