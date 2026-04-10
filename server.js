@@ -5889,6 +5889,48 @@ async function loadDashboard() {
   }
 }
 
+async function renderDashboardActivityFeed() {
+  const el = document.getElementById('dashboardActivityFeed');
+  if (!el) return;
+  try {
+    const res = await fetch(API + '/api/audit/logs?limit=8', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.success || !data.logs || !data.logs.length) {
+      el.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">暂无活动记录</div>';
+      return;
+    }
+    const ACTION_ICONS = {
+      file_upload: '📤', file_delete: '🗑', file_rename: '✏️', share_create: '🔗',
+      share_access: '👁', share_delete: '🗑', token_create: '🔑', token_revoke: '🔓',
+      login: '🔐', logout: '🔒', audit_export: '📥', audit_query: '🔍',
+      settings_change: '⚙️', device_register: '📱', device_remove: '📱',
+    };
+    const ACTION_LABELS = {
+      file_upload: '上传', file_delete: '删除', file_rename: '重命名',
+      share_create: '创建分享', share_access: '访问分享', share_delete: '删除分享',
+      token_create: '创建 Token', token_revoke: '撤销 Token',
+      login: '登录', logout: '登出', audit_export: '导出日志', audit_query: '查询日志',
+      settings_change: '设置变更', device_register: '注册设备', device_remove: '移除设备',
+    };
+    el.innerHTML = data.logs.slice(0, 8).map(l => {
+      const icon = ACTION_ICONS[l.action] || '📋';
+      const label = ACTION_LABELS[l.action] || l.action;
+      const detail = (l.details || '').length > 30 ? (l.details || '').substring(0, 30) + '…' : (l.details || '');
+      const time = new Date(l.timestamp * 1000);
+      const timeStr = time.toLocaleDateString() + ' ' + time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const shortDetail = detail ? '<span style="color:var(--text-muted);font-size:9px;">' + escapeHtml(detail) + '</span>' : '';
+      return '<div style="display:flex;align-items:center;gap:6px;font-size:10px;padding:3px 0;border-bottom:1px solid var(--border-color);">' +
+        '<span style="flex-shrink:0;">' + icon + '</span>' +
+        '<span style="flex:1;color:var(--text-secondary);">' + escapeHtml(label) + '</span>' +
+        shortDetail +
+        '<span style="color:var(--text-muted);flex-shrink:0;font-size:9px;">' + timeStr + '</span>' +
+        '</div>';
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">加载失败</div>';
+  }
+}
+
 async function loadRateLimitStatus() {
   try {
     const res = await fetch(API + '/api/admin/rate-limit', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
