@@ -7627,20 +7627,21 @@ document.addEventListener('visibilitychange', function() {
   }
 });
 
-// Scroll-to-top button visibility
-const backToTopBtn = document.getElementById('backToTop');
-if (backToTopBtn) {
+// Scroll-to-top button visibility (defer until DOM ready)
+window.addEventListener('load', function() {
+  const backToTopBtn = document.getElementById('backToTop');
+  if (!backToTopBtn) return;
   let _scrollTicking = false;
   window.addEventListener('scroll', function() {
     if (!_scrollTicking) {
       requestAnimationFrame(function() {
-        backToTopBtn.style.display = window.scrollY > 400 ? 'block' : 'none';
+        if (backToTopBtn) backToTopBtn.style.display = window.scrollY > 400 ? 'block' : 'none';
         _scrollTicking = false;
       });
       _scrollTicking = true;
     }
   }, { passive: true });
-}
+});
 
 // Click outside panel to close / clear batch selection on mobile
 document.addEventListener('click', function(e) {
