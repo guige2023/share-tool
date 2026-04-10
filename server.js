@@ -4371,7 +4371,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <button class="modal-close" onclick="closeTagManager()">x</button>
       </div>
     </div>
-    <input type="text" id="tagManagerSearch" placeholder="' + T('ui.searchTags') + '" style="width:100%;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;margin-bottom:12px;box-sizing:border-box;" oninput="filterTagManagerList(this.value)">
+    <input type="text" id="tagManagerSearch" placeholder="' + T('ui.searchTags') + '" style="width:100%;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;min-height:44px;margin-bottom:12px;box-sizing:border-box;" oninput="filterTagManagerList(this.value)">
     <div id="tagMergeUI" style="display:none;background:var(--bg-tertiary);border-radius:8px;padding:12px;margin-bottom:12px;">
       <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">' + T('tag.mergeHint') + '</div>
       <div id="tagMergeSourceList" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;margin-bottom:12px;"></div>
@@ -9183,8 +9183,8 @@ function renderTagManagerItems(tags) {
         '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">' + t.count + ' ' + T('tag.count') + '</div>' +
       '</div>' +
       '<div style="display:flex;gap:6px;align-items:center;">' +
-        '<button class="btn btn-sm" style="font-size:11px;padding:6px 10px;min-height:32px;" onclick="renameTag(\'' + tagJs + '\')" title="' + T('tag.rename') + '">✏️</button>' +
-        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:6px 10px;min-height:32px;" onclick="deleteTag(\'' + tagJs + '\')" title="' + T('tag.delete') + '">🗑</button>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:8px 10px;min-height:44px;" onclick="renameTag(\'' + tagJs + '\')" title="' + T('tag.rename') + '">✏️</button>' +
+        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:8px 10px;min-height:44px;" onclick="deleteTag(\'' + tagJs + '\')" title="' + T('tag.delete') + '">🗑</button>' +
       '</div>' +
     '</div>';
   }).join('');
