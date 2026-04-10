@@ -515,6 +515,8 @@ const I18N = {
     'tags.empty': '暂无标签',
     'ui.sortTagAZ': '标签 A-Z',
     'ui.sortTagZA': '标签 Z-A',
+    'ui.sortMostDownloaded': '下载最多',
+    'ui.sortLeastDownloaded': '下载最少',
     'ui.sortManual': '手动',
     'ui.allFiles': '所有文件',
     'ui.trash': '回收站',
@@ -981,6 +983,8 @@ const I18N = {
     'tags.empty': 'No tags yet',
     'ui.sortTagAZ': 'Tag A-Z',
     'ui.sortTagZA': 'Tag Z-A',
+    'ui.sortMostDownloaded': 'Most downloaded',
+    'ui.sortLeastDownloaded': 'Least downloaded',
     'ui.sortManual': 'Manual',
     'ui.allFiles': 'All files',
     'ui.trash': 'Trash',
@@ -3556,7 +3560,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .batch-bar { display: none; gap: 8px; align-items: center; padding: 8px 12px; background: var(--bg-tertiary); border-radius: 8px; margin-bottom: 12px; font-size: 13px; flex-wrap: wrap; }
 .batch-bar.show { display: flex; }
 .batch-bar .batch-count { color: var(--text-muted); flex: 1; min-width: 80px; }
-.batch-bar button { padding: 6px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; }
+.batch-bar button { padding: 8px 12px; background: var(--accent-primary); border: none; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; transition: opacity 0.15s; white-space: nowrap; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
 .batch-bar button.danger { background: var(--danger); }
 .batch-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
 .batch-bar .batch-status { display: none; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 12px; padding: 4px 8px; background: var(--bg-secondary); border-radius: 6px; }
@@ -3566,8 +3570,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 @media (max-width: 600px) {
   .batch-bar { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 6px 8px; }
   .batch-bar .batch-count { min-width: 60px; font-size: 12px; }
-  .batch-bar button { padding: 5px 8px; font-size: 11px; }
-  .batch-bar .batch-status { font-size: 11px; }
+  .batch-bar button { padding: 5px 8px; font-size: 11px; flex-shrink: 0; }
+  .batch-bar .batch-status { font-size: 11px; flex-shrink: 0; }
 }
 
 .file-context-menu {
@@ -4015,6 +4019,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <option value="type_desc">' + T('ui.sortTypeZA') + ' Z→A</option>
         <option value="tag_asc">' + T('ui.sortTagAZ') + '</option>
         <option value="tag_desc">' + T('ui.sortTagZA') + '</option>
+        <option value="download_desc">🔥 ' + T('ui.sortMostDownloaded') + '</option>
+        <option value="download_asc">💤 ' + T('ui.sortLeastDownloaded') + '</option>
       </select>
       <span id="fileCount" style="margin-left:auto;"></span>
       <span id="searchResultCount" style="display:none;color:var(--accent-primary);font-weight:500;margin-left:8px;"></span>
@@ -7361,6 +7367,17 @@ function applySort(files) {
     } else if (field === 'size') {
       va = a.size || 0;
       vb = b.size || 0;
+    } else if (field === 'type') {
+      const extA = (a.name || '').includes('.') ? (a.name || '').split('.').pop().toLowerCase() : '';
+      const extB = (b.name || '').includes('.') ? (b.name || '').split('.').pop().toLowerCase() : '';
+      va = extA;
+      vb = extB;
+    } else if (field === 'tag') {
+      va = a.tags || '';
+      vb = b.tags || '';
+    } else if (field === 'download') {
+      va = a.dl_count || 0;
+      vb = b.dl_count || 0;
     }
     if (va < vb) return dir === 'asc' ? -1 : 1;
     if (va > vb) return dir === 'asc' ? 1 : -1;
