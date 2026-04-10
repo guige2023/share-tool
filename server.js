@@ -3011,10 +3011,16 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .modal-close { color: var(--text-muted); }
 [data-theme="dark"] .modal-close:hover { color: var(--text-primary); }
 [data-theme="dark"] select { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); }
+[data-theme="light"] select { background: var(--bg-tertiary); color: var(--text-primary); border-color: var(--border-color); }
 [data-theme="dark"] ::-webkit-scrollbar { background: var(--bg-secondary); }
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); }
+[data-theme="light"] ::-webkit-scrollbar { background: var(--bg-secondary); }
+[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--border-color); }
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 [data-theme="dark"] .device-item { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="light"] .device-item { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="dark"] .tag-item { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="light"] .tag-item { background: var(--bg-tertiary); border-color: var(--border-color); }
 [data-theme="dark"] .status-item { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
 [data-theme="dark"] .progress-bar { background: var(--bg-secondary); }
 [data-theme="dark"] .file-upload-area { background: var(--bg-tertiary); border-color: var(--border-color); }
@@ -3022,6 +3028,9 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .filter-tab { background: var(--bg-tertiary); color: var(--text-muted); border-color: var(--border-color); }
 [data-theme="dark"] .filter-tab:hover { border-color: var(--accent-primary); color: var(--text-primary); }
 [data-theme="dark"] .filter-tab.active { background: rgba(102,126,234,0.25); border-color: var(--accent-primary); color: var(--text-primary); }
+[data-theme="light"] .filter-tab { background: var(--bg-tertiary); color: var(--text-muted); border-color: var(--border-color); }
+[data-theme="light"] .filter-tab:hover { border-color: var(--accent-primary); color: var(--text-primary); }
+[data-theme="light"] .filter-tab.active { background: rgba(102,126,234,0.15); border-color: var(--accent-primary); color: var(--accent-primary); }
 [data-theme="dark"] .batch-bar { background: var(--bg-tertiary); }
 [data-theme="dark"] .batch-bar button { background: var(--accent-primary); color: #fff; }
 [data-theme="dark"] .batch-bar button.danger { background: var(--danger); color: #fff; }
@@ -3188,8 +3197,8 @@ textarea:focus { outline: none; border-color: var(--accent-primary); }
 input[type="text"], input[type="search"], input[type="password"] { width: 100%; padding: 12px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 16px; margin-bottom: 12px; touch-action: manipulation; }
 input:focus { outline: none; border-color: var(--accent-primary); }
 .btn { padding: 12px 20px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-.btn:hover { opacity: 0.9; transform: translateY(-1px); }
-.btn:active { opacity: 0.8; transform: translateY(0); }
+.btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3); }
+.btn:active { opacity: 0.8; transform: translateY(0); box-shadow: none; }
 .btn-secondary { background: var(--bg-secondary); color: var(--text-primary); }
 .btn-danger { background: var(--danger); }
 .btn-warning { background: var(--warning); }
@@ -5001,7 +5010,10 @@ function showContextMenu(filename, el) {
     { label: '🏷 ' + T('file.addTag'), action: "addTag('" + encodeURIComponent(filename) + "', ''); hideContextMenu()" },
     ...(isImage ? [{ label: '🖼 ' + T('media.viewImage'), action: "openImageModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
     ...(isMarkdown ? [{ label: '📝 ' + T('media.viewMarkdown'), action: "openMarkdownModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
-    ...(isText ? [{ label: '📄 ' + T('media.viewCode'), action: "openCodeModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isText ? [
+      { label: '📄 ' + T('media.viewCode'), action: "openCodeModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
+      { label: '✏️ ' + T('ui.edit'), action: "openTextEditor('" + encodeURIComponent(filename) + "'); hideContextMenu()" }
+    ] : []),
     ...(isAudio ? [{ label: '🎵 ' + T('media.playAudio'), action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
     ...(isVideo ? [{ label: '🎬 ' + T('media.playVideo'), action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
     ...(isPdf ? [{ label: '📕 ' + T('media.viewPdf'), action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" }] : []),
@@ -5211,6 +5223,76 @@ async function openCodeModal(filename) {
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast('Failed to open code file: ' + e.message); }
+}
+
+async function openTextEditor(filename) {
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.content && data.content !== '') { showToast('Failed to load file'); return; }
+    const content = atob(data.content);
+
+    document.getElementById('modalTitle').textContent = filename + ' (editing)';
+    document.getElementById('modalMeta').textContent = formatSize(data.size || 0) + ' | ' + T('ui.save');
+    document.getElementById('modalBody').innerHTML =
+      '<div style="display:flex;flex-direction:column;height:70vh;">' +
+        '<textarea id="textEditorContent" spellcheck="false" ' +
+          'style="flex:1;width:100%;padding:16px;border:1px solid var(--border-color);border-radius:8px;' +
+                 'background:var(--bg-tertiary);color:var(--text-primary);font-family:ui-monospace,Menlo,monospace;' +
+                 'font-size:13px;line-height:1.5;resize:none;outline:none;box-sizing:border-box;">' +
+          escapeHtml(content) +
+        '</textarea>' +
+        '<div id="editorStatus" style="padding:8px 0;font-size:12px;color:var(--text-muted);"></div>' +
+        '<div style="display:flex;gap:8px;justify-content:flex-end;">' +
+          '<button class="btn" onclick="saveTextEditor(\'' + filename.replace(/'/g, "\\'") + '\')" id="saveEditorBtn">' + T('ui.save') + '</button>' +
+          '<button class="btn btn-secondary" onclick="closeModal()">' + T('ui.cancel') + '</button>' +
+        '</div>' +
+      '</div>';
+    document.getElementById('modalFooter').style.display = 'none';
+
+    const originalContent = content;
+    const textarea = document.getElementById('textEditorContent');
+    textarea.addEventListener('input', () => {
+      document.getElementById('editorStatus').textContent = textarea.value !== originalContent ? '● unsaved changes' : '';
+    });
+    textarea.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveTextEditor(filename);
+      }
+    });
+
+    lockScroll();
+    document.getElementById('fileModal').classList.add('show');
+  } catch (e) { showToast('Failed to open editor: ' + e.message); }
+}
+
+async function saveTextEditor(filename) {
+  const content = document.getElementById('textEditorContent').value;
+  const btn = document.getElementById('saveEditorBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ content })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Saved! hash: ' + (data.hash || '').slice(0, 8));
+      closeModal();
+      await refreshFileList();
+    } else {
+      showToast('Save failed: ' + (data.error || ''), 'error');
+      btn.disabled = false;
+      btn.textContent = T('ui.save');
+    }
+  } catch (e) {
+    showToast('Save failed: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = T('ui.save');
+  }
 }
 
 function togglePreview(filename, previewId) {
