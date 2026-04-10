@@ -1761,6 +1761,58 @@ function getDbStats() {
   };
 }
 
+function getSystemStats() {
+  const os = require('os');
+  const fs = require('fs');
+  const mem = process.memoryUsage();
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const uptime = process.uptime();
+  const loadavg = os.loadavg();
+
+  // Disk usage (Node.js 18+)
+  let diskUsage = null;
+  try {
+    // Try statfs (Node 18+)
+    const stat = fs.statfsSync ? fs.statfsSync(DB_PATH) : null;
+    if (stat) {
+      const diskTotal = stat.bsize * stat.blocks;
+      const diskFree = stat.bsize * stat.bfree;
+      diskUsage = { total: diskTotal, free: diskFree, used: diskTotal - diskFree };
+    }
+  } catch (e) {}
+
+  // Node version + platform
+  const nodeVersion = process.version;
+  const platform = os.platform() + ' ' + os.release();
+
+  // CPU cores
+  const cpuCores = os.cpus().length;
+
+  return {
+    memory: {
+      heapUsed: mem.heapUsed,
+      heapTotal: mem.heapTotal,
+      rss: mem.rss,
+      systemTotal: totalMem,
+      systemFree: freeMem,
+      systemUsed: totalMem - freeMem
+    },
+    cpu: {
+      cores: cpuCores,
+      loadavg1m: loadavg[0],
+      loadavg5m: loadavg[1],
+      loadavg15m: loadavg[2]
+    },
+    process: {
+      uptime,
+      nodeVersion,
+      platform
+    },
+    disk: diskUsage
+  };
+}
+
 function getDashboardStats() {
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
@@ -2159,7 +2211,7 @@ module.exports = {
   // 清理
   cleanupExpiredTokens,
   // DB 健康
-  cleanupSyncLog, getDbStats, getDashboardStats, runVacuum, checkDbIntegrity,
+  cleanupSyncLog, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor,
   getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, renameTagGlobally, deleteTagFromAllFiles,

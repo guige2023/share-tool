@@ -27,6 +27,15 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/system/stats — CPU, memory, disk, uptime
+  if (pathname === '/api/system/stats' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const sysStats = db.getSystemStats();
+    sendJson(res, { success: true, ...sysStats });
+    return true;
+  }
+
   // POST /api/db/vacuum
   if (pathname === '/api/db/vacuum' && method === 'POST') {
     const authData = authRequired(req, res);
