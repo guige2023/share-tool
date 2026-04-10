@@ -2751,11 +2751,11 @@ function handleWsMessage(ws, msg) {
           const result = db.addFile(change.filename, change.content, change.type || 'file', change.hash);
           processedIds.push(result.id);
           // 广播实际文件数据给其他设备
-          broadcastChange({ 
+          broadcastChange({
             type: change.action === 'create' ? 'file_create' : 'file_update',
             filename: change.filename,
             content: change.content,
-            type: change.type || 'file',
+            fileType: change.type || 'file',
             hash: change.hash || result.hash,
             size: result.size
           }, ws.deviceId);
@@ -2830,15 +2830,31 @@ function handleWsMessage(ws, msg) {
 
     case 'file_delete': {
       const { filename } = payload;
-      db.deleteFileByName(filename);
-      broadcastChange({ type: 'delete', filename }, ws.deviceId);
+      const existing = db.getFileByName(filename);
+      if (existing) {
+        db.deleteFileByName(filename);
+        broadcastChange({ type: 'delete', filename }, ws.deviceId);
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_delete', filename, status: 'ok' } }));
+      } else {
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_delete', filename, status: 'not_found' } }));
+      }
       break;
     }
 
     case 'file_rename': {
       const { oldFilename, newFilename } = payload;
-      db.renameFile(oldFilename, newFilename);
-      broadcastChange({ type: 'rename', oldFilename, newFilename }, ws.deviceId);
+      const existing = db.getFileByName(oldFilename);
+      if (existing) {
+        const result = db.renameFile(oldFilename, newFilename);
+        if (result.success) {
+          broadcastChange({ type: 'rename', oldFilename, newFilename }, ws.deviceId);
+          ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_rename', oldFilename, newFilename, status: 'ok' } }));
+        } else {
+          ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_rename', oldFilename, newFilename, status: 'error', error: result.error } }));
+        }
+      } else {
+        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_rename', oldFilename, newFilename, status: 'not_found' } }));
+      }
       break;
     }
 
@@ -2870,31 +2886,6 @@ function handleWsMessage(ws, msg) {
         broadcastChange({ type: 'file_create', filename, hash }, ws.deviceId);
         ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'conflict_resolve', filename, status: 'renamed', newFilename: filename } }));
         logger.info(`[Conflict] Resolved rename_both: ${filename} → ${newName}`);
-      }
-      break;
-    }
-
-    case 'file_delete': {
-      const { filename } = payload;
-      const existing = db.getFileByName(filename);
-      if (existing) {
-        db.deleteFileByName(filename);
-        broadcastChange({ type: 'file_delete', filename }, ws.deviceId);
-        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_delete', filename, status: 'ok' } }));
-      } else {
-        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_delete', filename, status: 'not_found' } }));
-      }
-      break;
-    }
-
-    case 'file_rename': {
-      const { oldFilename, newFilename } = payload;
-      const result = db.renameFile(oldFilename, newFilename);
-      if (result.success) {
-        broadcastChange({ type: 'file_rename', oldFilename, newFilename }, ws.deviceId);
-        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_rename', oldFilename, newFilename, status: 'ok' } }));
-      } else {
-        ws.send(JSON.stringify({ type: 'sync_ack', payload: { action: 'file_rename', oldFilename, newFilename, status: 'error', error: result.error } }));
       }
       break;
     }
