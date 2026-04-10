@@ -226,6 +226,10 @@ const I18N = {
     'share.emailBody': '我通过 ShareTool 向你分享了文件',
     'share.emailVia': '—— via ShareTool',
     'share.confirmDelete': '确定删除此分享链接？',
+    'share.deleteExpired': '🗑 清理过期',
+    'share.confirmDeleteExpired': '确定删除所有过期分享链接？',
+    'share.noExpired': '没有过期分享链接',
+    'share.deletedExpired': '个过期链接已删除',
     'share.editLink': '编辑分享链接',
     'share.leaveBlank': '留空则不修改密码',
     'share.deleted': '已删除',
@@ -489,6 +493,7 @@ const I18N = {
     'ui.sortTypeZA': '类型 Z-A',
     'ui.sortTagAZ': '标签 A-Z',
     'ui.sortTagZA': '标签 Z-A',
+    'ui.sortManual': '手动',
     'ui.allFiles': '所有文件',
     'ui.trash': '回收站',
     'ui.trashEmpty': '清空回收站',
@@ -671,6 +676,10 @@ const I18N = {
     'share.emailBody': 'I shared a file with you via ShareTool',
     'share.emailVia': '—— via ShareTool',
     'share.confirmDelete': 'Delete this share link?',
+    'share.deleteExpired': '🗑 Clear expired',
+    'share.confirmDeleteExpired': 'Delete all expired share links?',
+    'share.noExpired': 'No expired share links',
+    'share.deletedExpired': 'expired links deleted',
     'share.editLink': 'Edit share link',
     'share.leaveBlank': 'Leave blank to keep current password',
     'share.deleted': '✓ Deleted',
@@ -926,6 +935,7 @@ const I18N = {
     'ui.sortTypeZA': 'Type Z-A',
     'ui.sortTagAZ': 'Tag A-Z',
     'ui.sortTagZA': 'Tag Z-A',
+    'ui.sortManual': 'Manual',
     'ui.allFiles': 'All files',
     'ui.trash': 'Trash',
     'ui.trashEmpty': 'Empty Trash',
@@ -1036,6 +1046,10 @@ const I18N = {
     'share.emailBody': 'I shared a file with you via ShareTool',
     'share.emailVia': '—— via ShareTool',
     'share.confirmDelete': 'Delete this share link?',
+    'share.deleteExpired': '🗑 Clear expired',
+    'share.confirmDeleteExpired': 'Delete all expired share links?',
+    'share.noExpired': 'No expired share links',
+    'share.deletedExpired': 'expired links deleted',
     'share.deleted': '✓ Deleted',
     'share.deleteFailed': 'Delete failed',
     'share.daysLeft': 'Remaining',
@@ -3795,6 +3809,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="sort-bar">
       <span>' + T('ui.sortBy') + ':</span>
       <select id="sortSelect" onchange="changeSort(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;">
+        <option value="manual">' + T('ui.sortManual') + '</option>
         <option value="time_desc">' + T('ui.sortNewest') + '</option>
         <option value="time_asc">' + T('ui.sortOldest') + '</option>
         <option value="name_asc">' + T('ui.sortNameAZ') + '</option>
@@ -5139,12 +5154,7 @@ async function saveCustomFileOrder(movedName, targetName) {
   // Reload the file list to reflect new order
   loadFiles();
 }
-    const bi = orderObj[b.name];
-    if (ai !== undefined && bi !== undefined) return ai - bi;
-    if (ai !== undefined) return -1;
-    if (bi !== undefined) return 1;
-    return 0;
-  });
+
   renderFiles();
   // Also persist to DB in background
   persistFileOrderToServer(names);
@@ -5838,6 +5848,25 @@ function showShareQRModalForCode(code) {
       })
       .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">' + T('err.reqFailed') + '</div>'; });
   }
+}
+
+function deleteExpiredShares() {
+  if (!confirm(T('share.confirmDeleteExpired') || 'Delete all expired share links?')) return;
+  fetch(API + '/api/share/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.success || !data.links) return;
+      const expired = (data.links || []).filter(l => l.expiresAt && l.expiresAt !== MAX_TS && l.expiresAt < Date.now());
+      if (!expired.length) { showToast(T('share.noExpired')); return; }
+      Promise.all(expired.map(l =>
+        fetch(API + '/api/share/delete/' + l.code, { method: 'DELETE', headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+          .then(r => r.json())
+      )).then(results => {
+        const ok = results.filter(r => r.success).length;
+        showToast('✓ ' + ok + ' ' + (T('share.deletedExpired') || 'expired links deleted'));
+        showShareLinksModal();
+      });
+    });
 }
 
 function deleteShareLink(code) {
@@ -7134,9 +7163,72 @@ async function addTag(filename, existingTags) {
   // Reset input
   document.getElementById('tagInputField').value = '';
 
+  // Setup tag autocomplete
+  setupTagInputSuggestions();
+
   lockScroll();
   document.getElementById('tagInputModal').classList.add('show');
   document.getElementById('tagInputField').focus();
+}
+
+let _tagSuggestDebounce = null;
+function setupTagInputSuggestions() {
+  const input = document.getElementById('tagInputField');
+  if (!input) return;
+  const container = document.getElementById('tagInputSuggestions');
+  if (!container) return;
+
+  // Remove old listener by cloning
+  input.removeEventListener('input', handleTagSuggestInput);
+  input.addEventListener('input', handleTagSuggestInput);
+}
+
+function handleTagSuggestInput() {
+  const input = document.getElementById('tagInputField');
+  const container = document.getElementById('tagInputSuggestions');
+  if (!input || !container) return;
+
+  clearTimeout(_tagSuggestDebounce);
+  const query = input.value.toLowerCase().trim();
+
+  if (!query) {
+    container.style.display = 'none';
+    return;
+  }
+
+  _tagSuggestDebounce = setTimeout(() => {
+    // Get existing tags in the modal
+    const existingInModal = _tagInputState.existingTags || [];
+    // Filter tagColors (all known tags) by query prefix
+    const matches = Object.keys(tagColors).filter(t =>
+      t.toLowerCase().includes(query) && !existingInModal.includes(t)
+    ).slice(0, 6);
+
+    if (matches.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.innerHTML = matches.map(t => {
+      const color = tagColors[t];
+      const style = color ? `background:rgba(${hexToRgb(color)},0.2);color:${color};` : '';
+      return '<div class="tag-suggestion-item" style="padding:8px 12px;cursor:pointer;font-size:13px;' + style + '" onclick="applyTagSuggestion(\'' + t.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">' + escapeHtml(t) + '</div>';
+    }).join('');
+    container.style.display = 'block';
+  }, 150);
+}
+
+function applyTagSuggestion(tag) {
+  const input = document.getElementById('tagInputField');
+  if (!input) return;
+  // Append tag to existing input (comma-separated)
+  const current = input.value.trim();
+  const parts = current.split(',').map(p => p.trim()).filter(p => p);
+  parts[parts.length - 1] = tag; // replace last partial match
+  input.value = parts.join(', ') + (current.endsWith(',') ? ' ' : ', ');
+  document.getElementById('tagInputSuggestions').style.display = 'none';
+  input.focus();
+}
 }
 
 function removeTagFromInput(tag) {
