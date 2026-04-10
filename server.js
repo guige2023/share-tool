@@ -2051,10 +2051,15 @@ async function generateSelfSignedCert() {
   }
   
   const attrs = [{ name: 'commonName', value: 'ShareTool' }];
+  // selfsigned v5 uses notBeforeDate/notAfterDate (days ignored)
+  const notBefore = new Date();
+  const notAfter = new Date(notBefore);
+  notAfter.setFullYear(notAfter.getFullYear() + 1); // 1 year validity
   const pems = await selfsigned.generate(attrs, {
     algorithm: 'sha256',
-    days: 365,
-    keySize: 4096,
+    notBeforeDate: notBefore,
+    notAfterDate: notAfter,
+    keySize: 2048,
     extensions: [{ name: 'subjectAltName', altNames }]
   });
   
@@ -4919,6 +4924,19 @@ function clearTagFilter() {
   updateTagFilterBar();
 }
 
+window.currentTagMatch = 'all'; // 'all' or 'any'
+
+function toggleTagMatch() {
+  window.currentTagMatch = window.currentTagMatch === 'all' ? 'any' : 'all';
+  // Update toggle button text
+  const toggle = document.getElementById('tagMatchToggle');
+  if (toggle) toggle.textContent = window.currentTagMatch === 'any' ? 'OR' : 'AND';
+  // Re-run search if there's a tag filter
+  if (window.currentSearchQ && window.currentSearchQ.includes('tag:')) {
+    doSearch();
+  }
+}
+
 function renderFiles() {
   const container = document.getElementById('filesContainer');
   const emptyState = document.getElementById('emptyState');
@@ -6806,12 +6824,25 @@ function doSearch() {
     return;
   }
 
-  fetch(API + '/api/search?q=' + encodeURIComponent(q), { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+  // Extract tag: expressions and remaining query text
+  const tagMatches = q.match(/tag:\S+/g) || [];
+  const tags = tagMatches.map(t => t.replace('tag:', '')).join(',');
+  const textQuery = q.replace(/tag:\S+/g, '').replace(/\s+/g, ' ').trim();
+
+  const params = new URLSearchParams();
+  if (textQuery) params.set('q', textQuery);
+  if (tags) {
+    params.set('tags', tags);
+    params.set('tagMatch', window.currentTagMatch || 'all');
+  }
+  const queryString = params.toString();
+
+  fetch(API + '/api/search' + (queryString ? '?' + queryString : ''), { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
     .then(r => r.json())
     .then(data => {
       currentFiles = data.files || [];
       renderFiles();
-      if (q) applySearchHighlight(q);
+      if (textQuery) applySearchHighlight(textQuery);
       if (data.files && data.files.length > 0) saveRecentSearch(q);
       // Show result count in sort-bar area
       const countEl = document.getElementById('searchResultCount');
