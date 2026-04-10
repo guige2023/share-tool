@@ -8273,6 +8273,7 @@ function detachSystemThemeWatcher() {
     _systemThemeHandler = null;
   }
 }
+}
 
 function initTheme() {
   const saved = localStorage.getItem('shareTool_theme');
