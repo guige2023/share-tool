@@ -8154,16 +8154,11 @@ async function uploadFiles(files) {
         try { data = JSON.parse(xhr.responseText); } catch (_) { data = { success: false, error: 'Server error' }; }
         const finalPct = Math.round(((i + 1) / totalFiles) * 100);
         if (progressFill) progressFill.style.width = finalPct + '%';
-        if (statusEl) statusEl.textContent = data.success ? '✓' : '✗';
-        if (progressPct) progressPct.textContent = '';
-        if (progressFill) progressFill.style.width = Math.round(((i + 1) / totalFiles) * 100) + '%';
-        const queueItem = document.getElementById('upload-item-' + i);
         if (queueItem) {
           queueItem.classList.add(data.success ? 'done' : 'fail');
           queueItem.querySelector('.status').textContent = data.success ? '✓' : '✗';
           if (!data.success) {
             window._failedUploads.push({ file, filename, index: i });
-            // Add retry button
             const retryBtn = document.createElement('button');
             retryBtn.className = 'retry-btn';
             retryBtn.textContent = T('file.retry');
@@ -8179,15 +8174,15 @@ async function uploadFiles(files) {
           broadcastWs({ type: 'file_create', payload: { filename, hash: data.hash } });
         } else {
           failCount++;
-          // Only show first failure as alert (avoid spamming)
           if (failCount === 1) {
             showAlert('uploadAlert', T('msg.failed') + ': ' + data.error, 'error');
           }
         }
-      } catch (e) {
-        clearInterval(animInterval);
+        resolve();
+      });
+
+      xhr.addEventListener('error', () => {
         failCount++;
-        const queueItem = document.getElementById('upload-item-' + i);
         if (queueItem) {
           queueItem.classList.add('fail');
           queueItem.querySelector('.status').textContent = '✗';
@@ -8199,11 +8194,16 @@ async function uploadFiles(files) {
           retryBtn.onclick = () => retryUploadItem(window._failedUploads.findIndex(f => f.filename === filename && f.index === i));
           queueItem.querySelector('.status').after(retryBtn);
         }
-        if (failCount === 1) {
-          showAlert('uploadAlert', T('msg.failed') + ': ' + e.message, 'error');
-        }
-      }
-      resolve();
+        showAlert('uploadAlert', T('msg.failed') + ': network error', 'error');
+        resolve();
+      });
+
+      xhr.open('POST', API + '/api/upload');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('x-auth-token', AUTH_TOKEN || '');
+      xhr.send(JSON.stringify({ filename, content: base64, type: 'file' }));
+    });
+  }
     });
   }
 
