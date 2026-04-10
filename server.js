@@ -6456,7 +6456,10 @@ function handleDragStart(e, el) {
 
 function handleDragOver(e, el) {
   // Don't allow reordering virtual folders or the source item
-  if (el === dragState.sourceEl) return;
+  if (el === dragState.sourceEl) {
+    e.preventDefault();
+    return;
+  }
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
 
@@ -6484,7 +6487,12 @@ function handleDragOver(e, el) {
 
 function handleDrop(e, targetEl) {
   e.preventDefault();
-  if (!dragState.sourceEl || targetEl === dragState.sourceEl) return;
+  if (!dragState.sourceEl || targetEl === dragState.sourceEl) {
+    document.querySelectorAll('.file-item.drag-over').forEach(item => item.classList.remove('drag-over'));
+    document.querySelectorAll('.drop-indicator').forEach(ind => ind.remove());
+    dragState = { sourceEl: null, sourceIndex: -1 };
+    return;
+  }
   const sourceName = dragState.sourceEl.dataset.filename || dragState.sourceEl.getAttribute('data-filename');
   const targetName = targetEl.dataset.filename || targetEl.getAttribute('data-filename');
   // Save custom order to localStorage
