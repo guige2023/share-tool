@@ -251,6 +251,10 @@ const I18N = {
     'share.never': '永不过期',
     'share.downloadLimit': '下载次数限制（可选）',
     'share.passwordOptional': '密码保护（可选）',
+    'share.passwordStrength': '密码强度',
+    'share.passwordWeak': '弱（建议8位以上含数字）',
+    'share.passwordMedium': '中',
+    'share.passwordStrong': '强',
     'share.description': '备注',
     'share.descriptionPlaceholder': '给链接加个备注（可选）',
     'share.linkCreateFailed': '创建分享链接失败',
@@ -731,6 +735,10 @@ const I18N = {
     'share.never': 'Never',
     'share.downloadLimit': 'Download limit (optional)',
     'share.passwordOptional': 'Password protection (optional)',
+    'share.passwordStrength': 'Password strength',
+    'share.passwordWeak': 'Weak (8+ chars with numbers recommended)',
+    'share.passwordMedium': 'Medium',
+    'share.passwordStrong': 'Strong',
     'share.description': 'Description',
     'share.descriptionPlaceholder': 'Add a note (optional)',
     'share.linkCreateFailed': 'Failed to create share link',
@@ -1127,6 +1135,10 @@ const I18N = {
     'share.never': 'Never',
     'share.downloadLimit': 'Download limit (optional)',
     'share.passwordOptional': 'Password protection (optional)',
+    'share.passwordStrength': 'Password strength',
+    'share.passwordWeak': 'Weak (8+ chars with numbers recommended)',
+    'share.passwordMedium': 'Medium',
+    'share.passwordStrong': 'Strong',
     'share.description': 'Description',
     'share.descriptionPlaceholder': 'Add a note (optional)',
     'share.linkCreateFailed': 'Failed to create share link',
@@ -3875,6 +3887,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <div style="display:flex;gap:6px;margin-bottom:12px;">
           <button onclick="setTheme('light');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">☀️ 浅色</button>
           <button onclick="setTheme('dark');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">🌙 深色</button>
+          <button onclick="setTheme('system');closeThemeDropdown();" style="flex:1;padding:6px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px;">🖥️ 自动</button>
         </div>
         <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-secondary);">强调色</div>
         <div id="accentColorPicker" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
@@ -4215,7 +4228,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       </div>
       <div style="margin-bottom:12px;">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.passwordOptional') + '</div>
-        <input type="password" id="sharePassword" placeholder="' + T('share.noPassword') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+        <input type="password" id="sharePassword" placeholder="' + T('share.noPassword') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;" oninput="updatePasswordStrength(this.value)">
+        <div id="sharePasswordStrength" style="font-size:11px;margin-top:4px;height:16px;color:var(--text-muted);"></div>
       </div>
       <div style="margin-bottom:12px;">
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.description') + '</div>
@@ -7737,6 +7751,28 @@ async function copyShareLinkByFilename(filename) {
   }
 }
 
+function updatePasswordStrength(password) {
+  const el = document.getElementById('sharePasswordStrength');
+  if (!el) return;
+  if (!password) { el.textContent = ''; el.style.color = 'var(--text-muted)'; return; }
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^a-zA-Z0-9]/.test(password)) score++;
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
+  if (score <= 1) {
+    el.textContent = '⚠️ ' + T('share.passwordWeak');
+    el.style.color = '#dc2626';
+  } else if (score <= 3) {
+    el.textContent = '✓ ' + T('share.passwordMedium');
+    el.style.color = '#d97706';
+  } else {
+    el.textContent = '✓ ' + T('share.passwordStrong');
+    el.style.color = '#16a34a';
+  }
+}
+
 async function shareFile(filename) {
   // Open share options modal
   document.getElementById('shareOptionsFilename').value = filename;
@@ -7744,6 +7780,8 @@ async function shareFile(filename) {
   document.getElementById('shareExpiryHours').value = '168';
   document.getElementById('shareMaxDownloads').value = '';
   document.getElementById('sharePassword').value = '';
+  const strengthEl = document.getElementById('sharePasswordStrength');
+  if (strengthEl) { strengthEl.textContent = ''; }
   lockScroll();
   document.getElementById('shareOptionsModal').classList.add('show');
 }
@@ -7771,7 +7809,14 @@ async function doCreateShareLink() {
         linkInput.value = shareUrl;
         linkBox.style.display = 'flex';
       }
-      showToast('✓ ' + T('share.successCreated'));
+      // 显示过期时间
+      if (data.expiresAt) {
+        const expiryDate = new Date(data.expiresAt);
+        const expiryStr = expiryDate.toLocaleString();
+        showToast('✓ ' + T('share.successCreated') + ' ' + expiryStr);
+      } else {
+        showToast('✓ ' + T('share.successCreated'));
+      }
     } else {
       showToast(T('msg.shareFailed') + ': ' + data.error);
     }
