@@ -1665,17 +1665,71 @@ ${allFiles.map(f => `  <d:response xmlns:d="DAV:">
     return true;
   }
   
-  // MOVE - Not implemented
+  // MOVE - Move/rename a resource
   if (req.method === 'MOVE') {
-    res.writeHead(502);
-    res.end('MOVE not implemented');
+    const destHeader = req.headers['destination'];
+    if (!destHeader) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Destination header required');
+      return true;
+    }
+    try {
+      const destUrl = new URL(destHeader);
+      const destPath = decodeURIComponent(destUrl.pathname);
+      const destFile = destPath.replace(WEBDAV_PREFIX, '').replace(/^\//, '');
+      const srcFile = decodeURIComponent(path.slice(1));
+      if (!srcFile || !destFile) {
+        res.writeHead(400); res.end('Invalid path'); return true;
+      }
+      if (srcFile === destFile) { res.writeHead(204); res.end(); return true; }
+      const file = db.getFileByName(srcFile);
+      if (!file) { res.writeHead(404); res.end(); return true; }
+      // Check destination doesn't exist
+      if (db.getFileByName(destFile)) {
+        res.writeHead(412); res.end('Destination already exists'); return true;
+      }
+      // Move: delete old, add with new name
+      db.addFile(destFile, file.content, file.type, file.size, null, { content_type: file.content_type || 'application/octet-stream' });
+      db.deleteFileByName(srcFile);
+      db.addAuditLog('webdav_move', `src=${srcFile}, dest=${destFile}`, getClientIp(req));
+      res.writeHead(201, { 'Location': WEBDAV_PREFIX + '/' + encodeURIPath(destFile) });
+      res.end();
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(e.message);
+    }
     return true;
   }
-  
-  // COPY - Not implemented
+
+  // COPY - Copy a resource
   if (req.method === 'COPY') {
-    res.writeHead(502);
-    res.end('COPY not implemented');
+    const destHeader = req.headers['destination'];
+    if (!destHeader) {
+      res.writeHead(400, { 'Content-Type': 'text/plain' });
+      res.end('Destination header required');
+      return true;
+    }
+    try {
+      const destUrl = new URL(destHeader);
+      const destPath = decodeURIComponent(destUrl.pathname);
+      const destFile = destPath.replace(WEBDAV_PREFIX, '').replace(/^\//, '');
+      const srcFile = decodeURIComponent(path.slice(1));
+      if (!srcFile || !destFile) {
+        res.writeHead(400); res.end('Invalid path'); return true;
+      }
+      const file = db.getFileByName(srcFile);
+      if (!file) { res.writeHead(404); res.end(); return true; }
+      if (db.getFileByName(destFile)) {
+        res.writeHead(412); res.end('Destination already exists'); return true;
+      }
+      db.addFile(destFile, file.content, file.type, file.size, null, { content_type: file.content_type || 'application/octet-stream' });
+      db.addAuditLog('webdav_copy', `src=${srcFile}, dest=${destFile}`, getClientIp(req));
+      res.writeHead(201, { 'Location': WEBDAV_PREFIX + '/' + encodeURIPath(destFile) });
+      res.end();
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end(e.message);
+    }
     return true;
   }
   
@@ -3102,6 +3156,8 @@ const HTML_PAGE = `<!DOCTYPE html>
 [data-theme="dark"] .status-item { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
 [data-theme="dark"] .progress-bar { background: var(--bg-secondary); }
 [data-theme="dark"] .file-upload-area { background: var(--bg-tertiary); border-color: var(--border-color); }
+[data-theme="dark"] .file-upload-area:hover { border-color: #8b9dff; background: rgba(102, 126, 234, 0.12); }
+[data-theme="dark"] .file-upload-area.drag-over { border-color: #8b9dff; background: rgba(102, 126, 234, 0.2); transform: scale(1.02); }
 [data-theme="dark"] .file-preview { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
 [data-theme="light"] .file-preview { background: var(--bg-secondary); border-color: var(--border-color); color: var(--text-secondary); }
 [data-theme="dark"] .filter-tab { background: var(--bg-tertiary); color: var(--text-muted); border-color: var(--border-color); }
@@ -5370,10 +5426,10 @@ async function openMediaModal(filename) {
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     if (isAudio) {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio controls style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">T('media.browserNotSupportAudio')</audio></div>';
+        '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio controls style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('media.browserNotSupportAudio') + '</audio></div>';
     } else {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video controls style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">T('media.browserNotSupportVideo')</video></div>';
+        '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video controls style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('media.browserNotSupportVideo') + '</video></div>';
     }
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
