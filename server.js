@@ -5892,6 +5892,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 function closeModal() {
+  resetImageZoom();
   unlockScroll();
   document.getElementById('fileModal').classList.remove('show');
   const footer = document.getElementById('modalFooter');
