@@ -5234,8 +5234,34 @@ async function loadFiles(folder = null, starred = false) {
     renderFiles();
     renderBreadcrumb();
     updateTagFilterBar();
+    renderTagQuickBar();
   } catch (e) {
     logger.error({ err: e }, 'Load files failed');
+  }
+}
+
+async function renderTagQuickBar() {
+  const bar = document.getElementById('tagQuickBar');
+  if (!bar) return;
+  try {
+    const res = await fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    const tags = (data.tags || []).sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 8);
+    if (tags.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+    const currentQ = window.currentSearchQ || '';
+    bar.innerHTML = tags.map(t => {
+      const color = t.color || '#667eea';
+      const isActive = currentQ.includes('tag:' + t.tag);
+      const bg = isActive ? color + '44' : color + '18';
+      const border = isActive ? color : color + '44';
+      return '<span class="tag-quick-chip" style="background:' + bg + ';border-color:' + border + ';color:' + color + ';" onclick="filterByTag(\'' + t.tag.replace(/'/g, "\\'") + '\')">' + escapeHtml(t.tag) + '</span>';
+    }).join('');
+    bar.style.display = 'block';
+  } catch {
+    bar.style.display = 'none';
   }
 }
 
@@ -5291,6 +5317,7 @@ function clearTagFilter() {
     doSearch();
   }
   updateTagFilterBar();
+  renderTagQuickBar();
 }
 
 window.currentTagMatch = localStorage.getItem('sharetool_tag_match') || 'all'; // 'all' or 'any'
@@ -7561,6 +7588,8 @@ function filterByTag(tag) {
   // Ensure toggle button text is current
   const toggle = document.getElementById('tagMatchToggle');
   if (toggle) toggle.textContent = window.currentTagMatch === 'any' ? 'OR' : 'AND';
+  // Keep quick bar in sync
+  renderTagQuickBar();
 }
 
 function changeSort(value) { setSort(value); }
