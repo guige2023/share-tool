@@ -6483,7 +6483,23 @@ function filterByTag(tag) {
   doSearch();
 }
 
+function changeSort(value) { setSort(value); }
+
 function applySort(files) {
+  if (currentSort === 'manual') {
+    // Manual sort: apply localStorage custom order
+    const customOrder = getCustomFileOrder();
+    const sorted = [...files];
+    sorted.sort((a, b) => {
+      const ai = customOrder[a.name];
+      const bi = customOrder[b.name];
+      if (ai !== undefined && bi !== undefined) return ai - bi;
+      if (ai !== undefined) return -1;
+      if (bi !== undefined) return 1;
+      return 0;
+    });
+    return sorted;
+  }
   const [field, dir] = currentSort.split('_');
   const sorted = [...files];
   sorted.sort((a, b) => {
