@@ -329,7 +329,9 @@ const I18N = {
     'tag.clickChangeColor': '点击修改颜色',
     'tag.doubleClickRename': '双击重命名',
     'tag.count': '个',
-    'tag.manager': '标签管理',
+    'tag.iconChanged': '图标已更新',
+    'tag.changeIcon': '修改图标',
+    'tag.iconChangeFailed': '图标更新失败',
     'tag.inputHint': '输入标签，多个用逗号分隔',
     'tag.color': '颜色',
     'tag.renamePrompt': '将标签 "{old}" 重命名为：',
@@ -756,6 +758,9 @@ const I18N = {
     'tag.colorChanged': 'Color updated',
     'tag.clickChangeColor': 'Click to change color',
     'tag.count': '',
+    'tag.iconChanged': 'Icon updated',
+    'tag.changeIcon': 'Change icon',
+    'tag.iconChangeFailed': 'Failed to update icon',
     'tag.renamePrompt': 'Rename tag "{old}" to:',
     'tag.renameSuccess': 'Renamed, updated {n} files',
     'tag.renameFailed': 'Rename failed',
@@ -1091,6 +1096,9 @@ const I18N = {
     'tag.colorChanged': 'Color updated',
     'tag.clickChangeColor': 'Click to change color',
     'tag.count': '',
+    'tag.iconChanged': 'Icon updated',
+    'tag.changeIcon': 'Change icon',
+    'tag.iconChangeFailed': 'Failed to update icon',
     'tag.renamePrompt': 'Rename tag "{old}" to:',
     'tag.renameSuccess': 'Renamed, updated {n} files',
     'tag.renameFailed': 'Rename failed',
@@ -3897,6 +3905,32 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div style="margin-top:16px;display:flex;gap:8px;">
         <button class="btn" style="flex:1;" onclick="confirmTagInput()">' + T('ui.save') + '</button>
         <button class="btn btn-secondary" style="flex:1;" onclick="closeTagInputModal()">' + T('ui.cancel') + '</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="emojiModal" onclick="if(event.target===this)closeEmojiModal()">
+  <div class="modal-content" style="max-width:360px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">⭐ <span id="emojiModalTitle">' + T('tag.changeIcon') + '</span></div>
+      <button class="modal-close" onclick="closeEmojiModal()">x</button>
+    </div>
+    <div style="padding:8px 0;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div id="emojiPreview" style="font-size:48px;margin-bottom:8px;">🏷</div>
+        <div style="font-size:13px;color:var(--text-muted);" id="emojiTagName"></div>
+      </div>
+      <!-- Emoji presets grid -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;justify-content:center;" id="emojiPresets"></div>
+      <!-- Custom emoji input -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Custom emoji:</div>
+        <input type="text" id="emojiCustomInput" placeholder="Paste or type emoji" style="width:100%;padding:10px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:24px;text-align:center;box-sizing:border-box;" oninput="updateEmojiPreview(this.value)">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" style="flex:1;" onclick="confirmEmojiChange()">' + T('ui.save') + '</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeEmojiModal()">' + T('ui.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -7086,6 +7120,7 @@ async function deleteVersion(versionId) {
 }
 
 async function showTagManager() {
+  await loadTagColors();
   const res = await fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
   const data = await res.json();
   _tagManagerData = (data.success && data.tags) ? data.tags : [];
@@ -7093,8 +7128,8 @@ async function showTagManager() {
   const searchInput = document.getElementById('tagManagerSearch');
   if (searchInput) searchInput.value = '';
   renderTagManagerItems(_tagManagerData);
-  lockScroll();
   document.getElementById('tagManagerModal').classList.add('show');
+  lockScroll();
 }
 
 function closeTagManager() {
@@ -7200,6 +7235,66 @@ async function updateTagColor(tag, color) {
     showToast(T('tag.colorChanged'));
   }
 }
+
+let _emojiPickerTag = null;  // currently editing emoji for this tag
+let _selectedEmoji = '🏷';
+
+const TAG_EMOJI_PRESETS = ['🏷','📁','⭐','❤️','🔥','💡','📌','📝','🎯','🔑','🔐','🌟','📦','🎨','💻','🌐','🔔','📊','💾','🗂️'];
+
+function openEmojiModal(tag) {
+  _emojiPickerTag = tag;
+  _selectedEmoji = tagEmojis[tag] || '🏷';
+  document.getElementById('emojiPreview').textContent = _selectedEmoji;
+  document.getElementById('emojiTagName').textContent = tag;
+  document.getElementById('emojiCustomInput').value = '';
+  // Build presets
+  const presetsEl = document.getElementById('emojiPresets');
+  presetsEl.innerHTML = TAG_EMOJI_PRESETS.map(e =>
+    '<span onclick="selectEmojiPreset(\'' + e.replace(/'/g, "\\'") + '\')" style="font-size:24px;cursor:pointer;padding:4px;border-radius:8px;">' + e + '</span>'
+  ).join('');
+  document.getElementById('emojiModal').classList.add('show');
+}
+
+function closeEmojiModal() {
+  document.getElementById('emojiModal').classList.remove('show');
+  _emojiPickerTag = null;
+}
+
+function selectEmojiPreset(emoji) {
+  _selectedEmoji = emoji;
+  document.getElementById('emojiPreview').textContent = emoji;
+  document.getElementById('emojiCustomInput').value = emoji;
+}
+
+function updateEmojiPreview(text) {
+  if (text.length > 0) {
+    _selectedEmoji = text.slice(-2);  // take last grapheme
+    document.getElementById('emojiPreview').textContent = _selectedEmoji;
+  }
+}
+
+async function confirmEmojiChange() {
+  if (!_emojiPickerTag) return;
+  const emoji = _selectedEmoji;
+  const tag = _emojiPickerTag;
+  closeEmojiModal();
+  const res = await fetch(API + '/api/tags/emoji', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ tag, emoji })
+  });
+  const data = await res.json();
+  if (data.success) {
+    tagEmojis[tag] = emoji;
+    showToast(T('tag.iconChanged'));
+    showTagManager();
+  } else {
+    showToast(T('tag.iconChangeFailed'));
+  }
+}
+
+// expose changeTagEmoji for inline onclick
+window.changeTagEmoji = openEmojiModal;
 
 async function batchAddTag() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
