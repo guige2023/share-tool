@@ -8996,9 +8996,14 @@ async function batchCreateShare() {
     const maxDownloads = parseInt(document.getElementById('shareMaxDownloads').value) || null;
     const password = document.getElementById('sharePassword').value || null;
     closeShareOptionsModal();
-
+    setBatchOperation('创建链接中...');
     let success = 0, failed = 0;
-    for (const filename of filenames) {
+    for (let i = 0; i < filenames.length; i++) {
+      const filename = filenames[i];
+      const statusText = document.getElementById('batchStatusText');
+      const progressFill = document.getElementById('batchProgressFill');
+      if (statusText) statusText.textContent = '创建链接 ' + (i + 1) + '/' + filenames.length;
+      if (progressFill) progressFill.style.width = Math.round(((i + 1) / filenames.length) * 100) + '%';
       try {
         const res = await fetch(API + '/api/share/create', {
           method: 'POST',
@@ -9010,9 +9015,8 @@ async function batchCreateShare() {
         else failed++;
       } catch (_) { failed++; }
     }
-    showToast(T('share.batchResult').replace('{n}', success).replace('{m}', failed));
+    endBatchOperation(T('share.batchResult').replace('{n}', success).replace('{m}', failed), () => { clearBatch(); loadFiles(); });
     window.doCreateShareLink = window._batchCreateShareOriginal;
-    clearBatch();
   };
 
   document.getElementById('shareOptionsModal').classList.add('show');
