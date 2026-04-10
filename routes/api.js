@@ -909,5 +909,51 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // POST /api/file/batch-move - 批量移动文件到目标文件夹
+  if (pathname === '/api/file/batch-move' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { filenames, destFolder } = JSON.parse(body);
+        if (!Array.isArray(filenames) || filenames.length === 0) {
+          sendJson(res, { success: false, error: 'filenames 必须是非空数组' }, 400);
+          return;
+        }
+        const result = db.batchMove(filenames, destFolder || '');
+        db.addAuditLog('batch_move', `count=${filenames.length}, dest=${destFolder || '/'}, success=${result.success}`, getClientIp(req), authData.token);
+        sendJson(res, result);
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // POST /api/file/batch-copy - 批量复制文件到目标文件夹
+  if (pathname === '/api/file/batch-copy' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { filenames, destFolder } = JSON.parse(body);
+        if (!Array.isArray(filenames) || filenames.length === 0) {
+          sendJson(res, { success: false, error: 'filenames 必须是非空数组' }, 400);
+          return;
+        }
+        const result = db.batchCopy(filenames, destFolder || '');
+        db.addAuditLog('batch_copy', `count=${filenames.length}, dest=${destFolder || '/'}, success=${result.success}`, getClientIp(req), authData.token);
+        sendJson(res, result);
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };

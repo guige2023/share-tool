@@ -745,6 +745,111 @@ function copyFilesByPrefix(sourcePrefix, destPrefix) {
   return { copied };
 }
 
+// 批量移动文件到目标文件夹（单事务）
+function batchMove(filenames, destFolder) {
+  const db = getDb();
+  const results = [];
+  const now = Math.floor(Date.now() / 1000);
+
+  // 先预检所有文件
+  for (const filename of filenames) {
+    const source = getFileByName(filename);
+    if (!source) {
+      results.push({ filename, success: false, error: '源文件不存在' });
+      return { success: false, results, error: '部分文件不存在' };
+    }
+    const basename = filename.split('/').pop();
+    const destFilename = (destFolder ? destFolder + '/' : '') + basename;
+    if (filename === destFilename) {
+      results.push({ filename, success: false, error: '源和目标相同' });
+      return { success: false, results, error: '源和目标相同' };
+    }
+    const conflict = getFileByName(destFilename);
+    if (conflict) {
+      results.push({ filename, success: false, error: `目标文件 ${destFilename} 已存在` });
+      return { success: false, results, error: `目标文件 ${destFilename} 已存在` };
+    }
+  }
+
+  // 全部预检通过，执行移动
+  db.exec('BEGIN TRANSACTION');
+  try {
+    for (const filename of filenames) {
+      const basename = filename.split('/').pop();
+      const destFilename = (destFolder ? destFolder + '/' : '') + basename;
+      db.prepare('UPDATE files SET filename = ?, updated_at = ? WHERE filename = ?').run(destFilename, now, filename);
+      const updated = getFileByName(destFilename);
+      if (updated) {
+        addSyncLog(updated.id, destFilename, 'rename', updated.hash, null, updated.size);
+      }
+      results.push({ filename, destFilename, success: true });
+    }
+    db.exec('COMMIT');
+    return { success: true, results };
+  } catch (e) {
+    db.exec('ROLLBACK');
+    return { success: false, results, error: e.message };
+  }
+}
+
+// 批量复制文件到目标文件夹（单事务）
+function batchCopy(filenames, destFolder) {
+  const db = getDb();
+  const results = [];
+  const now = Math.floor(Date.now() / 1000);
+
+  // 预检所有文件
+  for (const filename of filenames) {
+    const source = getFileByName(filename);
+    if (!source) {
+      results.push({ filename, success: false, error: '源文件不存在' });
+      return { success: false, results, error: '部分文件不存在' };
+    }
+    const basename = filename.split('/').pop();
+    const destFilename = (destFolder ? destFolder + '/' : '') + basename;
+    if (filename === destFilename) {
+      results.push({ filename, success: false, error: '源和目标相同' });
+      return { success: false, results, error: '源和目标相同' };
+    }
+    const conflict = getFileByName(destFilename);
+    if (conflict) {
+      results.push({ filename, success: false, error: `目标文件 ${destFilename} 已存在` });
+      return { success: false, results, error: `目标文件 ${destFilename} 已存在` };
+    }
+  }
+
+  // 全部预检通过，执行复制
+  db.exec('BEGIN TRANSACTION');
+  try {
+    for (const filename of filenames) {
+      const source = getFileByName(filename);
+      const basename = filename.split('/').pop();
+      const destFilename = (destFolder ? destFolder + '/' : '') + basename;
+      db.prepare(`
+        INSERT INTO files (filename, content, type, size, hash, created_at, updated_at, tags, encrypted, content_type)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        destFilename,
+        source.content,
+        source.type,
+        source.size,
+        source.hash,
+        source.created_at,
+        now,
+        source.tags,
+        source.encrypted || 0,
+        source.content_type || 'application/octet-stream'
+      );
+      results.push({ filename, destFilename, success: true });
+    }
+    db.exec('COMMIT');
+    return { success: true, results };
+  } catch (e) {
+    db.exec('ROLLBACK');
+    return { success: false, results, error: e.message };
+  }
+}
+
 // 按前缀获取所有文件（用于文件夹打包下载）
 function getFilesByPrefix(prefix) {
   const db = getDb();
@@ -1813,7 +1918,7 @@ module.exports = {
   // 文件
   addFile, getFile, getFileByName, toggleStar, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
-  deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, getFilesByPrefix,
+  deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
   searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,

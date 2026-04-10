@@ -6826,26 +6826,21 @@ async function batchCopy() {
   const cleanPrefix = destPrefix.trim();
   if (!cleanPrefix) return;
 
-  let copied = 0;
-  let errors = 0;
-  for (const cb of checked) {
-    const filename = decodeURIComponent(cb.value);
-    const destName = cleanPrefix + filename.split('/').pop();
-    try {
-      const res = await fetch(API + '/api/file-copy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-        body: JSON.stringify({ sourceFilename: filename, newFilename: destName })
-      });
-      const data = await res.json();
-      if (data.success) copied++;
-      else errors++;
-    } catch (e) { errors++; }
-  }
-  if (errors > 0) {
-    showToast(T('msg.copyFailedN', { n: copied, m: errors }));
-  } else {
-    showToast(T('msg.copiedTo', { n: copied, dest: cleanPrefix }));
+  const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+  try {
+    const res = await fetch(API + '/api/file/batch-copy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ filenames, destFolder: cleanPrefix })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(T('msg.copiedTo', { n: filenames.length, dest: cleanPrefix }));
+    } else {
+      showToast(T('msg.copyFailedN', { n: 0, m: filenames.length }) + ': ' + data.error);
+    }
+  } catch (e) {
+    showToast('复制失败: ' + e.message);
   }
   clearBatch();
 }
@@ -6858,29 +6853,23 @@ async function batchMove() {
   const cleanPrefix = destPrefix.trim();
   if (!cleanPrefix) return;
 
-  let moved = 0;
-  let errors = 0;
-  for (const cb of checked) {
-    const filename = decodeURIComponent(cb.value);
-    const destName = cleanPrefix + filename.split('/').pop();
-    try {
-      const res = await fetch(API + '/api/file-move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-        body: JSON.stringify({ sourceFilename: filename, destFilename: destName })
-      });
-      const data = await res.json();
-      if (data.success) moved++;
-      else errors++;
-    } catch (e) { errors++; }
-  }
-  if (errors > 0) {
-    showToast(T('msg.moveFailedN', { n: errors }));
-  } else {
-    showToast(T('msg.movedTo', { n: moved, dest: cleanPrefix }));
+  const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+  try {
+    const res = await fetch(API + '/api/file/batch-move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ filenames, destFolder: cleanPrefix })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(T('msg.movedTo', { n: filenames.length, dest: cleanPrefix }));
+    } else {
+      showToast(T('msg.moveFailedN', { n: filenames.length }) + ': ' + data.error);
+    }
+  } catch (e) {
+    showToast('移动失败: ' + e.message);
   }
   clearBatch();
-  await loadFiles();
 }
 
 async function batchStar() {
