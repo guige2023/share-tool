@@ -6027,6 +6027,8 @@ function showContextMenu(filename, el) {
   const isPdf = /\.pdf$/i.test(filename);
   const isAudio = isAudioFile(filename);
   const isVideo = isVideoFile(filename);
+  const isCsv = isCsvFile(filename);
+  const isArchive = isArchiveFile(filename);
 
   const items = [
     { label: '👁 ' + T('file.view'), action: "handleFileItemClick({stopPropagation:()=>{}}, '" + encodeURIComponent(filename) + "', " + isImage + ')' },
@@ -6039,8 +6041,10 @@ function showContextMenu(filename, el) {
       { label: '✏️ ' + T('ui.edit'), action: "openTextEditor('" + encodeURIComponent(filename) + "'); hideContextMenu()" }
     ] : []),
     ...(isAudio ? [{ label: '🎵 ' + T('media.playAudio'), action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
-    ...(isVideo ? [{ label: '🎬 ' + T('media.playVideo'), action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isVideo ? [{ label: '🎬 ' + 'Play Video', action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
     ...(isPdf ? [{ label: '📕 ' + T('media.viewPdf'), action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" }] : []),
+    ...(isCsv ? [{ label: '📊 ' + 'View CSV', action: "openCsvModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isArchive ? [{ label: '📦 ' + 'View Archive', action: "openArchiveModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
     { sep: true },
     { label: '📋 复制文件名', action: "copyText('" + filename.replace(/'/g, "\\'") + "'); hideContextMenu()" },
     { label: '↗️ 新标签页打开', action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" },

@@ -10,7 +10,8 @@ module.exports = function handleFileRoutes(req, res, pathname, query, ctx) {
   if (pathname === '/api/list') {
     const authData = authRequired(req, res);
     if (!authData) return true;
-    const limit = parseInt(query.limit) || 100;
+    // Default 5000 to cover most use cases; client-side pagination handles display
+    const limit = parseInt(query.limit) || 5000;
     const offset = parseInt(query.offset) || 0;
     const sort = ['name', 'size', 'created_at', 'updated_at'].includes(query.sort) ? query.sort : 'created_at';
     const order = query.order === 'asc' ? 'ASC' : 'DESC';
