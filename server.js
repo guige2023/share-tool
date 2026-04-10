@@ -3825,6 +3825,8 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .filter-tab:hover { border-color: var(--accent-primary); }
 .filter-tab.active { background: rgba(102,126,234,0.2); border-color: var(--accent-primary); }
 .filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 10px; background: rgba(102,126,234,0.15); border: 1px solid var(--accent-primary); border-radius: 14px; font-size: 11px; color: var(--accent-primary); }
+.filter-chip-hint { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 12px; font-size: 11px; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; }
+.filter-chip-hint:hover { background: rgba(102,126,234,0.12); border-color: var(--accent-primary); color: var(--accent-primary); }
 .filter-chip-remove { background: none; border: none; cursor: pointer; color: var(--accent-primary); font-size: 14px; line-height: 1; padding: 0 2px; opacity: 0.7; }
 .filter-chip-remove:hover { opacity: 1; }
 .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; background: var(--bg-tertiary); padding: 4px; border-radius: 10px; }
@@ -4450,7 +4452,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span id="searchKbdHint" style="font-size:11px;color:var(--text-muted);padding:0 4px;opacity:0.6;">// · ⌘K</span>
     </div>
     <div id="activeFilterChips" style="display:none;padding:4px 0 2px;flex-wrap:wrap;gap:6px;align-items:center;"></div>
-    <div id="searchHint" style="display:none;padding:4px 8px 6px;gap:4px;flex-wrap:wrap;display:flex;flex-direction:row;align-items:center;">
+    <div id="searchHint" style="display:none;padding:4px 8px 6px;gap:4px;flex-wrap:wrap;align-items:center;">
       <span style="font-size:11px;color:var(--text-muted);margin-right:2px;">试试:</span>
       <span class="filter-chip-hint" onclick="insertSearchFilter('tag:')">🏷 tag</span>
       <span class="filter-chip-hint" onclick="insertSearchFilter('size:>1m')">📦 &gt;1m</span>
@@ -9097,7 +9099,7 @@ function goPage(p) {
 
 function showSearchHint() {
   const el = document.getElementById('searchHint');
-  if (el) el.style.display = 'block';
+  if (el) el.style.display = 'flex';
   const kbd = document.getElementById('searchKbdHint');
   if (kbd) kbd.style.display = 'none';
   // 空搜索时显示热门搜索
