@@ -2803,9 +2803,11 @@ function broadcastDiscovery() {
     }
   });
   
-  // 广播到同网段所有设备
+  // 广播到同网段所有设备（静默处理 EHOSTUNREACH，单网卡环境正常）
   udpServer.send(msg, DISCOVERY_PORT, '255.255.255.255', (e) => {
-    if (e) console.error('[Discovery] Broadcast error:', e.message);
+    if (e && e.code !== 'EHOSTUNREACH') {
+      logger.warn('[Discovery] Broadcast failed: ' + e.message);
+    }
   });
 }
 
