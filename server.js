@@ -336,6 +336,14 @@ const I18N = {
     'tag.manager': '标签管理',
     'tag.rename': '重命名',
     'tag.delete': '删除',
+    'tag.merge': '合并',
+    'tag.mergeHint': '选择要合并的标签（将合并到目标标签）',
+    'tag.mergeTarget': '合并到：',
+    'tag.mergeConfirm': '确认合并',
+    'tag.mergeSuccess': '已合并 {n} 个文件到 {target}',
+    'tag.mergeFailed': '合并失败',
+    'tag.mergeSelectFirst': '请先选择要合并的标签',
+    'tag.mergeNoTarget': '请先选择一个目标标签',
     'tag.inputName': '请输入标签名称（多个用逗号分隔）:',
     'tag.added': '已为 {n} 个文件添加标签',
     'tag.addFailed': '批量添加失败:',
@@ -4297,6 +4305,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span class="shortcut-key">j / k</span><span class="shortcut-desc">' + T('ui.shortcutMoveFocus') + '</span>
       <span class="shortcut-key">Enter</span><span class="shortcut-desc">' + T('ui.shortcutOpenFocused') + '</span>
       <span class="shortcut-key">x</span><span class="shortcut-desc">' + T('ui.shortcutToggleSelect') + '</span>
+      <span class="shortcut-key">v</span><span class="shortcut-desc">切换网格/列表视图</span>
       <span class="shortcut-key">t</span><span class="shortcut-desc">' + T('ui.shortcutTagSelected') + '</span>
       <span class="shortcut-key">a</span><span class="shortcut-desc">' + T('ui.shortcutSelectAll') + '</span>
       <span class="shortcut-key">s</span><span class="shortcut-desc">' + T('ui.shortcutStarFocused') + '</span>
@@ -7141,7 +7150,7 @@ document.addEventListener('keydown', (e) => {
       const cb = el.querySelector('.batch-checkbox');
       if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
     }
-  } else if ((e.key === 'v' || e.key === 'V') && !isInputFocused()) {
+  } else if (e.key === 'v' || e.key === 'V') {
     // v: toggle grid/list view
     e.preventDefault();
     const gridView = document.getElementById('gridView');
@@ -8931,6 +8940,84 @@ async function restoreVersion(versionId) {
     loadFiles();
   } else {
     showToast(T('ver.restoreFailed') + ' ' + (data.error || T('admin.unknown')), 'error');
+  }
+}
+
+let _tagMergeSelected = new Set();
+function showTagMergeUI() {
+  const ui = document.getElementById('tagMergeUI');
+  ui.style.display = 'block';
+  _tagMergeSelected = new Set();
+  renderTagMergeList();
+}
+
+function hideTagMergeUI() {
+  document.getElementById('tagMergeUI').style.display = 'none';
+}
+
+function renderTagMergeList() {
+  const list = document.getElementById('tagMergeSourceList');
+  const targetSelect = document.getElementById('tagMergeTarget');
+  const tags = _tagManagerData;
+
+  if (!tags.length) {
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">' + T('admin.noTags') + '</div>';
+    return;
+  }
+
+  list.innerHTML = tags.map(t => {
+    const checked = _tagMergeSelected.has(t.tag);
+    const tagJs = t.tag.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return '<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:6px;transition:background 0.15s;" onmouseover="this.style.background=\'var(--bg-secondary)\'" onmouseout="this.style.background=\'\'">' +
+      '<input type="checkbox" id="merge_src_' + tagJs.replace(/[^a-zA-Z0-9]/g, '_') + '" ' + (checked ? 'checked' : '') + ' onchange="toggleMergeTag(\'' + tagJs + '\')" style="accent-color:var(--accent-primary);">' +
+      '<span style="font-size:13px;color:var(--text-primary);">' + escapeHtml(t.tag) + '</span>' +
+      '<span style="font-size:11px;color:var(--text-muted);margin-left:auto;">' + t.count + '</span></label>';
+  }).join('');
+
+  // Target select: all tags except selected ones
+  const targetTags = tags.filter(t => !_tagMergeSelected.has(t.tag));
+  targetSelect.innerHTML = targetTags.map(t =>
+    '<option value="' + escapeHtml(t.tag).replace(/"/g, '&quot;') + '">' + escapeHtml(t.tag) + ' (' + t.count + ')</option>'
+  ).join('');
+
+  if (targetTags.length === 0) {
+    targetSelect.innerHTML = '<option value="">' + T('tag.mergeNoTarget') + '</option>';
+  }
+}
+
+function toggleMergeTag(tag) {
+  if (_tagMergeSelected.has(tag)) {
+    _tagMergeSelected.delete(tag);
+  } else {
+    _tagMergeSelected.add(tag);
+  }
+  renderTagMergeList();
+}
+
+async function executeTagMerge() {
+  if (_tagMergeSelected.size === 0) {
+    showToast(T('tag.mergeSelectFirst'));
+    return;
+  }
+  const targetTag = document.getElementById('tagMergeTarget').value;
+  if (!targetTag) {
+    showToast(T('tag.mergeNoTarget'));
+    return;
+  }
+  const sources = Array.from(_tagMergeSelected);
+  const res = await fetch(API + '/api/tags/merge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+    body: JSON.stringify({ sources, target: targetTag })
+  });
+  const data = await res.json();
+  if (data.success) {
+    showToast(T('tag.mergeSuccess', null, { n: data.updated, target: targetTag }));
+    hideTagMergeUI();
+    showTagManager();
+    loadFiles();
+  } else {
+    showToast(data.error || T('tag.mergeFailed'));
   }
 }
 
