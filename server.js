@@ -5260,10 +5260,11 @@ function clearTagFilter() {
   updateTagFilterBar();
 }
 
-window.currentTagMatch = 'all'; // 'all' or 'any'
+window.currentTagMatch = localStorage.getItem('sharetool_tag_match') || 'all'; // 'all' or 'any'
 
 function toggleTagMatch() {
   window.currentTagMatch = window.currentTagMatch === 'all' ? 'any' : 'all';
+  localStorage.setItem('sharetool_tag_match', window.currentTagMatch);
   // Update toggle button text
   const toggle = document.getElementById('tagMatchToggle');
   if (toggle) toggle.textContent = window.currentTagMatch === 'any' ? 'OR' : 'AND';
