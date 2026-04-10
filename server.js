@@ -579,6 +579,7 @@ const I18N = {
     'ui.noResults': '未找到匹配结果',
     'ui.tryOtherKeywords': '试试其他关键词或清除筛选',
     'ui.shortcuts': '快捷键',
+    'ui.menu': '菜单',
     'ui.shortcutHelp': '? 查看快捷键',
     'ui.shortcutNewUpload': 'N 上传文件',
     'ui.shortcutSearch': '/ 搜索',
@@ -1070,6 +1071,7 @@ const I18N = {
     'ui.trashDeleteSuccess': 'Permanently deleted',
     'ui.trashNoItems': 'Trash is empty',
     'ui.shortcuts': 'Shortcuts',
+    'ui.menu': 'Menu',
     'ui.shortcutHelp': '? View shortcuts',
     'ui.shortcutNewUpload': 'N Upload file',
     'ui.shortcutSearch': '/ Search',
@@ -3730,6 +3732,10 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .fab-drawer .drawer-close:hover { color: var(--text-primary); }
 .fab-drawer .btn { width: 100%; height: 48px; border-radius: 12px; padding: 0 16px; font-size: 14px; justify-content: flex-start; gap: 10px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .fab-drawer .btn .icon { font-size: 18px; }
+[data-theme="dark"] .fab-drawer .btn { background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); }
+[data-theme="light"] .fab-drawer .btn { background: var(--bg-tertiary); border: 1px solid var(--border-color); color: var(--text-primary); }
+[data-theme="dark"] .fab-drawer .btn:active { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
+[data-theme="light"] .fab-drawer .btn:active { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
 .file-type-icon { font-size: 16px; margin-right: 6px; }
 
 .tag-filter-btn { cursor: pointer; transition: all 0.2s; }
@@ -11591,7 +11597,7 @@ init();
 <div class="fab-drawer-overlay" id="fabDrawerOverlay" onclick="fabClose()"></div>
 <div class="fab-drawer" id="fabDrawer">
   <div class="drawer-header">
-    <span class="drawer-title">菜单</span>
+    <span class="drawer-title">' + T('ui.menu') + '</span>
     <button class="drawer-close" onclick="fabClose()">×</button>
   </div>
   <button class="btn" onclick="fabUpload()">📤 <span>' + T('file.upload') + '</span></button>
