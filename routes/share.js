@@ -728,5 +728,67 @@ function upload(file){
     return true;
   }
 
+  // DELETE /api/share/batch — 批量删除分享链接
+  if (pathname === '/api/share/batch' && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { codes = [] } = JSON.parse(body);
+        if (!Array.isArray(codes) || codes.length === 0) {
+          sendJson(res, { success: false, error: 'codes array required' }, 400);
+          return;
+        }
+        let deleted = 0, failed = 0;
+        for (const code of codes) {
+          try { db.deleteShareLink(code); deleted++; } catch (e) { failed++; }
+        }
+        db.addAuditLog('batch_share_delete', `deleted=${deleted}, failed=${failed}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, deleted, failed });
+      } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
+    });
+    return true;
+  }
+
+  // PUT /api/share/batch — 批量更新分享链接（续期/修改密码等）
+  if (pathname === '/api/share/batch' && method === 'PUT') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { codes = [], expiryHours, maxDownloads, password } = JSON.parse(body);
+        if (!Array.isArray(codes) || codes.length === 0) {
+          sendJson(res, { success: false, error: 'codes array required' }, 400);
+          return;
+        }
+        const MAX_TS_MS = 32503680000000;
+        const updates = {};
+        if (expiryHours !== undefined) {
+          updates.expiresAt = expiryHours === 0 ? MAX_TS_MS : (expiryHours ? Date.now() + expiryHours * 3600000 : MAX_TS_MS);
+        }
+        if (maxDownloads !== undefined) updates.maxDownloads = maxDownloads || null;
+        if (password !== undefined) updates.password = password || null;
+        if (Object.keys(updates).length === 0) {
+          sendJson(res, { success: false, error: 'No updates provided' }, 400);
+          return;
+        }
+        let updated = 0, failed = 0;
+        for (const code of codes) {
+          try {
+            const result = db.updateShareLink(code, updates);
+            if (result.success) updated++; else failed++;
+          } catch (e) { failed++; }
+        }
+        db.addAuditLog('batch_share_update', `updated=${updated}, failed=${failed}`, getClientIp(req), authData.token);
+        sendJson(res, { success: true, updated, failed });
+      } catch (e) { sendJson(res, { success: false, error: e.message }, 400); }
+    });
+    return true;
+  }
+
   return false;
 };

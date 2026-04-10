@@ -6323,10 +6323,19 @@ function handleSwipeStart(e, el) {
   swipeState.currentX = swipeState.startX;
   longPressFired = false;
   longPressTarget = el.dataset.filename ? decodeURIComponent(el.dataset.filename) : null;
-  // Long-press detection: show context menu
+  // Long-press detection: enter selection mode + show context menu
   longPressTimer = setTimeout(() => {
     longPressFired = true;
-    if (longPressTarget) showContextMenu(longPressTarget, el);
+    // Mobile: long-press → enter selection mode + check the item
+    if (longPressTarget) {
+      const checkbox = el.querySelector('.batch-checkbox');
+      if (checkbox && !checkbox.checked) {
+        checkbox.checked = true;
+        updateBatchBar();
+      }
+      // Still show context menu for single-file actions
+      showContextMenu(longPressTarget, el);
+    }
   }, LONG_PRESS_MS);
 }
 
@@ -7432,11 +7441,17 @@ function renderFileInfoContent(meta) {
   body.innerHTML = html;
 }
 
-// Click outside panel to close
+// Click outside panel to close / clear batch selection on mobile
 document.addEventListener('click', function(e) {
   const panel = document.getElementById('fileInfoPanel');
   if (panel && panel.classList.contains('open') && !panel.contains(e.target)) {
     closeFileInfoPanel();
+  }
+  // Mobile: click outside file items clears batch selection (but not on toolbar buttons)
+  if (!e.target.closest('.file-item') && !e.target.closest('.batch-bar') && !e.target.closest('.filter-bar')) {
+    if (document.querySelectorAll('.batch-checkbox:checked').length > 0) {
+      clearBatch();
+    }
   }
 });
 
