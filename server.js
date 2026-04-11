@@ -548,6 +548,8 @@ const I18N = {
     'ui.searchTags': '搜索标签...',
     'ui.clearSearchHistory': '清除历史',
     'ui.noFiles': '暂无分享内容',
+    'ui.noFilesSelected': '未选择文件',
+    'vf.NfilesSelected': '{n} files selected',
     'ui.noFilesHint': '上传文件或分享文字开始使用',
     'ui.selectAll': '全选',
     'ui.deleteSelected': '删除选中',
@@ -1102,6 +1104,8 @@ const I18N = {
     'ui.searchTags': 'Search tags...',
     'ui.clearSearchHistory': 'Clear history',
     'ui.noFiles': 'No shared content yet',
+    'ui.noFilesSelected': 'No files selected',
+    'vf.NfilesSelected': '{n} files selected',
     'ui.noFilesHint': 'Upload files or share text to get started',
     'ui.selectAll': 'Select all',
     'ui.deleteSelected': 'Delete selected',
@@ -6250,18 +6254,31 @@ async function renderTagQuickBar() {
   try {
     const res = await fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
-    const tags = (data.tags || []).sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 8);
-    if (tags.length === 0) {
+    const allTags = data.tags || [];
+    if (allTags.length === 0) {
       bar.style.display = 'none';
       return;
     }
     const currentQ = window.currentSearchQ || '';
-    bar.innerHTML = tags.map(t => {
+
+    // MRU tags from localStorage
+    const mruRaw = localStorage.getItem('sharetool_recent_tags');
+    const mruTags = mruRaw ? JSON.parse(mruRaw) : [];
+    const tagMap = new Map(allTags.map(t => [t.tag, t]));
+
+    // Build ordered list: MRU tags first (max 3), then rest sorted by count
+    const mruValid = mruTags.filter(t => tagMap.has(t)).slice(0, 3);
+    const usedMruSet = new Set(mruValid);
+    const remaining = allTags.filter(t => !usedMruSet.has(t.tag)).sort((a, b) => (b.count || 0) - (a.count || 0)).slice(0, 8 - mruValid.length);
+    const orderedTags = [...mruValid.map(tag => tagMap.get(tag)), ...remaining];
+
+    bar.innerHTML = orderedTags.map((t, i) => {
       const color = t.color || '#667eea';
       const isActive = currentQ.includes('tag:' + t.tag);
       const bg = isActive ? color + '44' : color + '18';
       const border = isActive ? color : color + '44';
-      return '<span class="tag-quick-chip" style="background:' + bg + ';border-color:' + border + ';color:' + color + ';" onclick="filterByTag(\'' + t.tag.replace(/'/g, "\\'") + '\')">' + escapeHtml(t.tag) + '</span>';
+      const mruLabel = i < mruValid.length ? '<span style="font-size:9px;opacity:0.6;margin-right:2px;">⏱</span>' : '';
+      return '<span class="tag-quick-chip" style="background:' + bg + ';border-color:' + border + ';color:' + color + ';" onclick="filterByTag(\'' + t.tag.replace(/'/g, "\\'") + '\')">' + mruLabel + escapeHtml(t.tag) + '<sup style="font-size:10px;opacity:0.75;margin-left:2px;">' + (t.count || 0) + '</sup></span>';
     }).join('');
     bar.style.display = 'block';
   } catch {
@@ -9295,6 +9312,13 @@ function filterByTag(tag) {
   const newQ = cleaned ? cleaned + ' ' + tagExpr : tagExpr;
   input.value = newQ;
   window.currentSearchQ = newQ;
+
+  // Track MRU tags
+  const mruRaw = localStorage.getItem('sharetool_recent_tags');
+  const mruTags = mruRaw ? JSON.parse(mruRaw) : [];
+  const updated = [tag, ...mruTags.filter(t => t !== tag)].slice(0, 5);
+  localStorage.setItem('sharetool_recent_tags', JSON.stringify(updated));
+
   doSearch();
   // Ensure toggle button text is current
   const toggle = document.getElementById('tagMatchToggle');
@@ -12358,7 +12382,7 @@ let _addToVfFilenames = [];
 
 async function batchAddToVirtualFolder() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
-  if (checked.length === 0) { showToast('No files selected', 'error'); return; }
+  if (checked.length === 0) { showToast(T('ui.noFilesSelected'), 'error'); return; }
   const filenames = Array.from(checked).map(cb => cb.value);
   _addToVfFilenames = filenames;
   const countEl = document.getElementById('addToVfFileCount');
@@ -12368,7 +12392,7 @@ async function batchAddToVirtualFolder() {
     nameEl.textContent = decodeURIComponent(filenames[0]);
   } else {
     countEl.style.display = '';
-    countEl.textContent = filenames.length + ' files selected';
+    countEl.textContent = T('vf.NfilesSelected', { n: filenames.length });
     nameEl.textContent = filenames.slice(0, 3).map(f => decodeURIComponent(f)).join(', ') + (filenames.length > 3 ? '...' : '');
   }
   try {
