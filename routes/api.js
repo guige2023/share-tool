@@ -1530,5 +1530,121 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // ============================================================
+  // 虚拟文件夹 API
+  // ============================================================
+
+  // GET /api/virtual-folders — 列出所有虚拟文件夹
+  if (pathname === '/api/virtual-folders' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const folders = db.listVirtualFolders();
+    sendJson(res, { success: true, folders });
+    return true;
+  }
+
+  // POST /api/virtual-folders — 创建虚拟文件夹
+  if (pathname === '/api/virtual-folders' && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { name, description, color } = JSON.parse(body);
+        if (!name || !name.trim()) {
+          sendJson(res, { success: false, error: 'Folder name is required' }, 400);
+          return;
+        }
+        const result = db.createVirtualFolder(name.trim(), description || '', color || '#667eea');
+        sendJson(res, result, result.success ? 201 : 400);
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // PUT /api/virtual-folders/:id — 更新虚拟文件夹
+  if (pathname.match(/^\/api\/virtual-folders\/\d+$/) && method === 'PUT') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const id = parseInt(pathname.split('/')[3]);
+    if (!id) { sendJson(res, { success: false, error: 'Invalid folder ID' }, 400); return true; }
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const updates = JSON.parse(body);
+        const result = db.updateVirtualFolder(id, updates);
+        sendJson(res, result);
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // DELETE /api/virtual-folders/:id — 删除虚拟文件夹
+  if (pathname.match(/^\/api\/virtual-folders\/\d+$/) && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const id = parseInt(pathname.split('/')[3]);
+    if (!id) { sendJson(res, { success: false, error: 'Invalid folder ID' }, 400); return true; }
+    db.deleteVirtualFolder(id);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // GET /api/virtual-folders/:id/files — 获取虚拟文件夹中的文件
+  if (pathname.match(/^\/api\/virtual-folders\/\d+\/files$/) && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const parts = pathname.split('/');
+    const folderId = parseInt(parts[3]);
+    const limit = parseInt(parsed.query.get('limit')) || 100;
+    const files = db.getVirtualFolderFiles(folderId, limit);
+    sendJson(res, { success: true, files });
+    return true;
+  }
+
+  // POST /api/virtual-folders/:id/files — 添加文件到虚拟文件夹
+  if (pathname.match(/^\/api\/virtual-folders\/\d+\/files$/) && method === 'POST') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const parts = pathname.split('/');
+    const folderId = parseInt(parts[3]);
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { fileId, filename } = JSON.parse(body);
+        let targetFileId = fileId;
+        if (!targetFileId && filename) {
+          const file = db.getFileByName(filename);
+          if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return; }
+          targetFileId = file.id;
+        }
+        const result = db.addFileToVirtualFolder(folderId, targetFileId);
+        sendJson(res, result, result.success ? 201 : 400);
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // DELETE /api/virtual-folders/:id/files/:fileId — 从虚拟文件夹移除文件
+  if (pathname.match(/^\/api\/virtual-folders\/\d+\/files\/\d+$/) && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const parts = pathname.split('/');
+    const folderId = parseInt(parts[3]);
+    const fileId = parseInt(parts[5]);
+    db.removeFileFromVirtualFolder(folderId, fileId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
   return false;
 };

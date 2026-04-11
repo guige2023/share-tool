@@ -154,6 +154,35 @@ function initSchemaV1(db) {
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_file_versions_file_id ON file_versions(file_id)`);
 
+  // 虚拟文件夹表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS virtual_folders (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT    NOT NULL UNIQUE,
+      description TEXT    DEFAULT '',
+      color       TEXT    DEFAULT '#667eea',
+      created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `);
+
+  // 虚拟文件夹-文件关联表
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS virtual_folder_files (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      folder_id   INTEGER NOT NULL,
+      file_id     INTEGER NOT NULL,
+      added_at    INTEGER NOT NULL DEFAULT (unixepoch()),
+      FOREIGN KEY (folder_id) REFERENCES virtual_folders(id) ON DELETE CASCADE,
+      FOREIGN KEY (file_id)   REFERENCES files(id)       ON DELETE CASCADE,
+      UNIQUE(folder_id, file_id)
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_vf_folder ON virtual_folder_files(folder_id);
+    CREATE INDEX IF NOT EXISTS idx_vf_file   ON virtual_folder_files(file_id);
+  `);
+
   // 设备表
   db.exec(`
     CREATE TABLE IF NOT EXISTS devices (
@@ -631,6 +660,83 @@ function toggleStar(filename) {
   const newStarred = file.starred ? 0 : 1;
   db.prepare('UPDATE files SET starred = ?, updated_at = unixepoch() WHERE id = ?').run(newStarred, file.id);
   return { success: true, starred: newStarred };
+}
+
+// ============================================================
+// 虚拟文件夹
+// ============================================================
+function createVirtualFolder(name, description = '', color = '#667eea') {
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM virtual_folders WHERE name = ?').get(name);
+  if (existing) return { success: false, error: 'Folder name already exists' };
+  const result = db.prepare('INSERT INTO virtual_folders (name, description, color) VALUES (?, ?, ?)')
+    .run(name, description, color);
+  return { success: true, id: result.lastInsertRowid, name, description, color };
+}
+
+function listVirtualFolders() {
+  const db = getDb();
+  const folders = db.prepare('SELECT * FROM virtual_folders ORDER BY created_at DESC').all();
+  // 附加每个文件夹的文件数量
+  const countStmt = db.prepare('SELECT COUNT(*) as count FROM virtual_folder_files WHERE folder_id = ?');
+  return folders.map(f => ({
+    ...f,
+    fileCount: countStmt.get(f.id).count
+  }));
+}
+
+function deleteVirtualFolder(id) {
+  const db = getDb();
+  db.prepare('DELETE FROM virtual_folders WHERE id = ?').run(id);
+  return { success: true };
+}
+
+function addFileToVirtualFolder(folderId, fileId) {
+  const db = getDb();
+  try {
+    db.prepare('INSERT INTO virtual_folder_files (folder_id, file_id) VALUES (?, ?)').run(folderId, fileId);
+    return { success: true };
+  } catch (e) {
+    if (e.message.includes('UNIQUE')) return { success: false, error: 'File already in this folder' };
+    throw e;
+  }
+}
+
+function removeFileFromVirtualFolder(folderId, fileId) {
+  const db = getDb();
+  db.prepare('DELETE FROM virtual_folder_files WHERE folder_id = ? AND file_id = ?').run(folderId, fileId);
+  return { success: true };
+}
+
+function getVirtualFolderFiles(folderId, limit = 100) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT f.${FILE_LIST_FIELDS}, v.added_at
+    FROM virtual_folder_files v
+    JOIN files f ON f.id = v.file_id
+    WHERE v.folder_id = ?
+    ORDER BY v.added_at DESC
+    LIMIT ?
+  `).all(folderId, limit);
+}
+
+function isFileInVirtualFolder(folderId, fileId) {
+  const db = getDb();
+  const row = db.prepare('SELECT 1 FROM virtual_folder_files WHERE folder_id = ? AND file_id = ?').get(folderId, fileId);
+  return !!row;
+}
+
+function updateVirtualFolder(id, updates) {
+  const db = getDb();
+  const fields = [];
+  const values = [];
+  if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
+  if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
+  if (updates.color !== undefined) { fields.push('color = ?'); values.push(updates.color); }
+  if (fields.length === 0) return { success: false, error: 'No fields to update' };
+  values.push(id);
+  db.prepare(`UPDATE virtual_folders SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  return { success: true };
 }
 
 function updateFileByName(filename, updates) {
@@ -2800,6 +2906,9 @@ module.exports = {
   // 分享链接
   saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload,
   listShareLinks, cleanupExpiredShareLinks,
+  // 虚拟文件夹
+  createVirtualFolder, listVirtualFolders, deleteVirtualFolder, updateVirtualFolder,
+  addFileToVirtualFolder, removeFileFromVirtualFolder, getVirtualFolderFiles, isFileInVirtualFolder,
   // 文件收集链接
   createRequestLink, getRequestLink, verifyRequestLinkPassword,
   toggleRequestLinkActive, deleteRequestLink, listRequestLinks,
