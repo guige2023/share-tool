@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 7; // 当前 Schema 版本
+const SCHEMA_VERSION = 8; // v8: virtual_folders.position
 
 let db = null;
 
@@ -161,6 +161,7 @@ function initSchemaV1(db) {
       name        TEXT    NOT NULL UNIQUE,
       description TEXT    DEFAULT '',
       color       TEXT    DEFAULT '#667eea',
+      position    INTEGER NOT NULL DEFAULT 0,
       created_at  INTEGER NOT NULL DEFAULT (unixepoch())
     )
   `);
@@ -539,6 +540,16 @@ function initSchemaV7(db) {
   }
 }
 
+function initSchemaV8(db) {
+  // v8 新增：virtual_folders.position（拖拽排序）
+  try {
+    db.exec("ALTER TABLE virtual_folders ADD COLUMN position INTEGER NOT NULL DEFAULT 0");
+    console.log('[DB] Migrated: virtual_folders.position column');
+  } catch (e) {
+    if (!e.message.includes('duplicate column')) throw e;
+  }
+}
+
 function runMigrations(db, fromVersion) {
   console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
   for (let v = fromVersion + 1; v <= SCHEMA_VERSION; v++) {
@@ -554,6 +565,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV6(db);
     } else if (v === 7) {
       initSchemaV7(db);
+    } else if (v === 8) {
+      initSchemaV8(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -676,7 +689,7 @@ function createVirtualFolder(name, description = '', color = '#667eea') {
 
 function listVirtualFolders() {
   const db = getDb();
-  const folders = db.prepare('SELECT * FROM virtual_folders ORDER BY created_at DESC').all();
+  const folders = db.prepare('SELECT * FROM virtual_folders ORDER BY position ASC, created_at DESC').all();
   // 附加每个文件夹的文件数量
   const countStmt = db.prepare('SELECT COUNT(*) as count FROM virtual_folder_files WHERE folder_id = ?');
   return folders.map(f => ({
