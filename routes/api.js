@@ -968,6 +968,25 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // DELETE /api/admin/rate-limits — delete/unlock a specific rate limit record
+  if (pathname === '/api/admin/rate-limits' && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { key } = JSON.parse(body);
+        if (!key) { sendJson(res, { success: false, error: 'key is required' }, 400); return; }
+        const result = db.deleteRateLimit(key);
+        sendJson(res, result);
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   // POST /api/admin/renew-cert — force renew HTTPS certificate
   if (pathname === '/api/admin/renew-cert' && method === 'POST') {
     const authData = authRequired(req, res);

@@ -1894,6 +1894,12 @@ function listRateLimits(limit = 100) {
   `).all(now, now, RATE_LIMIT_CONFIG.maxAttempts, RATE_LIMIT_CONFIG.maxAttempts, now, now, limit);
 }
 
+function deleteRateLimit(key) {
+  const db = getDb();
+  db.prepare('DELETE FROM rate_limit WHERE key = ?').run(key);
+  return { success: true };
+}
+
 // ============================================================
 // 通知系统
 // ============================================================
@@ -2925,7 +2931,7 @@ module.exports = {
   // 审计
   addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV,
   // 速率限制
-  checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig, listRateLimits,
+  checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig, listRateLimits, deleteRateLimit,
   // 通知
   addNotification, getNotifications, getUnreadNotificationCount, markNotificationsRead, clearNotifications,
   // 搜索历史

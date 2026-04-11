@@ -354,6 +354,7 @@ const I18N = {
     'vf.description': '描述',
     'vf.color': '颜色',
     'vf.addFiles': '添加文件',
+    'vf.remove': '移除',
     'vf.noFolders': '暂无虚拟文件夹',
     'vf.deleteConfirm': '确定删除该文件夹？',
     'vf.addedTo': '已添加到 {name}',
@@ -921,6 +922,7 @@ const I18N = {
     'vf.description': 'Description',
     'vf.color': 'Color',
     'vf.addFiles': 'Add Files',
+    'vf.remove': 'Remove',
     'vf.noFolders': 'No virtual folders yet',
     'vf.deleteConfirm': 'Delete this folder?',
     'vf.addedTo': 'Added to {name}',
@@ -1387,6 +1389,7 @@ const I18N = {
     'vf.description': 'Description',
     'vf.color': 'Color',
     'vf.addFiles': 'Add Files',
+    'vf.remove': 'Remove',
     'vf.noFolders': 'No virtual folders yet',
     'vf.deleteConfirm': 'Delete this folder?',
     'vf.addedTo': 'Added to {name}',
@@ -5204,7 +5207,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 
 <!-- Add to Virtual Folder Picker Modal -->
 <div class="modal-overlay" id="addToVfModal" onclick="if(event.target===this)closeAddToVfModal()">
-  <div style="background:var(--bg-secondary);border-radius:12px;padding:20px;max-width:360px;width:90%;max-height:80vh;overflow-y:auto;">
+  <div class="modal-content" style="max-width:360px;padding:20px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <div class="modal-title">' + T('vf.addFiles') + '</div>
       <button class="modal-close" onclick="closeAddToVfModal()">x</button>
@@ -6453,6 +6456,7 @@ function renderFiles() {
     return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" draggable="true" ondragstart="handleDragStart(event, this)" ondragover="handleDragOver(event, this)" ondrop="handleDrop(event, this)" ondragend="handleDragEnd(event, this)" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '" oncontextmenu="showFileContextMenu(event, \'' + encodeURIComponent(f.name) + '\')" style="' + typeBarStyle + '">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
         (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>' + T('file.addTag') + '</span></button>' : '') +
+        (currentVfFilter !== null ? '<button class="swipe-btn" style="background:linear-gradient(135deg,#f97316,#ea580c);" onclick="event.preventDefault(); event.stopPropagation(); removeFromVirtualFolder(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">📤</span><span>' + T('vf.remove') + '</span></button>' : '') +
         '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>' + T('tag.delete') + '</span></button>' +
       '</div>' +
       '<div style="margin-right: 12px; display:flex; align-items:center;">' +
@@ -8841,7 +8845,7 @@ async function loadRateLimitActiveRecords() {
     const statusColor = { locked: 'var(--danger)', expired: 'var(--text-muted)', warn: 'var(--warning)', active: 'var(--success)' };
     const now = Math.floor(Date.now() / 1000);
     let html = '<table style="width:100%;font-size:11px;border-collapse:collapse;">';
-    html += '<tr style="color:var(--text-muted);"><td style="padding:4px 6px;">Type</td><td style="padding:4px 6px;">IP</td><td style="padding:4px 6px;">Code</td><td style="padding:4px 6px;">Atts</td><td style="padding:4px 6px;">Status</td><td style="padding:4px 6px;">When</td></tr>';
+    html += '<tr style="color:var(--text-muted);"><td style="padding:4px 6px;">Type</td><td style="padding:4px 6px;">IP</td><td style="padding:4px 6px;">Code</td><td style="padding:4px 6px;">Atts</td><td style="padding:4px 6px;">Status</td><td style="padding:4px 6px;">When</td><td></td></tr>';
     for (const r of data.records) {
       const when = r.secondsAgo < 60 ? r.secondsAgo + 's ago' : r.secondsAgo < 3600 ? Math.floor(r.secondsAgo/60) + 'm ago' : Math.floor(r.secondsAgo/3600) + 'h ago';
       const lockedIn = r.lockedUntil && r.lockedUntil > now ? Math.ceil((r.lockedUntil - now)/60) + 'm left' : '';
@@ -8853,6 +8857,11 @@ async function loadRateLimitActiveRecords() {
       html += '<td style="padding:4px 6px;">' + r.attempts + '</td>';
       html += '<td style="padding:4px 6px;color:' + statusColor[r.status] + ';">' + statusText + '</td>';
       html += '<td style="padding:4px 6px;color:var(--text-muted);">' + when + '</td>';
+      if (r.status === 'locked') {
+        html += '<td style="padding:4px 4px;"><button class="btn btn-sm btn-danger" style="font-size:10px;padding:2px 6px;" onclick="unlockRateLimit(\'' + escapeHtml(r.key.replace(/'/g, "\\'")) + '\')">✕</button></td>';
+      } else {
+        html += '<td style="padding:4px 4px;"></td>';
+      }
       html += '</tr>';
     }
     html += '</table>';
@@ -8860,6 +8869,23 @@ async function loadRateLimitActiveRecords() {
   } catch (e) {
     document.getElementById('rlActiveList').innerHTML = '<div style="font-size:12px;color:var(--danger);padding:8px;">load failed</div>';
   }
+}
+
+async function unlockRateLimit(key) {
+  try {
+    const res = await fetch(API + '/api/admin/rate-limits', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ key })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast('Unlocked: ' + key.split(':').slice(1).join(':'));
+      loadRateLimitActiveRecords();
+    } else {
+      showToast(data.error || 'Unlock failed', 'error');
+    }
+  } catch (e) { showToast('Unlock failed', 'error'); }
 }
 
 async function saveRateLimitConfig() {
@@ -12315,6 +12341,27 @@ async function doAddToVirtualFolder(folderId) {
       showToast(data.error || 'Failed', 'error');
     }
   } catch (e) { showToast('Failed to add file', 'error'); }
+}
+
+// Remove file from virtual folder (used in swipe actions inside VF view)
+async function removeFromVirtualFolder(filename) {
+  if (!currentVfFilter) return;
+  try {
+    const file = currentFiles.find(f => f.name === filename);
+    if (!file) { showToast('File not found', 'error'); return; }
+    const res = await fetch(API + '/api/virtual-folders/' + currentVfFilter + '/files/' + file.id, {
+      method: 'DELETE',
+      headers: { 'x-auth-token': AUTH_TOKEN || '' }
+    });
+    const data = await res.json();
+    if (data.success) {
+      showToast(T('vf.removedFrom').replace('{name}', ''));
+      // Refresh the VF view
+      await navigateToVf(currentVfFilter);
+    } else {
+      showToast(data.error || 'Failed', 'error');
+    }
+  } catch (e) { showToast('Failed to remove file', 'error'); }
 }
 
 // Notification badge for WS changes
