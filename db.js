@@ -2925,7 +2925,7 @@ module.exports = {
   // 审计
   addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV,
   // 速率限制
-  checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig,
+  checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig, listRateLimits,
   // 通知
   addNotification, getNotifications, getUnreadNotificationCount, markNotificationsRead, clearNotifications,
   // 搜索历史
