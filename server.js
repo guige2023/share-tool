@@ -667,6 +667,8 @@ const I18N = {
     'ui.shortcutSelectAll': 'A 全选/取消全选',
     'ui.shortcutStarFocused': 'S 收藏当前文件',
     'ui.shortcutGoRoot': 'G 回到根目录',
+    'ui.shortcutEnterFolder': 'L / → 进入文件夹',
+    'ui.shortcutGoBack': 'H / ← 返回上级',
     'ui.shortcutImageNav': '← → 图片左右切换',
     'ui.listView': '列表视图',
     'ui.gridView': '网格视图',
@@ -1221,6 +1223,8 @@ const I18N = {
     'ui.shortcutSelectAll': 'A Select all',
     'ui.shortcutStarFocused': 'S Star focused',
     'ui.shortcutGoRoot': 'G Go to root',
+    'ui.shortcutEnterFolder': 'L / → Enter folder',
+    'ui.shortcutGoBack': 'H / ← Go back',
     'ui.shortcutImageNav': '← → Image nav',
     'ui.listView': 'List view',
     'ui.gridView': 'Grid view',
@@ -5068,6 +5072,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <span class="shortcut-key">n</span><span class="shortcut-desc">' + T('ui.shortcutNewUpload') + '</span>
       <span class="shortcut-key">m</span><span class="shortcut-desc">' + T('ui.shortcutTextNote') + '</span>
       <span class="shortcut-key">g</span><span class="shortcut-desc">' + T('ui.shortcutGoRoot') + '</span>
+      <span class="shortcut-key">l / →</span><span class="shortcut-desc">' + T('ui.shortcutEnterFolder') + '</span>
+      <span class="shortcut-key">h / ←</span><span class="shortcut-desc">' + T('ui.shortcutGoBack') + '</span>
       <span class="shortcut-key">Delete</span><span class="shortcut-desc">' + T('ui.shortcutDeleteFocused') + '</span>
       <span class="shortcut-key">f</span><span class="shortcut-desc">' + T('ui.shortcutToggleFav') + '</span>
       <span class="shortcut-key">r</span><span class="shortcut-desc">' + T('ui.shortcutRefresh') + '</span>
@@ -9252,6 +9258,35 @@ document.addEventListener('keydown', (e) => {
         }
       }
     }
+  } else if (e.key === 'Enter' && focusedFileIndex >= 0) {
+    // Enter: open focused file
+    e.preventDefault();
+    const items = getVisibleFileItems();
+    if (items[focusedFileIndex]) {
+      const fn = items[focusedFileIndex].dataset.filename;
+      if (fn) openFileModal(decodeURIComponent(fn));
+    }
+  } else if ((e.key === 'l' || e.key === 'L' || e.key === 'ArrowRight') && focusedFileIndex >= 0) {
+    // l / ArrowRight: enter focused folder
+    e.preventDefault();
+    const items = getVisibleFileItems();
+    if (items[focusedFileIndex]) {
+      const fn = items[focusedFileIndex].dataset.filename;
+      if (fn) {
+        const name = decodeURIComponent(fn);
+        // Check if it's a folder by looking for '/' in name or by checking the icon
+        const iconEl = items[focusedFileIndex].querySelector('.file-type-icon');
+        if (iconEl && iconEl.textContent.includes('📁')) {
+          navigateFolder(name);
+        }
+      }
+    }
+  } else if ((e.key === 'h' || e.key === 'H' || e.key === 'ArrowLeft') && currentFolder !== null) {
+    // h / ArrowLeft: go back one level
+    e.preventDefault();
+    const parts = currentFolder.split('/');
+    parts.pop();
+    navigateFolder(parts.length === 0 ? null : parts.join('/'));
   } else if ((e.key === 'Delete' || e.key === 'Backspace') && focusedFileIndex >= 0) {
     // Delete: delete focused file (with confirmation)
     e.preventDefault();
