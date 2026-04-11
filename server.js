@@ -309,7 +309,11 @@ const I18N = {
     'share.editLink': '编辑分享链接',
     'share.leaveBlank': '留空则不修改密码',
     'share.deleted': '已删除',
+    'share.deletedLinks': '已删除 {n} 个链接',
     'share.deleteFailed': '删除失败:',
+    'share.deleteLinksFailed': '删除链接失败',
+    'share.renewed': '已续期 {n} 个链接',
+    'share.renewFailed': '续期失败',
     'share.neverExpire': '永不过期',
     'share.expired': '已过期',
     'share.daysLeft': '剩余',
@@ -386,6 +390,27 @@ const I18N = {
     'admin.updateFail': '更新失败',
     'admin.rateLimit': '暴力破解防护',
     'admin.rateLimitConfig': '配置',
+    'admin.rateLimitModal': '速率限制配置',
+    'admin.rateLimitTabConfig': '配置',
+    'admin.rateLimitTabActive': '活动记录',
+    'admin.rateLimitMaxAttempts': '最大尝试次数',
+    'admin.rateLimitWindow': '时间窗口（秒）',
+    'admin.rateLimitLockout': '锁定时长（秒）',
+    'admin.rateLimitEffectImmediately': '修改立即生效',
+    'admin.rateLimitActiveIp': 'IP',
+    'admin.rateLimitActiveCode': '分享码',
+    'admin.rateLimitActiveAttempts': '尝试次数',
+    'admin.rateLimitActiveUntil': '锁定至',
+    'admin.rateLimitActiveRetryAfter': '重试等待（秒）',
+    'admin.rateLimitNoRecords': '暂无活动记录',
+    'admin.rateLimitType': '类型',
+    'admin.rateLimitIp': 'IP',
+    'admin.rateLimitCode': '码',
+    'admin.rateLimitAtts': '次数',
+    'admin.rateLimitStatus': '状态',
+    'admin.rateLimitWhen': '时间',
+    'admin.rateLimitAgo': '前',
+    'admin.rateLimitLeft': '剩余',
     'admin.loaded': '加载中...',
     'admin.getFailed': '获取日志失败',
     'admin.exported': '审计日志已导出',
@@ -902,7 +927,11 @@ const I18N = {
     'share.editLink': 'Edit share link',
     'share.leaveBlank': 'Leave blank to keep current password',
     'share.deleted': '✓ Deleted',
+    'share.deletedLinks': '✓ Deleted {n} links',
     'share.deleteFailed': 'Delete failed',
+    'share.deleteLinksFailed': 'Failed to delete links',
+    'share.renewed': '✓ Renewed {n} links',
+    'share.renewFailed': 'Renew failed',
     'share.daysLeft': 'Remaining',
     'share.day': 'days',
     'share.unlimited': 'Unlimited',
@@ -976,6 +1005,27 @@ const I18N = {
     'admin.updateFail': 'Update failed',
     'admin.rateLimit': 'Brute-force protection',
     'admin.rateLimitConfig': 'Configure',
+    'admin.rateLimitModal': 'Rate Limit Config',
+    'admin.rateLimitTabConfig': 'Config',
+    'admin.rateLimitTabActive': 'Active Records',
+    'admin.rateLimitMaxAttempts': 'Max attempts',
+    'admin.rateLimitWindow': 'Window (seconds)',
+    'admin.rateLimitLockout': 'Lockout (seconds)',
+    'admin.rateLimitEffectImmediately': 'Changes take effect immediately',
+    'admin.rateLimitActiveIp': 'IP',
+    'admin.rateLimitActiveCode': 'Share code',
+    'admin.rateLimitActiveAttempts': 'Attempts',
+    'admin.rateLimitActiveUntil': 'Locked until',
+    'admin.rateLimitActiveRetryAfter': 'Retry after (seconds)',
+    'admin.rateLimitNoRecords': 'No active rate limit records',
+    'admin.rateLimitType': 'Type',
+    'admin.rateLimitIp': 'IP',
+    'admin.rateLimitCode': 'Code',
+    'admin.rateLimitAtts': 'Atts',
+    'admin.rateLimitStatus': 'Status',
+    'admin.rateLimitWhen': 'When',
+    'admin.rateLimitAgo': 'ago',
+    'admin.rateLimitLeft': 'left',
     'admin.loaded': 'Loading...',
     'admin.getFailed': 'Failed to get logs',
     'admin.exported': 'Audit log exported',
@@ -1040,6 +1090,8 @@ const I18N = {
     'tag.colorChanged': 'Color updated',
     'tag.batchColorChanged': 'Batch color updated for {n} tags',
     'tag.clickChangeColor': 'Click to change color',
+    'tag.enterColor': 'Enter color for "{tag}":',
+    'tag.enterEmoji': 'Enter emoji for "{tag}":',
     'tag.doubleClickRename': 'Double-click to rename',
     'tag.viewFiles': 'Click to view files with this tag',
     'tag.count': '',
@@ -1435,7 +1487,11 @@ const I18N = {
     'share.noExpired': 'No expired share links',
     'share.deletedExpired': 'expired links deleted',
     'share.deleted': '✓ Deleted',
+    'share.deletedLinks': '✓ Deleted {n} links',
     'share.deleteFailed': 'Delete failed',
+    'share.deleteLinksFailed': 'Failed to delete links',
+    'share.renewed': '✓ Renewed {n} links',
+    'share.renewFailed': 'Renew failed',
     'share.daysLeft': 'Remaining',
     'share.day': 'days',
     'share.unlimited': 'Unlimited',
@@ -1499,6 +1555,27 @@ const I18N = {
     'admin.updateFail': 'Update failed',
     'admin.rateLimit': 'Brute-force protection',
     'admin.rateLimitConfig': 'Configure',
+    'admin.rateLimitModal': 'Rate Limit Config',
+    'admin.rateLimitTabConfig': 'Config',
+    'admin.rateLimitTabActive': 'Active Records',
+    'admin.rateLimitMaxAttempts': 'Max attempts',
+    'admin.rateLimitWindow': 'Window (seconds)',
+    'admin.rateLimitLockout': 'Lockout (seconds)',
+    'admin.rateLimitEffectImmediately': 'Changes take effect immediately',
+    'admin.rateLimitActiveIp': 'IP',
+    'admin.rateLimitActiveCode': 'Share code',
+    'admin.rateLimitActiveAttempts': 'Attempts',
+    'admin.rateLimitActiveUntil': 'Locked until',
+    'admin.rateLimitActiveRetryAfter': 'Retry after (seconds)',
+    'admin.rateLimitNoRecords': 'No active rate limit records',
+    'admin.rateLimitType': 'Type',
+    'admin.rateLimitIp': 'IP',
+    'admin.rateLimitCode': 'Code',
+    'admin.rateLimitAtts': 'Atts',
+    'admin.rateLimitStatus': 'Status',
+    'admin.rateLimitWhen': 'When',
+    'admin.rateLimitAgo': 'ago',
+    'admin.rateLimitLeft': 'left',
     'admin.loaded': 'Loading...',
     'admin.getFailed': 'Failed to get logs',
     'admin.exported': 'Audit log exported',
@@ -1563,6 +1640,8 @@ const I18N = {
     'tag.colorChanged': 'Color updated',
     'tag.batchColorChanged': 'Batch color updated for {n} tags',
     'tag.clickChangeColor': 'Click to change color',
+    'tag.enterColor': 'Enter color for "{tag}":',
+    'tag.enterEmoji': 'Enter emoji for "{tag}":',
     'tag.doubleClickRename': 'Double-click to rename',
     'tag.viewFiles': 'Click to view files with this tag',
     'tag.count': '',
@@ -7653,7 +7732,7 @@ async function openArchiveModal(filename) {
     const res = await fetch(API + '/api/archive-list?filename=' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const result = await res.json();
     if (!result.success || !result.files) {
-      showToast(result.error || 'Failed to read archive'); return;
+      showToast(result.error || T('err.openArchiveFailed')); return;
     }
     const files = result.files.slice(0, 200);
     const total = result.total || files.length;
@@ -8231,7 +8310,7 @@ function hideTagsContextMenu() {
 }
 async function promptTagColor(tag) {
   const current = tagColors[tag] || '#667eea';
-  const input = prompt('Enter color for "' + tag + '":', current);
+  const input = prompt(T('tag.enterColor', { tag }), current);
   if (!input || input === current) return;
   try {
     await fetch(API + '/api/tags/color', {
@@ -8246,7 +8325,7 @@ async function promptTagColor(tag) {
   } catch(e) { showAlert('listAlert', T('err.failed') + ': ' + e.message, 'error'); }
 }
 async function promptTagEmoji(tag) {
-  const input = prompt('Enter emoji for "' + tag + '":', tagEmojis[tag] || '🏷');
+  const input = prompt(T('tag.enterEmoji', { tag }), tagEmojis[tag] || '🏷');
   if (!input || input === tagEmojis[tag]) return;
   try {
     await fetch(API + '/api/tags/emoji', {
@@ -8430,13 +8509,13 @@ async function confirmBatchExtendShare() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('已续期 ' + data.updated + ' 个链接');
+      showToast(T('share.renewed', {n: data.updated}));
       deselectAllShareLinks();
       showShareLinksModal();
     } else {
-      showToast('续期失败: ' + (data.error || ''), true);
+      showToast(T('share.renewFailed'), true);
     }
-  } catch (e) { showToast('续期失败: ' + e.message, true); }
+  } catch (e) { showToast(T('share.renewFailed'), true); }
 }
 
 async function batchDeleteShareLinks() {
@@ -8452,13 +8531,13 @@ async function batchDeleteShareLinks() {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('已删除 ' + data.deleted + ' 个链接');
+      showToast(T('share.deletedLinks', {n: data.deleted}));
       deselectAllShareLinks();
       showShareLinksModal();
     } else {
-      showToast('删除失败: ' + (data.error || ''), true);
+      showToast(T('share.deleteLinksFailed'), true);
     }
-  } catch (e) { showToast('删除失败: ' + e.message, true); }
+  } catch (e) { showToast(T('share.deleteLinksFailed'), true); }
 }
 
 function copyShareLinkOf(code, url) {
@@ -9021,19 +9100,19 @@ async function showRateLimitModal() {
     const c = data.config;
     var html = '<div style="display:flex;flex-direction:column;gap:16px;">';
     html += '<div style="display:flex;gap:8px;border-bottom:1px solid var(--border-color);padding-bottom:8px;">';
-    html += '<button class="btn btn-sm" id="rlTabConfig" onclick="switchRlTab(\'config\')">Config</button>';
-    html += '<button class="btn btn-sm" id="rlTabActive" onclick="switchRlTab(\'active\')">Active Records</button>';
+    html += '<button class="btn btn-sm" id="rlTabConfig" onclick="switchRlTab(\'config\')">' + T('admin.rateLimitTabConfig') + '</button>';
+    html += '<button class="btn btn-sm" id="rlTabActive" onclick="switchRlTab(\'active\')">' + T('admin.rateLimitTabActive') + '</button>';
     html += '</div>';
-    html += '<div id="rlContentConfig"><div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Max attempts</div>';
+    html += '<div id="rlContentConfig"><div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('admin.rateLimitMaxAttempts') + '</div>' +
     html += '<input type="number" id="rlMaxAttempts" value="' + c.maxAttempts + '" min="1" max="100" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
-    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Window (seconds)</div>';
+    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('admin.rateLimitWindow') + '</div>' +
     html += '<input type="number" id="rlWindow" value="' + c.windowSeconds + '" min="60" max="86400" step="60" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
-    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Lockout (seconds)</div>';
+    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('admin.rateLimitLockout') + '</div>' +
     html += '<input type="number" id="rlLockout" value="' + c.lockoutSeconds + '" min="30" max="86400" step="30" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
-    html += '<div style="font-size:11px;color:var(--text-muted);">Changes take effect immediately</div>';
-    html += '<button class="btn" onclick="saveRateLimitConfig()" style="width:100%;">Save</button></div>';
+    html += '<div style="font-size:11px;color:var(--text-muted);">' + T('admin.rateLimitEffectImmediately') + '</div>';
+    html += '<button class="btn" onclick="saveRateLimitConfig()" style="width:100%;">' + T('ui.save') + '</button></div>';
     html += '<div id="rlContentActive" style="display:none;"><div id="rlActiveList" style="max-height:300px;overflow-y:auto;"></div></div>';
-    openModal('Rate Limit Config', html, 'modal-small');
+    openModal(T('admin.rateLimitModal'), html, 'modal-small');
     // Load active records by default if any exist
     loadRateLimitActiveRecords();
   } catch (e) { showToast(T('toast.loadFailed'), 'error'); }
@@ -9053,17 +9132,17 @@ async function loadRateLimitActiveRecords() {
     const data = await res.json();
     const list = document.getElementById('rlActiveList');
     if (!data.success || !data.records || data.records.length === 0) {
-      list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">No active rate limit records</div>';
+      list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">' + T('admin.rateLimitNoRecords') + '</div>';
       return;
     }
     const statusColor = { locked: 'var(--danger)', expired: 'var(--text-muted)', warn: 'var(--warning)', active: 'var(--success)' };
     const now = Math.floor(Date.now() / 1000);
     let html = '<table style="width:100%;font-size:11px;border-collapse:collapse;">';
-    html += '<tr style="color:var(--text-muted);"><td style="padding:4px 6px;">Type</td><td style="padding:4px 6px;">IP</td><td style="padding:4px 6px;">Code</td><td style="padding:4px 6px;">Atts</td><td style="padding:4px 6px;">Status</td><td style="padding:4px 6px;">When</td><td></td></tr>';
+    html += '<tr style="color:var(--text-muted);"><td style="padding:4px 6px;">' + T('admin.rateLimitType') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitIp') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitCode') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitAtts') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitStatus') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitWhen') + '</td><td></td></tr>';
     for (const r of data.records) {
-      const when = r.secondsAgo < 60 ? r.secondsAgo + 's ago' : r.secondsAgo < 3600 ? Math.floor(r.secondsAgo/60) + 'm ago' : Math.floor(r.secondsAgo/3600) + 'h ago';
-      const lockedIn = r.lockedUntil && r.lockedUntil > now ? Math.ceil((r.lockedUntil - now)/60) + 'm left' : '';
-      const statusText = r.status === 'locked' ? '🔒' + lockedIn : r.status === 'expired' ? '✓ expired' : r.status === 'warn' ? '⚠' + r.remaining + ' left' : r.remaining + ' left';
+      const when = r.secondsAgo < 60 ? r.secondsAgo + 's ' + T('admin.rateLimitAgo') : r.secondsAgo < 3600 ? Math.floor(r.secondsAgo/60) + 'm ' + T('admin.rateLimitAgo') : Math.floor(r.secondsAgo/3600) + 'h ' + T('admin.rateLimitAgo');
+      const lockedIn = r.lockedUntil && r.lockedUntil > now ? Math.ceil((r.lockedUntil - now)/60) + 'm ' + T('admin.rateLimitLeft') : '';
+      const statusText = r.status === 'locked' ? '🔒' + lockedIn : r.status === 'expired' ? '✓ ' + T('admin.rateLimitLeft') : r.status === 'warn' ? '⚠' + r.remaining + ' ' + T('admin.rateLimitLeft') : r.remaining + ' ' + T('admin.rateLimitLeft');
       html += '<tr style="border-top:1px solid var(--border-color);">';
       html += '<td style="padding:4px 6px;color:var(--text-muted);">' + escapeHtml(r.type) + '</td>';
       html += '<td style="padding:4px 6px;font-family:monospace;">' + escapeHtml(r.ip || '--') + '</td>';
@@ -10880,9 +10959,9 @@ async function deleteFile(filename) {
       loadFiles();
       broadcastWs({ type: "file_delete", payload: { filename: decodeURIComponent(filename) } });
     } else {
-      showAlert("listAlert", "Delete failed", "error");
+      showAlert("listAlert", T('err.deleteFailed'), "error");
     }
-  } catch (e) { showAlert("listAlert", "Delete failed: " + e.message, "error"); }
+  } catch (e) { showAlert("listAlert", T('err.deleteFailed') + ': ' + e.message, "error"); }
 }
 
 async function renameFile(oldFilename) {
