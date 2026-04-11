@@ -6540,6 +6540,7 @@ function renderFiles() {
     return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" draggable="true" ondragstart="handleDragStart(event, this)" ondragover="handleDragOver(event, this)" ondrop="handleDrop(event, this)" ondragend="handleDragEnd(event, this)" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '" oncontextmenu="showFileContextMenu(event, \'' + encodeURIComponent(f.name) + '\')" style="' + typeBarStyle + '">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
         (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>' + T('file.addTag') + '</span></button>' : '') +
+        (!isVirtualFolder ? '<button class="swipe-btn" style="background:linear-gradient(135deg,#3b82f6,#2563eb);" onclick="event.preventDefault(); event.stopPropagation(); copyFileLink(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🔗</span><span>' + T('file.copyLink') + '</span></button>' : '') +
         (currentVfFilter !== null ? '<button class="swipe-btn" style="background:linear-gradient(135deg,#f97316,#ea580c);" onclick="event.preventDefault(); event.stopPropagation(); removeFromVirtualFolder(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">📤</span><span>' + T('vf.remove') + '</span></button>' : '') +
         '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>' + T('tag.delete') + '</span></button>' +
       '</div>' +
@@ -9943,6 +9944,13 @@ async function shareFile(filename) {
   document.getElementById('shareOptionsModal').classList.add('show');
 }
 
+function copyFileLink(filename) {
+  let fn = filename;
+  try { fn = decodeURIComponent(filename); } catch(e) {}
+  const url = window.location.origin + '/api/content/' + encodeURIComponent(fn) + '?auth=' + (AUTH_TOKEN || '');
+  navigator.clipboard.writeText(url).then(() => showToast('✓ ' + T('msg.linkCopied'))).catch(() => {});
+}
+
 async function doCreateShareLink() {
   const filename = document.getElementById('shareOptionsFilename').value;
   if (!filename) { showToast(T('msg.invalidFilename')); return; }
@@ -10951,8 +10959,8 @@ function showFileContextMenu(e, filename) {
   items.push({ icon: '✏️', label: T('file.rename'), action: "startInlineRenameFromCtx('" + encodeURIComponent(filename) + "')" });
   items.push({ divider: true });
   items.push({ icon: '⬇', label: T('file.download'), action: "downloadFile('" + encodeURIComponent(filename) + "')" });
-  items.push({ icon: '📄', label: T('file.copyFilename'), action: "navigator.clipboard.writeText('" + filename.replace(/'/g, "\\'") + "').then(()=>showToast('✓ ' + T('msg.copied'))).catch(()=>{})" });
-  items.push({ icon: '🔗', label: T('file.copyLink'), action: "navigator.clipboard.writeText(window.location.origin + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || '')).then(()=>showToast('✓ ' + T('msg.linkCopied'))).catch(()=>{})" });
+  items.push({ icon: '📋', label: T('file.copyFilename'), action: "navigator.clipboard.writeText('" + filename.replace(/'/g, "\\'") + "').then(()=>showToast('✓ ' + T('msg.copied'))).catch(()=>{})" });
+  items.push({ icon: '🔗', label: T('file.copyLink'), action: "copyFileLink('" + encodeURIComponent(filename) + "')" });
   items.push({ icon: '🗑', label: T('file.delete'), action: "deleteFile('" + encodeURIComponent(filename) + "')", danger: true });
 
   menu.innerHTML = items.map(item => {
