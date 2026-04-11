@@ -6210,6 +6210,7 @@ async function loadFiles(folder = null, starred = false) {
     const res = await fetch(API + '/api/list?sort=' + sortRaw + '&order=' + sortOrder + folderParam + starredParam, { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     currentFiles = data.files || [];
+    window.currentFilesBackup = [...currentFiles];
     // Apply custom drag-order if set
     const customOrder = getCustomFileOrder();
     if (Object.keys(customOrder).length > 0) {
@@ -9666,9 +9667,23 @@ document.querySelectorAll('.filter-tab').forEach(tab => {
     const prevFilter = currentFilter;
     currentFilter = filter;
     if (filter === 'starred') {
-      loadFiles(null, true).then(() => { currentFilter = 'all'; });
-    } else if (prevFilter === 'starred' || filter === 'all') {
-      // Switching away from starred or to all: reload all files
+      const prev = currentFilter; // remember what to go back to
+      loadFiles(null, true).then(() => { currentFilter = prev; });
+    } else if (filter === 'text' || filter === 'file') {
+      // Save base files and apply local type filter
+      if (!window._baseFiles || prevFilter === 'all' || prevFilter === 'starred') {
+        window._baseFiles = window.currentFilesBackup || [];
+      }
+      const base = window._baseFiles;
+      if (filter === 'text') {
+        window.currentFiles = base.filter(f => f.type === 'text');
+      } else if (filter === 'file') {
+        window.currentFiles = base.filter(f => f.type !== 'text');
+      }
+      renderFiles();
+    } else if (filter === 'all') {
+      window.currentFiles = window._baseFiles || [];
+      window._baseFiles = [];
       loadFiles(null, false);
     } else {
       renderFiles();
