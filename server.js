@@ -4468,7 +4468,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-wrapper">
     <div class="search-bar">
-      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="search" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}" onfocus="showSearchHint()" onblur="setTimeout(hideSearchHint,200)">
+      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="search" oninput="handleSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}" onfocus="showSearchHint()" onblur="setTimeout(hideSearchHint,200)">
       <button class="btn btn-sm" onclick="doSearch()">' + T('ui.search') + '</button>
       <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
       <span id="searchKbdHint" style="font-size:11px;color:var(--text-muted);padding:0 4px;opacity:0.6;">// · ⌘K</span>
@@ -6222,6 +6222,19 @@ function clearTagFilter() {
   }
   updateTagFilterBar();
   renderTagQuickBar();
+}
+
+// Debounced instant search on keystroke
+let _searchDebounceTimer = null;
+function handleSearchInput(value) {
+  clearTimeout(_searchDebounceTimer);
+  const q = value.trim();
+  if (!q) {
+    clearSearch();
+    return;
+  }
+  const delay = q.length < 2 ? 600 : 300;
+  _searchDebounceTimer = setTimeout(() => { doSearch(); }, delay);
 }
 
 window.currentTagMatch = localStorage.getItem('sharetool_tag_match') || 'all'; // 'all' or 'any'
@@ -9439,6 +9452,7 @@ function doSearch() {
 }
 
 function clearSearch() {
+  clearTimeout(_searchDebounceTimer);
   document.getElementById('searchInput').value = '';
   window.currentSearchQ = '';
   window.isSearchMode = false;
