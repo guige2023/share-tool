@@ -377,6 +377,8 @@ async function main() {
     console.log('  trash [list|restore <id>|delete <id>|empty]  Manage trash');
     console.log('  share-list     List all active share links');
     console.log('  share-delete <code>  Delete a share link');
+    console.log('  share-extend <code> [hours]  Extend expiry (default 168h)');
+    console.log('  share-password <code> [pwd]  Set/remove password');
     console.log('  diff <filename> [v1] [v2]  Compare file versions');
     console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
@@ -1347,6 +1349,41 @@ async function main() {
           process.exit(1);
         }
         console.log('Deleted share link: ' + code);
+        break;
+      }
+
+      case 'share-extend': {
+        // share-tool share-extend <code> [hours] — extend expiration (default: 168h = 7 days)
+        const code = args[0];
+        const hours = parseInt(args[1]) || 168;
+        if (!code) {
+          printError('Usage: share-tool share-extend <code> [hours]');
+          process.exit(1);
+        }
+        const res = await request('PUT', '/api/share/batch', { codes: [code], expiryHours: hours });
+        if (res.status >= 400) {
+          printError('Extend failed: ' + (res.data?.error || res.status));
+          process.exit(1);
+        }
+        const newExp = new Date(Date.now() + hours * 3600000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+        console.log('Extended: ' + code + ' → expires ' + newExp);
+        break;
+      }
+
+      case 'share-password': {
+        // share-tool share-password <code> [password] — set password (omit password to remove)
+        const code = args[0];
+        const password = args[1]; // undefined means remove
+        if (!code) {
+          printError('Usage: share-tool share-password <code> [password]');
+          process.exit(1);
+        }
+        const res = await request('PUT', '/api/share/batch', { codes: [code], password: password || null });
+        if (res.status >= 400) {
+          printError('Set password failed: ' + (res.data?.error || res.status));
+          process.exit(1);
+        }
+        console.log(password ? 'Password set for: ' + code : 'Password removed for: ' + code);
         break;
       }
 
