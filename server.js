@@ -1008,6 +1008,7 @@ const I18N = {
     'err.genFailed': 'Generation failed',
     'err.reqFailed': 'Request failed',
     'err.notFound': 'Not found',
+    'err.unauthorized': 'Unauthorized',
     'err.browserNotSupport': 'Your browser does not support',
     'err.getLinkFailed': 'Failed to get share link',
 
@@ -1528,6 +1529,7 @@ const I18N = {
     'err.genFailed': 'Generation failed',
     'err.reqFailed': 'Request failed',
     'err.notFound': 'Not found',
+    'err.unauthorized': 'Unauthorized',
     'err.browserNotSupport': 'Your browser does not support',
     'err.getLinkFailed': 'Failed to get share link',
 
@@ -2351,7 +2353,7 @@ function authRequired(req, res) {
   const authData = auth(req);
   if (!authData) {
     db.addAuditLog('auth_failed', `IP: ${clientIp}`, clientIp);
-    sendJson(res, { success: false, error: 'Unauthorized' }, 401);
+    sendJson(res, { success: false, error: T('err.unauthorized') }, 401);
     return null;
   }
   return authData;
@@ -2929,7 +2931,7 @@ self.addEventListener('fetch', (event) => {
       if (shareRoutes(req, res, pathname, query, routeCtx)) return;
 
       // 未知路由
-      sendJson(res, { success: false, error: 'Not found' }, 404);
+      sendJson(res, { success: false, error: T('err.notFound') }, 404);
 
     } catch (e) {
       // Log full error, return safe message to client
