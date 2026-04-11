@@ -1,28 +1,27 @@
 /**
  * ShareTool DB Layer Tests
- * Tests core database functions in isolation
+ * Tests core database functions in isolation using an in-memory SQLite database.
  */
 
 const path = require('path');
-const os = require('os');
 
 describe('DB Layer', () => {
   let db;
-  let testDbPath;
 
   beforeAll(() => {
-    // Use in-memory database for tests
-    process.env.SHARETOOL_DB_PATH = ':memory:';
-    // Reset module to get fresh state
+    // Create in-memory database for all tests
+    const Database = require('better-sqlite3');
+    const mockDb = new Database(':memory:');
+    jest.doMock('better-sqlite3', () => mockDb);
     jest.resetModules();
     db = require('../db.js');
     db.initDatabase();
   });
 
   afterAll(() => {
-    // Clean up test db file if it exists
-    if (testDbPath) {
-      try { require('fs').unlinkSync(testDbPath); } catch (e) {}
+    // Close in-memory database
+    if (db && db.getDb) {
+      try { db.getDb().close(); } catch (e) {}
     }
   });
 

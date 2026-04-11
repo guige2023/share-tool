@@ -382,6 +382,9 @@ async function main() {
     console.log('  share-delete <code>  Delete a share link');
     console.log('  share-extend <code> [hours]  Extend expiry (default 168h)');
     console.log('  share-password <code> [pwd]  Set/remove password');
+    console.log('  share-info <code>  Show share link details');
+    console.log('  top [n]         Show largest files (default: 10)');
+    console.log('  duplicates [delete <id>|keep <id> <file>]  List/delete duplicate files');
     console.log('  diff <filename> [v1] [v2]  Compare file versions');
     console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
@@ -1475,12 +1478,57 @@ async function main() {
       }
 
       case 'duplicates': {
+        const subCmd = args[1];
         const res = await request('GET', '/api/duplicates');
         if (res.status >= 400) {
           printError(`Server error: ${res.status}`);
           process.exit(1);
         }
         const { count, duplicates } = res.data;
+
+        if (subCmd === 'delete') {
+          // share-tool duplicates delete <groupId>
+          const groupId = parseInt(args[2]);
+          if (isNaN(groupId) || groupId < 1 || groupId > duplicates.length) {
+            printError(`Invalid group ID. Choose 1-${duplicates.length}`);
+            process.exit(1);
+          }
+          const group = duplicates[groupId - 1];
+          // Keep the first file, delete the rest
+          const toDelete = group.files.slice(1);
+          let deleted = 0;
+          for (const f of toDelete) {
+            const delRes = await request('DELETE', `/api/file/${encodeURIComponent(f.filename)}`);
+            if (delRes.status < 400) deleted++;
+          }
+          console.log(`Deleted ${deleted} of ${toDelete.length} duplicate file(s) from group ${groupId} (kept: ${group.files[0].filename})`);
+          break;
+        }
+
+        if (subCmd === 'keep') {
+          // share-tool duplicates keep <groupId> <filenameToKeep>
+          const groupId = parseInt(args[2]);
+          const filenameToKeep = args[3];
+          if (isNaN(groupId) || groupId < 1 || groupId > duplicates.length) {
+            printError(`Invalid group ID. Choose 1-${duplicates.length}`);
+            process.exit(1);
+          }
+          if (!filenameToKeep) {
+            printError('Usage: share-tool duplicates keep <groupId> <filename>');
+            process.exit(1);
+          }
+          const group = duplicates[groupId - 1];
+          const toDelete = group.files.filter(f => f.filename !== filenameToKeep);
+          let deleted = 0;
+          for (const f of toDelete) {
+            const delRes = await request('DELETE', `/api/file/${encodeURIComponent(f.filename)}`);
+            if (delRes.status < 400) deleted++;
+          }
+          console.log(`Deleted ${deleted} duplicate(s), kept: ${filenameToKeep}`);
+          break;
+        }
+
+        // Default: list duplicates
         if (count === 0) {
           console.log('No duplicate files found.');
           break;
@@ -1494,6 +1542,74 @@ async function main() {
             console.log(`  - ${f.filename}  ${size.padStart(10)}  ${date}`);
           });
           console.log('');
+        });
+        console.log('Tip: share-tool duplicates delete <groupId>  # keep first, delete rest');
+        console.log('     share-tool duplicates keep <groupId> <filename>  # keep specific file');
+        break;
+      }
+
+      case 'share-info': {
+        // share-tool share-info <code>
+        const code = args[1];
+        if (!code) {
+          printError('Usage: share-tool share-info <code>');
+          process.exit(1);
+        }
+        const res = await request('GET', `/api/share/${code}`);
+        if (res.status === 404) {
+          printError('Share link not found or expired');
+          process.exit(1);
+        }
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          process.exit(1);
+        }
+        const d = res.data;
+        const url = getServerUrl().replace(/\/+$/, '') + '/s/' + code;
+        console.log('Share Link Info:');
+        console.log('  URL:      ' + url);
+        console.log('  Code:     ' + code);
+        console.log('  File:     ' + (d.filename || d.file?.filename || 'unknown'));
+        if (d.hasPassword) console.log('  Password: yes');
+        if (d.expiresAt) {
+          const expDate = new Date(d.expiresAt * 1000);
+          const remaining = Math.max(0, expDate - Date.now());
+          const hours = Math.floor(remaining / 3600000);
+          console.log(`  Expires:  ${expDate.toLocaleString()} (${hours}h remaining)`);
+        } else {
+          console.log('  Expires:  never');
+        }
+        if (d.maxDownloads) {
+          console.log(`  Max downloads: ${d.downloads || 0} / ${d.maxDownloads}`);
+        } else {
+          console.log('  Max downloads: unlimited');
+        }
+        if (d.downloads > 0) console.log('  Total downloads: ' + d.downloads);
+        break;
+      }
+
+      case 'top': {
+        // share-tool top [n] — show largest files
+        const limit = parseInt(args[1]) || 10;
+        const res = await request('GET', `/api/files?sort=size&limit=${limit}`);
+        if (res.status >= 400) {
+          printError(`Server error: ${res.status}`);
+          process.exit(1);
+        }
+        const files = res.data.files || [];
+        if (files.length === 0) {
+          console.log('No files found.');
+          break;
+        }
+        const maxSize = Math.max(...files.map(f => f.size || 0));
+        console.log(`Top ${files.length} largest files:\n`);
+        files.forEach((f, i) => {
+          const size = f.size || 0;
+          const barLen = maxSize > 0 ? Math.round((size / maxSize) * 20) : 0;
+          const bar = '█'.repeat(barLen) + '░'.repeat(20 - barLen);
+          const sizeStr = formatSize(size).padStart(10);
+          const date = f.updated_at ? new Date(f.updated_at * 1000).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '';
+          console.log(`  ${String(i + 1).padStart(2)}. ${sizeStr}  ${bar}  ${f.filename}  ${date}`);
         });
         break;
       }
