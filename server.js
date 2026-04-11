@@ -5145,6 +5145,7 @@ let currentView = localStorage.getItem('sharetool_view') || 'list';
 const PAGE_SIZE = 20;
 let showFavoritesOnly = false;
 let focusedFileIndex = -1;   // keyboard-navigated file focus
+let _lastShiftSelectedIndex = -1;  // for Shift+Click range selection
 const lastSyncTs = parseInt(localStorage.getItem('sharetool_last_sync') || '0');
 const offlineQueue = JSON.parse(localStorage.getItem('sharetool_offline_queue') || '[]');
 // 启动时迁移 localStorage 旧数据到 IndexedDB
@@ -6335,7 +6336,7 @@ function renderFiles() {
         '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>' + T('tag.delete') + '</span></button>' +
       '</div>' +
       '<div style="margin-right: 12px; display:flex; align-items:center;">' +
-        (!isVirtualFolder ? '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" onchange="updateBatchBar()" style="width: 18px; height: 18px; cursor: pointer;">' : '<span style="font-size:20px;">📁</span>') +
+        (!isVirtualFolder ? '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" onclick="handleBatchCheckboxClick(event, this)" style="width: 18px; height: 18px; cursor: pointer;">' : '<span style="font-size:20px;">📁</span>') +
       '</div>' +
       '<div class="file-content">' +
         (isVirtualFolder
@@ -8101,7 +8102,7 @@ async function confirmBatchExtendShare() {
 async function batchDeleteShareLinks() {
   const checked = document.querySelectorAll('.share-link-checkbox:checked');
   if (checked.length === 0) return;
-  if (!confirm('确认删除选中的 ' + checked.length + ' 个分享链接？')) return;
+  if (!confirm(T('share.confirmDeleteN', {n: checked.length}))) return;
   const codes = Array.from(checked).map(cb => cb.value);
   try {
     const res = await fetch(API + '/api/share/batch', {
@@ -8821,6 +8822,11 @@ document.addEventListener('keydown', (e) => {
       e.target.blur();
     }
     return;
+  } else if (e.key === '/' || e.key === 'Slash') {
+    // /: focus search input
+    e.preventDefault();
+    const si = document.getElementById('searchInput');
+    if (si) { si.focus(); si.select(); }
   } else if (e.key === 'f' || e.key === 'F') {
     e.preventDefault();
     toggleFavFilter();
@@ -10564,6 +10570,29 @@ async function deleteAll() {
 
 function toggleSelectAll(checked) {
   document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = checked);
+  updateBatchBar();
+}
+
+function handleBatchCheckboxClick(event, checkbox) {
+  // Shift+Click: range select
+  if (event.shiftKey && _lastShiftSelectedIndex >= 0) {
+    event.stopPropagation();
+    const items = Array.from(document.querySelectorAll('.file-item[data-filename]'));
+    const clickedIdx = items.findIndex(item =>
+      item.querySelector('.batch-checkbox') === checkbox
+    );
+    if (clickedIdx >= 0) {
+      const start = Math.min(_lastShiftSelectedIndex, clickedIdx);
+      const end = Math.max(_lastShiftSelectedIndex, clickedIdx);
+      for (let i = start; i <= end; i++) {
+        const cb = items[i]?.querySelector('.batch-checkbox');
+        if (cb) cb.checked = true;
+      }
+    }
+  }
+  _lastShiftSelectedIndex = Array.from(document.querySelectorAll('.file-item[data-filename]')).findIndex(item =>
+    item.querySelector('.batch-checkbox') === checkbox
+  );
   updateBatchBar();
 }
 
