@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/skip2/go-qrcode"
 )
 
 //go:embed all:web
@@ -160,6 +162,23 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		default:
 			http.Error(w, "Method Not Allowed", 405)
 		}
+	})
+
+	// QR Code endpoint - generates PNG QR code for the given URL
+	mux.HandleFunc("/api/qr", func(w http.ResponseWriter, r *http.Request) {
+		urlStr := r.URL.Query().Get("url")
+		if urlStr == "" {
+			http.Error(w, `{"error":"missing url parameter"}`, 400)
+			return
+		}
+		png, err := qrcode.Encode(urlStr, qrcode.Medium, 256)
+		if err != nil {
+			http.Error(w, `{"error":"failed to generate QR code"}`, 500)
+			return
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.Header().Set("Cache-Control", "public, max-age=300")
+		w.Write(png)
 	})
 
 	// AI Integration endpoints
