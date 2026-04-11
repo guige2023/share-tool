@@ -332,10 +332,7 @@ const I18N = {
     'admin.configSaved': '配置已保存',
     'admin.saveFailed': '保存失败:',
     'admin.saveReqFailed': '保存请求失败',
-  function toggleSelectAll(checked) {
-  document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = checked);
-  updateBatchBar();
- '(无)',
+    'admin.none': '(无)',
     'admin.tokenUpdated': 'Token 更新成功',
     'admin.updateFailed': '更新失败:',
     'admin.updateFail': '更新失败',
@@ -385,7 +382,7 @@ const I18N = {
     'tag.colorChanged': '颜色已更新',
     'tag.batchColorChanged': '已更新 {n} 个标签颜色',
     'tag.clickChangeColor': '点击修改颜色',
-    'tag.changeColor': '批量改颜色',
+    'tag.changeColor': '修改颜色',
     'tag.selected': '已选择',
     'tag.confirmBatchDelete': '确认删除这 {n} 个标签？',
     'tag.batchDeleted': '已删除 {n} 个标签',
@@ -398,6 +395,12 @@ const I18N = {
     'tag.inputHint': '输入标签，多个用逗号分隔',
     'tag.color': '颜色',
     'tag.renamePrompt': '将标签 "{old}" 重命名为：',
+
+    'tag.colorHint': '输入十六进制颜色，如 #667eea',
+    'tag.invalidColor': '无效的颜色格式，请输入 #RRGGBB',
+    'file.moveTo': '移动文件到',
+    'file.moveHint': '输入目标文件夹前缀（如 backup/）',
+    'ui.moving': '移动中',
     'tag.renameSuccess': '已重命名，更新了 {n} 个文件',
     'tag.renameFailed': '重命名失败',
     'tag.confirmDelete': '确定删除标签 "{name}"？将从所有文件中移除。',
@@ -519,8 +522,6 @@ const I18N = {
     'file.share': '分享',
     'tag.add': '添加标签',
     'media.playMedia': '媒体预览',
-    'media.viewCsv': '查看 CSV',
-    'media.viewArchive': '查看压缩包',
     'fileInfo.openVersions': '查看历史',
     'ui.copyLink': '复制链接',
     'ui.qrCode': '二维码',
@@ -617,6 +618,8 @@ const I18N = {
     'ui.sortMostDownloaded': '下载最多',
     'ui.sortLeastDownloaded': '下载最少',
     'ui.sortManual': '手动',
+    'ui.sortRecent': '最近使用',
+    'ui.sortOldest': '最早使用',
     'ui.sortRelevance': '相关度',
     'ui.allFiles': '所有文件',
     'ui.trash': '回收站',
@@ -1060,8 +1063,6 @@ const I18N = {
     'file.share': 'Share',
     'tag.add': 'Add Tag',
     'media.playMedia': 'Media Preview',
-    'media.viewCsv': 'View CSV',
-    'media.viewArchive': 'View Archive',
     'fileInfo.openVersions': 'View History',
     'ui.confirmDelete': 'Confirm delete',
     'ui.copyLink': 'Copy Link',
@@ -1158,6 +1159,8 @@ const I18N = {
     'ui.sortMostDownloaded': 'Most downloaded',
     'ui.sortLeastDownloaded': 'Least downloaded',
     'ui.sortManual': 'Manual',
+    'ui.sortRecent': 'Recently used',
+    'ui.sortOldest': 'Oldest used',
     'ui.sortRelevance': 'Relevance',
     'ui.allFiles': 'All files',
     'ui.trash': 'Trash',
@@ -1396,6 +1399,12 @@ const I18N = {
     'tag.clickChangeColor': 'Click to change color',
     'tag.doubleClickRename': 'Double-click to rename',
     'tag.viewFiles': 'Click to view files with this tag',
+
+    'tag.colorHint': 'Enter hex color, e.g. #667eea',
+    'tag.invalidColor': 'Invalid color format. Use #RRGGBB',
+    'file.moveTo': 'Move files to',
+    'file.moveHint': 'Enter destination folder prefix (e.g. backup/)',
+    'ui.moving': 'Moving',
     'tag.count': '',
     'tag.iconChanged': 'Icon updated',
     'tag.changeIcon': 'Change icon',
@@ -4982,6 +4991,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <option value="name_asc">' + T('ui.sortTagAZ') + '</option>
         <option value="name_desc">' + T('ui.sortTagZA') + '</option>
         <option value="color">' + T('ui.sortByColor') + '</option>
+        <option value="last_used_desc">' + T('ui.sortRecent') + '</option>
+        <option value="last_used_asc">' + T('ui.sortOldest') + '</option>
       </select>
       <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;" id="tagManagerCount"></div>
       <button class="btn btn-sm" onclick="toggleSelectAllTags()" id="selectAllTagsBtn" style="font-size:11px;padding:4px 8px;min-height:32px;">☑ ' + T('tag.selectAll') + '</button>
@@ -5114,6 +5125,48 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <div style="display:flex;gap:8px;">
         <button class="btn" style="flex:1;" onclick="confirmEmojiChange()">' + T('ui.save') + '</button>
         <button class="btn btn-secondary" style="flex:1;" onclick="closeEmojiModal()">' + T('ui.cancel') + '</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Color Input Modal (mobile-friendly alternative to prompt()) -->
+<div class="modal-overlay" id="colorInputModal" onclick="if(event.target===this)closeColorInputModal()">
+  <div class="modal-content" style="max-width:360px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">🎨 <span id="colorInputModalTitle">' + T('tag.changeColor') + '</span></div>
+      <button class="modal-close" onclick="closeColorInputModal()">x</button>
+    </div>
+    <div style="padding:12px 0;">
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;" id="colorInputTagName"></div>
+      <div id="colorInputPresets" style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:16px;"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;">
+        <div id="colorInputPreview" style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border-color);flex-shrink:0;"></div>
+        <input type="text" id="colorInputHex" placeholder="#667eea" value="#667eea" style="flex:1;padding:10px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" oninput="onColorInputHexChange(this.value)">
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;">' + T('tag.colorHint') + '</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" style="flex:1;" onclick="confirmColorInput()">' + T('ui.save') + '</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeColorInputModal()">' + T('ui.cancel') + '</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Batch Move Modal (mobile-friendly alternative to prompt) -->
+<div class="modal-overlay" id="batchMoveModal" onclick="if(event.target===this)closeBatchMoveModal()">
+  <div class="modal-content" style="max-width:420px;max-height:80vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">📁 <span id="batchMoveModalTitle">' + T('file.moveTo') + '</span></div>
+      <button class="modal-close" onclick="closeBatchMoveModal()">x</button>
+    </div>
+    <div style="padding:12px 0;">
+      <div style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;" id="batchMoveFileCount"></div>
+      <input type="text" id="batchMoveDestInput" placeholder="' + T('file.inputFolderPrefix') + '" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmBatchMove()}">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + T('file.moveHint') + '</div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn" style="flex:1;" onclick="confirmBatchMove()">' + T('ui.confirm') + '</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeBatchMoveModal()">' + T('ui.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -6971,13 +7024,12 @@ function showContextMenu(filename, el) {
       { label: '✏️ ' + T('ui.edit'), action: "openTextEditor('" + encodeURIComponent(filename) + "'); hideContextMenu()" }
     ] : []),
     ...(isAudio ? [{ label: '🎵 ' + T('media.playAudio'), action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
-    ...(isVideo ? [{ label: '🎬 ' + T('media.playMedia'), action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isVideo ? [{ label: '🎬 ' + 'Play Video', action: "openMediaModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
     ...(isPdf ? [{ label: '📕 ' + T('media.viewPdf'), action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" }] : []),
-    ...(isCsv ? [{ label: '📊 ' + T('media.viewCsv'), action: "openCsvModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
-    ...(isArchive ? [{ label: '📦 ' + T('media.viewArchive'), action: "openArchiveModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isCsv ? [{ label: '📊 ' + 'View CSV', action: "openCsvModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
+    ...(isArchive ? [{ label: '📦 ' + 'View Archive', action: "openArchiveModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" }] : []),
     { sep: true },
     { label: '🔗 ' + T('file.copyLink'), action: "copyText(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || '')); hideContextMenu()" },
-    { label: '📋 ' + T('file.copyFilename'), action: "copyText(decodeURIComponent('" + encodeURIComponent(filename) + "')); hideContextMenu()" },
     { label: '↗️ ' + T('file.openNewTab'), action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" },
     { label: '⭐ ' + T('fav.favorite'), action: "toggleStar('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
     { label: '✏️ ' + T('file.rename'), action: "startInlineRename(null, '" + encodeURIComponent(filename) + "'); hideContextMenu()" },
@@ -7656,6 +7708,30 @@ function renderFileInfoContent(meta) {
 }
 
 // Escape key closes topmost modal
+
+// Inline prompt() replacement — mobile-friendly modal input
+function inlinePrompt(message, defaultValue) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;';
+    overlay.innerHTML = `
+      <div style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:24px;max-width:400px;width:100%;box-sizing:border-box;">
+        <div style="font-size:14px;color:var(--text-secondary);margin-bottom:12px;">` + message + `</div>
+        <input type="text" id="_inlinePromptInput" value="` + defaultValue + `" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;margin-bottom:16px;" onkeydown="if(event.key==='Enter'){document.body.removeChild(this.closest('.modal-overlay'));resolve(document.getElementById('_inlinePromptInput').value)}if(event.key==='Escape'){document.body.removeChild(this.closest('.modal-overlay'));resolve(null)}">
+        <div style="display:flex;gap:8px;">
+          <button id="_inlinePromptCancel" style="flex:1;padding:12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;cursor:pointer;">` + T('ui.cancel') + `</button>
+          <button id="_inlinePromptOk" style="flex:1;padding:12px;background:var(--accent-primary);border:none;border-radius:8px;color:white;font-size:16px;cursor:pointer;">` + T('ui.confirm') + `</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.getElementById('_inlinePromptInput').focus();
+    document.getElementById('_inlinePromptInput').select();
+    document.getElementById('_inlinePromptOk').onclick = () => { const v = document.getElementById('_inlinePromptInput').value; document.body.removeChild(overlay); resolve(v); };
+    document.getElementById('_inlinePromptCancel').onclick = () => { document.body.removeChild(overlay); resolve(null); };
+    overlay.onclick = e => { if (e.target === overlay) { document.body.removeChild(overlay); resolve(null); } };
+  });
+}
 document.addEventListener('keydown', function(e) {
   if (e.key !== 'Escape') return;
   // Close modals in reverse z-index order (most recently opened first)
@@ -7907,34 +7983,10 @@ function hideTagsContextMenu() {
   _tagsCtxTag = null;
 }
 async function promptTagColor(tag) {
-  const current = tagColors[tag] || '#667eea';
-  const input = prompt('Enter color for "' + tag + '":', current);
-  if (!input || input === current) return;
-  try {
-    await fetch(API + '/api/tags/color', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ tag, color: input })
-    });
-    tagColors[tag] = input;
-    renderFiles();
-    // Refresh tags modal if open
-    if (document.getElementById('tagsModal').classList.contains('show')) showTagsModal();
-  } catch(e) { showAlert('listAlert', 'Failed: ' + e.message, 'error'); }
+  showColorInputModal(tag);
 }
 async function promptTagEmoji(tag) {
-  const input = prompt('Enter emoji for "' + tag + '":', tagEmojis[tag] || '🏷');
-  if (!input || input === tagEmojis[tag]) return;
-  try {
-    await fetch(API + '/api/tags/emoji', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ tag, emoji: input })
-    });
-    tagEmojis[tag] = input;
-    renderFiles();
-    if (document.getElementById('tagsModal').classList.contains('show')) showTagsModal();
-  } catch(e) { showAlert('listAlert', 'Failed: ' + e.message, 'error'); }
+  openEmojiModal(tag);
 }
 
 function showBackupModal() {
@@ -10586,6 +10638,9 @@ async function deleteAll() {
   } catch (e) { showAlert('listAlert', '删除失败: ' + e.message, 'error'); }
 }
 
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = checked);
+  updateBatchBar();
 }
 
 function handleBatchCheckboxClick(event, checkbox) {
@@ -11396,6 +11451,8 @@ function applyTagManagerFilter() {
     if (_tagManagerSortOrder === 'name_asc') return a.tag.localeCompare(b.tag);
     if (_tagManagerSortOrder === 'name_desc') return b.tag.localeCompare(a.tag);
     if (_tagManagerSortOrder === 'color') return (a.color || '#667eea').localeCompare(b.color || '#667eea');
+    if (_tagManagerSortOrder === 'last_used_desc') return (b.last_used || 0) - (a.last_used || 0);
+    if (_tagManagerSortOrder === 'last_used_asc') return (a.last_used || 0) - (b.last_used || 0);
     // count_desc (default)
     return (b.count || 0) - (a.count || 0);
   });
@@ -11444,7 +11501,7 @@ function renderTagManagerItems(tags) {
 }
 
 async function renameTag(oldTag) {
-  const newTag = prompt(T('tag.renamePrompt', null, {old: oldTag}), oldTag);
+  const newTag = await inlinePrompt(T('tag.renamePrompt', null, {old: oldTag}), oldTag);
   if (!newTag || newTag === oldTag) return;
   // 冲突检测：检查目标标签名是否已存在
   const tagData = _tagManagerData.find(t => t.tag === newTag);
@@ -11567,6 +11624,109 @@ async function confirmEmojiChange() {
 
 // expose changeTagEmoji for inline onclick
 window.changeTagEmoji = openEmojiModal;
+
+// ---- Color Input Modal ----
+const COLOR_PRESETS = ['#ef4444','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#8b5cf6','#ec4899','#6b7280','#1e293b','#667eea','#0ea5e9'];
+let _colorInputTag = null;
+
+function showColorInputModal(tag) {
+  _colorInputTag = tag;
+  const current = tagColors[tag] || '#667eea';
+  document.getElementById('colorInputTagName').textContent = tag;
+  document.getElementById('colorInputHex').value = current;
+  document.getElementById('colorInputPreview').style.background = current;
+  document.getElementById('colorInputPresets').innerHTML = COLOR_PRESETS.map(c =>
+    '<div onclick="selectColorPreset(\'' + c + '\')" style="width:36px;height:36px;border-radius:8px;background:' + c + ';cursor:pointer;border:2px solid ' + (c===current?'white':'transparent') + ';box-shadow:0 0 0 1px rgba(0,0,0,0.1);"></div>'
+  ).join('');
+  lockScroll();
+  document.getElementById('colorInputModal').classList.add('show');
+  document.getElementById('colorInputHex').focus();
+}
+window.showColorInputModal = showColorInputModal;
+
+function selectColorPreset(color) {
+  document.getElementById('colorInputHex').value = color;
+  document.getElementById('colorInputPreview').style.background = color;
+  document.querySelectorAll('#colorInputPresets div').forEach(el => {
+    el.style.borderColor = el.getAttribute('data-color') === color ? 'white' : 'transparent';
+  });
+}
+window.selectColorPreset = selectColorPreset;
+
+function onColorInputHexChange(val) {
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    document.getElementById('colorInputPreview').style.background = val;
+  }
+}
+window.onColorInputHexChange = onColorInputHexChange;
+
+function closeColorInputModal() {
+  document.getElementById('colorInputModal').classList.remove('show');
+  unlockScroll();
+  _colorInputTag = null;
+}
+
+async function confirmColorInput() {
+  if (!_colorInputTag) return;
+  const color = document.getElementById('colorInputHex').value.trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(color)) { showToast(T('tag.invalidColor')); return; }
+  const tag = _colorInputTag;
+  closeColorInputModal();
+  try {
+    await fetch(API + '/api/tags/color', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ tag, color })
+    });
+    tagColors[tag] = color;
+    renderFiles();
+    if (document.getElementById('tagsModal').classList.contains('show')) showTagsModal();
+    if (document.getElementById('tagManagerPanel')) showTagManager();
+  } catch(e) { showToast('Failed: ' + e.message, 'error'); }
+}
+window.confirmColorInput = confirmColorInput;
+
+// ---- Batch Move Modal ----
+function showBatchMoveModal() {
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  if (checked.length === 0) return;
+  document.getElementById('batchMoveFileCount').textContent = T('ui.selectedN', null, {n: checked.length});
+  document.getElementById('batchMoveDestInput').value = '';
+  lockScroll();
+  document.getElementById('batchMoveModal').classList.add('show');
+  document.getElementById('batchMoveDestInput').focus();
+}
+window.showBatchMoveModal = showBatchMoveModal;
+
+function closeBatchMoveModal() {
+  document.getElementById('batchMoveModal').classList.remove('show');
+  unlockScroll();
+}
+
+async function confirmBatchMove() {
+  const destPrefix = document.getElementById('batchMoveDestInput').value.trim();
+  if (!destPrefix) return;
+  closeBatchMoveModal();
+  const checked = document.querySelectorAll('.batch-checkbox:checked');
+  const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
+  setBatchOperation(T('ui.moving') + '...');
+  try {
+    const res = await fetch(API + '/api/file/batch-move', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ filenames, destFolder: destPrefix })
+    });
+    const data = await res.json();
+    if (data.success) {
+      endBatchOperation(T('msg.movedTo', null, {n: filenames.length, dest: destPrefix}), () => { clearBatch(); loadFiles(); });
+    } else {
+      endBatchOperation(T('msg.moveFailedN', null, {n: 0, m: filenames.length}) + ': ' + data.error, () => clearBatch());
+    }
+  } catch (e) {
+    endBatchOperation(T('err.move') + ': ' + e.message, () => clearBatch());
+  }
+}
+window.confirmBatchMove = confirmBatchMove;
 
 async function batchAddTag() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
