@@ -798,6 +798,7 @@ const I18N = {
     'ui.tryOtherKeywords': '试试其他关键词或清除筛选',
     'ui.shortcuts': '快捷键',
     'ui.menu': '菜单',
+    'csv.showingRows': '显示 {current} / {total} 行',
     'ui.shortcutHelp': '? 查看快捷键',
     'ui.shortcutNewUpload': 'N 上传文件',
     'ui.shortcutSearch': '/ 搜索',
@@ -1401,6 +1402,7 @@ const I18N = {
     'ui.trashNoItems': 'Trash is empty',
     'ui.shortcuts': 'Shortcuts',
     'ui.menu': 'Menu',
+    'csv.showingRows': 'Showing {current} / {total} rows',
     'ui.shortcutHelp': '? View shortcuts',
     'ui.shortcutNewUpload': 'N Upload file',
     'ui.shortcutSearch': '/ Search',
@@ -4484,11 +4486,11 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   h1 { font-size: 20px; }
   .subtitle { display: none; }
   .section-title { font-size: 14px; }
-  .search-bar input { font-size: 15px; }
+  .search-bar input { font-size: 16px; }
   .search-suggestion { min-height: 44px; padding: 8px 14px; }
   .fab { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; font-size: 18px; }
   .fab-menu { bottom: max(80px, calc(80px + env(safe-area-inset-bottom))); right: 12px; }
-  .share-link-box input { font-size: 12px; }
+  .share-link-box input { font-size: 16px; }
   .toast { font-size: 12px; padding: 8px 16px; }
   .notif-badge { width: 16px; height: 16px; font-size: 10px; top: 8px; right: 8px; }
   .conn-status { font-size: 10px; }
@@ -4731,7 +4733,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <p class="subtitle">' + T('ui.heroTitle').replace('文件/文字', ' / ') + '</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button id="menuToggle" onclick="toggleMobileMenu()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;line-height:1;touch-action:manipulation;-webkit-tap-highlight-color:transparent;" title="Menu">☰</button>
+        <button id="menuToggle" onclick="toggleMobileMenu()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;line-height:1;touch-action:manipulation;-webkit-tap-highlight-color:transparent;" title="' + T('ui.menu') + '">☰</button>
         <button id="notifBell" onclick="toggleNotifPanel()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--text-primary);font-size:18px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative;" title="' + T('ui.notifications') + '">🔔</button>
         <div class="notif-badge" id="notifBadge"></div>
         <button id="themeToggle" onclick="toggleThemeDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px; touch-action: manipulation; -webkit-tap-highlight-color: transparent;" title="' + T('ui.toggleTheme') + '">🌙</button>
@@ -4854,8 +4856,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   <div class="card">
     <div class="section-title">🔗 ' + T('ui.remoteUpload') + '</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="text" id="remoteUrlInput" placeholder="https://example.com/file.zip" style="flex:1;min-width:200px;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">
-      <input type="text" id="remoteFilenameInput" placeholder="保存为（可选）" style="width:160px;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">
+      <input type="text" id="remoteUrlInput" placeholder="https://example.com/file.zip" style="flex:1;min-width:200px;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:16px;box-sizing:border-box;">
+      <input type="text" id="remoteFilenameInput" placeholder="保存为（可选）" style="width:160px;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:16px;box-sizing:border-box;">
       <button class="btn btn-sm" onclick="doRemoteUpload()">⬇️ ' + T('ui.download') + '</button>
     </div>
     <div id="remoteUploadStatus" style="font-size:12px;margin-top:6px;min-height:18px;"></div>
@@ -5204,7 +5206,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div style="padding:8px 0;">
       <div style="margin-bottom:12px;">
         <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.name') + '</label>
-        <input type="text" id="requestLinkName" placeholder="文件收集" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
+        <input type="text" id="requestLinkName" placeholder="文件收集" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="margin-bottom:12px;display:flex;gap:8px;">
         <div style="flex:1;">
@@ -5219,12 +5221,12 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         </div>
         <div style="flex:1;">
           <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.maxUploads') + '</label>
-          <input type="number" id="requestLinkMaxUploads" placeholder="' + T('request.unlimited') + '" min="1" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
+          <input type="number" id="requestLinkMaxUploads" placeholder="' + T('request.unlimited') + '" min="1" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
         </div>
       </div>
       <div style="margin-bottom:12px;">
         <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.password') + '</label>
-        <input type="password" id="requestLinkPassword" placeholder="（可选）" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
+        <input type="password" id="requestLinkPassword" placeholder="（可选）" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="display:flex;gap:8px;">
         <button class="btn" onclick="doCreateRequestLink()" style="flex:1;">' + T('request.create') + '</button>
@@ -5549,10 +5551,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <div id="vfCreateForm" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg-tertiary);border-radius:8px;">
       <div style="margin-bottom:8px;">
-        <input type="text" id="vfNameInput" placeholder="' + T('vf.folderName') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;">
+        <input type="text" id="vfNameInput" placeholder="' + T('vf.folderName') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:16px;">
       </div>
       <div style="margin-bottom:8px;">
-        <input type="text" id="vfDescInput" placeholder="' + T('vf.description') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;">
+        <input type="text" id="vfDescInput" placeholder="' + T('vf.description') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:16px;">
       </div>
       <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
         <span style="font-size:12px;color:var(--text-muted);">' + T('vf.color') + ':</span>
@@ -12443,31 +12445,31 @@ function showBatchRenameModal() {
       '</div>' +
       '<div id="brReplaceFields">' +
         '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">查找</label>' +
-        '<input id="brFind" type="text" placeholder="要替换的文本" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+        '<input id="brFind" type="text" placeholder="要替换的文本" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:16px;box-sizing:border-box;">' +
         '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;margin-top:8px;">替换为</label>' +
-        '<input id="brReplace" type="text" placeholder="替换为（留空则删除）" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+        '<input id="brReplace" type="text" placeholder="替换为（留空则删除）" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:16px;box-sizing:border-box;">' +
       '</div>' +
       '<div id="brPrefixSuffixField" style="display:none;">' +
         '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">文本</label>' +
-        '<input id="brText" type="text" placeholder="输入前缀或后缀" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+        '<input id="brText" type="text" placeholder="输入前缀或后缀" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:16px;box-sizing:border-box;">' +
       '</div>' +
       '<div id="brSeqField" style="display:none;">' +
         '<div style="display:flex;gap:8px;margin-bottom:4px;">' +
           '<div style="flex:1;">' +
             '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">前缀</label>' +
-            '<input id="brSeqPrefix" type="text" placeholder="文件名前缀" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+            '<input id="brSeqPrefix" type="text" placeholder="文件名前缀" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:16px;box-sizing:border-box;">' +
           '</div>' +
           '<div style="width:100px;">' +
             '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">起始号</label>' +
-            '<input id="brSeqStart" type="number" value="1" min="0" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+            '<input id="brSeqStart" type="number" value="1" min="0" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:16px;box-sizing:border-box;">' +
           '</div>' +
           '<div style="width:80px;">' +
             '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;">位数</label>' +
-            '<input id="brSeqPad" type="number" value="3" min="1" max="6" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+            '<input id="brSeqPad" type="number" value="3" min="1" max="6" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:16px;box-sizing:border-box;">' +
           '</div>' +
         '</div>' +
         '<label style="font-size:13px;color:var(--text-muted);display:block;margin-bottom:4px;margin-top:4px;">后缀（留空保留原扩展名）</label>' +
-        '<input id="brSeqSuffix" type="text" placeholder="如 .txt 或 _备注" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">' +
+        '<input id="brSeqSuffix" type="text" placeholder="如 .txt 或 _备注" oninput="updateBatchRenamePreview()" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:16px;box-sizing:border-box;">' +
       '</div>' +
       '<div id="brPreviewArea" style="background:var(--bg-tertiary);border-radius:8px;padding:12px;max-height:200px;overflow:auto;">' +
         '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">预览（前5个）</div>' +
@@ -13782,7 +13784,7 @@ window.addEventListener('DOMContentLoaded', updateFabVisibility);
 <div id="mobileMenuOverlay" class="modal-overlay" style="display:none;z-index:500;" onclick="if(event.target===this)toggleMobileMenu()">
   <div id="mobileMenuDrawer" style="position:fixed;bottom:0;left:0;right:0;background:var(--bg-secondary);border-radius:16px 16px 0 0;padding:24px 20px;padding-bottom:max(24px,env(safe-area-inset-bottom));max-height:70vh;overflow-y:auto;transform:translateY(100%);transition:transform 0.3s ease;z-index:501;" onclick="event.stopPropagation()">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <span style="font-size:16px;font-weight:600;">Menu</span>
+      <span style="font-size:16px;font-weight:600;">' + T('ui.menu') + '</span>
       <button onclick="toggleMobileMenu()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);padding:4px;">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px;">
@@ -13819,23 +13821,20 @@ if (scrollBtn) {
 function sendHtml(res, html = HTML_PAGE, statusCode = 200) {
   // 动态渲染 T() 调用
   if (html && typeof html === 'string') {
-    // 替换 ' + T('key') + ' 模式
-    html = html.replace(/' \+ T\('([^']+)'\) \+ '/g, function(m, key) {
+    // 简单 T() 调用: ' + T('key') + '
+    html = html.replace(/' + T\('([^']+)'\) + '/g, (m, key) => {
       try { return T(key); } catch(e) { return m; }
     });
-    // 替换 " + T("key") + " 模式
-    html = html.replace(/" \\+ T\("([^"]+)"\) \+ "/g, function(m, key) {
+    // 双引号版本
+    html = html.replace(/" + T\("([^"]+)"\) + "/g, (m, key) => {
       try { return T(key); } catch(e) { return m; }
     });
-    // 替换带 .replace() 的链式调用
-    html = html.replace(/' \\+ (T\('[^']+'\)\.replace\([^)]+\)) \+ '/g, function(m, expr) {
-      try { 
-        if (/^T('[^']+').replace(.*)$/.test(expr)) {
-          return eval(expr);
-        }
-        return m; 
-      } catch(e) { return m; }
-    });
+    // 链式 .replace() 调用
+    html = html.replace(/' + T\('([^']+)'\)\.replace\('([^']+)', '([^']+)'\) + '/g, 
+      (m, key, from, to) => {
+        try { return T(key).replace(from, to); } catch(e) { return m; }
+      }
+    );
   }
   res.writeHead(statusCode, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(html);
