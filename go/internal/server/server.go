@@ -50,6 +50,20 @@ func SetupRouter(sharedDir string) *http.ServeMux {
 		_ = path // unused, kept for clarity
 	})
 
+	// Peers API
+	mux.HandleFunc("/api/peers", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handlePeersList(w, r)
+		case http.MethodPost:
+			handlePeersRegister(w, r)
+		case http.MethodDelete:
+			handlePeersRemove(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
 	// Serve embedded web UI
 	webRoot, _ := fs.Sub(webAssets, "web")
 	mux.Handle("/", http.FileServer(http.FS(webRoot)))

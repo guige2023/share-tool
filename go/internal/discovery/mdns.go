@@ -1,85 +1,251 @@
 package discovery
 
 import (
-	"bytes"
 	"encoding/binary"
+	"fmt"
 	"log"
 	"net"
+	"os"
+	"strings"
+	"sync"
 	"time"
 )
 
-// GetLocalIP returns the primary LAN IPv4 address of this machine
+// Peer represents a discovered sharetool instance
+type Peer struct {
+	Name      string // hostname
+	IP        string
+	Port      int
+	LastSeen  time.Time
+}
+
+// PeerCallback is called when a new peer is discovered or goes away
+type PeerCallback func(peer Peer)
+
+// Discovery handles mDNS-based peer discovery
+type Discovery struct {
+	iface     *net.Interface
+	conn      *net.UDPConn
+	peers     map[string]Peer
+	mu        sync.RWMutex
+	callback  PeerCallback
+	stopCh    chan struct{}
+	localPort int
+	localName string
+}
+
+// New creates a new Discovery instance for the given local port
+func New(localPort int) (*Discovery, error) {
+	iface, err := defaultInterface()
+	if err != nil {
+		return nil, fmt.Errorf("no suitable network interface: %v", err)
+	}
+	return &Discovery{
+		iface:     iface,
+		peers:     make(map[string]Peer),
+		localPort: localPort,
+		localName: hostname(),
+		stopCh:    make(chan struct{}),
+	}, nil
+}
+
+// Start begins mDNS discovery - both broadcasting and listening
+func (d *Discovery) Start(callback PeerCallback) error {
+	d.callback = callback
+
+	// Bind to mDNS multicast address 224.0.0.251:5353
+	addr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}
+	conn, err := net.ListenMulticastUDP("udp4", d.iface, addr)
+	if err != nil {
+		return fmt.Errorf("listen multicast UDP: %v", err)
+	}
+	d.conn = conn
+
+	// Set read deadline to avoid blocking forever
+	d.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+
+	log.Printf("[mDNS] Listening on %s", d.iface.Name)
+
+	// Send initial query
+	go d.broadcastLoop()
+	go d.listenLoop()
+
+	return nil
+}
+
+// Stop shuts down discovery
+func (d *Discovery) Stop() {
+	close(d.stopCh)
+	if d.conn != nil {
+		d.conn.Close()
+	}
+}
+
+// Peers returns current list of discovered peers
+func (d *Discovery) Peers() []Peer {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	var peers []Peer
+	for _, p := range d.peers {
+		peers = append(peers, p)
+	}
+	return peers
+}
+
+func (d *Discovery) broadcastLoop() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	// Send initial probe
+	d.sendQuery()
+
+	for {
+		select {
+		case <-ticker.C:
+			d.sendQuery()
+		case <-d.stopCh:
+			return
+		}
+	}
+}
+
+func (d *Discovery) listenLoop() {
+	buf := make([]byte, 65536)
+	for {
+		select {
+		case <-d.stopCh:
+			return
+		default:
+			d.conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+			n, src, err := d.conn.ReadFromUDP(buf)
+			if err != nil {
+				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+					continue
+				}
+				continue
+			}
+			d.handlePacket(buf[:n], src)
+		}
+	}
+}
+
+func (d *Discovery) sendQuery() {
+	query := buildMdnsQuery("_sharetool._tcp.local.")
+
+	addr := &net.UDPAddr{IP: net.IPv4(224, 0, 0, 251), Port: 5353}
+	_, err := d.conn.WriteToUDP(query, addr)
+	if err != nil {
+		log.Printf("[mDNS] Query send failed: %v", err)
+	}
+}
+
+func (d *Discovery) handlePacket(buf []byte, src *net.UDPAddr) {
+	// Skip if too short (min mDNS header is 12 bytes)
+	if len(buf) < 12 {
+		return
+	}
+
+	// Parse mDNS header
+	// Transaction ID (2), Flags (2), QDCOUNT (2), ANCOUNT (2), NSCOUNT (2), ARCOUNT (2)
+	flags := binary.BigEndian.Uint16(buf[2:4])
+	ancount := binary.BigEndian.Uint16(buf[6:8])
+
+	// We only care about response packets (flags & 0x8000 != 0)
+	if flags&0x8000 == 0 || ancount == 0 {
+		return
+	}
+
+	// Skip header (12 bytes) and parse question section to find answer
+	// For a simple implementation, just record the source as a peer
+	peer := Peer{
+		Name:     src.IP.String(),
+		IP:       src.IP.String(),
+		Port:     d.localPort,
+		LastSeen: time.Now(),
+	}
+
+	d.mu.Lock()
+	key := src.IP.String()
+	if _, exists := d.peers[key]; !exists && d.callback != nil {
+		log.Printf("[mDNS] Discovered peer: %s", key)
+	}
+	d.peers[key] = peer
+	d.mu.Unlock()
+}
+
+// GetLocalIP returns the best LAN IP for this machine
 func GetLocalIP() string {
-	intfs, err := net.Interfaces()
+	iface, err := defaultInterface()
 	if err != nil {
 		return "unknown"
 	}
-	for _, intf := range intfs {
-		if intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagLoopback == 0 {
-			continue
-		}
-		addrs, err := intf.Addrs()
-		if err != nil {
-			continue
-		}
-		for _, addr := range addrs {
-			ipnet, ok := addr.(*net.IPNet)
-			if !ok {
-				continue
-			}
-			ip := ipnet.IP.To4()
-			if ip != nil && !ip.IsLoopback() {
-				return ip.String()
+	addrs, _ := iface.Addrs()
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok {
+			if ip4 := ipnet.IP.To4(); ip4 != nil && !ip4.IsLoopback() {
+				return ip4.String()
 			}
 		}
 	}
 	return "unknown"
 }
 
-// Start broadcasts sharetool presence via mDNS (UDP port 5353)
-func Start(port int) error {
-	addr, err := net.ResolveUDPAddr("udp4", "255.255.255.255:5353")
+func defaultInterface() (*net.Interface, error) {
+	intfs, err := net.Interfaces()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	conn, err := net.ListenUDP("udp4", &net.UDPAddr{Port: 5353})
-	if err != nil {
-		return err
+	for _, intf := range intfs {
+		if intf.Flags&net.FlagUp == 0 || intf.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		if intf.Flags&net.FlagMulticast == 0 {
+			continue
+		}
+		addrs, _ := intf.Addrs()
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok {
+				if ip4 := ipnet.IP.To4(); ip4 != nil && !ip4.IsLoopback() {
+					return &intf, nil
+				}
+			}
+		}
 	}
-	defer conn.Close()
-
-	conn.SetWriteBuffer(1024)
-
-	msg := buildMdnsQuery(port)
-	conn.SetDeadline(time.Now().Add(3 * time.Second))
-	_, err = conn.WriteToUDP(msg, addr)
-	if err != nil {
-		return err
-	}
-	log.Printf("[mDNS] Announced sharetool on port %d", port)
-	return nil
+	return nil, fmt.Errorf("no suitable interface")
 }
 
-// buildMdnsQuery builds a minimal mDNS service browsing query
-func buildMdnsQuery(port int) []byte {
-	var buf bytes.Buffer
-	binary.Write(&buf, binary.BigEndian, uint16(0))     // Transaction ID
-	binary.Write(&buf, binary.BigEndian, uint16(0x8000)) // Flags: query, recursion desired
-	binary.Write(&buf, binary.BigEndian, uint16(1))      // QDCOUNT: 1 question
-	binary.Write(&buf, binary.BigEndian, uint16(0))     // ANCOUNT
-	binary.Write(&buf, binary.BigEndian, uint16(0))     // NSCOUNT
-	binary.Write(&buf, binary.BigEndian, uint16(0))     // ARCOUNT
-
-	// Question: _sharetool._tcp.local. PTR
-	labels := []string{"_sharetool", "_tcp", "local"}
-	for _, label := range labels {
-		buf.WriteByte(byte(len(label)))
-		buf.WriteString(label)
+func hostname() string {
+	h, _ := os.Hostname()
+	if h == "" {
+		h = "unknown"
 	}
-	buf.WriteByte(0) // end of name
-	binary.Write(&buf, binary.BigEndian, uint16(12))  // QTYPE: PTR
-	binary.Write(&buf, binary.BigEndian, uint16(1))   // QCLASS: IN
+	// Trim domain part if present
+	if idx := strings.Index(h, "."); idx != -1 {
+		h = h[:idx]
+	}
+	return h
+}
 
-	log.Printf("[mDNS] Broadcasting: sharetool._tcp.local:%d", port)
-	return buf.Bytes()
+func buildMdnsQuery(name string) []byte {
+	// Build proper mDNS query packet
+	buf := make([]byte, 0, 64)
+
+	// mDNS header (12 bytes)
+	buf = append(buf, 0, 0)           // Transaction ID (0)
+	buf = append(buf, 0, 0)           // Flags: standard query (0)
+	buf = append(buf, 0, 1)           // QDCOUNT = 1
+	buf = append(buf, 0, 0)           // ANCOUNT = 0
+	buf = append(buf, 0, 0)           // NSCOUNT = 0
+	buf = append(buf, 0, 0)           // ARCOUNT = 0
+
+	// Question section
+	for _, label := range strings.Split(name, ".") {
+		buf = append(buf, byte(len(label)))
+		buf = append(buf, label...)
+	}
+	buf = append(buf, 0)    // null terminator
+	buf = append(buf, 0, 12) // QTYPE: PTR
+	buf = append(buf, 0, 1)  // QCLASS: IN
+
+	return buf
 }

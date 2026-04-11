@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ShareTool</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -21,34 +21,73 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 header h1 { font-size: 18px; font-weight: 600; }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 header .ip {
-  font-size: 13px;
+  font-size: 12px;
   color: #a1a1a6;
   background: #2c2c2e;
   padding: 4px 10px;
   border-radius: 12px;
 }
 
+/* Tab Navigation */
+.tabs {
+  display: flex;
+  background: #fff;
+  border-bottom: 1px solid #e5e5ea;
+  position: sticky;
+  top: 52px;
+  z-index: 99;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px 8px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  color: #86868b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .2s;
+}
+
+.tab.active {
+  color: #0071e3;
+  border-bottom-color: #0071e3;
+}
+
 .container {
   max-width: 800px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 16px;
 }
+
+.panel { display: none; }
+.panel.active { display: block; }
 
 /* Text Section */
 .text-section {
   background: #fff;
   border-radius: 12px;
   padding: 16px;
-  margin-bottom: 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 
 .text-section h2 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #86868b;
   margin-bottom: 12px;
@@ -64,23 +103,26 @@ header .ip {
 
 .text-row input {
   flex: 1;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border: 1px solid #d2d2d7;
-  border-radius: 8px;
-  font-size: 15px;
+  border-radius: 10px;
+  font-size: 16px;
   outline: none;
+  min-height: 48px;
 }
 
 .text-row input:focus { border-color: #0071e3; }
 
 .text-row button {
-  padding: 10px 20px;
+  padding: 12px 20px;
   background: #0071e3;
   color: #fff;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 15px;
+  font-weight: 500;
   cursor: pointer;
+  min-height: 48px;
 }
 
 .text-row button:active { background: #005bb5; }
@@ -89,21 +131,24 @@ header .ip {
   font-size: 13px;
   color: #86868b;
   min-height: 20px;
+  padding: 8px 12px;
+  background: #f5f5f7;
+  border-radius: 8px;
+  word-break: break-all;
 }
-
-.text-latest strong { color: #1d1d1f; }
 
 /* Upload Section */
 .upload-section {
   background: #fff;
   border-radius: 12px;
   padding: 16px;
-  margin-bottom: 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
 
-.upload-section h2 {
-  font-size: 14px;
+.upload-section h2,
+.file-section h2,
+.devices-section h2 {
+  font-size: 13px;
   font-weight: 600;
   color: #86868b;
   margin-bottom: 12px;
@@ -112,8 +157,8 @@ header .ip {
 
 .drop-zone {
   border: 2px dashed #d2d2d7;
-  border-radius: 10px;
-  padding: 32px;
+  border-radius: 12px;
+  padding: 40px 20px;
   text-align: center;
   cursor: pointer;
   transition: border-color .2s, background .2s;
@@ -126,15 +171,17 @@ header .ip {
   background: rgba(0,113,227,.04);
 }
 
-.drop-zone p { color: #86868b; font-size: 14px; }
-.drop-zone .hint { font-size: 12px; margin-top: 4px; }
+.drop-zone p { color: #86868b; font-size: 15px; }
+.drop-zone .hint { font-size: 12px; margin-top: 6px; }
+
+.drop-icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+}
 
 #fileInput { display: none; }
 
-.progress-wrap {
-  display: none;
-  margin-bottom: 12px;
-}
+.progress-wrap { display: none; margin-bottom: 12px; }
 
 .progress-bar-bg {
   background: #e5e5ea;
@@ -144,17 +191,27 @@ header .ip {
 }
 
 .progress-bar-fill {
-  background: #0071e3;
+  background: linear-gradient(90deg, #0071e3, #5ac8fa);
   height: 100%;
   width: 0%;
-  transition: width .2s;
+  transition: width .3s ease;
+  border-radius: 4px;
 }
 
 .progress-text {
   font-size: 12px;
   color: #86868b;
   margin-top: 4px;
+  text-align: center;
 }
+
+.upload-status {
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.upload-status .ok { color: #34c759; }
+.upload-status .err { color: #ff3b30; }
 
 /* File List */
 .file-section {
@@ -171,20 +228,14 @@ header .ip {
   margin-bottom: 12px;
 }
 
-.file-section h2 {
-  font-size: 14px;
-  font-weight: 600;
-  color: #86868b;
-  text-transform: uppercase;
-}
-
 .file-section .refresh-btn {
   background: none;
   border: 1px solid #d2d2d7;
-  border-radius: 6px;
-  padding: 4px 12px;
+  border-radius: 8px;
+  padding: 6px 14px;
   font-size: 13px;
   cursor: pointer;
+  color: #0071e3;
 }
 
 .file-table {
@@ -194,10 +245,11 @@ header .ip {
 
 .file-table th {
   text-align: left;
-  font-size: 12px;
+  font-size: 11px;
   color: #86868b;
-  padding: 8px 4px;
+  padding: 6px 4px;
   border-bottom: 1px solid #e5e5ea;
+  text-transform: uppercase;
 }
 
 .file-table td {
@@ -208,15 +260,18 @@ header .ip {
 
 .file-table tr:last-child td { border-bottom: none; }
 
-.file-name { font-weight: 500; }
+.file-name { font-weight: 500; word-break: break-all; }
 .file-meta { color: #86868b; font-size: 12px; margin-top: 2px; }
 .file-actions { display: flex; gap: 6px; justify-content: flex-end; }
 
+.file-actions a { text-decoration: none; }
+
 .file-actions button {
-  padding: 4px 10px;
+  padding: 5px 12px;
   border: none;
   border-radius: 6px;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -239,12 +294,81 @@ header .ip {
   font-size: 14px;
 }
 
+/* Devices Section */
+.devices-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+.device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.device-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f5f5f7;
+  border-radius: 10px;
+}
+
+.device-icon {
+  width: 40px;
+  height: 40px;
+  background: #0071e3;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.device-icon.computer { background: #0071e3; }
+.device-icon.phone { background: #34c759; }
+.device-icon.tablet { background: #ff9500; }
+
+.device-info { flex: 1; min-width: 0; }
+.device-name { font-weight: 600; font-size: 14px; }
+.device-addr { font-size: 12px; color: #86868b; margin-top: 2px; }
+.device-time { font-size: 11px; color: #aeaeb2; margin-top: 2px; }
+
+.device-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34c759;
+  flex-shrink: 0;
+}
+
+.device-status.offline { background: #ff3b30; }
+
+.add-device-btn {
+  width: 100%;
+  padding: 14px;
+  border: 2px dashed #d2d2d7;
+  border-radius: 10px;
+  background: none;
+  color: #86868b;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.add-device-btn:hover { border-color: #0071e3; color: #0071e3; }
+
 /* Mobile */
 @media (max-width: 600px) {
   .container { padding: 12px; }
   .file-actions { flex-wrap: wrap; }
   .file-table th:nth-child(2),
   .file-table td:nth-child(2) { display: none; }
+  .drop-zone { padding: 30px 16px; }
 }
 </style>
 </head>
@@ -252,49 +376,85 @@ header .ip {
 
 <header>
   <h1>ShareTool</h1>
-  <span class="ip" id="serverInfo">--</span>
+  <div class="header-right">
+    <span class="ip" id="serverInfo">--</span>
+  </div>
 </header>
 
+<!-- Tab Navigation -->
+<div class="tabs">
+  <div class="tab active" data-tab="files">📁 文件</div>
+  <div class="tab" data-tab="text">📝 剪贴板</div>
+  <div class="tab" data-tab="devices">💻 设备</div>
+</div>
+
 <div class="container">
-  <!-- Text Clipboard -->
-  <div class="text-section">
-    <h2>剪贴板</h2>
-    <div class="text-row">
-      <input id="textInput" placeholder="输入文本分享到局域网..." />
-      <button onclick="sendText()">发送</button>
-    </div>
-    <div class="text-latest" id="textLatest">等待接收文本...</div>
-  </div>
-
-  <!-- Upload -->
-  <div class="upload-section">
-    <h2>文件上传</h2>
-    <div class="drop-zone" id="dropZone"
-         onclick="document.getElementById('fileInput').click()">
-      <p>点击选择文件 / 拖拽文件到此处</p>
-      <p class="hint">支持多文件上传，大文件自动分片断点续传</p>
-    </div>
-    <input type="file" id="fileInput" multiple />
-    <div class="progress-wrap" id="progressWrap">
-      <div class="progress-bar-bg">
-        <div class="progress-bar-fill" id="progressFill"></div>
+  <!-- Files Tab -->
+  <div class="panel active" id="panel-files">
+    <!-- Upload -->
+    <div class="upload-section" style="margin-top:16px;">
+      <div class="drop-zone" id="dropZone"
+           onclick="document.getElementById('fileInput').click()">
+        <div class="drop-icon">📤</div>
+        <p>点击选择文件 / 拖拽文件到此处</p>
+        <p class="hint">支持大文件分片断点续传</p>
       </div>
-      <div class="progress-text" id="progressText">0%</div>
+      <input type="file" id="fileInput" multiple />
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">0%</div>
+      </div>
+      <div class="upload-status" id="uploadStatus"></div>
     </div>
-    <div id="uploadStatus"></div>
+
+    <!-- File List -->
+    <div class="file-section" style="margin-top:16px;">
+      <div class="header">
+        <h2>文件列表</h2>
+        <button class="refresh-btn" onclick="loadFiles()">刷新</button>
+      </div>
+      <div id="fileList"></div>
+    </div>
   </div>
 
-  <!-- File List -->
-  <div class="file-section">
-    <div class="header">
-      <h2>文件列表</h2>
-      <button class="refresh-btn" onclick="loadFiles()">刷新</button>
+  <!-- Text Tab -->
+  <div class="panel" id="panel-text">
+    <div class="text-section" style="margin-top:16px;">
+      <h2>发送文本</h2>
+      <div class="text-row">
+        <input id="textInput" placeholder="输入文本，发送给局域网内所有设备..." />
+        <button onclick="sendText()">发送</button>
+      </div>
+      <div class="text-latest" id="textLatest">等待接收文本...</div>
     </div>
-    <div id="fileList"></div>
+  </div>
+
+  <!-- Devices Tab -->
+  <div class="panel" id="panel-devices">
+    <div class="devices-section" style="margin-top:16px;">
+      <h2>局域网设备</h2>
+      <div class="device-list" id="deviceList">
+        <div class="empty-state">正在搜索设备...</div>
+      </div>
+      <button class="add-device-btn" onclick="showAddDevice()">+ 添加设备</button>
+    </div>
   </div>
 </div>
 
 <script>
+// Tab navigation
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'devices') loadDevices();
+  });
+});
+
 const API = {
   base: '',
   async request(url, opts) {
@@ -333,6 +493,16 @@ const API = {
   },
   deleteFile(name) {
     return this.request('/api/files/' + encodeURIComponent(name), {method: 'DELETE'});
+  },
+  listPeers() {
+    return this.request('/api/peers');
+  },
+  registerPeer(ip, port) {
+    return this.request('/api/peers', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name: deviceName(), ip, port})
+    });
   }
 };
 
@@ -343,6 +513,10 @@ const API = {
   API.base = proto + '//' + location.hostname + ':' + port;
   document.getElementById('serverInfo').textContent = location.host;
 })();
+
+function deviceName() {
+  return navigator.platform || 'Unknown';
+}
 
 // Text
 async function sendText() {
@@ -381,16 +555,10 @@ const fileInput = document.getElementById('fileInput');
 const CHUNK = 2 * 1024 * 1024; // 2MB chunks
 
 ['dragenter','dragover'].forEach(ev => {
-  dropZone.addEventListener(ev, e => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-  });
+  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
 });
 ['dragleave','drop'].forEach(ev => {
-  dropZone.addEventListener(ev, e => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-  });
+  dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); });
 });
 
 dropZone.addEventListener('drop', e => {
@@ -413,9 +581,9 @@ async function uploadFiles() {
     progressWrap.style.display = 'block';
     try {
       await uploadFile(file, file.name, file.size);
-      status.innerHTML += '<p style="color:green;font-size:13px">✓ ' + escHtml(file.name) + ' 上传完成</p>';
+      status.innerHTML += '<p class="ok">✓ ' + escHtml(file.name) + ' 上传完成</p>';
     } catch(e) {
-      status.innerHTML += '<p style="color:red;font-size:13px">✗ ' + escHtml(file.name) + ': ' + e.message + '</p>';
+      status.innerHTML += '<p class="err">✗ ' + escHtml(file.name) + ': ' + e.message + '</p>';
     }
   }
   fileInput.value = '';
@@ -433,7 +601,6 @@ async function uploadFile(file, name, total) {
     const pct = Math.round((offset + chunk.size) / total * 100);
     fill.style.width = pct + '%';
     text.textContent = name + ' ' + pct + '%';
-
     await API.putFile(name, chunk, offset, total);
     offset += CHUNK;
   }
@@ -453,9 +620,8 @@ async function loadFiles() {
     const rows = ['<table class="file-table"><thead><tr><th>文件名</th><th>大小</th><th>时间</th><th></th></tr></thead><tbody>'];
     for (const f of data.files) {
       const url = API.base + '/api/files/' + encodeURIComponent(f.name);
-      const dlUrl = '<a href="' + url + '" download="' + escHtml(f.name) + '">' + escHtml(f.name) + '</a>';
       rows.push('<tr>' +
-        '<td class="file-name">' + dlUrl + '<div class="file-meta">' + formatBytes(f.size) + '</div></td>' +
+        '<td class="file-name">' + escHtml(f.name) + '<div class="file-meta">' + formatBytes(f.size) + '</div></td>' +
         '<td>' + timeAgo(f.updatedAt) + '</td>' +
         '<td class="file-actions">' +
           '<a href="' + url + '" download="' + escHtml(f.name) + '"><button class="dl-btn">下载</button></a>' +
@@ -494,6 +660,48 @@ function escHtml(str) {
     .replace(/</g,'&lt;')
     .replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;');
+}
+
+// Devices
+async function loadDevices() {
+  const list = document.getElementById('deviceList');
+  try {
+    const data = await API.listPeers();
+    if (!data.peers || !data.peers.length) {
+      list.innerHTML = '<div class="empty-state">同一服务器上的其他设备将显示在这里</div>';
+      return;
+    }
+    list.innerHTML = data.peers.map(p => {
+      const type = p.name.toLowerCase().includes('iphone') || p.name.toLowerCase().includes('android') ? 'phone' : 
+                   p.name.toLowerCase().includes('ipad') || p.name.toLowerCase().includes('tablet') ? 'tablet' : 'computer';
+      const icon = type === 'phone' ? '📱' : type === 'tablet' ? '📲' : '💻';
+      return '<div class="device-card">' +
+        '<div class="device-icon ' + type + '">' + icon + '</div>' +
+        '<div class="device-info">' +
+          '<div class="device-name">' + escHtml(p.name) + '</div>' +
+          '<div class="device-addr">' + escHtml(p.ip) + ':' + p.port + '</div>' +
+          '<div class="device-time">最后活跃: ' + timeAgo(p.updatedAt) + '</div>' +
+        '</div>' +
+        '<div class="device-status"></div>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="empty-state">加载设备列表失败</div>';
+  }
+}
+
+let devicePollInterval = null;
+
+function showAddDevice() {
+  const addr = prompt('输入其他 ShareTool 设备的地址（如 192.168.1.100:18790）：');
+  if (!addr) return;
+  try {
+    const [ip, port] = addr.split(':');
+    API.registerPeer(ip, parseInt(port));
+    alert('设备已添加（需要对方也打开设备列表页面才能看到）');
+  } catch(e) {
+    alert('添加失败: ' + e.message);
+  }
 }
 
 // Init
