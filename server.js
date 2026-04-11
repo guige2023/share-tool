@@ -3966,6 +3966,49 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .hero-desc { display: none; }
   .hero-features { display: none; }
   .file-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  /* Compact top quick-action bar for tablet */
+  .top-quickbar {
+    display: flex !important;
+    gap: 8px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .top-quickbar::-webkit-scrollbar { display: none; }
+  .top-quickbar .qbtn {
+    flex-shrink: 0;
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .top-quickbar .qbtn:active {
+    background: var(--accent-primary);
+    color: #fff;
+    border-color: var(--accent-primary);
+  }
+  .top-quickbar .qbtn.icon-only {
+    padding: 0;
+    width: 40px;
+    justify-content: center;
+  }
+}
+
+/* Hide top-quickbar on mobile (500px and below - FAB takes over) */
+@media (max-width: 500px) {
+  .top-quickbar { display: none !important; }
 }
 
 /* FAB Slide-out Drawer (hamburger style) */
@@ -4438,6 +4481,15 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Tablet top quick-bar (hidden on mobile - FAB takes over) -->
+  <div class="top-quickbar" style="display:none;">
+    <button class="qbtn" onclick="fabUpload();if(window.innerWidth>500)return;">📤 <span>' + T('file.upload') + '</span></button>
+    <button class="qbtn" onclick="fabText();">📝 <span>' + T('file.textShare') + '</span></button>
+    <button class="qbtn" onclick="showShareLinksModal();">🔗 <span>' + T('share.title') + '</span></button>
+    <button class="qbtn icon-only" onclick="document.getElementById('searchInput').focus()">🔍</button>
+    <button class="qbtn icon-only" onclick="showTagsModal();">🏷️</button>
   </div>
 
   <div class="card">
