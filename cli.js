@@ -7,6 +7,7 @@ const path = require('path');
 const url = require('url');
 const readline = require('readline');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 
 const CONFIG_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'config.json');
 const HISTORY_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'history');
@@ -372,6 +373,7 @@ async function main() {
     console.log('  sync           Trigger sync push');
     console.log('  status         Check if server is online');
     console.log('  open           Open server URL in browser');
+    console.log('  serve          Start server in foreground (Ctrl+C to stop)');
     console.log('  log [--limit=n] [--action=x] [--date=YYYY-MM-DD] [-f]  Show audit logs (-f: follow)');
     console.log('  stats          Show storage stats');
     console.log('  recent [n]     Show recently modified files (default: 10)');
@@ -1025,6 +1027,22 @@ async function main() {
         require('child_process').spawn(openCmd, [url], { detached: true, stdio: 'ignore' }).unref();
         break;
       }
+
+      case 'serve': {
+        // Start share-tool server in foreground mode
+        const serverPath = path.join(__dirname, 'server.js');
+        const lang = (process.env.LANG || '').toLowerCase();
+        const isZh = lang.includes('zh');
+        console.log(isZh ? '启动 ShareTool 服务器...' : 'Starting ShareTool server...');
+        console.log(isZh ? '按 Ctrl+C 停止服务器' : 'Press Ctrl+C to stop server');
+        const child = spawn('node', [serverPath, ...args.slice(1)], {
+          stdio: 'inherit',
+          cwd: __dirname
+        });
+        child.on('exit', (code) => process.exit(code || 0));
+        break;
+      }
+
       case 'log': {
         // share-tool log [--limit=50] [--action=<action>] [--ip=<ip>] [--date=YYYY-MM-DD] [-f|--follow]
         const follow = args.includes('-f') || args.includes('--follow');
