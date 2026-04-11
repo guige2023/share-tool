@@ -12405,65 +12405,35 @@ async function addToVirtualFolder(filename) {
   } catch (e) { showToast('Failed to load folders', 'error'); }
 }
 
-async function _showAddToVfModal(filenames) {
-  _addToVfFilenames = filenames;
-  const countEl = document.getElementById('addToVfFileCount');
-  const nameEl = document.getElementById('addToVfFileName');
-  if (filenames.length === 1) {
-    countEl.style.display = 'none';
-    nameEl.textContent = decodeURIComponent(filenames[0]);
-  } else {
-    countEl.style.display = '';
-    countEl.textContent = filenames.length + ' files selected';
-    nameEl.textContent = filenames.slice(0, 3).map(f => decodeURIComponent(f)).join(', ') + (filenames.length > 3 ? '...' : '');
-  }
-  try {
-    const res = await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
-    const data = await res.json();
-    if (!data.success || !data.folders.length) {
-      showToast('No virtual folders yet', 'error');
-      return;
-    }
-    const container = document.getElementById('addToVfFolderList');
-    container.innerHTML = data.folders.map(f => {
-      const colorStyle = 'background:' + f.color + ';color:white;';
-      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;cursor:pointer;" onclick="doAddToVirtualFolder(' + f.id + ')">' +
-        '<span style="width:10px;height:10px;border-radius:50%;' + colorStyle + '"></span>' +
-        '<span style="flex:1;font-size:14px;">' + escapeHtml(f.name) + '</span>' +
-        '<span style="font-size:11px;color:var(--text-muted);">' + f.fileCount + '</span>' +
-      '</div>';
-    }).join('');
-    lockScroll();
-    document.getElementById('addToVfModal').classList.add('show');
-  } catch (e) { showToast('Failed to load folders', 'error'); }
-}
-
 function closeAddToVfModal() {
   unlockScroll();
   document.getElementById('addToVfModal').classList.remove('show');
-  _addToVfFilename = null;
+  _addToVfFilenames = [];
 }
 
 async function doAddToVirtualFolder(folderId) {
-  if (!_addToVfFilename) return;
-  const filename = _addToVfFilename;
+  if (!_addToVfFilenames || _addToVfFilenames.length === 0) return;
+  const filenames = _addToVfFilenames;
   closeAddToVfModal();
-  try {
-    const file = currentFiles.find(f => f.name === filename);
-    if (!file) { showToast('File not found', 'error'); return; }
-    const res = await fetch(API + '/api/virtual-folders/' + folderId + '/files', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ fileId: file.id })
-    });
-    const data = await res.json();
-    if (data.success) {
-      const folder = (await (await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })).json()).folders.find(f => f.id === folderId);
-      showToast(T('vf.addedTo').replace('{name}', folder ? folder.name : '#' + folderId));
-    } else {
-      showToast(data.error || 'Failed', 'error');
-    }
-  } catch (e) { showToast('Failed to add file', 'error'); }
+  let added = 0, failed = 0;
+  for (const filename of filenames) {
+    try {
+      const file = currentFiles.find(f => f.name === filename);
+      if (!file) { failed++; continue; }
+      const res = await fetch(API + '/api/virtual-folders/' + folderId + '/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ fileId: file.id })
+      });
+      const data = await res.json();
+      if (data.success) added++;
+      else failed++;
+    } catch (e) { failed++; }
+  }
+  const folder = (await (await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })).json()).folders.find(f => f.id === folderId);
+  if (added > 0) showToast((added === 1 ? 'Added to ' : 'Added ' + added + ' files to ') + (folder ? folder.name : '#' + folderId));
+  if (failed > 0) showToast(failed + ' file(s) failed', 'error');
+  _addToVfFilenames = [];
 }
 
 // Remove file from virtual folder (used in swipe actions inside VF view)
