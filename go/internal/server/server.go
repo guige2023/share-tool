@@ -42,6 +42,8 @@ func SetupRouter(sharedDir string) *http.ServeMux {
 			handleFileGet(sharedDir)(w, r)
 		case http.MethodDelete:
 			handleFileDelete(sharedDir)(w, r)
+		case http.MethodHead:
+			handleFileGet(sharedDir)(w, r)
 		default:
 			http.Error(w, "Method Not Allowed", 405)
 		}

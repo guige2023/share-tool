@@ -23,6 +23,25 @@ func handleFileList(sharedDir string) http.HandlerFunc {
 	}
 }
 
+// safeName extracts a safe filename from the URL path.
+// Returns empty string if the name is unsafe (empty, contains path separators, path traversal,
+// or collides with reserved API route names like "files" or "text").
+func safeName(path string) string {
+	name := filepath.Base(path)
+	if name == "" || name == "." || name == "/" {
+		return ""
+	}
+	// Reject names that would create files outside sharedDir
+	if strings.Contains(name, "..") || name[0] == '-' {
+		return ""
+	}
+	// Reject reserved API route names to prevent path collision
+	if name == "files" || name == "text" || name == "api" {
+		return ""
+	}
+	return name
+}
+
 // handleFilePut handles file upload with Content-Range for resume support
 func handleFilePut(sharedDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -31,8 +50,8 @@ func handleFilePut(sharedDir string) http.HandlerFunc {
 			return
 		}
 
-		name := filepath.Base(r.URL.Path)
-		if name == "" || strings.Contains(name, "..") {
+		name := safeName(r.URL.Path)
+		if name == "" {
 			http.Error(w, `{"error":"invalid filename"}`, 400)
 			return
 		}
@@ -87,29 +106,20 @@ func handleFilePut(sharedDir string) http.HandlerFunc {
 // handleFileGet serves a file with Range support via http.ServeContent
 func handleFileGet(sharedDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			http.Error(w, "Method Not Allowed", 405)
 			return
 		}
 
-		name := filepath.Base(r.URL.Path)
-		if name == "" || strings.Contains(name, "..") {
+		name := safeName(r.URL.Path)
+		if name == "" {
 			http.Error(w, `{"error":"invalid filename"}`, 400)
 			return
 		}
 		fpath := filepath.Join(sharedDir, name)
 
-		f, err := os.Open(fpath)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		defer f.Close()
-
-		fi, _ := f.Stat()
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, name))
-		w.Header().Set("Accept-Ranges", "bytes")
-		http.ServeContent(w, r, name, fi.ModTime(), f)
+		// http.ServeFile handles HEAD method correctly and adds Content-Type
+		http.ServeFile(w, r, fpath)
 	}
 }
 
@@ -121,8 +131,8 @@ func handleFileDelete(sharedDir string) http.HandlerFunc {
 			return
 		}
 
-		name := filepath.Base(r.URL.Path)
-		if name == "" || strings.Contains(name, "..") {
+		name := safeName(r.URL.Path)
+		if name == "" {
 			http.Error(w, `{"error":"invalid filename"}`, 400)
 			return
 		}
