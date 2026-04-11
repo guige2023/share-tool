@@ -72,6 +72,10 @@ func SetupRouter(sharedDir string, readonly bool) *http.ServeMux {
 		}
 	})
 
+	// AI Integration endpoints
+	mux.HandleFunc("/openapi.json", HandleOpenAPI)
+	mux.HandleFunc("/tools.json", HandleTools)
+
 	// Serve embedded web UI
 	webRoot, _ := fs.Sub(webAssets, "web")
 	mux.Handle("/", http.FileServer(http.FS(webRoot)))
