@@ -1,0 +1,57 @@
+package server
+
+import (
+	"embed"
+	"io/fs"
+	"log"
+	"net/http"
+)
+
+//go:embed web
+var webAssets embed.FS
+
+func SetupRouter(sharedDir string) *http.ServeMux {
+	mux := http.NewServeMux()
+
+	// Text API
+	mux.HandleFunc("/api/text", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handleTextPost(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/text/latest", handleTextLatest)
+
+	// File API
+	mux.HandleFunc("/api/files", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			handleFileList(sharedDir)(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
+	// Dynamic file routes using pattern matching
+	mux.HandleFunc("/api/files/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		switch r.Method {
+		case http.MethodPut:
+			handleFilePut(sharedDir)(w, r)
+		case http.MethodGet:
+			handleFileGet(sharedDir)(w, r)
+		case http.MethodDelete:
+			handleFileDelete(sharedDir)(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+		_ = path // unused, kept for clarity
+	})
+
+	// Serve embedded web UI
+	webRoot, _ := fs.Sub(webAssets, "web")
+	mux.Handle("/", http.FileServer(http.FS(webRoot)))
+
+	log.Printf("[Server] Router initialized, shared dir: %s", sharedDir)
+	return mux
+}
