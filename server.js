@@ -3960,6 +3960,14 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .fab-menu.show { display: flex; }
 .fab-menu .btn { width: 48px; height: 48px; border-radius: 50%; padding: 0; font-size: 18px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 
+/* Tablet-specific (768px and below) */
+@media (max-width: 768px) {
+  .hero-title { font-size: 16px; }
+  .hero-desc { display: none; }
+  .hero-features { display: none; }
+  .file-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+}
+
 /* FAB Slide-out Drawer (hamburger style) */
 .fab-drawer-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 390; opacity: 0; transition: opacity 0.25s; }
 .fab-drawer-overlay.show { display: block; opacity: 1; }
@@ -3992,9 +4000,10 @@ input:focus { outline: none; border-color: var(--accent-primary); }
   .container { max-width: 100%; }
   .modal-content { max-width: 95%; }
   .search-suggestions { max-height: 300px; }
-  .file-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
-  .filter-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .filter-tabs { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; position: relative; }
   .filter-tabs::-webkit-scrollbar { display: none; }
+  /* Fade edges to hint scrollability */
+  .filter-tabs::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 32px; background: linear-gradient(to right, transparent, var(--bg-primary)); pointer-events: none; }
 }
 
 @media (max-width: 500px) {
@@ -7125,7 +7134,7 @@ function showContextMenu(filename, el) {
 
   menu.innerHTML = items.map(item =>
     item.sep ? '<div class="ctx-sep"></div>' :
-    '<div class="ctx-item' + (item.danger ? ' danger' : '') + '" onclick="event.stopPropagation();' + item.action + '">' + item.label + '</div>'
+    '<div class="ctx-item' + (item.danger ? ' danger' : '') + '" onclick="event.stopPropagation();' + item.action + '">' + escapeHtml(item.label) + '</div>'
   ).join('');
 
   // Position near element but keep on screen
@@ -12375,7 +12384,7 @@ async function navigateToVf(folderId) {
       renderBreadcrumb();
       // Update vfFilterBtn active state
       document.getElementById('vfFilterBtn').classList.add('active');
-      showToast(T('vf.virtualFolders') + ' loaded');
+      showToast(T('vf.loaded').replace('{name}', T('vf.virtualFolders')));
     }
   } catch (e) { showToast(T('err.reqFailed'), 'error'); }
 }
@@ -12567,9 +12576,10 @@ async function batchDownload() {
     showAlert('listAlert', T('file.noFileSelected'), 'error');
     return;
   }
-  
+
   const filenames = Array.from(checkboxes).map(cb => decodeURIComponent(cb.value));
-  
+  setBatchOperation('准备下载...');
+
   try {
     const res = await fetch(API + '/api/batch-download', {
       method: 'POST',
@@ -12586,8 +12596,9 @@ async function batchDownload() {
         for (const f of data.files) {
           window.open(API + '/download/' + encodeURIComponent(f.name), '_blank');
         }
+        endBatchOperation(T('msg.batchDownloadSuccess'), () => { clearBatch(); });
       } else {
-        showAlert('listAlert', T('msg.downloadFailed') + ': ' + data.error, 'error');
+        endBatchOperation(T('msg.downloadFailed') + ': ' + data.error, () => clearBatch());
       }
     } else if (contentType && contentType.includes('zip')) {
       const blob = await res.blob();
@@ -12597,10 +12608,10 @@ async function batchDownload() {
       a.download = 'sharetool_batch.zip';
       a.click();
       URL.revokeObjectURL(url);
-      showAlert('listAlert', T('msg.batchDownloadSuccess'), 'success');
+      endBatchOperation(T('msg.batchDownloadSuccess'), () => { clearBatch(); });
     }
   } catch (e) {
-    showAlert('listAlert', T('msg.batchDownloadFailed') + ': ' + e.message, 'error');
+    endBatchOperation(T('msg.batchDownloadFailed') + ': ' + e.message, () => clearBatch());
   }
 }
 
