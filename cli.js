@@ -363,6 +363,7 @@ async function main() {
     console.log('  batch-tag remove <tag> [files]   Remove tag from files');
     console.log('  batch-tag set <tag> [files]       Set (replace) tag on files');
     console.log('  batch-rename <old1> <new1> [old2 new2...]  Batch rename files');
+    console.log('  tags           Show all tags with usage bar chart');
     console.log('  search <query> [-l]  Search files (-l: long format)');
     console.log('  cat <name>     Print file content to stdout');
     console.log('  find <query> [--tag=x] [--type=x] [--limit=n]  Advanced search');
@@ -1334,6 +1335,23 @@ async function main() {
           console.log(`  ${l.code}${pwd} → ${l.filename} — expires ${exp}${dl}`);
           console.log(`    ${l.url}`);
         });
+        break;
+      }
+
+      case 'tags': {
+        const res = await request('GET', '/api/tags/list');
+        if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
+        const tags = res.data.tags || [];
+        if (tags.length === 0) { console.log('No tags found.'); break; }
+        const maxCount = Math.max(...tags.map(t => t.count));
+        const nameW = Math.max(...tags.map(t => (t.tag || '').length)) + 2;
+        console.log(`Tags (${tags.length}):\n`);
+        for (const t of tags) {
+          const barLen = maxCount > 0 ? Math.round((t.count / maxCount) * 20) : 0;
+          const bar = '█'.repeat(barLen) + '░'.repeat(20 - barLen);
+          const name = (t.tag || '').padEnd(nameW);
+          console.log(`  ${name}${bar}  ${t.count}`);
+        }
         break;
       }
 
