@@ -80,8 +80,9 @@ function initDatabase() {
     initSchemaV5(db);
     initSchemaV6(db);
     initSchemaV7(db);
+    initSchemaV8(db);
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
-    console.log('[DB] Fresh database initialized (v1-v7 schema)');
+    console.log('[DB] Fresh database initialized (v1-v8 schema)');
     return;
   }
 
@@ -96,10 +97,6 @@ function initDatabase() {
     runMigrations(db, currentVersion);
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
     currentVersion = SCHEMA_VERSION;
-  } else if (currentVersion === 1) {
-    // 已有旧数据但未迁移，补齐 v2 字段
-    initSchemaV2(db);
-    db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', 2);
   }
 
   console.log('[DB] Database ready at', DB_PATH);

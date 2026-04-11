@@ -445,7 +445,7 @@ function handleMessage(request) {
           },
           serverInfo: {
             name: 'share-tool',
-            version: '2.54.0'
+            version: '5.24.0'
           }
         }
       });
