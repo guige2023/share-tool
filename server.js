@@ -6510,7 +6510,7 @@ function handleSwipeMove(e, el) {
   // Only cancel long-press if finger moved enough to be a deliberate swipe (not accidental micro-movement)
   const MOVE_CANCEL_THRESHOLD = 10;
   if (longPressTimer && Math.abs(dx) > MOVE_CANCEL_THRESHOLD) {
-    clearTimeout(longPressTimer); longPressTimer = null; longPressTarget = null;
+    clearTimeout(longPressTimer); longPressTimer = null; longPressTarget = null; longPressFired = false;
   }
   const actions = el.querySelector('.swipe-actions');
   if (!actions) return;
@@ -7489,6 +7489,10 @@ async function openFileModal(filename) {
 }
 
 function handleFileItemClick(event, filename, isImage) {
+  // If long-press fired, the touchend that triggered this click was from the long-press
+  // Ignore it so we don't open the file after a long-press context menu
+  if (longPressFired) { longPressFired = false; return; }
+
   // Don't trigger if clicking interactive elements
   const tag = event.target.tagName;
   if (tag === 'INPUT' || tag === 'BUTTON' || tag === 'SPAN' || event.target.closest('input') || event.target.closest('button')) return;
@@ -7518,6 +7522,7 @@ function handleFileItemClick(event, filename, isImage) {
 }
 
 function handleFolderItemClick(folderName) {
+  if (longPressFired) { longPressFired = false; return; }
   const targetFolder = currentFolder ? currentFolder + '/' + folderName : folderName;
   navigateFolder(targetFolder);
 }
