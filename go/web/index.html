@@ -362,6 +362,39 @@ header .ip {
 
 .add-device-btn:hover { border-color: #0071e3; color: #0071e3; }
 
+/* QR Code Card */
+.qr-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #f5f5f7;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.qr-info { flex: 1; }
+
+.qr-url {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+  word-break: break-all;
+  margin-bottom: 6px;
+}
+
+.qr-hint {
+  font-size: 12px;
+  color: #86868b;
+}
+
+#qrCanvas {
+  border-radius: 8px;
+  border: 4px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  flex-shrink: 0;
+}
+
 /* Mobile */
 @media (max-width: 600px) {
   .container { padding: 12px; }
@@ -433,6 +466,19 @@ header .ip {
 
   <!-- Devices Tab -->
   <div class="panel" id="panel-devices">
+    <!-- QR Code Card -->
+    <div class="devices-section" style="margin-top:16px;">
+      <h2>手机扫码访问</h2>
+      <div class="qr-card">
+        <div class="qr-info">
+          <p class="qr-url" id="qrUrl">--</p>
+          <p class="qr-hint">用微信/相机扫码或在浏览器打开</p>
+        </div>
+        <canvas id="qrCanvas" width="160" height="160"></canvas>
+      </div>
+    </div>
+
+    <!-- Peers List -->
     <div class="devices-section" style="margin-top:16px;">
       <h2>局域网设备</h2>
       <div class="device-list" id="deviceList">
@@ -707,6 +753,190 @@ function showAddDevice() {
 // Init
 loadFiles();
 setInterval(pollText, 3000);
+
+// QR Code generation (pure JS, no dependencies)
+// Based on QR Code generator algorithm
+var QR = (function() {
+  var EC_LEVEL = 1; // L = 1
+
+  function genQR(text, canvas) {
+    var size = 160;
+    var moduleSize = Math.floor(size / 25);
+    var offset = Math.floor((size - moduleSize * 25) / 2);
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, size, size);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, size, size);
+
+    var data = encodeData(text);
+    var matrix = createMatrix(data);
+    var bits = getBits(matrix);
+
+    ctx.fillStyle = '#000';
+    for (var row = 0; row < 25; row++) {
+      for (var col = 0; col < 25; col++) {
+        if (bits[col * 25 + row]) {
+          ctx.fillRect(
+            offset + col * moduleSize,
+            offset + row * moduleSize,
+            moduleSize, moduleSize
+          );
+        }
+      }
+    }
+  }
+
+  function encodeData(text) {
+    var bytes = [];
+    for (var i = 0; i < text.length; i++) {
+      bytes.push(text.charCodeAt(i) & 0xFF);
+    }
+    var capacity = 20 * 8 - 4 - 8 - 10; // byte mode, v2, overead
+    var dataCodewords = [];
+    dataCodewords.push(0x40); // byte mode
+    dataCodewords.push(bytes.length & 0xFF);
+    for (var i = 0; i < bytes.length; i++) dataCodewords.push(bytes[i]);
+    var ec = getEC(dataCodewords, 10);
+    return dataCodewords.concat(ec);
+  }
+
+  function getEC(data, ecCount) {
+    var k = data.length - ecCount;
+    var gen = [0, 49, 123, 173, 79, 173, 134, 115];
+    var msg = data.slice();
+    for (var i = 0; i < k; i++) {
+      var lead = msg[i];
+      if (lead !== 0) {
+        for (var j = 0; j < ecCount; j++) {
+          msg[i + j] ^= gfMul(lead, gen[j]);
+        }
+      }
+    }
+    return msg.slice(k);
+  }
+
+  function gfMul(a, b) {
+    var p = 0;
+    for (var i = 0; i < 8; i++) {
+      if (b & 1) p ^= a;
+      var hi = a & 0x80;
+      a = (a << 1) & 0xFF;
+      if (hi) a ^= 0x1D;
+      b >>= 1;
+    }
+    return p;
+  }
+
+  function createMatrix(data) {
+    var m = [];
+    for (var i = 0; i < 25; i++) m[i] = [];
+
+    // Finder patterns
+    drawFP(m, 0, 0); drawFP(m, 16, 0); drawFP(m, 0, 16);
+
+    // Timing patterns
+    for (var i = 8; i < 17; i++) {
+      m[6][i] = i % 2 === 0; m[i][6] = i % 2 === 0;
+    }
+
+    // Dark module
+    m[17][8] = true;
+
+    // Format info areas
+    for (var i = 0; i < 9; i++) {
+      if (i !== 6) { m[8][i] = false; m[i][8] = false; }
+    }
+    for (var i = 0; i < 8; i++) {
+      if (i !== 6) { m[8][19 + i] = false; m[19 + i][8] = false; }
+    }
+
+    // Version info (v2)
+    var vInfo = [0x22, 0x60, 0x8c, 0x88, 0xad, 0x95, 0x4c, 0xcc, 0x6e, 0xec, 0x12, 0x07];
+    for (var row = 0; row < 6; row++) {
+      for (var col = 0; col < 3; col++) {
+        m[17 + col][row] = !!(vInfo[row * 3 + col] & (1 << 11)) >> 11;
+        m[row][17 + col] = !!(vInfo[30 - (row * 3 + col)] & (1 << 11)) >> 11;
+      }
+    }
+
+    // Data
+    var bitIdx = 0;
+    var dir = 1;
+    var col = 24;
+    while (col > 0) {
+      if (col === 9) col = 7;
+      for (var row = 0; row < 25; row++) {
+        var r = dir > 0 ? row : 24 - row;
+        var c = col;
+        if (!isReserved(m, r, c)) {
+          if (bitIdx < data.length * 8) {
+            var byteIdx = Math.floor(bitIdx / 8);
+            var bitPos = 7 - (bitIdx % 8);
+            var bit = byteIdx < data.length ? (data[byteIdx] >> bitPos) & 1 : 0;
+            m[r][c] = bit === 1;
+            bitIdx++;
+          }
+        }
+      }
+      col -= 2;
+      dir = -dir;
+    }
+
+    return m;
+  }
+
+  function getBits(m) {
+    var bits = [];
+    for (var i = 0; i < 25; i++) bits[i] = [];
+    for (var row = 0; row < 25; row++) {
+      for (var col = 0; col < 25; col++) bits[col][row] = !!m[row][col];
+    }
+    return bits;
+  }
+
+  function isReserved(m, row, col) {
+    if (row < 9 && col < 9) return true;
+    if (row < 9 && col > 15) return true;
+    if (row > 15 && col < 9) return true;
+    if (row === 6 || col === 6) return true;
+    return false;
+  }
+
+  function drawFP(m, row, col) {
+    for (var r = 0; r < 7; r++) {
+      for (var c = 0; c < 7; c++) {
+        var isEdge = r === 0 || r === 6 || c === 0 || c === 6;
+        var isInner = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+        m[row + r][col + c] = isEdge && !isInner ? false : true;
+      }
+    }
+    // Separator
+    for (var i = 0; i < 8; i++) {
+      if (row + 7 < 25) m[row + 7][col + i] = false;
+      if (col + 7 < 25) m[row + i][col + 7] = false;
+    }
+  }
+
+  return { gen: genQR };
+})();
+
+function updateQR() {
+  var url = location.href;
+  document.getElementById('qrUrl').textContent = url;
+  try { QR.gen(url, document.getElementById('qrCanvas')); } catch(e) {}
+}
+
+// Update QR when devices tab opens
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    if (tab.dataset.tab === 'devices') {
+      setTimeout(updateQR, 50);
+    }
+  });
+});
+
+// Update QR when page loads
+window.addEventListener('load', updateQR);
 </script>
 <div style="text-align:center;padding:20px;font-size:12px;color:#86868b;">
   <a href="/openapi.json" style="color:#0071e3;">OpenAPI</a> ·
