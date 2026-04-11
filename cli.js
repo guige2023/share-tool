@@ -1470,7 +1470,11 @@ async function main() {
         console.log(`Found ${count} duplicate group(s):\n`);
         duplicates.forEach((group, i) => {
           console.log(`Group ${i + 1} (${group.count} files, hash=${group.hash.slice(0, 12)}...)`);
-          group.files.forEach(f => console.log(`  - ${f.filename}`));
+          group.files.forEach(f => {
+            const size = formatSize(f.size || 0);
+            const date = f.updated_at ? new Date(f.updated_at * 1000).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '';
+            console.log(`  - ${f.filename}  ${size.padStart(10)}  ${date}`);
+          });
           console.log('');
         });
         break;
