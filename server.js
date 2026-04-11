@@ -83,6 +83,54 @@ const I18N = {
     'msg.retry.all': '重试全部',
     'ui.save': '保存',
     'ui.cancel': '取消',
+    'ui.apply': '应用',
+    'ui.batchRename': '批量重命名',
+
+    // Toast 错误消息
+    'toast.openImageFailed': '图片打开失败',
+    'toast.openMediaFailed': '媒体打开失败: {msg}',
+    'toast.openPdfFailed': 'PDF 打开失败: {msg}',
+    'toast.openOfficeFailed': 'Office 文件打开失败: {msg}',
+    'toast.renderMarkdownFailed': 'Markdown 渲染失败: {msg}',
+    'toast.openCodeFailed': '代码文件打开失败: {msg}',
+    'toast.openCsvFailed': 'CSV 打开失败: {msg}',
+    'toast.openArchiveFailed': '压缩包打开失败: {msg}',
+    'toast.loadFileFailed': '文件加载失败',
+    'toast.openEditorFailed': '编辑器打开失败: {msg}',
+    'toast.saveSuccess': '已保存! hash: {hash}',
+    'toast.saveFailed': '保存失败: {msg}',
+    'toast.openFileFailed': '文件打开失败',
+    'toast.exportFailed': '导出失败: {msg}',
+    'toast.unlocked': '已解锁: {key}',
+    'toast.unlockFailed': '解锁失败',
+    'toast.downloadFailed': '下载失败: {msg}',
+    'toast.noVf': '暂无虚拟文件夹',
+    'toast.loadVfFailed': '文件夹加载失败',
+    'toast.starFailed': '收藏失败',
+    'toast.vfCreated': '文件夹已创建',
+    'toast.vfCreateFailed': '文件夹创建失败',
+    'toast.vfDeleted': '文件夹已删除',
+    'toast.vfDeleteFailed': '文件夹删除失败',
+
+    // 批量重命名
+    'rename.pattern': '模式',
+    'rename.findReplace': '查找替换',
+    'rename.placeName': '原文件名（不含扩展名）',
+    'rename.placeExt': '扩展名',
+    'rename.placeSeq': '序号（位数可调，如 001）',
+    'rename.placeDate': '日期（YYYY-MM-DD）',
+    'rename.seqStartAt1': '序号从 1 开始（不勾选则从 0 开始）',
+    'rename.find': '查找',
+    'rename.findPlaceholder': '输入要替换的文本',
+    'rename.replaceWith': '替换为',
+    'rename.replacePlaceholder': '输入替换后的文本',
+    'rename.preview': '预览',
+    'rename.noChange': '（无变化）',
+    'rename.conflict': '文件名冲突',
+    'rename.success': '已重命名 {n} 个文件',
+    'rename.failed': '重命名失败',
+    'rename.confirmTitle': '确定批量重命名 {n} 个文件？',
+
     'msg.confirm': '确认',
     'msg.optional': '可选',
     'msg.confirmDelete': '确定删除 {name}？',
@@ -1249,6 +1297,54 @@ const I18N = {
     'ui.resultsFound': '{n} results found',
     'ui.save': 'Save',
     'ui.cancel': 'Cancel',
+    'ui.apply': 'Apply',
+    'ui.batchRename': 'Batch Rename',
+
+    // Toast messages
+    'toast.openImageFailed': 'Failed to open image',
+    'toast.openMediaFailed': 'Failed to open media: {msg}',
+    'toast.openPdfFailed': 'Failed to open PDF: {msg}',
+    'toast.openOfficeFailed': 'Failed to open Office file: {msg}',
+    'toast.renderMarkdownFailed': 'Failed to render Markdown: {msg}',
+    'toast.openCodeFailed': 'Failed to open code file: {msg}',
+    'toast.openCsvFailed': 'Failed to open CSV: {msg}',
+    'toast.openArchiveFailed': 'Failed to open archive: {msg}',
+    'toast.loadFileFailed': 'Failed to load file',
+    'toast.openEditorFailed': 'Failed to open editor: {msg}',
+    'toast.saveSuccess': 'Saved! hash: {hash}',
+    'toast.saveFailed': 'Save failed: {msg}',
+    'toast.openFileFailed': 'Failed to open file',
+    'toast.exportFailed': 'Export failed: {msg}',
+    'toast.unlocked': 'Unlocked: {key}',
+    'toast.unlockFailed': 'Unlock failed',
+    'toast.downloadFailed': 'Download failed: {msg}',
+    'toast.noVf': 'No virtual folders yet',
+    'toast.loadVfFailed': 'Failed to load folders',
+    'toast.starFailed': 'Star failed',
+    'toast.vfCreated': 'Folder created',
+    'toast.vfCreateFailed': 'Failed to create folder',
+    'toast.vfDeleted': 'Folder deleted',
+    'toast.vfDeleteFailed': 'Failed to delete folder',
+
+    // Batch Rename
+    'rename.pattern': 'Pattern',
+    'rename.findReplace': 'Find & Replace',
+    'rename.placeName': 'Original filename (without extension)',
+    'rename.placeExt': 'Extension',
+    'rename.placeSeq': 'Sequence number (digits adjustable, e.g. 001)',
+    'rename.placeDate': 'Date (YYYY-MM-DD)',
+    'rename.seqStartAt1': 'Sequence starts at 1 (uncheck to start at 0)',
+    'rename.find': 'Find',
+    'rename.findPlaceholder': 'Text to find',
+    'rename.replaceWith': 'Replace with',
+    'rename.replacePlaceholder': 'Replacement text',
+    'rename.preview': 'Preview',
+    'rename.noChange': '(no change)',
+    'rename.conflict': 'Filename conflict',
+    'rename.success': 'Renamed {n} files',
+    'rename.failed': 'Rename failed',
+    'rename.confirmTitle': 'Confirm batch rename of {n} files?',
+
     'ui.saveFailed': 'Save failed',
     'ui.edit': 'Edit',
     'ui.downloadDir': 'Download dir',
@@ -7065,7 +7161,7 @@ async function openImageModal(filename) {
     // Setup image zoom (pinch + double-tap)
     setupImageZoom();
 
-  } catch (e) { showToast('Failed to open image'); }
+  } catch (e) { showToast(T('toast.openImageFailed')); }
 }
 
 let _imgZoomScale = 1;
@@ -7297,7 +7393,7 @@ async function openMediaModal(filename) {
     }
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
-  } catch (e) { showToast('Failed to open media: ' + e.message); }
+  } catch (e) { showToast(T('toast.openMediaFailed').replace('{msg}', e.message)); }
 }
 
 async function openPdfModal(filename) {
@@ -7312,7 +7408,7 @@ async function openPdfModal(filename) {
       '<iframe title="' + T('file.preview') + '"  src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;background:var(--bg-tertiary);" title="PDF预览"></iframe>';
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
-  } catch (e) { showToast('Failed to open PDF: ' + e.message); }
+  } catch (e) { showToast(T('toast.openPdfFailed').replace('{msg}', e.message)); }
 }
 
 async function openOfficeModal(filename) {
@@ -7336,7 +7432,7 @@ async function openOfficeModal(filename) {
     document.getElementById('modalMeta').textContent = info;
     const safeText = typeof DOMPurify !== 'undefined' ? DOMPurify.sanitize('<pre style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5;max-height:70vh;overflow-y:auto;background:var(--bg-tertiary);padding:16px;border-radius:8px;">' + escapeHtml(text.substring(0, 50000)) + '</pre>') : '<pre style="white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5;max-height:70vh;overflow-y:auto;background:var(--bg-tertiary);padding:16px;border-radius:8px;">' + escapeHtml(text.substring(0, 50000)) + '</pre>';
     document.getElementById('modalBody').innerHTML = safeText;
-  } catch (e) { showToast('Failed to open Office file: ' + e.message); }
+  } catch (e) { showToast(T('toast.openOfficeFailed').replace('{msg}', e.message)); }
 }
 
 async function openMarkdownModal(filename) {
@@ -7439,7 +7535,7 @@ async function openMarkdownModal(filename) {
 
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
-  } catch (e) { showToast('Failed to render Markdown: ' + e.message); }
+  } catch (e) { showToast(T('toast.renderMarkdownFailed').replace('{msg}', e.message)); }
 }
 
 async function openCodeModal(filename) {
@@ -7486,7 +7582,7 @@ async function openCodeModal(filename) {
       '</div>';
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
-  } catch (e) { showToast('Failed to open code file: ' + e.message); }
+  } catch (e) { showToast(T('toast.openCodeFailed').replace('{msg}', e.message)); }
 }
 
 async function openCsvModal(filename) {
@@ -7540,7 +7636,7 @@ async function openCsvModal(filename) {
     document.getElementById('modalBody').innerHTML = tableHtml;
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
-  } catch (e) { showToast('Failed to open CSV: ' + e.message); }
+  } catch (e) { showToast(T('toast.openCsvFailed').replace('{msg}', e.message)); }
 }
 
 async function openArchiveModal(filename) {
@@ -7576,14 +7672,14 @@ async function openArchiveModal(filename) {
     document.getElementById('modalBody').innerHTML = html;
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
-  } catch (e) { showToast('Failed to open archive: ' + e.message); }
+  } catch (e) { showToast(T('toast.openArchiveFailed').replace('{msg}', e.message)); }
 }
 
 async function openTextEditor(filename) {
   try {
     const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
-    if (!data.content && data.content !== '') { showToast('Failed to load file'); return; }
+    if (!data.content && data.content !== '') { showToast(T('toast.loadFileFailed')); return; }
     const content = atob(data.content);
     const lineCount = content.split('\n').length;
     const charCount = content.length;
@@ -7641,7 +7737,7 @@ async function openTextEditor(filename) {
 
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
-  } catch (e) { showToast('Failed to open editor: ' + e.message); }
+  } catch (e) { showToast(T('toast.openEditorFailed').replace('{msg}', e.message)); }
 }
 
 function updateEditorLineNumbers() {
@@ -7674,16 +7770,16 @@ async function saveTextEditor(filename) {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('Saved! hash: ' + (data.hash || '').slice(0, 8));
+      showToast(T('toast.saveSuccess').replace('{hash}', (data.hash || '').slice(0, 8)));
       closeModal();
       await refreshFileList();
     } else {
-      showToast('Save failed: ' + (data.error || ''), 'error');
+      showToast(T('toast.saveFailed').replace('{msg}', data.error || ''), 'error');
       btn.disabled = false;
       btn.textContent = T('ui.save');
     }
   } catch (e) {
-    showToast('Save failed: ' + e.message, 'error');
+    showToast(T('toast.saveFailed').replace('{msg}', e.message), 'error');
     btn.disabled = false;
     btn.textContent = T('ui.save');
   }
@@ -7708,7 +7804,7 @@ async function openFileModal(filename) {
     document.getElementById('modalBody').textContent = data.content || '';
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
-  } catch (e) { showToast('Failed to open file'); }
+  } catch (e) { showToast(T('toast.openFileFailed')); }
 }
 
 function handleFileItemClick(event, filename, isImage) {
@@ -8704,7 +8800,7 @@ async function exportAudit(format) {
     URL.revokeObjectURL(blobUrl);
     showToast(T('admin.exported') || (format.toUpperCase() + ' exported'));
   } catch (e) {
-    showToast('Export failed: ' + e.message, 'error');
+    showToast(T('toast.exportFailed').replace('{msg}', e.message), 'error');
   }
 }
 
@@ -8989,12 +9085,12 @@ async function unlockRateLimit(key) {
     });
     const data = await res.json();
     if (data.success) {
-      showToast('Unlocked: ' + key.split(':').slice(1).join(':'));
+      showToast(T('toast.unlocked').replace('{key}', key.split(':').slice(1).join(':')));
       loadRateLimitActiveRecords();
     } else {
-      showToast(data.error || 'Unlock failed', 'error');
+      showToast(data.error || T('toast.unlockFailed'), 'error');
     }
-  } catch (e) { showToast('Unlock failed', 'error'); }
+  } catch (e) { showToast(T('toast.unlockFailed'), 'error'); }
 }
 
 async function saveRateLimitConfig() {
@@ -10451,7 +10547,7 @@ async function downloadFolder(folderName) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch (e) {
-    showToast('Download failed: ' + e.message);
+    showToast(T('toast.downloadFailed').replace('{msg}', e.message));
   }
 }
 
@@ -11276,7 +11372,7 @@ async function batchAddToVirtualFolder() {
   try {
     const res = await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
-    if (!data.success || !data.folders.length) { showToast('No virtual folders yet', 'error'); return; }
+    if (!data.success || !data.folders.length) { showToast(T('toast.noVf'), 'error'); return; }
     const container = document.getElementById('addToVfFolderList');
     container.innerHTML = data.folders.map(f => {
       const colorStyle = 'background:' + f.color + ';color:white;';
@@ -11289,7 +11385,7 @@ async function batchAddToVirtualFolder() {
     document.getElementById('addToVfFileName').textContent = window._batchFilenames.length + ' files selected';
     lockScroll();
     document.getElementById('addToVfModal').classList.add('show');
-  } catch (e) { showToast('Failed to load folders', 'error'); }
+  } catch (e) { showToast(T('toast.loadVfFailed'), 'error'); }
 }
 
 async function doBatchAddToVirtualFolder(folderId) {
@@ -12322,7 +12418,7 @@ function toggleFavorite(filename) {
   fetch(API + '/api/star/' + encodeURIComponent(decoded), { method: 'POST', headers: { 'x-auth-token': getToken() } })
     .then(r => r.json())
     .then(data => {
-      if (!data.success) { showToast('Star failed'); return; }
+      if (!data.success) { showToast(T('toast.starFailed')); return; }
       // Update localStorage favorites
       let favs = getFavorites();
       if (data.starred) {
@@ -12492,11 +12588,11 @@ async function createVirtualFolder() {
     if (data.success) {
       hideVfCreateForm();
       await loadVirtualFolders();
-      showToast('Folder created');
+      showToast(T('toast.vfCreated'));
     } else {
-      showToast(data.error || 'Failed', 'error');
+      showToast(data.error || T('toast.vfCreateFailed'), 'error');
     }
-  } catch (e) { showToast('Failed to create folder', 'error'); }
+  } catch (e) { showToast(T('toast.vfCreateFailed'), 'error'); }
 }
 
 async function deleteVirtualFolder(id) {
@@ -12510,9 +12606,9 @@ async function deleteVirtualFolder(id) {
     if (data.success) {
       if (currentVfFilter === id) { currentVfFilter = null; }
       await loadVirtualFolders();
-      showToast('Folder deleted');
+      showToast(T('toast.vfDeleted'));
     }
-  } catch (e) { showToast('Failed to delete folder', 'error'); }
+  } catch (e) { showToast(T('toast.vfDeleteFailed'), 'error'); }
 }
 
 async function navigateToVf(folderId) {
@@ -12555,7 +12651,7 @@ async function batchAddToVirtualFolder() {
     const res = await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (!data.success || !data.folders.length) {
-      showToast('No virtual folders yet', 'error');
+      showToast(T('toast.noVf'), 'error');
       return;
     }
     const container = document.getElementById('addToVfFolderList');
@@ -12569,7 +12665,7 @@ async function batchAddToVirtualFolder() {
     }).join('');
     lockScroll();
     document.getElementById('addToVfModal').classList.add('show');
-  } catch (e) { showToast('Failed to load folders', 'error'); }
+  } catch (e) { showToast(T('toast.loadVfFailed'), 'error'); }
 }
 
 async function addToVirtualFolder(filename) {
@@ -12583,7 +12679,7 @@ async function addToVirtualFolder(filename) {
     const res = await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (!data.success || !data.folders.length) {
-      showToast('No virtual folders yet', 'error');
+      showToast(T('toast.noVf'), 'error');
       return;
     }
     const container = document.getElementById('addToVfFolderList');
@@ -12597,7 +12693,7 @@ async function addToVirtualFolder(filename) {
     }).join('');
     lockScroll();
     document.getElementById('addToVfModal').classList.add('show');
-  } catch (e) { showToast('Failed to load folders', 'error'); }
+  } catch (e) { showToast(T('toast.loadVfFailed'), 'error'); }
 }
 
 function closeAddToVfModal() {
