@@ -7302,7 +7302,7 @@ async function loadMediaPlayer(filename, playerId) {
     if (isAudio) {
       el.innerHTML = '<audio controls style="width:100%;height:36px;border-radius:6px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + ' ' + T('file.audio') + '</audio>';
     } else {
-      el.innerHTML = '<div style="position:relative;width:100%;max-height:160px;border-radius:8px;overflow:hidden;background:#000;"><video controls style="width:100%;max-height:160px;border-radius:8px;display:block;background:#000;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '视频</video></div>';
+      el.innerHTML = '<div style="position:relative;width:100%;max-height:160px;border-radius:8px;overflow:hidden;background:#000;"><video controls style="width:100%;max-height:160px;border-radius:8px;display:block;background:#000;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + ' ' + T('file.video') + '</video></div>';
     }
     el.dataset.src = 'loaded';
   } catch (e) { if (el) el.dataset.src = 'loaded'; }
@@ -7319,7 +7319,7 @@ async function openImageModal(filename) {
     const mime = mimeMap[ext] || 'image/jpeg';
     const dataUrl = 'data:' + mime + ';base64,' + data.content;
     document.getElementById('modalTitle').textContent = filename;
-    document.getElementById('modalMeta').textContent = 'Size: ' + formatSize(data.size || 0);
+    document.getElementById('modalMeta').textContent = T('file.size') + ': ' + formatSize(data.size || 0);
     document.getElementById('modalBody').innerHTML = '<div id="imageLightbox" style="position:relative;text-align:center;min-height:60px;"><button id="imgNavPrev" class="lightbox-nav-btn" onclick="imageNav(-1)">‹</button><img id="lightboxImg" src="' + dataUrl + '" style="max-width:100%;max-height:80vh;display:block;margin:0 auto;border-radius:8px;" /><button id="imgNavNext" class="lightbox-nav-btn" onclick="imageNav(1)">›</button><div id="imgCounter" class="lightbox-counter"></div><button id="imgDownloadBtn" class="lightbox-download-btn" onclick="downloadCurrentImage()" title="Download">⬇</button></div>';
     // Collect image files for navigation
     window._imageFiles = currentFiles.filter(f => !f.isVirtualFolder && isImageFile(f.name));
@@ -7595,7 +7595,7 @@ async function openOfficeModal(filename) {
     const res = await fetch(API + '/api/office-preview?filename=' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (!data.success) {
-      document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">' + escapeHtml(data.error || 'Failed to load preview') + '</div>';
+      document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:40px;color:#dc2626;">' + escapeHtml(data.error || T('file.previewFailed')) + '</div>';
       return;
     }
     const text = data.text || '';
@@ -7973,7 +7973,7 @@ async function openFileModal(filename) {
     const res = await fetch(API + '/api/content/' + encodeURIComponent(filename), { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     document.getElementById('modalTitle').textContent = filename;
-    document.getElementById('modalMeta').textContent = 'Size: ' + formatSize(data.size || 0) + ' | Modified: ' + formatTime(data.time || 0);
+    document.getElementById('modalMeta').textContent = T('file.size') + ': ' + formatSize(data.size || 0) + ' | ' + T('file.modified') + ': ' + formatTime(data.time || 0);
     document.getElementById('modalBody').textContent = data.content || '';
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
