@@ -11054,24 +11054,37 @@ function endBatchOperation(msg, fn) {
   if (fn) fn();
 }
 
+function setBatchProgress(pct) {
+  const fill = document.getElementById('batchProgressFill');
+  if (fill) fill.style.width = Math.min(100, Math.max(0, pct)) + '%';
+}
+
 async function batchDelete() {
   const checked = document.querySelectorAll('.batch-checkbox:checked');
   if (checked.length === 0) return;
   if (!confirm(T('ui.confirmDeleteSelected', {n: checked.length}))) return;
   const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
   setBatchOperation('删除中...');
+  setBatchProgress(0);
+  const total = filenames.length;
+  let done = 0;
+  const CHUNK = 5;
   try {
-    const res = await fetch(API + '/api/files/batch', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ filenames })
-    });
-    const data = await res.json();
-    if (data.success) {
-      endBatchOperation(T('msg.deletedN', { n: data.deleted }) + (data.failed ? ' (' + data.failed + ' 失败)' : ''), () => { clearBatch(); loadFiles(); });
-    } else {
-      endBatchOperation('删除失败: ' + (data.error || ''), () => clearBatch());
+    for (let i = 0; i < filenames.length; i += CHUNK) {
+      const chunk = filenames.slice(i, i + CHUNK);
+      const res = await fetch(API + '/api/files/batch', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ filenames: chunk })
+      });
+      const data = await res.json();
+      if (!data.success && !data.deleted) {
+        throw new Error(data.error || '删除失败');
+      }
+      done += chunk.length;
+      setBatchProgress(Math.round((done / total) * 100));
     }
+    endBatchOperation(T('msg.deletedN', { n: total }), () => { clearBatch(); loadFiles(); });
   } catch (e) {
     endBatchOperation('删除失败: ' + e.message, () => clearBatch());
   }
@@ -11087,18 +11100,26 @@ async function batchCopy() {
 
   const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
   setBatchOperation('复制中...');
+  setBatchProgress(0);
+  const total = filenames.length;
+  let done = 0;
+  const CHUNK = 5;
   try {
-    const res = await fetch(API + '/api/file/batch-copy', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ filenames, destFolder: cleanPrefix })
-    });
-    const data = await res.json();
-    if (data.success) {
-      endBatchOperation(T('msg.copiedTo', { n: filenames.length, dest: cleanPrefix }), () => { clearBatch(); loadFiles(); });
-    } else {
-      endBatchOperation(T('msg.copyFailedN', { n: 0, m: filenames.length }) + ': ' + data.error, () => clearBatch());
+    for (let i = 0; i < filenames.length; i += CHUNK) {
+      const chunk = filenames.slice(i, i + CHUNK);
+      const res = await fetch(API + '/api/file/batch-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ filenames: chunk, destFolder: cleanPrefix })
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || '复制失败');
+      }
+      done += chunk.length;
+      setBatchProgress(Math.round((done / total) * 100));
     }
+    endBatchOperation(T('msg.copiedTo', { n: total, dest: cleanPrefix }), () => { clearBatch(); loadFiles(); });
   } catch (e) {
     endBatchOperation('复制失败: ' + e.message, () => clearBatch());
   }
@@ -11114,18 +11135,26 @@ async function batchMove() {
 
   const filenames = Array.from(checked).map(cb => decodeURIComponent(cb.value));
   setBatchOperation('移动中...');
+  setBatchProgress(0);
+  const total = filenames.length;
+  let done = 0;
+  const CHUNK = 5;
   try {
-    const res = await fetch(API + '/api/file/batch-move', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
-      body: JSON.stringify({ filenames, destFolder: cleanPrefix })
-    });
-    const data = await res.json();
-    if (data.success) {
-      endBatchOperation(T('ui.confirmMoveSelected').replace('{n}', filenames.length), () => { clearBatch(); loadFiles(); });
-    } else {
-      endBatchOperation(T('ui.confirmMoveSelected').replace('{n}', filenames.length) + ': ' + data.error, () => clearBatch());
+    for (let i = 0; i < filenames.length; i += CHUNK) {
+      const chunk = filenames.slice(i, i + CHUNK);
+      const res = await fetch(API + '/api/file/batch-move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+        body: JSON.stringify({ filenames: chunk, destFolder: cleanPrefix })
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error || '移动失败');
+      }
+      done += chunk.length;
+      setBatchProgress(Math.round((done / total) * 100));
     }
+    endBatchOperation(T('ui.confirmMoveSelected').replace('{n}', total), () => { clearBatch(); loadFiles(); });
   } catch (e) {
     endBatchOperation('移动失败: ' + e.message, () => clearBatch());
   }
@@ -11163,6 +11192,7 @@ async function batchCreateShare() {
     const password = document.getElementById('sharePassword').value || null;
     closeShareOptionsModal();
     setBatchOperation('创建链接中...');
+    setBatchProgress(0);
     try {
       const res = await fetch(API + '/api/share/batch', {
         method: 'POST',
@@ -11943,6 +11973,7 @@ async function batchAddTag() {
     }
     const statusText = document.getElementById('batchStatusText');
     if (statusText) statusText.textContent = '标签 ' + (i + 1) + '/' + newTags.length;
+    setBatchProgress(Math.round(((i + 1) / newTags.length) * 100));
   }
 
   // Use batch API - single call for all files
