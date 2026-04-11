@@ -81,14 +81,12 @@ const I18N = {
     'msg.retry': '重试',
     'msg.clear': '清除',
     'msg.retry.all': '重试全部',
-    'msg.close': '关闭',
-    'msg.cancel': '取消',
+    'ui.save': '保存',
+    'ui.cancel': '取消',
     'msg.confirm': '确认',
     'msg.optional': '可选',
     'msg.confirmDelete': '确定删除 {name}？',
     'msg.confirmDeleteFolder': '确定删除文件夹 {name} 及其全部内容？',
-    'batch.confirmRename': '确认重命名',
-    'batch.cancel': '取消',
     'ui.confirmDelete': '确定删除',
     'ui.confirmRename': '确认重命名',
     'msg.confirmDeleteAll': '确定删除所有文件?',
@@ -349,6 +347,19 @@ const I18N = {
     // 收藏
     'fav.favorite': '收藏',
     'fav.favorites': '收藏管理',
+    // 虚拟文件夹
+    'vf.virtualFolders': '虚拟文件夹',
+    'vf.createFolder': '新建文件夹',
+    'vf.folderName': '文件夹名称',
+    'vf.description': '描述',
+    'vf.color': '颜色',
+    'vf.addFiles': '添加文件',
+    'vf.noFolders': '暂无虚拟文件夹',
+    'vf.deleteConfirm': '确定删除该文件夹？',
+    'vf.addedTo': '已添加到 {name}',
+    'vf.removedFrom': '已从 {name} 移除',
+    'vf.goTo': '进入',
+    'vf.edit': '编辑',
     'fav.addFav': '添加收藏',
     'fav.removeFav': '取消收藏',
     'fav.noFavorites': '暂无收藏',
@@ -574,8 +585,8 @@ const I18N = {
     'ui.batchRename': '重命名',
     'ui.batchCopy': '复制',
     'ui.batchMove': '移动',
-    'ui.batchDelete': '删除',
-    'ui.batchCancel': '取消',
+    'ui.save': '保存',
+    'ui.cancel': '取消',
     'ui.remove': '移除',
     'ui.files': '个文件',
     'ui.sortBy': '排序',
@@ -657,9 +668,7 @@ const I18N = {
     'ui.gridView': '网格视图',
     'ui.resultsFound': '找到 {n} 个结果',
     'ui.save': '保存',
-    'ui.saved': '已保存',
-    'ui.saveFailed': '保存失败',
-    'ui.edit': '编辑',
+    'ui.cancel': '取消',
     'ui.downloadDir': '下载目录',
     'ui.remoteUpload': '远程下载',
     'ui.download': '下载',
@@ -905,6 +914,19 @@ const I18N = {
     'fav.noFavorites': 'No favorites yet',
     'fav.goTo': 'Go to',
     'fav.removed': 'Removed from favorites',
+    // Virtual folders
+    'vf.virtualFolders': 'Virtual Folders',
+    'vf.createFolder': 'New Folder',
+    'vf.folderName': 'Folder Name',
+    'vf.description': 'Description',
+    'vf.color': 'Color',
+    'vf.addFiles': 'Add Files',
+    'vf.noFolders': 'No virtual folders yet',
+    'vf.deleteConfirm': 'Delete this folder?',
+    'vf.addedTo': 'Added to {name}',
+    'vf.removedFrom': 'Removed from {name}',
+    'vf.goTo': 'Go to',
+    'vf.edit': 'Edit',
 
     // 错误
     'err.unknown': 'Unknown error',
@@ -1196,7 +1218,7 @@ const I18N = {
     'ui.gridView': 'Grid view',
     'ui.resultsFound': '{n} results found',
     'ui.save': 'Save',
-    'ui.saved': 'Saved',
+    'ui.cancel': 'Cancel',
     'ui.saveFailed': 'Save failed',
     'ui.edit': 'Edit',
     'ui.downloadDir': 'Download dir',
@@ -1358,6 +1380,19 @@ const I18N = {
     'fav.noFavorites': 'No favorites yet',
     'fav.goTo': 'Go to',
     'fav.removed': 'Removed from favorites',
+    // Virtual folders
+    'vf.virtualFolders': 'Virtual Folders',
+    'vf.createFolder': 'New Folder',
+    'vf.folderName': 'Folder Name',
+    'vf.description': 'Description',
+    'vf.color': 'Color',
+    'vf.addFiles': 'Add Files',
+    'vf.noFolders': 'No virtual folders yet',
+    'vf.deleteConfirm': 'Delete this folder?',
+    'vf.addedTo': 'Added to {name}',
+    'vf.removedFrom': 'Removed from {name}',
+    'vf.goTo': 'Go to',
+    'vf.edit': 'Edit',
 
     // 错误
     'err.unknown': 'Unknown error',
@@ -4463,6 +4498,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div id="listAlert" class="alert"></div>
     <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ ' + T('fav.favorite') + '</button>
     <button class="fav-filter-btn" onclick="showFavoritesManager()">☰ ' + T('fav.favorites') + '</button>
+    <button class="fav-filter-btn" id="vfFilterBtn" onclick="showVirtualFoldersModal()">📁 ' + T('vf.virtualFolders') + '</button>
     <button class="fav-filter-btn" onclick="showTrashModal()">🗑 ' + T('ui.trash') + '<span id="trashCountBadge" style="display:none;margin-left:4px;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;line-height:1.4;">0</span></button>
 
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
@@ -5128,6 +5164,35 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button class="modal-close" onclick="closeFavoritesManager()">x</button>
     </div>
     <div id="favoritesManagerList" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="vfModal" onclick="if(event.target===this)closeVfModal()">
+  <div class="modal-content" style="max-width:600px;max-height:85vh;overflow:auto;">
+    <div class="modal-header">
+      <div class="modal-title">' + T('vf.virtualFolders') + '</div>
+      <button class="modal-close" onclick="closeVfModal()">x</button>
+    </div>
+    <div style="margin-bottom:16px;">
+      <button class="btn" onclick="showVfCreateForm()">+ ' + T('vf.createFolder') + '</button>
+    </div>
+    <div id="vfCreateForm" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg-tertiary);border-radius:8px;">
+      <div style="margin-bottom:8px;">
+        <input type="text" id="vfNameInput" placeholder="' + T('vf.folderName') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;">
+      </div>
+      <div style="margin-bottom:8px;">
+        <input type="text" id="vfDescInput" placeholder="' + T('vf.description') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;">
+      </div>
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+        <span style="font-size:12px;color:var(--text-muted);">' + T('vf.color') + ':</span>
+        <input type="color" id="vfColorInput" value="#667eea" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:4px;">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="createVirtualFolder()"> ' + T('ui.save') + '</button>
+        <button class="btn btn-secondary" onclick="hideVfCreateForm()"> ' + T('ui.cancel') + '</button>
+      </div>
+    </div>
+    <div id="vfFolderList" style="display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
 
@@ -11996,6 +12061,151 @@ function removeFav(encodedFilename) {
   // Re-render list
   showFavoritesManager();
   showToast(T('fav.removed'));
+}
+
+// ============================================================
+// Virtual Folders UI
+// ============================================================
+let currentVfFilter = null; // folder id being viewed, or null for all
+
+async function showVirtualFoldersModal() {
+  lockScroll();
+  document.getElementById('vfModal').classList.add('show');
+  await loadVirtualFolders();
+}
+
+function closeVfModal() {
+  unlockScroll();
+  document.getElementById('vfModal').classList.remove('show');
+  // If we were viewing a folder, restore normal view
+  if (currentVfFilter !== null) {
+    currentVfFilter = null;
+    loadFiles();
+  }
+}
+
+function showVfCreateForm() {
+  document.getElementById('vfCreateForm').style.display = 'block';
+  document.getElementById('vfNameInput').focus();
+}
+
+function hideVfCreateForm() {
+  document.getElementById('vfCreateForm').style.display = 'none';
+  document.getElementById('vfNameInput').value = '';
+  document.getElementById('vfDescInput').value = '';
+  document.getElementById('vfColorInput').value = '#667eea';
+}
+
+async function loadVirtualFolders() {
+  try {
+    const res = await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.success) return;
+    renderVfFolderList(data.folders);
+  } catch (e) { console.error('loadVirtualFolders failed:', e); }
+}
+
+function renderVfFolderList(folders) {
+  const container = document.getElementById('vfFolderList');
+  if (!folders || folders.length === 0) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">' + T('vf.noFolders') + '</div>';
+    return;
+  }
+  container.innerHTML = folders.map(f => {
+    const colorStyle = 'background:' + f.color + ';color:white;';
+    return '<div style="background:var(--bg-tertiary);border-radius:8px;overflow:hidden;">' +
+      '<div style="display:flex;align-items:center;gap:8px;padding:10px 12px;">' +
+        '<span style="width:12px;height:12px;border-radius:50%;' + colorStyle + '"></span>' +
+        '<span style="flex:1;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(f.name) + '</span>' +
+        '<span style="font-size:11px;color:var(--text-muted);">' + f.fileCount + ' files</span>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="navigateToVf(' + f.id + ')">' + T('vf.goTo') + '</button>' +
+        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteVirtualFolder(' + f.id + ')">✕</button>' +
+      '</div>' +
+      '<div style="padding:0 12px 10px;font-size:12px;color:var(--text-muted);">' + escapeHtml(f.description || '') + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function createVirtualFolder() {
+  const name = document.getElementById('vfNameInput').value.trim();
+  if (!name) return;
+  const description = document.getElementById('vfDescInput').value.trim();
+  const color = document.getElementById('vfColorInput').value;
+  try {
+    const res = await fetch(API + '/api/virtual-folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ name, description, color })
+    });
+    const data = await res.json();
+    if (data.success) {
+      hideVfCreateForm();
+      await loadVirtualFolders();
+      showToast('Folder created');
+    } else {
+      showToast(data.error || 'Failed', 'error');
+    }
+  } catch (e) { showToast('Failed to create folder', 'error'); }
+}
+
+async function deleteVirtualFolder(id) {
+  if (!confirm(T('vf.deleteConfirm'))) return;
+  try {
+    const res = await fetch(API + '/api/virtual-folders/' + id, {
+      method: 'DELETE',
+      headers: { 'x-auth-token': AUTH_TOKEN || '' }
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (currentVfFilter === id) { currentVfFilter = null; }
+      await loadVirtualFolders();
+      showToast('Folder deleted');
+    }
+  } catch (e) { showToast('Failed to delete folder', 'error'); }
+}
+
+async function navigateToVf(folderId) {
+  currentVfFilter = folderId;
+  closeVfModal();
+  // Load files for this virtual folder
+  try {
+    const res = await fetch(API + '/api/virtual-folders/' + folderId + '/files', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (data.success && data.files) {
+      // Display the folder's files as if they were regular files
+      window.vfFiles = data.files; // stash
+      renderFiles(data.files);
+      // Update breadcrumb-style indicator
+      showToast(T('vf.virtualFolders') + ' loaded');
+    }
+  } catch (e) { showToast('Failed to load folder', 'error'); }
+}
+
+// Add file to virtual folder from context menu
+async function addToVirtualFolder(filename) {
+  // Show a sub-modal to pick a folder
+  try {
+    const res = await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    if (!data.success || !data.folders.length) {
+      showToast('No virtual folders yet', 'error');
+      return;
+    }
+    const folder = data.folders[0]; // For now, just use the first folder
+    const file = currentFiles.find(f => f.name === filename);
+    if (!file) return;
+    const res2 = await fetch(API + '/api/virtual-folders/' + folder.id + '/files', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
+      body: JSON.stringify({ fileId: file.id })
+    });
+    const data2 = await res2.json();
+    if (data2.success) {
+      showToast(T('vf.addedTo').replace('{name}', folder.name));
+    } else {
+      showToast(data2.error || 'Failed', 'error');
+    }
+  } catch (e) { showToast('Failed to add file', 'error'); }
 }
 
 // Notification badge for WS changes
