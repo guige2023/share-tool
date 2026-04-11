@@ -169,11 +169,28 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 	// Serve embedded web UI with SPA fallback
 	webRoot, _ := fs.Sub(webAssets, "web")
 	httpFS := http.FS(webRoot)
-	fileServer := http.FileServer(httpFS)
 	fallback := serveIndexFallback(httpFS)
 
+	// Custom handler: serve static files if they exist, otherwise fallback to index.html (SPA)
+	webHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		// Try to open the file
+		f, err := httpFS.Open(path)
+		if err == nil {
+			fi, err := f.Stat()
+			f.Close()
+			if err == nil && !fi.IsDir() {
+				// File exists and is not a directory — serve it
+				http.FileServer(httpFS).ServeHTTP(w, r)
+				return
+			}
+		}
+		// Fallback: serve index.html for SPA routing
+		fallback.ServeHTTP(w, r)
+	})
+
 	// Default handler serves web UI with SPA fallback
-	mux.SetDefault(rejectPathTraversal(fileServer, fallback))
+	mux.SetDefault(rejectPathTraversal(webHandler, fallback))
 
 	log.Printf("[Server] Router initialized, shared dir: %s, readonly: %v", sharedDir, readonly)
 	return mux
