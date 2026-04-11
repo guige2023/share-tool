@@ -362,42 +362,81 @@ header .ip {
 
 .add-device-btn:hover { border-color: #0071e3; color: #0071e3; }
 
-/* QR Code Card */
-.qr-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
+/* Text Entry */
+.text-entry {
+  padding: 12px;
   background: #f5f5f7;
-  border-radius: 12px;
-  margin-bottom: 16px;
+  border-radius: 10px;
+  margin-bottom: 8px;
 }
 
-.qr-info { flex: 1; }
-
-.qr-url {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1d1d1f;
+.text-entry-content {
+  font-size: 15px;
+  line-height: 1.5;
   word-break: break-all;
   margin-bottom: 6px;
 }
 
-.qr-hint {
+.text-entry-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 12px;
   color: #86868b;
 }
 
-#qrImg {
-  flex-shrink: 0;
+.text-del-btn {
+  background: none;
+  border: 1px solid #d2d2d7;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #ff3b30;
+  cursor: pointer;
+}
+
+.text-del-btn:hover { background: #fff0f0; }
+
+.text-copy-btn {
+  background: none;
+  border: 1px solid #d2d2d7;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #0071e3;
+  cursor: pointer;
+}
+
+.text-copy-btn:hover { background: #f0f7ff; }
+
+.batch-delete-btn {
+  display: none;
+  background: #ff3b30;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.batch-download-btn {
+  display: none;
+  background: #0071e3;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 /* Mobile */
 @media (max-width: 600px) {
   .container { padding: 12px; }
   .file-actions { flex-wrap: wrap; }
-  .file-table th:nth-child(2),
-  .file-table td:nth-child(2) { display: none; }
+  .batch-delete-btn, .batch-download-btn { display: none !important; }
+  .file-table { display: block; overflow-x: auto; white-space: nowrap; }
   .drop-zone { padding: 30px 16px; }
 }
 </style>
@@ -408,14 +447,24 @@ header .ip {
   <h1>ShareTool</h1>
   <div class="header-right">
     <span class="ip" id="serverInfo">--</span>
+    <img id="headerQR" width="32" height="32" style="border-radius:4px;cursor:pointer;display:none;" title="点击查看大二维码" onclick="showQRModal()" />
   </div>
 </header>
+
+<!-- QR Modal -->
+<div id="qrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:center;justify-content:center;" onclick="closeQRModal(event)">
+  <div style="background:#fff;border-radius:16px;padding:24px;text-align:center;max-width:320px;width:90%;" onclick="event.stopPropagation()">
+    <p style="font-size:14px;font-weight:600;margin-bottom:16px;" id="qrModalUrl">--</p>
+    <img id="qrModalImg" width="256" height="256" style="border-radius:8px;border:4px solid #f5f5f7;" />
+    <p style="font-size:12px;color:#86868b;margin-top:12px;">用微信/相机扫码访问</p>
+    <button onclick="closeQRModal()" style="margin-top:16px;padding:10px 24px;background:#1d1d1f;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;">关闭</button>
+  </div>
+</div>
 
 <!-- Tab Navigation -->
 <div class="tabs">
   <div class="tab active" data-tab="files">📁 文件</div>
   <div class="tab" data-tab="text">📝 剪贴板</div>
-  <div class="tab" data-tab="devices">💻 设备</div>
 </div>
 
 <div class="container">
@@ -442,8 +491,15 @@ header .ip {
     <!-- File List -->
     <div class="file-section" style="margin-top:16px;">
       <div class="header">
-        <h2>文件列表</h2>
-        <button class="refresh-btn" onclick="loadFiles()">刷新</button>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="selectAllFiles" onchange="toggleSelectAll()" style="width:16px;height:16px;cursor:pointer;" />
+          <h2 style="flex:1;">文件列表</h2>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="refresh-btn" onclick="loadFiles()">刷新</button>
+          <button class="batch-delete-btn" id="batchDeleteBtn" onclick="batchDeleteFiles()">删除</button>
+          <button class="batch-download-btn" id="batchDownloadBtn" onclick="batchDownloadFiles()">下载</button>
+        </div>
       </div>
       <div id="fileList"></div>
     </div>
@@ -451,37 +507,21 @@ header .ip {
 
   <!-- Text Tab -->
   <div class="panel" id="panel-text">
+    <!-- Send box -->
     <div class="text-section" style="margin-top:16px;">
       <h2>发送文本</h2>
       <div class="text-row">
         <input id="textInput" placeholder="输入文本，发送给局域网内所有设备..." />
         <button onclick="sendText()">发送</button>
       </div>
-      <div class="text-latest" id="textLatest">等待接收文本...</div>
     </div>
-  </div>
-
-  <!-- Devices Tab -->
-  <div class="panel" id="panel-devices">
-    <!-- QR Code Card -->
-    <div class="devices-section" style="margin-top:16px;">
-      <h2>手机扫码访问</h2>
-      <div class="qr-card">
-        <div class="qr-info">
-          <p class="qr-url" id="qrUrl">--</p>
-          <p class="qr-hint">用微信/相机扫码或在浏览器打开</p>
-        </div>
-        <img id="qrImg" width="160" height="160" style="border-radius:8px;border:4px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.1);flex-shrink:0;" />
+    <!-- History -->
+    <div class="text-section" style="margin-top:12px;">
+      <div class="header" style="margin-bottom:12px;">
+        <h2>历史记录</h2>
+        <button class="refresh-btn" onclick="clearTextHistory()" style="color:#ff3b30;border-color:#ff3b30;" id="clearHistoryBtn">清空全部</button>
       </div>
-    </div>
-
-    <!-- Peers List -->
-    <div class="devices-section" style="margin-top:16px;">
-      <h2>局域网设备</h2>
-      <div class="device-list" id="deviceList">
-        <div class="empty-state">正在搜索设备...</div>
-      </div>
-      <button class="add-device-btn" onclick="showAddDevice()">+ 添加设备</button>
+      <div id="textList"></div>
     </div>
   </div>
 </div>
@@ -494,7 +534,7 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
-    if (tab.dataset.tab === 'devices') loadDevices();
+    if (tab.dataset.tab === 'text') loadTextHistory();
   });
 });
 
@@ -505,16 +545,24 @@ const API = {
     if (!res.ok) throw new Error('Request failed: ' + res.status);
     return res.json();
   },
+  // Text
   sendText(content) {
-    return this.request('/api/text', {
+    return fetch(this.base + '/api/text', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({content})
-    });
+    }).then(r => r.json());
   },
-  getLatestText() {
-    return this.request('/api/text/latest');
+  getTextHistory() {
+    return this.request('/api/text');
   },
+  deleteText(id) {
+    return this.request('/api/text?id=' + encodeURIComponent(id), {method: 'DELETE'});
+  },
+  clearText() {
+    return this.request('/api/text?all=true', {method: 'DELETE'});
+  },
+  // Files
   listFiles() {
     return this.request('/api/files');
   },
@@ -523,8 +571,7 @@ const API = {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', this.base + '/api/files/' + encodeURIComponent(name));
       if (offset !== undefined) {
-        const end = offset + blob.size - 1;
-        xhr.setRequestHeader('Content-Range', `bytes ${offset}-${end}/${total}`);
+        xhr.setRequestHeader('Content-Range', `bytes ${offset}-${offset + blob.size - 1}/${total}`);
       }
       xhr.onload = () => {
         try { resolve(JSON.parse(xhr.responseText)); }
@@ -537,52 +584,34 @@ const API = {
   deleteFile(name) {
     return this.request('/api/files/' + encodeURIComponent(name), {method: 'DELETE'});
   },
-  listPeers() {
-    return this.request('/api/peers');
-  },
-  registerPeer(ip, port) {
-    return this.request('/api/peers', {
-      method: 'POST',
+  batchDeleteFiles(names) {
+    return fetch(this.base + '/api/files', {
+      method: 'DELETE',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name: deviceName(), ip, port})
-    });
+      body: JSON.stringify({names})
+    }).then(r => r.json());
   }
 };
 
 // Detect server base URL
-(function detectBase() {
+(function() {
   const proto = location.protocol === 'https:' ? 'https:' : 'http:';
   const port = location.port || (proto === 'https:' ? '443' : '80');
   API.base = proto + '//' + location.hostname + ':' + port;
   document.getElementById('serverInfo').textContent = location.host;
+
+  // Header QR icon
+  const headerQR = document.getElementById('headerQR');
+  headerQR.src = API.base + '/api/qr?url=' + encodeURIComponent(location.href);
+  headerQR.style.display = 'inline';
 })();
 
-function deviceName() {
-  return navigator.platform || 'Unknown';
-}
-
-// Text
-async function sendText() {
-  const input = document.getElementById('textInput');
-  const content = input.value.trim();
-  if (!content) return;
-  try {
-    await API.sendText(content);
-    input.value = '';
-  } catch(e) {
-    alert('发送失败: ' + e.message);
-  }
-}
-
-async function pollText() {
-  try {
-    const data = await API.getLatestText();
-    const el = document.getElementById('textLatest');
-    if (data.content) {
-      const ago = data.timestamp ? timeAgo(data.timestamp) : '';
-      el.innerHTML = '<strong>最新:</strong> ' + escHtml(data.content) + (ago ? ' (' + ago + ')' : '');
-    }
-  } catch {}
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
 }
 
 function timeAgo(ts) {
@@ -592,10 +621,100 @@ function timeAgo(ts) {
   return Math.floor(diff/3600000) + '小时前';
 }
 
-// Upload
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  if (bytes < 1073741824) return (bytes/1048576).toFixed(1) + ' MB';
+  return (bytes/1073741824).toFixed(2) + ' GB';
+}
+
+// ─── Text History ────────────────────────────────────────────────────────────
+
+async function sendText() {
+  const input = document.getElementById('textInput');
+  const content = input.value.trim();
+  if (!content) return;
+  try {
+    await API.sendText(content);
+    input.value = '';
+    loadTextHistory();
+  } catch(e) {
+    alert('发送失败: ' + e.message);
+  }
+}
+
+let textEntries = []; // 缓存当前历史，供 copyText 使用
+
+async function loadTextHistory() {
+  const list = document.getElementById('textList');
+  try {
+    const data = await API.getTextHistory();
+    textEntries = data.entries || [];
+    if (!data.entries || !data.entries.length) {
+      list.innerHTML = '<div class="empty-state" style="padding:24px;">暂无历史记录</div>';
+      return;
+    }
+    list.innerHTML = data.entries.map(e => {
+      const time = new Date(e.timestamp).toLocaleString('zh-CN');
+      return '<div class="text-entry">' +
+        '<div class="text-entry-content">' + escHtml(e.content) + '</div>' +
+        '<div class="text-entry-meta">' +
+          '<span>' + time + '</span>' +
+          '<div style="display:flex;gap:6px;">' +
+            '<button class="text-copy-btn" data-id="' + e.id + '" onclick="copyText(this)">复制</button>' +
+            '<button class="text-del-btn" onclick="deleteText(\'' + e.id + '\')">删除</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="empty-state">加载失败: ' + escHtml(e.message) + '</div>';
+  }
+}
+
+async function deleteText(id) {
+  if (!confirm('确认删除？')) return;
+  try {
+    await API.deleteText(id);
+    loadTextHistory();
+  } catch(e) {
+    alert('删除失败: ' + e.message);
+  }
+}
+
+function copyText(btn) {
+  const id = btn.dataset.id;
+  const entry = textEntries.find(e => e.id === id);
+  if (!entry) return;
+  // 使用 textarea + execCommand 兼容 HTTP 场景
+  const ta = document.createElement('textarea');
+  ta.value = entry.content;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try { document.execCommand('copy'); } catch(e) {}
+  document.body.removeChild(ta);
+  btn.textContent = '已复制';
+  btn.style.color = '#34c759';
+  setTimeout(() => { btn.textContent = '复制'; btn.style.color = ''; }, 1500);
+}
+
+async function clearTextHistory() {
+  if (!confirm('确认清空全部历史记录？')) return;
+  try {
+    await API.clearText();
+    loadTextHistory();
+  } catch(e) {
+    alert('清空失败: ' + e.message);
+  }
+}
+
+// ─── File Upload ─────────────────────────────────────────────────────────────
+
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
-const CHUNK = 2 * 1024 * 1024; // 2MB chunks
+const CHUNK = 2 * 1024 * 1024;
 
 ['dragenter','dragover'].forEach(ev => {
   dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); });
@@ -651,8 +770,16 @@ async function uploadFile(file, name, total) {
   text.textContent = '100%';
 }
 
-// Files
+// ─── File List + Batch Selection ─────────────────────────────────────────────
+
+let selectedFiles = new Set();
+
 async function loadFiles() {
+  selectedFiles.clear();
+  const selectAll = document.getElementById('selectAllFiles');
+  if (selectAll) selectAll.checked = false;
+  updateBatchButtons();
+
   try {
     const data = await API.listFiles();
     const list = document.getElementById('fileList');
@@ -660,15 +787,19 @@ async function loadFiles() {
       list.innerHTML = '<div class="empty-state">暂无文件，上传一个试试</div>';
       return;
     }
-    const rows = ['<table class="file-table"><thead><tr><th>文件名</th><th>大小</th><th>时间</th><th></th></tr></thead><tbody>'];
+    const rows = ['<table class="file-table"><thead><tr>' +
+      '<th style="width:32px;"></th>' +
+      '<th>文件名</th>' +
+      '<th style="width:130px;"></th></tr></thead><tbody>'];
     for (const f of data.files) {
+      const escName = escHtml(f.name);
       const url = API.base + '/api/files/' + encodeURIComponent(f.name);
-      rows.push('<tr>' +
-        '<td class="file-name">' + escHtml(f.name) + '<div class="file-meta">' + formatBytes(f.size) + '</div></td>' +
-        '<td>' + timeAgo(f.updatedAt) + '</td>' +
+      rows.push('<tr data-name="' + escName + '">' +
+        '<td><input type="checkbox" class="file-check" value="' + escName + '" onchange="toggleFile(this)" style="width:16px;height:16px;cursor:pointer;" /></td>' +
+        '<td class="file-name">' + escName + '<div class="file-meta">' + formatBytes(f.size) + ' · ' + timeAgo(f.updatedAt) + '</div></td>' +
         '<td class="file-actions">' +
-          '<a href="' + url + '" download="' + escHtml(f.name) + '"><button class="dl-btn">下载</button></a>' +
-          '<button class="del-btn" onclick="doDelete(\'' + escHtml(f.name).replace(/'/g, "\\'") + '\')">删除</button>' +
+          '<a href="' + url + '" download="' + escName + '"><button class="dl-btn">下载</button></a>' +
+          '<button class="del-btn" onclick="doDelete(\'' + escName.replace(/'/g, "\\'") + '\')">删除</button>' +
         '</td>' +
       '</tr>');
     }
@@ -677,6 +808,77 @@ async function loadFiles() {
   } catch(e) {
     document.getElementById('fileList').innerHTML =
       '<div class="empty-state">加载失败: ' + escHtml(e.message) + '</div>';
+  }
+}
+
+function toggleFile(cb) {
+  const name = cb.value;
+  if (cb.checked) {
+    selectedFiles.add(name);
+  } else {
+    selectedFiles.delete(name);
+  }
+  updateBatchButtons();
+}
+
+function toggleSelectAll() {
+  const cb = document.getElementById('selectAllFiles');
+  const allCbs = document.querySelectorAll('.file-check');
+  allCbs.forEach(c => {
+    c.checked = cb.checked;
+    if (cb.checked) selectedFiles.add(c.value);
+    else selectedFiles.delete(c.value);
+  });
+  updateBatchButtons();
+}
+
+function updateBatchButtons() {
+  const n = selectedFiles.size;
+  const delBtn = document.getElementById('batchDeleteBtn');
+  const dlBtn = document.getElementById('batchDownloadBtn');
+  if (delBtn) delBtn.style.display = n > 0 ? 'inline-block' : 'none';
+  if (dlBtn) dlBtn.textContent = n > 0 ? '下载(' + n + ')' : '下载';
+  dlBtn && (dlBtn.style.display = n > 0 ? 'inline-block' : 'none');
+}
+
+async function batchDeleteFiles() {
+  if (selectedFiles.size === 0) return;
+  const names = Array.from(selectedFiles);
+  if (!confirm('确认删除 ' + names.length + ' 个文件？')) return;
+  try {
+    await API.batchDeleteFiles(names);
+    selectedFiles.clear();
+    loadFiles();
+  } catch(e) {
+    alert('批量删除失败: ' + e.message);
+  }
+}
+
+function batchDownloadFiles() {
+  const names = Array.from(selectedFiles);
+  if (names.length === 0) return;
+  if (names.length === 1) {
+    const url = API.base + '/api/files/' + encodeURIComponent(names[0]);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = names[0];
+    a.click();
+  } else {
+    // 批量下载：逐个通过隐藏 iframe 触发，浏览器自带并发下载管理
+    names.forEach((name, i) => {
+      setTimeout(() => {
+        const url = API.base + '/api/files/' + encodeURIComponent(name);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, i * 300); // 每隔 300ms 触发一个，避免浏览器拦截
+    });
+    const last = (names.length - 1) * 300 + 500;
+    setTimeout(() => alert('已向浏览器下载管理器添加 ' + names.length + ' 个文件'), last);
   }
 }
 
@@ -690,85 +892,24 @@ async function doDelete(name) {
   }
 }
 
-function formatBytes(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
-  if (bytes < 1073741824) return (bytes/1048576).toFixed(1) + ' MB';
-  return (bytes/1073741824).toFixed(2) + ' GB';
+// ─── QR Modal ───────────────────────────────────────────────────────────────
+
+function showQRModal() {
+  const modal = document.getElementById('qrModal');
+  const url = location.href;
+  document.getElementById('qrModalUrl').textContent = url;
+  document.getElementById('qrModalImg').src = API.base + '/api/qr?url=' + encodeURIComponent(url);
+  modal.style.display = 'flex';
 }
 
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
+function closeQRModal(e) {
+  if (e && e.target !== document.getElementById('qrModal')) return;
+  document.getElementById('qrModal').style.display = 'none';
 }
 
-// Devices
-async function loadDevices() {
-  const list = document.getElementById('deviceList');
-  try {
-    const data = await API.listPeers();
-    if (!data.peers || !data.peers.length) {
-      list.innerHTML = '<div class="empty-state">同一服务器上的其他设备将显示在这里</div>';
-      return;
-    }
-    list.innerHTML = data.peers.map(p => {
-      const type = p.name.toLowerCase().includes('iphone') || p.name.toLowerCase().includes('android') ? 'phone' : 
-                   p.name.toLowerCase().includes('ipad') || p.name.toLowerCase().includes('tablet') ? 'tablet' : 'computer';
-      const icon = type === 'phone' ? '📱' : type === 'tablet' ? '📲' : '💻';
-      return '<div class="device-card">' +
-        '<div class="device-icon ' + type + '">' + icon + '</div>' +
-        '<div class="device-info">' +
-          '<div class="device-name">' + escHtml(p.name) + '</div>' +
-          '<div class="device-addr">' + escHtml(p.ip) + ':' + p.port + '</div>' +
-          '<div class="device-time">最后活跃: ' + timeAgo(p.updatedAt) + '</div>' +
-        '</div>' +
-        '<div class="device-status"></div>' +
-      '</div>';
-    }).join('');
-  } catch(e) {
-    list.innerHTML = '<div class="empty-state">加载设备列表失败</div>';
-  }
-}
+// ─── Init ────────────────────────────────────────────────────────────────────
 
-let devicePollInterval = null;
-
-function showAddDevice() {
-  const addr = prompt('输入其他 ShareTool 设备的地址（如 192.168.1.100:18790）：');
-  if (!addr) return;
-  try {
-    const [ip, port] = addr.split(':');
-    API.registerPeer(ip, parseInt(port));
-    alert('设备已添加（需要对方也打开设备列表页面才能看到）');
-  } catch(e) {
-    alert('添加失败: ' + e.message);
-  }
-}
-
-// Init
 loadFiles();
-setInterval(pollText, 3000);
-
-// QR Code via backend /api/qr endpoint (uses skip2/go-qrcode library)
-function updateQR() {
-  var url = location.href;
-  document.getElementById('qrUrl').textContent = url;
-  document.getElementById('qrImg').src = API.base + '/api/qr?url=' + encodeURIComponent(url);
-}
-
-// Update QR when devices tab opens
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    if (tab.dataset.tab === 'devices') {
-      setTimeout(updateQR, 50);
-    }
-  });
-});
-
-// Update QR when page loads
-window.addEventListener('load', updateQR);
 </script>
 <div style="text-align:center;padding:20px;font-size:12px;color:#86868b;">
   <a href="/openapi.json" style="color:#0071e3;">OpenAPI</a> ·

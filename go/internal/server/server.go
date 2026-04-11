@@ -105,21 +105,28 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		w.Write([]byte(`{"status":"ok","version":"1.0.0"}`))
 	})
 
-	// Text API
+	// Text API — history
 	mux.HandleFunc("/api/text", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
+		switch r.Method {
+		case http.MethodGet:
+			handleTextList(w, r)
+		case http.MethodPost:
 			handleTextPost(w, r)
-		} else {
+		case http.MethodDelete:
+			handleTextDelete(w, r)
+		default:
 			http.Error(w, "Method Not Allowed", 405)
 		}
 	})
-	mux.HandleFunc("/api/text/latest", handleTextLatest)
 
 	// File API
 	mux.HandleFunc("/api/files", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
 			handleFileList(sharedDir)(w, r)
-		} else {
+		case http.MethodDelete:
+			handleFileBatchDelete(sharedDir)(w, r)
+		default:
 			http.Error(w, "Method Not Allowed", 405)
 		}
 	})

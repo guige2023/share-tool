@@ -1,193 +1,163 @@
 # ShareTool
 
-本地局域网文件分享工具，支持 Web UI、分享链接和命令行操作。
+本地局域网文件与文本分享工具，Go 编写，单一二进制文件，零依赖。
 
 ## 功能特性
 
-- **文件上传** - 支持拖拽上传，自动去重（按文件内容哈希）
-- **文件管理** - 列表查看、搜索、重命名、删除、批量清理
-- **一键下载** - 单文件下载或打包成 ZIP 批量下载
-- **分享链接** - 生成带密码的分享链接，支持二维码
-- **HTTPS 服务** - 自动生成自签名证书，避免浏览器下载警告
-- **命令行支持** - 完整的 REST API，支持 curl 操作
+### 文件分享
+- **拖拽上传** — 拖拽或点击选择文件，支持大文件分片断点续传（2MB 分片）
+- **批量操作** — 文件列表支持全选、多选批量删除（电脑端可用）
+- **极速下载** — 单文件直接下载，多文件逐个下载
+- **QR 码** — 页眉图标点击弹出大图二维码，手机扫码直接访问
+
+### 文本分享
+- **历史记录** — 所有文本永久保存，按时间倒序展示，最多 200 条
+- **一键清空** — 顶部"清空全部"按钮，一键清除所有历史
+- **单条管理** — 每条记录独立复制、删除按钮
+
+### 访问方式
+- **本机访问** — `http://localhost:18790`
+- **局域网访问** — `http://192.168.1.x:18790`（IP 自动检测）
+- **扫码访问** — 点击页眉 QR 图标，用微信/相机扫码
 
 ## 快速启动
 
 ```bash
-# 安装依赖
-npm install
+# 下载最新 release 二进制（Linux/macOS/Windows）
+# 或直接编译
+cd go
+go build -o sharetool .
 
-# 启动服务
-node server.js
+# 运行（默认端口 18790）
+./sharetool
+
+# 指定端口和共享目录
+./sharetool -port 8080 -dir /tmp/share
+
+# 指定实例名称
+./sharetool -name "我的Mac"
 ```
 
-服务启动后会同时监听两个端口：
-- `http://localhost:18790` → 自动 301 跳转到 HTTPS
-- `https://localhost:18793` → 主服务（首次访问需接受自签名证书）
+服务启动后，共享目录默认为 `./shared`，首次自动创建。
 
-局域网访问地址：`https://<本机IP>:18793`
-
-## 开机自动启动（macOS）
-
-已配置为 macOS 开机自动启动服务：
+## 命令行示例
 
 ```bash
-# 查看服务状态
-launchctl list | grep com.share-tool
+# 上传文件
+curl -T report.pdf http://localhost:18790/api/files/report.pdf
 
-# 手动停止
-launchctl stop com.share-tool
+# 列出文件
+curl http://localhost:18790/api/files
 
-# 手动启动
-launchctl start com.share-tool
+# 下载文件
+curl -O http://localhost:18790/api/files/report.pdf
 
-# 卸载开机启动
-launchctl unload ~/Library/LaunchAgents/com.share-tool.plist
+# 上传文本
+curl -X POST http://localhost:18790/api/text \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"会议记录：今天下午3点同步"}'
+
+# 查看文本历史
+curl http://localhost:18790/api/text
+
+# 删除单条文本
+curl -X DELETE 'http://localhost:18790/api/text?id=a1b2c3d4'
+
+# 清空全部文本
+curl -X DELETE 'http://localhost:18790/api/text?all=true'
+
+# 批量删除文件
+curl -X DELETE http://localhost:18790/api/files \
+  -H 'Content-Type: application/json' \
+  -d '{"names":["old.pdf","temp.txt"]}'
+
+# 获取二维码图片
+curl -o qr.png 'http://localhost:18790/api/qr?url=http://192.168.1.10:18790'
 ```
 
-服务日志保存在 `~/.share-tool/logs/` 目录下。
+## API 列表
 
-## Web UI 使用
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/files` | 列出所有文件 |
+| PUT | `/api/files/:name` | 上传文件（支持 Content-Range 断点续传） |
+| GET | `/api/files/:name` | 下载文件 |
+| DELETE | `/api/files/:name` | 删除单个文件 |
+| DELETE | `/api/files` | 批量删除（body: `{"names":["a","b"]}`） |
+| POST | `/api/text` | 分享文本 |
+| GET | `/api/text` | 获取文本历史列表 |
+| DELETE | `/api/text?id=:id` | 删除单条历史 |
+| DELETE | `/api/text?all=true` | 清空全部历史 |
+| GET | `/api/qr?url=:url` | 生成二维码 PNG（256×256） |
+| GET | `/openapi.json` | OpenAPI 3.0 规范 |
+| GET | `/tools.json` | AI Agent 工具定义 |
+| GET | `/` | Web UI 主页 |
 
-1. 打开 `https://<本机IP>:18793`
-2. 在认证弹窗中输入 Token（默认 Token 见下方注意事项）
-3. 拖拽文件到上传区域即可上传
-4. 点击文件右侧的 **分享** 按钮生成分享链接
-5. 点击 **下载** 或顶部的 **下载全部** 获取文件
+## AI Agent 调用
 
-## API 使用
+ShareTool 暴露 AI 可读的 `/tools.json` 端点，支持 AI Agent 自动化操作。
 
-所有管理 API 需要携带认证 Token：
+**注册方式**：Agent 读取 `GET /tools.json`，获取所有可用工具定义后，通过对应 HTTP API 执行。
+
+**可用工具**：
+
+| 工具名 | 说明 | 调用方式 |
+|--------|------|----------|
+| `share_text` | 分享文本到局域网 | `POST /api/text` |
+| `get_text_history` | 获取文本历史 | `GET /api/text` |
+| `delete_text_entry` | 删除单条历史 | `DELETE /api/text?id=...` |
+| `clear_text_history` | 清空全部历史 | `DELETE /api/text?all=true` |
+| `list_files` | 列出文件 | `GET /api/files` |
+| `upload_file` | 上传文件 | `PUT /api/files/:name` |
+| `download_file` | 下载文件 | `GET /api/files/:name` |
+| `batch_delete_files` | 批量删除 | `DELETE /api/files` + JSON body |
+
+**示例**：Agent 发现文件列表中有过期文件，执行清理：
 
 ```bash
-TOKEN="your-token-here"
+# Agent 决定调用 batch_delete_files
+curl -X DELETE http://192.168.1.10:18790/api/files \
+  -H 'Content-Type: application/json' \
+  -d '{"names":["2024-旧报告.pdf","tmp_cache.bin"]}'
 ```
 
-### 1. 查看文件列表
+## Web UI 操作
+
+打开 `http://localhost:18790`（或局域网 IP）：
+
+- **文件页** — 拖拽上传 / 点击上传，文件列表全选多选批量删除
+- **剪贴板页** — 发送文本，查看历史记录，每条独立复制/删除，顶部一键清空
+- **QR 码** — 页眉右侧 QR 图标，点击弹出大图，手机扫码访问
+
+## 项目结构
+
+```
+share-tool/
+├── go/
+│   ├── main.go                    # 程序入口，命令行解析
+│   ├── internal/
+│   │   ├── server/
+│   │   │   ├── server.go           # HTTP 路由、SPA fallback
+│   │   │   ├── file_api.go        # 文件上传/下载/删除/批量删除
+│   │   ├── text_api.go            # 文本历史（数组结构，最多200条）
+│   │   └── web/index.html         # Web UI（嵌入二进制）
+│   └── web/index.html             # Web UI 源码（同步用）
+├── cmd/                           # 预留扩展命令
+├── README.md
+└── LICENSE
+```
+
+## 编译打包
 
 ```bash
-curl -k "https://localhost:18793/api/list" \
-  -H "x-auth-token: $TOKEN"
+cd go
+go build -o sharetool .
+# 输出单一二进制，无外部依赖
 ```
-
-### 2. 搜索文件
-
-```bash
-curl -k "https://localhost:18793/api/search?q=keyword" \
-  -H "x-auth-token: $TOKEN"
-```
-
-### 3. 上传文件
-
-```bash
-curl -k -X POST "https://localhost:18793/api/upload" \
-  -H "x-auth-token: $TOKEN" \
-  -F "file=@/path/to/file.png"
-```
-
-### 4. 下载单个文件
-
-```bash
-curl -k -o file.png \
-  "https://localhost:18793/download/file.png" \
-  -H "x-auth-token: $TOKEN"
-```
-
-### 5. 下载全部（ZIP）
-
-```bash
-curl -k -o all.zip \
-  "https://localhost:18793/api/download-all" \
-  -H "x-auth-token: $TOKEN"
-```
-
-### 6. 创建分享链接
-
-```bash
-curl -k -X POST "https://localhost:18793/api/share/create" \
-  -H "Content-Type: application/json" \
-  -H "x-auth-token: $TOKEN" \
-  -d '{
-    "filename": "file.png",
-    "maxDownloads": 10,
-    "expireHours": 24,
-    "password": "1234"
-  }'
-```
-
-### 7. 重命名文件
-
-```bash
-curl -k -X PUT "https://localhost:18793/api/file/old-name.png" \
-  -H "Content-Type: application/json" \
-  -H "x-auth-token: $TOKEN" \
-  -d '{"newName":"new-name.png"}'
-```
-
-### 8. 删除指定文件
-
-```bash
-curl -k -X DELETE "https://localhost:18793/api/file/file.png" \
-  -H "x-auth-token: $TOKEN"
-```
-
-### 9. 删除旧文件
-
-```bash
-# 删除 7 天前的文件
-curl -k -X DELETE "https://localhost:18793/api/delete-old?days=7" \
-  -H "x-auth-token: $TOKEN"
-```
-
-### 10. 删除所有文件
-
-```bash
-curl -k -X DELETE "https://localhost:18793/api/delete-all" \
-  -H "x-auth-token: $TOKEN"
-```
-
-### 11. 存储统计
-
-```bash
-curl -k "https://localhost:18793/api/storage" \
-  -H "x-auth-token: $TOKEN"
-```
-
-## 配置文件
-
-配置文件位于：`~/.share-tool/config.json`
-
-首次启动会自动创建，示例：
-
-```json
-{
-  "shareToken": "your-token-here",
-  "uploadMaxSizeMB": 100
-}
-```
-
-- `shareToken` - 访问认证 Token
-- `uploadMaxSizeMB` - 单个文件上传大小限制（默认 100MB）
-
-## 文件存储
-
-- 上传的文件保存在：`~/.share-tool/files/`
-- SQLite 数据库保存在：`~/.share-tool/share-tool.db`
-- 自签名证书保存在：`~/.share-tool/ssl/`
 
 ## 注意事项
 
-- 默认 Token 可在 `~/.share-tool/config.json` 中查看或修改
-- 也可通过环境变量 `SHARE_TOKEN` 覆盖默认 Token
-- HTTPS 使用自动生成的自签名证书，首次访问时浏览器会提示"不安全"，点击继续即可
-- 建议在生产环境或公网使用前修改默认 Token
-
-## 联系方式
-
-### 免费 OpenClaw 和 AI 交流群
-
-![微信群二维码](微信群二维码.jpg)
-
-### 微信公众号
-
-![微信公众号](微信公众号.jpg)
+- 无需 Token 认证，适用于可信局域网环境
+- 共享目录默认为 `./shared`，首次启动自动创建
+- 二进制文件约 9MB，静态编译，无运行时依赖
+- QR 码由后端 `github.com/skip2/go-qrcode` 生成，纯 Go 实现

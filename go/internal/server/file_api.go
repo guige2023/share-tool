@@ -154,6 +154,52 @@ func handleFileDelete(sharedDir string) http.HandlerFunc {
 	}
 }
 
+// handleFileBatchDelete removes multiple files at once
+func handleFileBatchDelete(sharedDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			http.Error(w, "Method Not Allowed", 405)
+			return
+		}
+		var req struct {
+			Names []string `json:"names"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, `{"error":"invalid JSON"}`, 400)
+			return
+		}
+		if len(req.Names) == 0 {
+			http.Error(w, `{"error":"names array is empty"}`, 400)
+			return
+		}
+
+		var deleted, failed int
+		var errs []string
+		for _, name := range req.Names {
+			safe := safeName("/" + name)
+			if safe == "" {
+				failed++
+				errs = append(errs, "unsafe name: "+name)
+				continue
+			}
+			fpath := filepath.Join(sharedDir, safe)
+			if err := os.Remove(fpath); err != nil {
+				failed++
+				errs = append(errs, name+": "+err.Error())
+			} else {
+				deleted++
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"success": failed == 0,
+			"deleted": deleted,
+			"failed":  failed,
+			"errors":  errs,
+		})
+	}
+}
+
 func listFiles(dir string) ([]FileInfo, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
