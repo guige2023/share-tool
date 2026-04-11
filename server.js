@@ -12554,7 +12554,7 @@ function saveRecentSearch(q) {
   try { localStorage.setItem('sharetool_recent_searches', JSON.stringify(searches)); } catch (e) {}
   renderRecentSearches();
   // Sync to server API (fire-and-forget)
-  fetch(API + '/api/search/history', {
+  fetch(API + '/api/search/log', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
     body: JSON.stringify({ query: q })

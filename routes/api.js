@@ -1485,5 +1485,50 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/search/history — 获取搜索历史
+  if (pathname === '/api/search/history' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const history = db.getSearchHistory(authData.token, 20);
+    sendJson(res, { success: true, history });
+    return true;
+  }
+
+  // DELETE /api/search/history — 清除搜索历史
+  if (pathname === '/api/search/history' && method === 'DELETE') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    db.clearSearchHistory(authData.token);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // GET /api/search/popular — 热门搜索
+  if (pathname === '/api/search/popular' && method === 'GET') {
+    const popular = db.getPopularSearches(10);
+    sendJson(res, { success: true, popular });
+    return true;
+  }
+
+  // POST /api/search/log — 记录搜索（每次搜索时调用）
+  if (pathname === '/api/search/log' && method === 'POST') {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { query } = JSON.parse(body);
+        if (query && query.trim().length >= 1) {
+          const authData = authRequired(req, res);
+          const userId = authData ? authData.token : null;
+          db.addSearchHistory(query.trim(), userId);
+        }
+        sendJson(res, { success: true });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };
