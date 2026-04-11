@@ -942,6 +942,32 @@ module.exports = function handleApiRoutes(req, res, pathname, query, ctx) {
     return true;
   }
 
+  // GET /api/admin/rate-limits — list active rate limit records
+  if (pathname === '/api/admin/rate-limits' && method === 'GET') {
+    const authData = authRequired(req, res);
+    if (!authData) return true;
+    const limit = parseInt(query.limit) || 100;
+    const records = db.listRateLimits(limit);
+    // Parse key into readable parts (e.g. "share_verify:192.168.1.1:abc123" → {type, ip, code})
+    const parsed = records.map(r => {
+      const parts = r.key.split(':');
+      return {
+        key: r.key,
+        type: parts[0] || '',
+        ip: parts[1] || '',
+        code: parts[2] || '',
+        attempts: r.attempts,
+        lockedUntil: r.locked_until,
+        lastAttempt: r.last_attempt,
+        status: r.status,
+        remaining: r.remaining,
+        secondsAgo: r.seconds_ago
+      };
+    });
+    sendJson(res, { success: true, records: parsed, count: parsed.length });
+    return true;
+  }
+
   // POST /api/admin/renew-cert — force renew HTTPS certificate
   if (pathname === '/api/admin/renew-cert' && method === 'POST') {
     const authData = authRequired(req, res);

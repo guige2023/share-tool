@@ -3339,6 +3339,11 @@ function startSyncScheduler() {
         logger.info('[DB] Running daily VACUUM...');
         db.runVacuum();
       }
+      if (h === 2) {
+        logger.info('[DB] Running audit log cleanup (90 days)...');
+        const deleted = db.cleanupAuditLog(90);
+        if (deleted > 0) logger.info(`[DB] Cleaned ${deleted} old audit log entries`);
+      }
     } catch (e) {
       logger.error({ err: e }, '[Vacuum]');
     }
