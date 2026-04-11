@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"sharetool/internal/discovery"
@@ -22,7 +25,18 @@ func main() {
 	dir := flag.String("dir", "./shared", "Directory to store and share files")
 	name := flag.String("name", "", "Human-readable name for this instance (e.g., 'my-mac')")
 	register := flag.Bool("register", false, "If set, register this instance with itself")
+	readonly := flag.Bool("readonly", false, "If set, disable file upload and delete")
 	flag.Parse()
+
+	// Default name to hostname if not specified
+	if *name == "" {
+		hostname, err := os.Hostname()
+		if err != nil {
+			*name = "unknown"
+		} else {
+			*name = hostname
+		}
+	}
 
 	if err := os.MkdirAll(*dir, 0755); err != nil {
 		log.Fatalf("Failed to create share directory: %v", err)
@@ -44,14 +58,15 @@ func main() {
 		}()
 	}
 
-	router := server.SetupRouter(*dir)
+	router := server.SetupRouter(*dir, *readonly)
 
 	addr := fmt.Sprintf(":%d", *port)
 	log.Printf("ShareTool running on http://0.0.0.0%s", addr)
 	log.Printf("Sharing directory: %s", *dir)
 	log.Printf("Local IP: %s", localIP)
-	if *name != "" {
-		log.Printf("Instance name: %s", *name)
+	log.Printf("Instance name: %s", *name)
+	if *readonly {
+		log.Printf("Mode: READONLY")
 	}
 
 	// Register with self if --register flag is set
@@ -62,9 +77,31 @@ func main() {
 		}()
 	}
 
-	if err := http.ListenAndServe(addr, router); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	// Create HTTP server for graceful shutdown
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: router,
 	}
+
+	// Start server in goroutine
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed: %v", err)
+		}
+	}()
+
+	// Wait for shutdown signal
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
+
+	log.Println("Shutting down ShareTool...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Shutdown error: %v", err)
+	}
+	log.Println("ShareTool stopped")
 }
 
 func registerPeer(ip string, port int, name string) {

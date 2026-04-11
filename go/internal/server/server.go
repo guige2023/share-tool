@@ -10,7 +10,7 @@ import (
 //go:embed web
 var webAssets embed.FS
 
-func SetupRouter(sharedDir string) *http.ServeMux {
+func SetupRouter(sharedDir string, readonly bool) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Text API
@@ -37,10 +37,18 @@ func SetupRouter(sharedDir string) *http.ServeMux {
 		path := r.URL.Path
 		switch r.Method {
 		case http.MethodPut:
+			if readonly {
+				http.Error(w, `{"error":"server is in readonly mode"}`, 403)
+				return
+			}
 			handleFilePut(sharedDir)(w, r)
 		case http.MethodGet:
 			handleFileGet(sharedDir)(w, r)
 		case http.MethodDelete:
+			if readonly {
+				http.Error(w, `{"error":"server is in readonly mode"}`, 403)
+				return
+			}
 			handleFileDelete(sharedDir)(w, r)
 		case http.MethodHead:
 			handleFileGet(sharedDir)(w, r)
@@ -68,6 +76,6 @@ func SetupRouter(sharedDir string) *http.ServeMux {
 	webRoot, _ := fs.Sub(webAssets, "web")
 	mux.Handle("/", http.FileServer(http.FS(webRoot)))
 
-	log.Printf("[Server] Router initialized, shared dir: %s", sharedDir)
+	log.Printf("[Server] Router initialized, shared dir: %s, readonly: %v", sharedDir, readonly)
 	return mux
 }
