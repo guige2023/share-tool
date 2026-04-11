@@ -8802,7 +8802,11 @@ async function showRateLimitModal() {
     if (!data.success) { showToast('fetch config failed', 'error'); return; }
     const c = data.config;
     var html = '<div style="display:flex;flex-direction:column;gap:16px;">';
-    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Max attempts</div>';
+    html += '<div style="display:flex;gap:8px;border-bottom:1px solid var(--border-color);padding-bottom:8px;">';
+    html += '<button class="btn btn-sm" id="rlTabConfig" onclick="switchRlTab(\'config\')">Config</button>';
+    html += '<button class="btn btn-sm" id="rlTabActive" onclick="switchRlTab(\'active\')">Active Records</button>';
+    html += '</div>';
+    html += '<div id="rlContentConfig"><div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Max attempts</div>';
     html += '<input type="number" id="rlMaxAttempts" value="' + c.maxAttempts + '" min="1" max="100" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
     html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Window (seconds)</div>';
     html += '<input type="number" id="rlWindow" value="' + c.windowSeconds + '" min="60" max="86400" step="60" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
@@ -8810,8 +8814,52 @@ async function showRateLimitModal() {
     html += '<input type="number" id="rlLockout" value="' + c.lockoutSeconds + '" min="30" max="86400" step="30" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
     html += '<div style="font-size:11px;color:var(--text-muted);">Changes take effect immediately</div>';
     html += '<button class="btn" onclick="saveRateLimitConfig()" style="width:100%;">Save</button></div>';
+    html += '<div id="rlContentActive" style="display:none;"><div id="rlActiveList" style="max-height:300px;overflow-y:auto;"></div></div>';
     openModal('Rate Limit Config', html, 'modal-small');
+    // Load active records by default if any exist
+    loadRateLimitActiveRecords();
   } catch (e) { showToast('load failed', 'error'); }
+}
+
+function switchRlTab(tab) {
+  document.getElementById('rlContentConfig').style.display = tab === 'config' ? '' : 'none';
+  document.getElementById('rlContentActive').style.display = tab === 'active' ? '' : 'none';
+  document.getElementById('rlTabConfig').style.cssText = tab === 'config' ? 'background:var(--accent-primary);color:#fff;' : '';
+  document.getElementById('rlTabActive').style.cssText = tab === 'active' ? 'background:var(--accent-primary);color:#fff;' : '';
+  if (tab === 'active') loadRateLimitActiveRecords();
+}
+
+async function loadRateLimitActiveRecords() {
+  try {
+    const res = await fetch(API + '/api/admin/rate-limits', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+    const data = await res.json();
+    const list = document.getElementById('rlActiveList');
+    if (!data.success || !data.records || data.records.length === 0) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">No active rate limit records</div>';
+      return;
+    }
+    const statusColor = { locked: 'var(--danger)', expired: 'var(--text-muted)', warn: 'var(--warning)', active: 'var(--success)' };
+    const now = Math.floor(Date.now() / 1000);
+    let html = '<table style="width:100%;font-size:11px;border-collapse:collapse;">';
+    html += '<tr style="color:var(--text-muted);"><td style="padding:4px 6px;">Type</td><td style="padding:4px 6px;">IP</td><td style="padding:4px 6px;">Code</td><td style="padding:4px 6px;">Atts</td><td style="padding:4px 6px;">Status</td><td style="padding:4px 6px;">When</td></tr>';
+    for (const r of data.records) {
+      const when = r.secondsAgo < 60 ? r.secondsAgo + 's ago' : r.secondsAgo < 3600 ? Math.floor(r.secondsAgo/60) + 'm ago' : Math.floor(r.secondsAgo/3600) + 'h ago';
+      const lockedIn = r.lockedUntil && r.lockedUntil > now ? Math.ceil((r.lockedUntil - now)/60) + 'm left' : '';
+      const statusText = r.status === 'locked' ? '🔒' + lockedIn : r.status === 'expired' ? '✓ expired' : r.status === 'warn' ? '⚠' + r.remaining + ' left' : r.remaining + ' left';
+      html += '<tr style="border-top:1px solid var(--border-color);">';
+      html += '<td style="padding:4px 6px;color:var(--text-muted);">' + escapeHtml(r.type) + '</td>';
+      html += '<td style="padding:4px 6px;font-family:monospace;">' + escapeHtml(r.ip || '--') + '</td>';
+      html += '<td style="padding:4px 6px;font-family:monospace;max-width:60px;overflow:hidden;text-overflow:ellipsis;" title="' + escapeHtml(r.code) + '">' + escapeHtml(r.code || '--') + '</td>';
+      html += '<td style="padding:4px 6px;">' + r.attempts + '</td>';
+      html += '<td style="padding:4px 6px;color:' + statusColor[r.status] + ';">' + statusText + '</td>';
+      html += '<td style="padding:4px 6px;color:var(--text-muted);">' + when + '</td>';
+      html += '</tr>';
+    }
+    html += '</table>';
+    list.innerHTML = html;
+  } catch (e) {
+    document.getElementById('rlActiveList').innerHTML = '<div style="font-size:12px;color:var(--danger);padding:8px;">load failed</div>';
+  }
 }
 
 async function saveRateLimitConfig() {
