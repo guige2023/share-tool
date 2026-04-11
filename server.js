@@ -3853,7 +3853,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .file-preview { background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-top: 8px; max-height: 150px; overflow: auto; white-space: pre-wrap; font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border-color); word-break: break-all; display: none; }
 .file-preview.show { display: block; }
 .file-audio-player audio { width: 100%; height: 36px; margin-top: 4px; }
-.file-video-wrapper video { width: 100%; max-height: 200px; border-radius: 8px; background: var(--bg-secondary,#000); margin-top: 4px; }
+.file-video-wrapper video { width: 100%; max-height: 160px; border-radius: 8px; background: #000; margin-top: 4px; }
 [data-theme="dark"] .file-audio-player audio { filter: invert(0.8); } /* improve contrast on dark bg */
 .file-name { font-weight: 500; color: var(--text-primary); word-break: break-all; font-size: 14px; display: flex; align-items: center; gap: 8px; }
 .file-name input.inline-rename { font-size: 14px; font-weight: 500; background: var(--bg-tertiary); border: 1px solid var(--accent-primary); border-radius: 4px; color: var(--text-primary); padding: 2px 6px; outline: none; width: 100%; }
@@ -7013,9 +7013,9 @@ async function loadMediaPlayer(filename, playerId) {
     const mime = mimeMap[ext] || (isAudio ? 'audio/mpeg' : 'video/mp4');
     const dataUrl = 'data:' + mime + ';base64,' + data.content;
     if (isAudio) {
-      // Audio inline player style="width:100%;height:36px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '音频</audio>';
+      el.innerHTML = '<audio controls style="width:100%;height:36px;border-radius:6px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '音频</audio>';
     } else {
-      el.innerHTML = '<video controls style="width:100%;max-height:200px;border-radius:8px;background:var(--bg-modal,#000);"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '视频</video>';
+      el.innerHTML = '<div style="position:relative;width:100%;max-height:160px;border-radius:8px;overflow:hidden;background:#000;"><video controls style="width:100%;max-height:160px;border-radius:8px;display:block;background:#000;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '视频</video></div>';
     }
     el.dataset.src = 'loaded';
   } catch (e) { if (el) el.dataset.src = 'loaded'; }
