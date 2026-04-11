@@ -24,15 +24,19 @@ func handleFileList(sharedDir string) http.HandlerFunc {
 }
 
 // safeName extracts a safe filename from the URL path.
-// Returns empty string if the name is unsafe (empty, contains path separators, path traversal,
-// or collides with reserved API route names like "files" or "text").
+// Returns empty string if the name is unsafe (empty, contains path separators,
+// path traversal, or collides with reserved API route names).
 func safeName(path string) string {
+	// CRITICAL: check raw path for path traversal BEFORE filepath.Base cleans it
+	if strings.Contains(path, "..") {
+		return ""
+	}
 	name := filepath.Base(path)
 	if name == "" || name == "." || name == "/" {
 		return ""
 	}
 	// Reject names that would create files outside sharedDir
-	if strings.Contains(name, "..") || name[0] == '-' {
+	if name[0] == '-' {
 		return ""
 	}
 	// Reject reserved API route names to prevent path collision
@@ -77,7 +81,11 @@ func handleFilePut(sharedDir string) http.HandlerFunc {
 				http.Error(w, err.Error(), 500)
 				return
 			}
-			f.Seek(offset, io.SeekStart)
+			if _, err := f.Seek(offset, io.SeekStart); err != nil {
+				f.Close()
+				http.Error(w, err.Error(), 500)
+				return
+			}
 		} else {
 			f, err = os.Create(fpath)
 			if err != nil {
@@ -151,7 +159,7 @@ func listFiles(dir string) ([]FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var files []FileInfo
+	files := make([]FileInfo, 0)
 	for _, e := range entries {
 		if e.IsDir() {
 			continue

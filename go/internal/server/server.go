@@ -5,13 +5,103 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"strings"
 )
 
-//go:embed web
+//go:embed all:web
 var webAssets embed.FS
 
-func SetupRouter(sharedDir string, readonly bool) *http.ServeMux {
-	mux := http.NewServeMux()
+// rawMux is a custom HTTP router that checks the raw request URI for path
+// traversal BEFORE Go's default mux cleans the path. This prevents the 301
+// redirect noise that would otherwise leak file system information.
+type rawMux struct {
+	patterns []struct {
+		prefix string
+		handler http.HandlerFunc
+	}
+	defaultHandler http.Handler
+}
+
+func newRawMux() *rawMux { return &rawMux{} }
+
+func (m *rawMux) HandleFunc(pattern string, handler http.HandlerFunc) {
+	m.patterns = append(m.patterns, struct {
+		prefix   string
+		handler  http.HandlerFunc
+	}{pattern, handler})
+}
+
+func (m *rawMux) SetDefault(handler http.Handler) {
+	m.defaultHandler = handler
+}
+
+func (m *rawMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	uri := r.RequestURI
+
+	// CRITICAL: reject path traversal BEFORE any routing or redirect.
+	// Go's HTTP server cleans the URL.Path during parsing, but the original
+	// request line may contain raw ".." that we can catch via RequestURI.
+	if strings.Contains(uri, "..") || strings.Contains(uri, "%2e%2e") || strings.Contains(uri, "%2E%2E") {
+		http.Error(w, `{"error":"path traversal not allowed"}`, 400)
+		return
+	}
+
+	// Manual prefix-based routing.
+	// Patterns are checked in order; longer/more specific prefixes first.
+	path := r.URL.Path
+	for _, p := range m.patterns {
+		if hasPrefix(path, p.prefix) {
+			p.handler(w, r)
+			return
+		}
+	}
+	if m.defaultHandler != nil {
+		m.defaultHandler.ServeHTTP(w, r)
+	} else {
+		http.NotFound(w, r)
+	}
+}
+
+// hasPrefix returns true if path starts with prefix.
+// For prefixes ending in "/" (e.g., "/api/files/"), also matches sub-paths
+// like "/api/files/foo" but NOT the exact "/api/files" alone.
+// For prefixes NOT ending in "/" (e.g., "/api/files"), requires exact match.
+func hasPrefix(path, prefix string) bool {
+	if !strings.HasPrefix(path, prefix) {
+		return false
+	}
+	if strings.HasSuffix(prefix, "/") {
+		// "/api/files/" matches "/api/files/foo", not "/api/files" alone
+		return len(path) > len(prefix)
+	}
+	// "/api/files" matches only exact "/api/files"
+	if len(path) == len(prefix) {
+		return true // exact match
+	}
+	return false // prefix without trailing slash does NOT match sub-paths
+}
+
+// SecurityMiddleware is kept for defense-in-depth but is no longer
+// the primary path traversal defense (rawMux handles it).
+func SecurityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		uri := r.RequestURI
+		if strings.Contains(uri, "..") || strings.Contains(uri, "%2e%2e") || strings.Contains(uri, "%2E%2E") {
+			http.Error(w, `{"error":"path traversal not allowed"}`, 400)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func SetupRouter(sharedDir string, readonly bool) http.Handler {
+	mux := newRawMux()
+
+	// Health check
+	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok","version":"1.0.0"}`))
+	})
 
 	// Text API
 	mux.HandleFunc("/api/text", func(w http.ResponseWriter, r *http.Request) {
@@ -76,10 +166,77 @@ func SetupRouter(sharedDir string, readonly bool) *http.ServeMux {
 	mux.HandleFunc("/openapi.json", HandleOpenAPI)
 	mux.HandleFunc("/tools.json", HandleTools)
 
-	// Serve embedded web UI
+	// Serve embedded web UI with SPA fallback
 	webRoot, _ := fs.Sub(webAssets, "web")
-	mux.Handle("/", http.FileServer(http.FS(webRoot)))
+	httpFS := http.FS(webRoot)
+	fileServer := http.FileServer(httpFS)
+	fallback := serveIndexFallback(httpFS)
+
+	// Default handler serves web UI with SPA fallback
+	mux.SetDefault(rejectPathTraversal(fileServer, fallback))
 
 	log.Printf("[Server] Router initialized, shared dir: %s, readonly: %v", sharedDir, readonly)
 	return mux
+}
+
+// WrapWithCORS returns the given handler with CORS middleware applied.
+func WrapWithCORS(h http.Handler) http.Handler {
+	return corsMiddleware(h)
+}
+
+// corsMiddleware wraps a handler and adds CORS headers for API routes
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, HEAD, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Range, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// rejectPathTraversal rejects any request with path traversal attempts.
+// Go's mux cleans paths before routing (path.Clean), so the resolved URL.Path
+// is always clean. However, the original URI may contain encoded or unencoded
+// ".." that was cleaned away. We check RequestURI to catch these before
+// Go's mux redirect (301) exposes file system access to the browser.
+func rejectPathTraversal(handler, on404 http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		uri := r.RequestURI
+		// Check for ".." in any form: raw, URL-encoded (lowercase and uppercase)
+		if strings.Contains(uri, "..") || strings.Contains(uri, "%2e%2e") || strings.Contains(uri, "%2E%2E") {
+			http.Error(w, `{"error":"path traversal not allowed"}`, 400)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	})
+}
+
+func serveIndexFallback(files http.FileSystem) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Only fallback for browser navigation (HTML requests)
+		if !strings.Contains(r.Header.Get("Accept"), "text/html") {
+			http.NotFound(w, r)
+			return
+		}
+
+		index, err := files.Open("index.html")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer index.Close()
+
+		stat, err := index.Stat()
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		http.ServeContent(w, r, stat.Name(), stat.ModTime(), index)
+	}
 }

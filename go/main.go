@@ -80,7 +80,7 @@ func main() {
 	// Create HTTP server for graceful shutdown
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: router,
+		Handler: server.SecurityMiddleware(server.WrapWithCORS(router)),
 	}
 
 	// Start server in goroutine
