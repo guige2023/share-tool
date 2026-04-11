@@ -360,6 +360,7 @@ const I18N = {
     'vf.addedTo': '已添加到 {name}',
     'vf.removedFrom': '已从 {name} 移除',
     'vf.goTo': '进入',
+    'vf.loaded': '{name} 已加载',
     'vf.edit': '编辑',
     'fav.addFav': '添加收藏',
     'fav.removeFav': '取消收藏',
@@ -930,6 +931,7 @@ const I18N = {
     'vf.addedTo': 'Added to {name}',
     'vf.removedFrom': 'Removed from {name}',
     'vf.goTo': 'Go to',
+    'vf.loaded': '{name} loaded',
     'vf.edit': 'Edit',
 
     // 错误
@@ -1399,6 +1401,7 @@ const I18N = {
     'vf.addedTo': 'Added to {name}',
     'vf.removedFrom': 'Removed from {name}',
     'vf.goTo': 'Go to',
+    'vf.loaded': '{name} loaded',
     'vf.edit': 'Edit',
 
     // 错误
@@ -12374,7 +12377,7 @@ async function navigateToVf(folderId) {
       document.getElementById('vfFilterBtn').classList.add('active');
       showToast(T('vf.virtualFolders') + ' loaded');
     }
-  } catch (e) { showToast('Failed to load folder', 'error'); }
+  } catch (e) { showToast(T('err.reqFailed'), 'error'); }
 }
 
 // Add file to virtual folder from context menu or batch selection
@@ -12480,20 +12483,23 @@ async function removeFromVirtualFolder(filename) {
   if (!currentVfFilter) return;
   try {
     const file = currentFiles.find(f => f.name === filename);
-    if (!file) { showToast('File not found', 'error'); return; }
+    if (!file) { showToast(T('err.notFound'), 'error'); return; }
     const res = await fetch(API + '/api/virtual-folders/' + currentVfFilter + '/files/' + file.id, {
       method: 'DELETE',
       headers: { 'x-auth-token': AUTH_TOKEN || '' }
     });
     const data = await res.json();
     if (data.success) {
-      showToast(T('vf.removedFrom').replace('{name}', ''));
-      // Refresh the VF view
+      // Get folder name for toast
+      const folderRes = await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
+      const folderData = await folderRes.json();
+      const folderName = folderData.folders?.find(f => f.id === currentVfFilter)?.name || '';
+      showToast(T('vf.removedFrom').replace('{name}', folderName));
       await navigateToVf(currentVfFilter);
     } else {
-      showToast(data.error || 'Failed', 'error');
+      showToast(data.error || T('err.failed'), 'error');
     }
-  } catch (e) { showToast('Failed to remove file', 'error'); }
+  } catch (e) { showToast(T('err.reqFailed'), 'error'); }
 }
 
 // Notification badge for WS changes
