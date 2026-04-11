@@ -376,6 +376,7 @@ async function main() {
     console.log('  recent [n]     Show recently modified files (default: 10)');
     console.log('  trash [list|restore <id>|delete <id>|empty]  Manage trash');
     console.log('  share-list     List all active share links');
+    console.log('  share-delete <code>  Delete a share link');
     console.log('  diff <filename> [v1] [v2]  Compare file versions');
     console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
@@ -1331,6 +1332,21 @@ async function main() {
           console.log(`  ${l.code}${pwd} → ${l.filename} — expires ${exp}${dl}`);
           console.log(`    ${l.url}`);
         });
+        break;
+      }
+
+      case 'share-delete': {
+        const code = args[0];
+        if (!code) {
+          printError('Usage: share-tool share-delete <code>');
+          process.exit(1);
+        }
+        const res = await request('DELETE', '/api/share/delete/' + code);
+        if (res.status >= 400) {
+          printError('Delete failed: ' + (res.data?.error || res.status));
+          process.exit(1);
+        }
+        console.log('Deleted share link: ' + code);
         break;
       }
 
