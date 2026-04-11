@@ -2203,6 +2203,11 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// HTML attribute value escape (escapes quotes for use inside single-quoted attrs)
+function escapeAttr(str) {
+  return escapeHtml(String(str)).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+}
+
 // ============================================================
 // 初始化
 // ============================================================
@@ -5332,7 +5337,7 @@ async function loadNotifications() {
       const icon = NOTIF_ICONS[n.type] || NOTIF_ICONS.info;
       const time = formatRelativeTime(n.created_at * 1000);
       const unread = n.read ? '' : 'unread';
-      return '<div class="notif-item ' + unread + '" onclick="handleNotifClick(' + n.id + ', \'' + escapeHtml(n.type) + '\', \'' + escapeHtml(n.filename || '') + '\')">' +
+      return '<div class="notif-item ' + unread + '" onclick="handleNotifClick(' + n.id + ', \'' + escapeAttr(n.type) + '\', \'' + escapeAttr(n.filename || '') + '\')">' +
         '<div class="notif-icon">' + icon + '</div>' +
         '<div class="notif-content">' +
         '<div class="notif-title">' + escapeHtml(n.title) + '</div>' +
@@ -6090,7 +6095,7 @@ function renderBreadcrumb() {
     if (i === parts.length - 1) {
       html += '<span class="breadcrumb-item" style="color:var(--text-secondary);font-weight:500;">' + escapeHtml(parts[i]) + '</span>';
     } else {
-      html += '<span class="breadcrumb-item" onclick="navigateFolder(\'' + escapeHtml(path) + '\')" style="cursor:pointer;color:var(--accent-primary);">' + escapeHtml(parts[i]) + '</span>';
+      html += '<span class="breadcrumb-item" onclick="navigateFolder(\'' + escapeAttr(path) + '\')" style="cursor:pointer;color:var(--accent-primary);">' + escapeHtml(parts[i]) + '</span>';
     }
   }
   bar.innerHTML = html;
