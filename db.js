@@ -78,8 +78,10 @@ function initDatabase() {
     initSchemaV3(db);
     initSchemaV4(db);
     initSchemaV5(db);
+    initSchemaV6(db);
+    initSchemaV7(db);
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
-    console.log('[DB] Fresh database initialized (v1-v5 schema)');
+    console.log('[DB] Fresh database initialized (v1-v7 schema)');
     return;
   }
 
