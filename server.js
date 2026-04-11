@@ -4146,6 +4146,7 @@ input:focus { outline: none; border-color: var(--accent-primary); }
 .fav-filter-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 14px; font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .fav-filter-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 .fav-filter-btn.active { background: rgba(245, 158, 11, 0.15); border-color: var(--warning); color: var(--warning); }
+#vfFilterBtn.active { background: rgba(102, 126, 234, 0.15); border-color: var(--accent-primary); color: var(--accent-primary); }
 .shortcut-list { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; }
 .shortcut-key { font-family: monospace; background: var(--bg-tertiary); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border-color); }
 .shortcut-desc { color: var(--text-secondary); align-self: center; }
@@ -5196,6 +5197,18 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   </div>
 </div>
 
+<!-- Add to Virtual Folder Picker Modal -->
+<div class="modal-overlay" id="addToVfModal" onclick="if(event.target===this)closeAddToVfModal()">
+  <div style="background:var(--bg-secondary);border-radius:12px;padding:20px;max-width:360px;width:90%;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div class="modal-title">' + T('vf.addFiles') + '</div>
+      <button class="modal-close" onclick="closeAddToVfModal()">x</button>
+    </div>
+    <div id="addToVfFileName" style="font-size:12px;color:var(--text-muted);margin-bottom:12px;word-break:break-all;"></div>
+    <div id="addToVfFolderList" style="display:flex;flex-direction:column;gap:8px;"></div>
+  </div>
+</div>
+
 <script>
 const API = '';
 let AUTH_TOKEN='***';
@@ -6146,6 +6159,17 @@ function navigateFolder(folder) {
 function renderBreadcrumb() {
   const bar = document.getElementById('breadcrumbBar');
   if (!bar) return;
+  // Virtual folder view — show special breadcrumb
+  if (currentVfFilter !== null) {
+    bar.innerHTML = '<span class="breadcrumb-item" onclick="closeVfModal();navigateToVf(null)" style="cursor:pointer;color:var(--accent-primary);">📁 ' + T('vf.virtualFolders') + '</span> <span style="color:var(--text-muted);">›</span> <span class="breadcrumb-item" style="color:var(--text-secondary);font-weight:500;" id="vfBreadcrumbName">' + T('vf.virtualFolders') + '</span>';
+    bar.style.display = 'block';
+    // Update name async
+    fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
+      .then(r => r.json())
+      .then(data => { if (data.success) { const f = data.folders.find(f => f.id === currentVfFilter); if (f) document.getElementById('vfBreadcrumbName').textContent = escapeHtml(f.name); } })
+      .catch(() => {});
+    return;
+  }
   if (!currentFolder) {
     bar.innerHTML = '';
     bar.style.display = 'none';
@@ -7060,6 +7084,7 @@ function showContextMenu(filename, el) {
     { label: '📋 ' + T('file.copyFilename'), action: "copyText(decodeURIComponent('" + encodeURIComponent(filename) + "')); hideContextMenu()" },
     { label: '↗️ ' + T('file.openNewTab'), action: "window.open(API + '/api/content/" + encodeURIComponent(filename) + "?auth=' + (AUTH_TOKEN || ''), '_blank'); hideContextMenu()" },
     { label: '⭐ ' + T('fav.favorite'), action: "toggleStar('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
+    { label: '📁 ' + T('vf.addFiles'), action: "addToVirtualFolder('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
     { label: '✏️ ' + T('file.rename'), action: "startInlineRename(null, '" + encodeURIComponent(filename) + "'); hideContextMenu()" },
     { label: '📤 ' + T('file.share'), action: "showShareModal('" + encodeURIComponent(filename) + "'); hideContextMenu()" },
     { sep: true },
@@ -10736,6 +10761,7 @@ function showFileContextMenu(e, filename) {
   if (isCode || isMd || isText) items.push({ icon: '📝', label: T('file.previewCode'), action: "openCodeModal('" + encodeURIComponent(filename) + "')" });
   items.push({ divider: true });
   items.push({ icon: '🏷', label: T('tag.add'), action: "addTag('" + encodeURIComponent(filename) + "', '')" });
+  items.push({ icon: '📁', label: T('vf.addFiles'), action: "addToVirtualFolder('" + encodeURIComponent(filename) + "')" });
   items.push({ icon: '🔗', label: T('file.share'), action: "shareFile('" + encodeURIComponent(filename) + "')" });
   items.push({ icon: '📋', label: T('file.copyTo'), action: "promptCopy('" + encodeURIComponent(filename) + "')" });
   items.push({ icon: '✏️', label: T('file.rename'), action: "startInlineRenameFromCtx('" + encodeURIComponent(filename) + "')" });
@@ -12080,6 +12106,7 @@ function closeVfModal() {
   // If we were viewing a folder, restore normal view
   if (currentVfFilter !== null) {
     currentVfFilter = null;
+    document.getElementById('vfFilterBtn').classList.remove('active');
     loadFiles();
   }
 }
@@ -12165,25 +12192,29 @@ async function deleteVirtualFolder(id) {
 }
 
 async function navigateToVf(folderId) {
+  closeVfModal(); // close modal first (will check currentVfFilter but it's still null here)
   currentVfFilter = folderId;
-  closeVfModal();
   // Load files for this virtual folder
   try {
     const res = await fetch(API + '/api/virtual-folders/' + folderId + '/files', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (data.success && data.files) {
-      // Display the folder's files as if they were regular files
-      window.vfFiles = data.files; // stash
+      window.vfFiles = data.files;
       renderFiles(data.files);
-      // Update breadcrumb-style indicator
+      renderBreadcrumb();
+      // Update vfFilterBtn active state
+      document.getElementById('vfFilterBtn').classList.add('active');
       showToast(T('vf.virtualFolders') + ' loaded');
     }
   } catch (e) { showToast('Failed to load folder', 'error'); }
 }
 
 // Add file to virtual folder from context menu
+let _addToVfFilename = null;
+
 async function addToVirtualFolder(filename) {
-  // Show a sub-modal to pick a folder
+  _addToVfFilename = filename;
+  document.getElementById('addToVfFileName').textContent = decodeURIComponent(filename);
   try {
     const res = await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
@@ -12191,19 +12222,44 @@ async function addToVirtualFolder(filename) {
       showToast('No virtual folders yet', 'error');
       return;
     }
-    const folder = data.folders[0]; // For now, just use the first folder
+    const container = document.getElementById('addToVfFolderList');
+    container.innerHTML = data.folders.map(f => {
+      const colorStyle = 'background:' + f.color + ';color:white;';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;cursor:pointer;" onclick="doAddToVirtualFolder(' + f.id + ')">' +
+        '<span style="width:10px;height:10px;border-radius:50%;' + colorStyle + '"></span>' +
+        '<span style="flex:1;font-size:14px;">' + escapeHtml(f.name) + '</span>' +
+        '<span style="font-size:11px;color:var(--text-muted);">' + f.fileCount + '</span>' +
+      '</div>';
+    }).join('');
+    lockScroll();
+    document.getElementById('addToVfModal').classList.add('show');
+  } catch (e) { showToast('Failed to load folders', 'error'); }
+}
+
+function closeAddToVfModal() {
+  unlockScroll();
+  document.getElementById('addToVfModal').classList.remove('show');
+  _addToVfFilename = null;
+}
+
+async function doAddToVirtualFolder(folderId) {
+  if (!_addToVfFilename) return;
+  const filename = _addToVfFilename;
+  closeAddToVfModal();
+  try {
     const file = currentFiles.find(f => f.name === filename);
-    if (!file) return;
-    const res2 = await fetch(API + '/api/virtual-folders/' + folder.id + '/files', {
+    if (!file) { showToast('File not found', 'error'); return; }
+    const res = await fetch(API + '/api/virtual-folders/' + folderId + '/files', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-auth-token': AUTH_TOKEN || '' },
       body: JSON.stringify({ fileId: file.id })
     });
-    const data2 = await res2.json();
-    if (data2.success) {
-      showToast(T('vf.addedTo').replace('{name}', folder.name));
+    const data = await res.json();
+    if (data.success) {
+      const folder = (await (await fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })).json()).folders.find(f => f.id === folderId);
+      showToast(T('vf.addedTo').replace('{name}', folder ? folder.name : '#' + folderId));
     } else {
-      showToast(data2.error || 'Failed', 'error');
+      showToast(data.error || 'Failed', 'error');
     }
   } catch (e) { showToast('Failed to add file', 'error'); }
 }

@@ -1868,6 +1868,33 @@ function setRateLimitConfig(overrides) {
 }
 
 // ============================================================
+// 速率限制查询（管理 UI）
+// ============================================================
+function listRateLimits(limit = 100) {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  // 返回所有有尝试记录的（包含已过期需要清理的）
+  return db.prepare(`
+    SELECT key, attempts, locked_until, last_attempt,
+      CASE
+        WHEN locked_until IS NOT NULL AND locked_until > ? THEN 'locked'
+        WHEN locked_until IS NOT NULL AND locked_until <= ? THEN 'expired'
+        WHEN attempts >= ? THEN 'warn'
+        ELSE 'active'
+      END as status,
+      ? - attempts as remaining,
+      ? - last_attempt as seconds_ago
+    FROM rate_limit
+    WHERE attempts > 0
+    ORDER BY
+      CASE WHEN locked_until > ? THEN 1 ELSE 0 END DESC,
+      attempts DESC,
+      last_attempt DESC
+    LIMIT ?
+  `).all(now, now, RATE_LIMIT_CONFIG.maxAttempts, RATE_LIMIT_CONFIG.maxAttempts, now, now, limit);
+}
+
+// ============================================================
 // 通知系统
 // ============================================================
 function addNotification(type, title, message = null) {
