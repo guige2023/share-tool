@@ -240,6 +240,7 @@ const I18N = {
     'device.syncOnline': '同步在线',
     'device.connection': '连接',
     'device.noOnlineDevices': '暂无在线设备',
+    'device.loadFailed': '加载失败',
     'device.discovering': '正在发现设备...',
     'device.wsConnected': 'WS 已连接',
     'device.wsDisconnected': 'WS 未连接',
@@ -369,6 +370,10 @@ const I18N = {
     'admin.lastOp': '最后操作',
     'admin.noLogs': '暂无日志记录',
     'admin.viewAudit': '查看审计日志',
+    'dashboard.noData': '暂无数据',
+    'dashboard.loadFailed': '加载失败',
+    'dashboard.noActivity': '暂无活动记录',
+    'admin.loadFailed': '加载失败',
     'admin.settings': '设置',
     'admin.accessToken': '访问 Token',
     'admin.changeToken': '更换Token',
@@ -486,6 +491,11 @@ const I18N = {
     'err.notFound': '未找到',
     'err.unauthorized': '未授权',
     'err.browserNotSupport': '您的浏览器不支持',
+    'file.audio': '音频',
+    'file.video': '视频',
+    'file.size': '大小',
+    'file.modified': '修改时间',
+    'file.previewFailed': '预览加载失败',
     'err.getLinkFailed': '获取分享链接失败',
     'err.openImageFailed': '打开图片失败',
     'err.openMediaFailed': '打开媒体文件失败',
@@ -523,6 +533,7 @@ const I18N = {
     'tag.inputName': '请输入标签名称（多个用逗号分隔）:',
     'tag.added': '已为 {n} 个文件添加标签',
     'tag.addFailed': '批量添加失败:',
+    'tag.loadFailed': '加载失败',
     'tag.colorChanged': '颜色已更新',
     'tag.batchColorChanged': '已更新 {n} 个标签颜色',
     'tag.clickChangeColor': '点击修改颜色',
@@ -915,6 +926,7 @@ const I18N = {
     'device.syncOnline': 'Sync online',
     'device.connection': 'Connection',
     'device.noOnlineDevices': 'No online devices',
+    'device.loadFailed': 'Failed to load',
     'device.discovering': 'Discovering devices...',
     'device.wsConnected': 'WS Connected',
     'device.wsDisconnected': 'WS Disconnected',
@@ -1025,6 +1037,10 @@ const I18N = {
     'admin.lastOp': 'Last op',
     'admin.noLogs': 'No log records',
     'admin.viewAudit': 'View audit log',
+    'dashboard.noData': 'No data',
+    'dashboard.loadFailed': 'Load failed',
+    'dashboard.noActivity': 'No activity',
+    'admin.loadFailed': 'Failed to load',
     'admin.accessToken': 'Access Token',
     'admin.changeToken': 'Change Token',
     'admin.refresh': 'Refresh',
@@ -1116,6 +1132,11 @@ const I18N = {
     'err.notFound': 'Not found',
     'err.unauthorized': 'Unauthorized',
     'err.browserNotSupport': 'Your browser does not support',
+    'file.audio': 'Audio',
+    'file.video': 'Video',
+    'file.size': 'Size',
+    'file.modified': 'Modified',
+    'file.previewFailed': 'Failed to load preview',
     'err.getLinkFailed': 'Failed to get share link',
 
     // 标签
@@ -1138,6 +1159,7 @@ const I18N = {
     'tag.inputName': 'Enter tag name (multiple separated by comma):',
     'tag.added': 'Added tag to {n} files',
     'tag.addFailed': 'Batch add failed:',
+    'tag.loadFailed': 'Failed to load',
     'tag.colorChanged': 'Color updated',
     'tag.batchColorChanged': 'Batch color updated for {n} tags',
     'tag.clickChangeColor': 'Click to change color',
@@ -1581,6 +1603,10 @@ const I18N = {
     'admin.lastOp': 'Last op',
     'admin.noLogs': 'No log records',
     'admin.viewAudit': 'View audit log',
+    'dashboard.noData': 'No data',
+    'dashboard.loadFailed': 'Load failed',
+    'dashboard.noActivity': 'No activity',
+    'admin.loadFailed': 'Failed to load',
     'admin.accessToken': 'Access Token',
     'admin.changeToken': 'Change Token',
     'admin.refresh': 'Refresh',
@@ -1668,6 +1694,11 @@ const I18N = {
     'err.notFound': 'Not found',
     'err.unauthorized': 'Unauthorized',
     'err.browserNotSupport': 'Your browser does not support',
+    'file.audio': 'Audio',
+    'file.video': 'Video',
+    'file.size': 'Size',
+    'file.modified': 'Modified',
+    'file.previewFailed': 'Failed to load preview',
     'err.getLinkFailed': 'Failed to get share link',
 
     // 标签
@@ -1690,6 +1721,7 @@ const I18N = {
     'tag.inputName': 'Enter tag name (multiple separated by comma):',
     'tag.added': 'Added tag to {n} files',
     'tag.addFailed': 'Batch add failed:',
+    'tag.loadFailed': 'Failed to load',
     'tag.colorChanged': 'Color updated',
     'tag.batchColorChanged': 'Batch color updated for {n} tags',
     'tag.clickChangeColor': 'Click to change color',
@@ -5763,7 +5795,7 @@ async function loadNotifications() {
         '</div></div>';
     }).join('');
   } catch (e) {
-    list.innerHTML = '<div class="notif-empty">Failed to load</div>';
+    list.innerHTML = '<div class="notif-empty">' + T('notif.failedToLoad') + '</div>';
   }
 }
 
@@ -7268,7 +7300,7 @@ async function loadMediaPlayer(filename, playerId) {
     const mime = mimeMap[ext] || (isAudio ? 'audio/mpeg' : 'video/mp4');
     const dataUrl = 'data:' + mime + ';base64,' + data.content;
     if (isAudio) {
-      el.innerHTML = '<audio controls style="width:100%;height:36px;border-radius:6px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '音频</audio>';
+      el.innerHTML = '<audio controls style="width:100%;height:36px;border-radius:6px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + ' ' + T('file.audio') + '</audio>';
     } else {
       el.innerHTML = '<div style="position:relative;width:100%;max-height:160px;border-radius:8px;overflow:hidden;background:#000;"><video controls style="width:100%;max-height:160px;border-radius:8px;display:block;background:#000;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '视频</video></div>';
     }
@@ -8241,7 +8273,7 @@ function showDevicesModal() {
         '<span style="font-size:11px;color:var(--text-muted);">' + (d.last_seen ? new Date(d.last_seen * 1000).toLocaleString() : 'Never') + '</span>' +
         '</div>'
       ).join('') : '<div style="padding:16px;text-align:center;color:var(--text-muted);">No devices</div>';
-    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">Failed</div>'; });
+    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">' + T('device.loadFailed') + '</div>'; });
   lockScroll();
   document.getElementById('devicesModal').classList.add('show');
 }
@@ -8249,7 +8281,7 @@ function closeDevicesModal() { unlockScroll(); document.getElementById('devicesM
 
 function showTagsModal() {
   const body = document.getElementById('tagsModalBody');
-  body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);">Loading...</div>';
+  body.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);">' + T('ui.loading') + '</div>';
   fetch(API + '/api/tags/list', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
     .then(r => r.json())
     .then(data => {
@@ -8259,7 +8291,7 @@ function showTagsModal() {
       document.getElementById('tagsModalSort').value = 'recent';
       const sorted = applyTagsModalSort(window._tagsModalData, 'recent');
       renderTagsModalBody(sorted);
-    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">Failed</div>'; });
+    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">' + T('tag.loadFailed') + '</div>'; });
   lockScroll();
   document.getElementById('tagsModal').classList.add('show');
 }
@@ -9071,14 +9103,14 @@ async function loadDashboard() {
         }).join('') +
         '</div>';
     } else if (typeEl) {
-      typeEl.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">暂无数据</div>';
+      typeEl.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">' + T('dashboard.noData') + '</div>';
     }
 
     // Recent activity feed: fetch latest audit logs
     renderDashboardActivityFeed();
 
   } catch (e) {
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">加载失败</div>';
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">' + T('dashboard.loadFailed') + '</div>';
   }
 }
 
@@ -9089,7 +9121,7 @@ async function renderDashboardActivityFeed() {
     const res = await fetch(API + '/api/audit/logs?limit=8', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (!data.success || !data.logs || !data.logs.length) {
-      el.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">暂无活动记录</div>';
+      el.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">' + T('dashboard.noActivity') + '</div>';
       return;
     }
     const ACTION_ICONS = {
@@ -9126,7 +9158,7 @@ async function renderDashboardActivityFeed() {
         '</div>';
     }).join('');
   } catch (e) {
-    el.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">加载失败</div>';
+    el.innerHTML = '<div style="font-size:10px;color:var(--text-muted);">' + T('dashboard.loadFailed') + '</div>';
   }
 }
 
@@ -9213,7 +9245,7 @@ async function loadRateLimitActiveRecords() {
     html += '</table>';
     list.innerHTML = html;
   } catch (e) {
-    document.getElementById('rlActiveList').innerHTML = '<div style="font-size:12px;color:var(--danger);padding:8px;">load failed</div>';
+    document.getElementById('rlActiveList').innerHTML = '<div style="font-size:12px;color:var(--danger);padding:8px;">' + T('admin.loadFailed') + '</div>';
   }
 }
 
@@ -13785,6 +13817,26 @@ if (scrollBtn) {
 // HTML Page Handler
 // ============================================================
 function sendHtml(res, html = HTML_PAGE, statusCode = 200) {
+  // 动态渲染 T() 调用
+  if (html && typeof html === 'string') {
+    // 替换 ' + T('key') + ' 模式
+    html = html.replace(/' \+ T\('([^']+)'\) \+ '/g, function(m, key) {
+      try { return T(key); } catch(e) { return m; }
+    });
+    // 替换 " + T("key") + " 模式
+    html = html.replace(/" \\+ T\("([^"]+)"\) \+ "/g, function(m, key) {
+      try { return T(key); } catch(e) { return m; }
+    });
+    // 替换带 .replace() 的链式调用
+    html = html.replace(/' \\+ (T\('[^']+'\)\.replace\([^)]+\)) \+ '/g, function(m, expr) {
+      try { 
+        if (/^T('[^']+').replace(.*)$/.test(expr)) {
+          return eval(expr);
+        }
+        return m; 
+      } catch(e) { return m; }
+    });
+  }
   res.writeHead(statusCode, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(html);
 }
