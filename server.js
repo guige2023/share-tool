@@ -435,6 +435,14 @@ const I18N = {
     'ui.dashboardDevices': '设备',
     'ui.dashboardToken': 'Token',
     'ui.dashboardSync': '同步',
+    'ui.dashboardFiles': 'Files',
+    'ui.dashboardStorage': 'Storage',
+    'ui.dashboardFavorites': 'Favorites',
+    'ui.dashboardTrash': 'Trash',
+    'ui.dashboardShares': 'Shares',
+    'ui.dashboardDevices': 'Devices',
+    'ui.dashboardToken': 'Token',
+    'ui.dashboardSync': 'Sync',
     'admin.loaded': '加载中...',
     'admin.getFailed': '获取日志失败',
     'admin.exported': '审计日志已导出',
@@ -7993,7 +8001,7 @@ function openFileInfoPanel(filename) {
     .then(r => r.json())
     .then(data => {
       if (!data.success) {
-        body.innerHTML = '<div style="color:var(--danger);padding:16px;">' + (data.error || 'Error') + '</div>';
+        body.innerHTML = '<div style="color:var(--danger);padding:16px;">' + (data.error || T('ui.error')) + '</div>';
         return;
       }
       renderFileInfoContent(data.meta);
@@ -8209,7 +8217,7 @@ function showStorageModal() {
         '<div style="font-size:12px;color:var(--text-muted);">' + pct + '% used · ' + (data.fileCount || 0) + ' files</div>' +
         warnText +
         '</div>';
-    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">Failed to load storage info</div>'; });
+    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">' + T('storage.loadFailed') + '</div>'; });
   lockScroll();
   document.getElementById('storageModal').classList.add('show');
 }
@@ -8997,14 +9005,14 @@ async function loadDashboard() {
     const tk = tokens || {};
 
     const statCards = [
-      { label: '📁 文件', value: f.total || 0 },
-      { label: '💾 存储', value: formatBytes(s.total || 0) },
-      { label: '⭐ 收藏', value: f.starred || 0 },
-      { label: '🗑 回收站', value: f.trash || 0 },
-      { label: '🔗 分享', value: sh.active || 0 },
-      { label: '📡 设备', value: d.total || 0 },
-      { label: '🔐 Token', value: tk.active || 0 },
-      { label: '📊 同步', value: sync.unsynced || 0 },
+      { label: '📁 ' + T('ui.dashboardFiles'), value: f.total || 0 },
+      { label: '💾 ' + T('ui.dashboardStorage'), value: formatBytes(s.total || 0) },
+      { label: '⭐ ' + T('ui.dashboardFavorites'), value: f.starred || 0 },
+      { label: '🗑 ' + T('ui.dashboardTrash'), value: f.trash || 0 },
+      { label: '🔗 ' + T('ui.dashboardShares'), value: sh.active || 0 },
+      { label: '📡 ' + T('ui.dashboardDevices'), value: d.total || 0 },
+      { label: '🔐 ' + T('ui.dashboardToken'), value: tk.active || 0 },
+      { label: '📊 ' + T('ui.dashboardSync'), value: sync.unsynced || 0 },
     ];
 
     el.innerHTML = statCards.map(stat =>
