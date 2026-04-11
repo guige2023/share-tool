@@ -1266,8 +1266,6 @@ const I18N = {
     'media.viewArchive': 'View Archive',
     'fileInfo.openVersions': 'View History',
     'ui.confirmDelete': 'Confirm delete',
-    'ui.confirmRename': 'Confirm rename',
-    'ui.error': 'Error',
     'ui.copyLink': 'Copy Link',
     'ui.qrCode': 'QR Code',
     'ui.shareQR': 'Share QR Code',
@@ -4697,15 +4695,15 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   <header>
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <h1>ShareTool<span class="conn-status"><span class="conn-dot" id="connDot"></span><span id="connText">${T('ui.connecting')}</span></span></h1>
-        <p class="subtitle">${T('ui.heroTitle').replace('文件/文字', ' / ')}</p>
+        <h1>ShareTool<span class="conn-status"><span class="conn-dot" id="connDot"></span><span id="connText">' + T('ui.connecting') + '</span></span></h1>
+        <p class="subtitle">' + T('ui.heroTitle').replace('文件/文字', ' / ') + '</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button id="menuToggle" onclick="toggleMobileMenu()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;line-height:1;touch-action:manipulation;-webkit-tap-highlight-color:transparent;" title="Menu">☰</button>
-        <button id="notifBell" onclick="toggleNotifPanel()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--text-primary);font-size:18px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative;" title="${T('ui.notifications')}">🔔</button>
+        <button id="notifBell" onclick="toggleNotifPanel()" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;cursor:pointer;color:var(--text-primary);font-size:18px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;position:relative;" title="' + T('ui.notifications') + '">🔔</button>
         <div class="notif-badge" id="notifBadge"></div>
-        <button id="themeToggle" onclick="toggleThemeDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px; touch-action: manipulation; -webkit-tap-highlight-color: transparent;" title="${T('ui.toggleTheme')}">🌙</button>
-        <button id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'});this.blur()" title="${T('ui.backToTop')}" style="display:none;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">⬆</button>
+        <button id="themeToggle" onclick="toggleThemeDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; cursor: pointer; color: var(--text-primary); font-size: 18px; touch-action: manipulation; -webkit-tap-highlight-color: transparent;" title="' + T('ui.toggleTheme') + '">🌙</button>
+        <button id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'});this.blur()" title="' + T('ui.backToTop') + '" style="display:none;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text-primary);font-size:18px;touch-action:manipulation;-webkit-tap-highlight-color:transparent;">⬆</button>
       </div>
       <style>#backToTop{transition:opacity .2s;opacity:.7}#backToTop:hover{opacity:1}</style>
       <div id="themeDropdown" style="display:none;position:absolute;top:56px;right:16px;z-index:1000;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:12px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.3);">
@@ -4721,24 +4719,24 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       </div>
     </div>
     <div class="status-bar">
-      <span class="status-item disconnected" id="wsStatus">${T('ui.wsDisconnected')}</span>
-      <span class="storage-text" id="storageText">${T('ui.loading')}</span>
-      <span class="status-item disconnected" id="syncStatus">${T('ui.syncOffline')}</span>
-      <span class="status-item" id="deviceCount">${T('ui.devices')}: 0</span>
+      <span class="status-item disconnected" id="wsStatus">' + T('ui.wsDisconnected') + '</span>
+      <span class="storage-text" id="storageText">' + T('ui.loading') + '</span>
+      <span class="status-item disconnected" id="syncStatus">' + T('ui.syncOffline') + '</span>
+      <span class="status-item" id="deviceCount">' + T('ui.devices') + ': 0</span>
     </div>
   </header>
 
   <div class="hero">
     <div class="hero-content">
       <div class="hero-text">
-        <div class="hero-title">📡 ${T('ui.heroTitle')}</div>
-        <div class="hero-desc">${T('ui.heroDesc')}</div>
+        <div class="hero-title">📡 ' + T('ui.heroTitle') + '</div>
+        <div class="hero-desc">' + T('ui.heroDesc') + '</div>
         <div class="hero-features">
-          <span class="hero-feature">📝 ${T('ui.textShare')}</span>
-          <span class="hero-feature">📁 ${T('ui.fileUpload')}</span>
-          <span class="hero-feature">🔄 ${T('ui.multiDeviceSync')}</span>
-          <span class="hero-feature">🔍 ${T('ui.searchFilter')}</span>
-          <span class="hero-feature">📱 ${T('ui.mobileAdapt')}</span>
+          <span class="hero-feature">📝 ' + T('ui.textShare') + '</span>
+          <span class="hero-feature">📁 ' + T('ui.fileUpload') + '</span>
+          <span class="hero-feature">🔄 ' + T('ui.multiDeviceSync') + '</span>
+          <span class="hero-feature">🔍 ' + T('ui.searchFilter') + '</span>
+          <span class="hero-feature">📱 ' + T('ui.mobileAdapt') + '</span>
         </div>
       </div>
     </div>
@@ -4746,21 +4744,21 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 
   <!-- Tablet top quick-bar (hidden on mobile - FAB takes over) -->
   <div class="top-quickbar" style="display:none;">
-    <button class="qbtn" onclick="fabUpload();if(window.innerWidth>500)return;">📤 <span>${T('file.upload')}</span></button>
-    <button class="qbtn" onclick="fabText();">📝 <span>${T('file.textShare')}</span></button>
-    <button class="qbtn" onclick="showShareLinksModal();">🔗 <span>${T('share.title')}</span></button>
+    <button class="qbtn" onclick="fabUpload();if(window.innerWidth>500)return;">📤 <span>' + T('file.upload') + '</span></button>
+    <button class="qbtn" onclick="fabText();">📝 <span>' + T('file.textShare') + '</span></button>
+    <button class="qbtn" onclick="showShareLinksModal();">🔗 <span>' + T('share.title') + '</span></button>
     <button class="qbtn icon-only" onclick="document.getElementById('searchInput').focus()">🔍</button>
     <button class="qbtn icon-only" onclick="showTagsModal();">🏷️</button>
   </div>
 
   <div class="card">
-    <div class="section-title">${T('ui.textShare')}</div>
+    <div class="section-title">' + T('ui.textShare') + '</div>
     <div id="textAlert" class="alert"></div>
-    <textarea id="textContent" placeholder="${T('ui.textareaPlaceholder')}"></textarea>
-    <div class="paste-hint" id="pasteHint">📋 ${T('ui.pasteHint')}</div>
+    <textarea id="textContent" placeholder="' + T('ui.textareaPlaceholder') + '"></textarea>
+    <div class="paste-hint" id="pasteHint">📋 ' + T('ui.pasteHint') + '</div>
     <div class="actions">
-      <button class="btn" id="shareTextBtn">${T('ui.share')}</button>
-      <button class="btn btn-secondary" id="clearTextBtn">${T('ui.clear')}</button>
+      <button class="btn" id="shareTextBtn">' + T('ui.share') + '</button>
+      <button class="btn btn-secondary" id="clearTextBtn">' + T('ui.clear') + '</button>
     </div>
     <div class="upload-progress-bar" id="uploadProgressBar">
       <div class="upload-progress-fill" id="uploadProgressFill" style="width:0%"></div>
@@ -4769,23 +4767,23 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="upload-queue" id="uploadQueue"></div>
     <div class="share-link-box" id="shareLinkBox" style="display:none;">
       <input type="text" id="shareLinkInput" readonly>
-      <button onclick="copyShareLink()">${T('ui.copyLink')}</button>
-      <button onclick="showShareQRModal()">📷 ${T('ui.qrCode')}</button>
-      <button onclick="systemShare()" id="systemShareBtn" style="display:none;">📤 ${T('ui.share')}</button>
+      <button onclick="copyShareLink()">' + T('ui.copyLink') + '</button>
+      <button onclick="showShareQRModal()">📷 ' + T('ui.qrCode') + '</button>
+      <button onclick="systemShare()" id="systemShareBtn" style="display:none;">📤 ' + T('ui.share') + '</button>
     </div>
     <div class="qr-modal-overlay" id="qrModal" onclick="if(event.target===this)closeShareQRModal()">
       <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:360px;width:90%;text-align:center;">
-        <div style="font-size:18px;font-weight:600;margin-bottom:16px;">${T('ui.shareQR')}</div>
+        <div style="font-size:18px;font-weight:600;margin-bottom:16px;">' + T('ui.shareQR') + '</div>
         <div id="qrModalContent" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
         <div id="qrModalUrl" style="font-size:11px;color:var(--text-muted);word-break:break-all;margin-bottom:16px;font-family:monospace;"></div>
-        <button class="btn" onclick="closeShareQRModal()" style="width:100%;">${T('ui.close')}</button>
+        <button class="btn" onclick="closeShareQRModal()" style="width:100%;">' + T('ui.close') + '</button>
       </div>
     </div>
 
     <div class="qr-modal-overlay" id="versionsModal" onclick="if(event.target===this)closeVersionsModal()">
       <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:560px;width:90%;max-height:80vh;overflow-y:auto;text-align:left;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <div style="font-size:18px;font-weight:600;" id="versionsModalTitle">${T('ver.history')}</div>
+          <div style="font-size:18px;font-weight:600;" id="versionsModalTitle">' + T('ver.history') + '</div>
           <button class="btn btn-sm" onclick="closeVersionsModal()">✕</button>
         </div>
         <div id="versionsContent" style="font-size:13px;"></div>
@@ -4795,7 +4793,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div class="qr-modal-overlay" id="trashModal" onclick="if(event.target===this)closeTrashModal()">
       <div style="background:var(--bg-primary);border-radius:16px;padding:24px;max-width:560px;width:90%;max-height:80vh;overflow-y:auto;text-align:left;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <div style="font-size:18px;font-weight:600;">${T('ui.trashEmptyTitle')}</div>
+          <div style="font-size:18px;font-weight:600;">' + T('ui.trashEmptyTitle') + '</div>
           <button class="btn btn-sm" onclick="closeTrashModal()">✕</button>
         </div>
         <div id="trashContent" style="font-size:13px;"></div>
@@ -4804,46 +4802,46 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   </div>
 
   <div class="card">
-    <div class="section-title">${T('ui.fileUpload')}</div>
+    <div class="section-title">' + T('ui.fileUpload') + '</div>
     <div id="uploadAlert" class="alert"></div>
     <div class="drop-zone" id="dropZone">
       <div class="drop-zone-icon">📂</div>
-      <div>${T('ui.dragDropHint')}</div>
-      <div style="font-size:12px;margin-top:4px;">${T('ui.orUseButtons')}</div>
+      <div>' + T('ui.dragDropHint') + '</div>
+      <div style="font-size:12px;margin-top:4px;">' + T('ui.orUseButtons') + '</div>
     </div>
 
     <label class="file-upload-area">
       <input type="file" id="fileInput" multiple webkitdirectory>
       <div class="icon">📁</div>
-      <div class="text">${T('ui.clickOrDrag')}</div>
-      <div class="hint">${T('ui.supportFolderUpload')}</div>
+      <div class="text">' + T('ui.clickOrDrag') + '</div>
+      <div class="hint">' + T('ui.supportFolderUpload') + '</div>
     </label>
     <div id="uploadList" class="file-list"></div>
   </div>
 
   <div class="card">
-    <div class="section-title">🔗 ${T('ui.remoteUpload')}</div>
+    <div class="section-title">🔗 ' + T('ui.remoteUpload') + '</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <input type="text" id="remoteUrlInput" placeholder="https://example.com/file.zip" style="flex:1;min-width:200px;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">
       <input type="text" id="remoteFilenameInput" placeholder="保存为（可选）" style="width:160px;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;box-sizing:border-box;">
-      <button class="btn btn-sm" onclick="doRemoteUpload()">⬇️ ${T('ui.download')}</button>
+      <button class="btn btn-sm" onclick="doRemoteUpload()">⬇️ ' + T('ui.download') + '</button>
     </div>
     <div id="remoteUploadStatus" style="font-size:12px;margin-top:6px;min-height:18px;"></div>
   </div>
 
   <div class="card">
-    <div class="section-title">${T('ui.recentShares')}</div>
+    <div class="section-title">' + T('ui.recentShares') + '</div>
     <div id="listAlert" class="alert"></div>
-    <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ ${T('fav.favorite')}</button>
-    <button class="fav-filter-btn" onclick="showFavoritesManager()">☰ ${T('fav.favorites')}</button>
-    <button class="fav-filter-btn" id="vfFilterBtn" onclick="showVirtualFoldersModal()">📁 ${T('vf.virtualFolders')}</button>
-    <button class="fav-filter-btn" onclick="showTrashModal()">🗑 ${T('ui.trash')}<span id="trashCountBadge" style="display:none;margin-left:4px;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;line-height:1.4;">0</span></button>
+    <button class="fav-filter-btn" id="favFilterBtn" onclick="toggleFavFilter()">☆ ' + T('fav.favorite') + '</button>
+    <button class="fav-filter-btn" onclick="showFavoritesManager()">☰ ' + T('fav.favorites') + '</button>
+    <button class="fav-filter-btn" id="vfFilterBtn" onclick="showVirtualFoldersModal()">📁 ' + T('vf.virtualFolders') + '</button>
+    <button class="fav-filter-btn" onclick="showTrashModal()">🗑 ' + T('ui.trash') + '<span id="trashCountBadge" style="display:none;margin-left:4px;background:var(--danger);color:white;border-radius:10px;padding:1px 6px;font-size:10px;line-height:1.4;">0</span></button>
 
     <div class="recent-searches" id="recentSearches" style="display:none;"></div>
     <div class="search-wrapper">
     <div class="search-bar">
-      <input type="search" id="searchInput" placeholder="${T('ui.searchPlaceholder')}" autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="search" oninput="handleSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}" onfocus="showSearchHint()" onblur="setTimeout(hideSearchHint,200)">
-      <button class="btn btn-sm" onclick="doSearch()">${T('ui.search')}</button>
+      <input type="search" id="searchInput" placeholder="' + T('ui.searchPlaceholder') + '" autocomplete="off" autocorrect="off" autocapitalize="off" enterkeyhint="search" oninput="handleSearchInput(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();doSearch()}" onfocus="showSearchHint()" onblur="setTimeout(hideSearchHint,200)">
+      <button class="btn btn-sm" onclick="doSearch()">' + T('ui.search') + '</button>
       <button class="btn btn-sm btn-secondary" id="clearSearchBtn" onclick="clearSearch()" style="display:none;">×</button>
       <span id="searchKbdHint" style="font-size:11px;color:var(--text-muted);padding:0 4px;opacity:0.6;">// · ⌘K</span>
     </div>
@@ -4860,29 +4858,29 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <div id="tagQuickBar" style="display:none;margin-bottom:10px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:4px;"></div>
     <div class="filter-tabs">
-      <span class="filter-tab active" data-filter="all">${T('ui.filterAll')}</span>
-      <span class="filter-tab" data-filter="starred">${T('ui.filterStarred')}</span>
-      <span class="filter-tab" data-filter="text">${T('ui.filterText')}</span>
-      <span class="filter-tab" data-filter="file">${T('ui.filterFile')}</span>
+      <span class="filter-tab active" data-filter="all">' + T('ui.filterAll') + '</span>
+      <span class="filter-tab" data-filter="starred">' + T('ui.filterStarred') + '</span>
+      <span class="filter-tab" data-filter="text">' + T('ui.filterText') + '</span>
+      <span class="filter-tab" data-filter="file">' + T('ui.filterFile') + '</span>
     </div>
     <div class="batch-bar" id="batchBar">
       <input type="checkbox" id="selectAllBatch" onchange="toggleSelectAll(this.checked)" style="width:18px;height:18px;cursor:pointer;">
-      <span class="batch-count" id="batchCount">${T('ui.selectedN').replace('{n}', '0')}</span>
+      <span class="batch-count" id="batchCount">' + T('ui.selectedN').replace('{n}', '0') + '</span>
       <span class="batch-status" id="batchStatus"><span class="spinner"></span><span id="batchStatusText"></span></span>
       <div id="batchProgressBar" style="display:none;width:100px;height:6px;background:var(--border-color);border-radius:3px;overflow:hidden;flex-shrink:0;">
         <div id="batchProgressFill" style="height:100%;background:var(--accent-primary);width:0%;transition:width 0.1s;"></div>
       </div>
-      <button onclick="batchDownload()">📦 ${T('ui.batchDownload')}</button>
-      <button onclick="batchAddTagViaModal()">🏷 ${T('ui.batchTag')}</button>
-      <button onclick="batchRemoveTag()">🏷✕ ${T('ui.batchRemoveTag')}</button>
-      <button onclick="batchStar()">⭐ ${T('ui.batchStar')}</button>
-      <button onclick="batchCopy()">📋 ${T('ui.batchCopy')}</button>
-      <button onclick="batchCreateShare()">🔗 ${T('share.create')}</button>
-      <button onclick="batchAddToVirtualFolder()">📁 ${T('vf.addFiles')}</button>
-      <button onclick="batchMove()">📁 ${T('ui.batchMove')}</button>
-      <button onclick="showBatchRenameModal()">✏️ ${T('ui.batchRename')}</button>
-      <button class="danger" onclick="batchDelete()">🗑 ${T('ui.batchDelete')}</button>
-      <button class="danger" onclick="clearBatch()">✕ ${T('ui.batchCancel')}</button>
+      <button onclick="batchDownload()">📦 ' + T('ui.batchDownload') + '</button>
+      <button onclick="batchAddTagViaModal()">🏷 ' + T('ui.batchTag') + '</button>
+      <button onclick="batchRemoveTag()">🏷✕ ' + T('ui.batchRemoveTag') + '</button>
+      <button onclick="batchStar()">⭐ ' + T('ui.batchStar') + '</button>
+      <button onclick="batchCopy()">📋 ' + T('ui.batchCopy') + '</button>
+      <button onclick="batchCreateShare()">🔗 ' + T('share.create') + '</button>
+      <button onclick="batchAddToVirtualFolder()">📁 ' + T('vf.addFiles') + '</button>
+      <button onclick="batchMove()">📁 ' + T('ui.batchMove') + '</button>
+      <button onclick="showBatchRenameModal()">✏️ ' + T('ui.batchRename') + '</button>
+      <button class="danger" onclick="batchDelete()">🗑 ' + T('ui.batchDelete') + '</button>
+      <button class="danger" onclick="clearBatch()">✕ ' + T('ui.batchCancel') + '</button>
     </div>
 
     <div class="filter-tabs" id="tagFilterBar" style="margin-top:4px;">
@@ -4890,41 +4888,41 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     </div>
     <div id="breadcrumbBar" style="display:none;padding:6px 0;font-size:12px;margin-bottom:4px;"></div>
     <div class="sort-bar">
-      <span>${T('ui.sortBy')}:</span>
+      <span>' + T('ui.sortBy') + ':</span>
       <select id="sortSelect" onchange="changeSort(this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:16px;">
-        <option value="manual" title="${T('ui.sortDesc_manual')}">${T('ui.sortManual')}</option>
-        <option value="relevance_desc" title="${T('ui.sortDesc_relevance')}">${T('ui.sortRelevance')} 🎯</option>
-        <option value="time_desc" title="${T('ui.sortDesc_time')}">${T('ui.sortNewest')} ▼</option>
-        <option value="time_asc" title="${T('ui.sortDesc_time')}">${T('ui.sortOldest')} ▲</option>
-        <option value="name_asc" title="${T('ui.sortDesc_name')}">${T('ui.sortNameAZ')} A→Z</option>
-        <option value="name_desc" title="${T('ui.sortDesc_name')}">${T('ui.sortNameZA')} Z→A</option>
-        <option value="size_desc" title="${T('ui.sortDesc_size')}">${T('ui.sortLargest')} ▼</option>
-        <option value="size_asc" title="${T('ui.sortDesc_size')}">${T('ui.sortSmallest')} ▲</option>
-        <option value="type_asc" title="${T('ui.sortDesc_type')}">${T('ui.sortTypeAZ')} A→Z</option>
-        <option value="type_desc" title="${T('ui.sortDesc_type')}">${T('ui.sortTypeZA')} Z→A</option>
-        <option value="tag_asc" title="${T('ui.sortDesc_tag')}">${T('ui.sortTagAZ')}</option>
-        <option value="tag_desc" title="${T('ui.sortDesc_tag')}">${T('ui.sortTagZA')}</option>
-        <option value="download_desc" title="${T('ui.sortDesc_download')}">🔥 ${T('ui.sortMostDownloaded')}</option>
-        <option value="download_asc" title="${T('ui.sortDesc_download')}">💤 ${T('ui.sortLeastDownloaded')}</option>
+        <option value="manual" title="' + T('ui.sortDesc_manual') + '">' + T('ui.sortManual') + '</option>
+        <option value="relevance_desc" title="' + T('ui.sortDesc_relevance') + '">' + T('ui.sortRelevance') + ' 🎯</option>
+        <option value="time_desc" title="' + T('ui.sortDesc_time') + '">' + T('ui.sortNewest') + ' ▼</option>
+        <option value="time_asc" title="' + T('ui.sortDesc_time') + '">' + T('ui.sortOldest') + ' ▲</option>
+        <option value="name_asc" title="' + T('ui.sortDesc_name') + '">' + T('ui.sortNameAZ') + ' A→Z</option>
+        <option value="name_desc" title="' + T('ui.sortDesc_name') + '">' + T('ui.sortNameZA') + ' Z→A</option>
+        <option value="size_desc" title="' + T('ui.sortDesc_size') + '">' + T('ui.sortLargest') + ' ▼</option>
+        <option value="size_asc" title="' + T('ui.sortDesc_size') + '">' + T('ui.sortSmallest') + ' ▲</option>
+        <option value="type_asc" title="' + T('ui.sortDesc_type') + '">' + T('ui.sortTypeAZ') + ' A→Z</option>
+        <option value="type_desc" title="' + T('ui.sortDesc_type') + '">' + T('ui.sortTypeZA') + ' Z→A</option>
+        <option value="tag_asc" title="' + T('ui.sortDesc_tag') + '">' + T('ui.sortTagAZ') + '</option>
+        <option value="tag_desc" title="' + T('ui.sortDesc_tag') + '">' + T('ui.sortTagZA') + '</option>
+        <option value="download_desc" title="' + T('ui.sortDesc_download') + '">🔥 ' + T('ui.sortMostDownloaded') + '</option>
+        <option value="download_asc" title="' + T('ui.sortDesc_download') + '">💤 ' + T('ui.sortLeastDownloaded') + '</option>
       </select>
       <span id="fileCount" style="margin-left:auto;"></span>
       <span id="searchResultCount" style="display:none;color:var(--accent-primary);font-weight:500;margin-left:8px;"></span>
       <button id="exportSearchBtn" class="btn btn-sm btn-secondary" style="display:none;margin-left:4px;" onclick="exportSearchResults()">📥 导出</button>
       <div class="view-toggle">
-        <button class="active" id="listViewBtn" onclick="setView('list')" title="${T('ui.listView')}">☰</button>
-        <button id="gridViewBtn" onclick="setView('grid')" title="${T('ui.gridView')}">▦</button>
+        <button class="active" id="listViewBtn" onclick="setView('list')" title="' + T('ui.listView') + '">☰</button>
+        <button id="gridViewBtn" onclick="setView('grid')" title="' + T('ui.gridView') + '">▦</button>
       </div>
     </div>
     <div class="batch-actions">
-      <button class="btn btn-sm btn-warning" onclick="deleteOld(7)">${T('ui.delete1Week')}</button>
-      <button class="btn btn-sm btn-warning" onclick="deleteOld(30)">${T('ui.delete1Month')}</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteAll()">${T('ui.deleteAll')}</button>
-      <button class="btn btn-sm" onclick="batchDownload()" id="batchDownloadBtn" style="display:none;">${T('ui.batchDownload')} ( (<span id="batchCountDL">0</span>)</button>
+      <button class="btn btn-sm btn-warning" onclick="deleteOld(7)">' + T('ui.delete1Week') + '</button>
+      <button class="btn btn-sm btn-warning" onclick="deleteOld(30)">' + T('ui.delete1Month') + '</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteAll()">' + T('ui.deleteAll') + '</button>
+      <button class="btn btn-sm" onclick="batchDownload()" id="batchDownloadBtn" style="display:none;">' + T('ui.batchDownload') + ' ( (<span id="batchCountDL">0</span>)</button>
     </div>
     <div class="setting-row">
-      <label>${T('ui.downloadDir')}:</label>
+      <label>' + T('ui.downloadDir') + ':</label>
       <input type="text" id="downloadDir" value="">
-      <button class="btn btn-sm" onclick="saveDownloadDir()">${T('ui.save')}</button>
+      <button class="btn btn-sm" onclick="saveDownloadDir()">' + T('ui.save') + '</button>
     </div>
     <div id="downloadProgress" style="display:none;">
       <div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
@@ -4933,8 +4931,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
     <div id="filesContainer">
       <div class="empty" id="emptyState">
         <div class="empty-icon">📭</div>
-        <div class="empty-text">${T('ui.noFiles')}</div>
-        <div class="empty-text" style="font-size:12px;margin-top:8px;">${T('ui.noFilesHint')}</div>
+        <div class="empty-text">' + T('ui.noFiles') + '</div>
+        <div class="empty-text" style="font-size:12px;margin-top:8px;">' + T('ui.noFilesHint') + '</div>
       </div>
     </div>
     <div class="pagination" id="pagination"></div>
@@ -4958,41 +4956,41 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   </div>
 
   <div class="card">
-    <div class="section-title">${T('admin.settings')}</div>
+    <div class="section-title">' + T('admin.settings') + '</div>
     <div style="margin-bottom: 12px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">${T('admin.accessToken')}</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">' + T('admin.accessToken') + '</div>
       <div class="code-box" id="currentTokenDisplay" style="font-size:12px;padding:8px 12px;"></div>
-      <button class="btn btn-sm" style="margin-top:8px;" onclick="showTokenModal()">${T('admin.changeToken')}</button>
-      <button class="btn btn-sm btn-secondary" style="margin-top:8px;margin-left:4px;" onclick="refreshToken()">${T('admin.refresh')}</button>
+      <button class="btn btn-sm" style="margin-top:8px;" onclick="showTokenModal()">' + T('admin.changeToken') + '</button>
+      <button class="btn btn-sm btn-secondary" style="margin-top:8px;margin-left:4px;" onclick="refreshToken()">' + T('admin.refresh') + '</button>
     </div>
     <div style="margin-bottom: 12px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">${T('admin.https')}</div>
-      <div id="httpsStatus" style="font-size:13px;color:var(--text-muted);">${T('admin.checking')}</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">' + T('admin.https') + '</div>
+      <div id="httpsStatus" style="font-size:13px;color:var(--text-muted);">' + T('admin.checking') + '</div>
       <div id="httpsRenewBtn" style="margin-top:6px;display:none;">
-        <button class="btn btn-sm" onclick="manualRenewCert()">${T('admin.renew')}</button>
+        <button class="btn btn-sm" onclick="manualRenewCert()">' + T('admin.renew') + '</button>
       </div>
     </div>
     <div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">📊 <span id="adminAuditLabel">${T('admin.auditTitle').replace('📊 ', '')}</span></div>
-      <button class="btn btn-sm" onclick="showAuditModal()"><span id="adminAuditBtn">${T('admin.viewAudit')}</span></button>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">📊 <span id="adminAuditLabel">' + T('admin.auditTitle').replace('📊 ', '') + '</span></div>
+      <button class="btn btn-sm" onclick="showAuditModal()"><span id="adminAuditBtn">' + T('admin.viewAudit') + '</span></button>
     </div>
     <div style="margin-top:12px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔗 <span id="adminShareLabel">${T('share.link').replace('链接', '')}</span></div>
-      <button class="btn btn-sm" onclick="showShareLinksModal()">${T('share.manage')}</button>
-      <button class="btn btn-sm" onclick="showRequestLinksModal()">${T('request.title')}</button>
-      <button class="btn btn-sm" onclick="showTagManager()">🏷 <span id="adminTagBtn">${T('tag.manager')}</span></button>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🔗 <span id="adminShareLabel">' + T('share.link').replace('链接', '') + '</span></div>
+      <button class="btn btn-sm" onclick="showShareLinksModal()">' + T('share.manage') + '</button>
+      <button class="btn btn-sm" onclick="showRequestLinksModal()">' + T('request.title') + '</button>
+      <button class="btn btn-sm" onclick="showTagManager()">🏷 <span id="adminTagBtn">' + T('tag.manager') + '</span></button>
     </div>
     <div style="margin-top:12px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🛡 <span id="adminRateLimitLabel">${T('admin.rateLimit')}</span></div>
-      <div id="rateLimitStatus" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">${T('admin.loaded')}</div>
-      <button class="btn btn-sm" onclick="showRateLimitModal()">${T('admin.rateLimitConfig')}</button>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">🛡 <span id="adminRateLimitLabel">' + T('admin.rateLimit') + '</span></div>
+      <div id="rateLimitStatus" style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">' + T('admin.loaded') + '</div>
+      <button class="btn btn-sm" onclick="showRateLimitModal()">' + T('admin.rateLimitConfig') + '</button>
     </div>
   </div>
 
   <div class="card">
-    <div class="section-title">${T('device.devices')}</div>
+    <div class="section-title">' + T('device.devices') + '</div>
     <div class="device-list" id="deviceList">
-      <div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">${T('device.discovering')}</div></div>
+      <div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">' + T('device.discovering') + '</div></div>
     </div>
   </div>
 </div>
@@ -5013,14 +5011,14 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <!-- Notification Center Panel -->
 <div class="notif-panel" id="notifPanel">
   <div class="notif-panel-header">
-    <span class="notif-panel-title">🔔 <span id="notifPanelTitle">${T('ui.notifications')}</span></span>
+    <span class="notif-panel-title">🔔 <span id="notifPanelTitle">' + T('ui.notifications') + '</span></span>
     <div class="notif-panel-actions">
-      <button class="notif-panel-action" onclick="markAllNotifRead()" id="notifMarkAllBtn">${T('ui.markAllRead')}</button>
-      <button class="notif-panel-action" onclick="clearAllNotif()" style="color:var(--danger);">${T('ui.clearAll')}</button>
+      <button class="notif-panel-action" onclick="markAllNotifRead()" id="notifMarkAllBtn">' + T('ui.markAllRead') + '</button>
+      <button class="notif-panel-action" onclick="clearAllNotif()" style="color:var(--danger);">' + T('ui.clearAll') + '</button>
     </div>
   </div>
   <div class="notif-list" id="notifList">
-    <div class="notif-empty" id="notifEmpty">${T('ui.noNotifications')}</div>
+    <div class="notif-empty" id="notifEmpty">' + T('ui.noNotifications') + '</div>
   </div>
 </div>
 
@@ -5033,19 +5031,19 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="auditModal" onclick="if(event.target===this)closeAuditModal()">
   <div class="modal-content" style="max-width:800px;max-height:85vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">📊 <span id="auditModalTitle">${T('admin.auditTitle')}</span></div>
+      <div class="modal-title">📊 <span id="auditModalTitle">' + T('admin.auditTitle') + '</span></div>
       <button class="modal-close" onclick="closeAuditModal()">x</button>
     </div>
     <div id="auditStats" style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;"></div>
     <!-- Action breakdown chart -->
     <div id="auditChart" style="margin-bottom:16px;display:none;">
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:500;">${T('admin.actionBreakdown')}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:500;">' + T('admin.actionBreakdown') + '</div>
       <div id="auditChartBars" style="display:flex;flex-direction:column;gap:6px;"></div>
     </div>
     <!-- Filters -->
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
       <select id="auditFilterAction" onchange="showAuditModal()" style="padding:6px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:16px;max-width:160px;">
-        <option value="">${T('ui.all')}</option>
+        <option value="">' + T('ui.all') + '</option>
       </select>
       <input type="date" id="auditFilterDate" onchange="showAuditModal()" style="padding:6px 8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:16px;">
       <button class="btn btn-sm" onclick="exportAudit('csv')">📥 CSV</button>
@@ -5058,15 +5056,15 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="tokenModal" onclick="if(event.target===this)closeTokenModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <div class="modal-title">🔐 <span id="tokenModalTitle">${T('admin.changeToken')}</span></div>
+      <div class="modal-title">🔐 <span id="tokenModalTitle">' + T('admin.changeToken') + '</span></div>
       <button class="modal-close" onclick="closeTokenModal()">x</button>
     </div>
     <div style="padding:8px 0;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">${T('admin.accessToken')} (${T('admin.none')}):</div>
-      <input type="text" id="newTokenInput" placeholder="${T('admin.opts')}" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;font-family:monospace;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">' + T('admin.accessToken') + ' (' + T('admin.none') + '):</div>
+      <input type="text" id="newTokenInput" placeholder="' + T('admin.opts') + '" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;font-family:monospace;">
       <div style="margin-top:12px;display:flex;gap:8px;">
-        <button class="btn" onclick="doSetToken()" style="flex:1;">${T('msg.confirm')}</button>
-        <button class="btn btn-secondary" onclick="closeTokenModal()">${T('msg.cancel')}</button>
+        <button class="btn" onclick="doSetToken()" style="flex:1;">' + T('msg.confirm') + '</button>
+        <button class="btn btn-secondary" onclick="closeTokenModal()">' + T('msg.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -5075,38 +5073,38 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="shareOptionsModal" onclick="if(event.target===this)closeShareOptionsModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <div class="modal-title">🔗 <span id="shareOptionsTitle">${T('share.create')}</span></div>
+      <div class="modal-title">🔗 <span id="shareOptionsTitle">' + T('share.create') + '</span></div>
       <button class="modal-close" onclick="closeShareOptionsModal()">x</button>
     </div>
     <div style="padding:8px 0;">
       <input type="hidden" id="shareOptionsFilename">
       <div id="shareOptionsFileName" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;padding:8px;background:var(--bg-tertiary);border-radius:8px;word-break:break-all;"></div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('share.lifetime')}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.lifetime') + '</div>
         <select id="shareExpiryHours" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
-          <option value="24">${T('share.24h')}</option>
-          <option value="72">${T('share.3days')}</option>
-          <option value="168" selected>${T('share.7days')}</option>
-          <option value="720">${T('share.30days')}</option>
-          <option value="0">${T('share.never')}</option>
+          <option value="24">' + T('share.24h') + '</option>
+          <option value="72">' + T('share.3days') + '</option>
+          <option value="168" selected>' + T('share.7days') + '</option>
+          <option value="720">' + T('share.30days') + '</option>
+          <option value="0">' + T('share.never') + '</option>
         </select>
       </div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('share.downloadLimit')}</div>
-        <input type="number" id="shareMaxDownloads" placeholder="${T('admin.none')}" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.downloadLimit') + '</div>
+        <input type="number" id="shareMaxDownloads" placeholder="' + T('admin.none') + '" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('share.passwordOptional')}</div>
-        <input type="password" id="sharePassword" placeholder="${T('share.noPassword')}" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;" oninput="updatePasswordStrength(this.value)">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.passwordOptional') + '</div>
+        <input type="password" id="sharePassword" placeholder="' + T('share.noPassword') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;" oninput="updatePasswordStrength(this.value)">
         <div id="sharePasswordStrength" style="font-size:11px;margin-top:4px;height:16px;color:var(--text-muted);"></div>
       </div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('share.description')}</div>
-        <input type="text" id="shareDescription" placeholder="${T('share.descriptionPlaceholder')}" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.description') + '</div>
+        <input type="text" id="shareDescription" placeholder="' + T('share.descriptionPlaceholder') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn" onclick="doCreateShareLink()" style="flex:1;">${T('share.create')}</button>
-        <button class="btn btn-secondary" onclick="closeShareOptionsModal()">${T('msg.cancel')}</button>
+        <button class="btn" onclick="doCreateShareLink()" style="flex:1;">' + T('share.create') + '</button>
+        <button class="btn btn-secondary" onclick="closeShareOptionsModal()">' + T('msg.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -5115,8 +5113,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="shareLinksModal" onclick="if(event.target===this)closeShareLinksModal()">
   <div class="modal-content" style="max-width:600px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">🔗 <span id="shareLinksTitle">${T('share.manage')}</span></div>
-      <button id="btnDeleteExpiredShares" class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="deleteExpiredShares()">${T('share.deleteExpired')}</button>
+      <div class="modal-title">🔗 <span id="shareLinksTitle">' + T('share.manage') + '</span></div>
+      <button id="btnDeleteExpiredShares" class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="deleteExpiredShares()">' + T('share.deleteExpired') + '</button>
       <div id="shareLinksBatchActions" style="display:none;gap:4px;">
         <button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="showBatchExtendShareModal()">⏱ 批量续期</button>
         <button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="batchDeleteShareLinks()">🗑 删除</button>
@@ -5156,8 +5154,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="requestLinksModal" onclick="if(event.target===this)closeRequestLinksModal()">
   <div class="modal-content" style="max-width:600px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">📥 ${T('request.manage')}</div>
-      <button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="showCreateRequestLinkModal()">${T('request.create')}</button>
+      <div class="modal-title">📥 ' + T('request.manage') + '</div>
+      <button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="showCreateRequestLinkModal()">' + T('request.create') + '</button>
       <button class="modal-close" onclick="closeRequestLinksModal()">x</button>
     </div>
     <div id="requestLinksList" style="padding:8px 0;"></div>
@@ -5168,17 +5166,17 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="createRequestLinkModal" onclick="if(event.target===this)closeCreateRequestLinkModal()">
   <div class="modal-content" style="max-width:420px;">
     <div class="modal-header">
-      <div class="modal-title">📥 ${T('request.create')}</div>
+      <div class="modal-title">📥 ' + T('request.create') + '</div>
       <button class="modal-close" onclick="closeCreateRequestLinkModal()">x</button>
     </div>
     <div style="padding:8px 0;">
       <div style="margin-bottom:12px;">
-        <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('request.name')}</label>
+        <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.name') + '</label>
         <input type="text" id="requestLinkName" placeholder="文件收集" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
       </div>
       <div style="margin-bottom:12px;display:flex;gap:8px;">
         <div style="flex:1;">
-          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('request.expiresIn')}</label>
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.expiresIn') + '</label>
           <select id="requestLinkExpires" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
             <option value="1">1 天</option>
             <option value="7">7 天</option>
@@ -5188,17 +5186,17 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
           </select>
         </div>
         <div style="flex:1;">
-          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('request.maxUploads')}</label>
-          <input type="number" id="requestLinkMaxUploads" placeholder="${T('request.unlimited')}" min="1" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
+          <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.maxUploads') + '</label>
+          <input type="number" id="requestLinkMaxUploads" placeholder="' + T('request.unlimited') + '" min="1" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
         </div>
       </div>
       <div style="margin-bottom:12px;">
-        <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('request.password')}</label>
+        <label style="display:block;font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('request.password') + '</label>
         <input type="password" id="requestLinkPassword" placeholder="（可选）" style="width:100%;padding:10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn" onclick="doCreateRequestLink()" style="flex:1;">${T('request.create')}</button>
-        <button class="btn btn-secondary" onclick="closeCreateRequestLinkModal()">${T('msg.cancel')}</button>
+        <button class="btn" onclick="doCreateRequestLink()" style="flex:1;">' + T('request.create') + '</button>
+        <button class="btn btn-secondary" onclick="closeCreateRequestLinkModal()">' + T('msg.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -5207,38 +5205,38 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="editShareLinkModal" onclick="if(event.target===this)closeEditShareLinkModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <div class="modal-title">✏️ ${T('share.editLink')}</div>
+      <div class="modal-title">✏️ ' + T('share.editLink') + '</div>
       <button class="modal-close" onclick="closeEditShareLinkModal()">x</button>
     </div>
     <div style="padding:8px 0;">
       <input type="hidden" id="editShareCode">
       <div id="editShareFilename" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;padding:8px;background:var(--bg-tertiary);border-radius:8px;word-break:break-all;"></div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('share.lifetime')}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.lifetime') + '</div>
         <select id="editShareExpiryHours" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
-          <option value="24">${T('share.24h')}</option>
-          <option value="72">${T('share.3days')}</option>
-          <option value="168">${T('share.7days')}</option>
-          <option value="720">${T('share.30days')}</option>
-          <option value="0">${T('share.never')}</option>
+          <option value="24">' + T('share.24h') + '</option>
+          <option value="72">' + T('share.3days') + '</option>
+          <option value="168">' + T('share.7days') + '</option>
+          <option value="720">' + T('share.30days') + '</option>
+          <option value="0">' + T('share.never') + '</option>
         </select>
       </div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('share.downloadLimit')}</div>
-        <input type="number" id="editShareMaxDownloads" placeholder="${T('admin.none')}" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.downloadLimit') + '</div>
+        <input type="number" id="editShareMaxDownloads" placeholder="' + T('admin.none') + '" min="1" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('share.passwordOptional')}</div>
-        <input type="password" id="editSharePassword" placeholder="${T('share.noPassword')}" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
-        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${T('share.leaveBlank')}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.passwordOptional') + '</div>
+        <input type="password" id="editSharePassword" placeholder="' + T('share.noPassword') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + T('share.leaveBlank') + '</div>
       </div>
       <div style="margin-bottom:12px;">
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('share.description')}</div>
-        <input type="text" id="editShareDescription" placeholder="${T('share.descriptionPlaceholder')}" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('share.description') + '</div>
+        <input type="text" id="editShareDescription" placeholder="' + T('share.descriptionPlaceholder') + '" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;">
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn" onclick="doUpdateShareLink()" style="flex:1;">${T('ui.save')}</button>
-        <button class="btn btn-secondary" onclick="closeEditShareLinkModal()">${T('msg.cancel')}</button>
+        <button class="btn" onclick="doUpdateShareLink()" style="flex:1;">' + T('ui.save') + '</button>
+        <button class="btn btn-secondary" onclick="closeEditShareLinkModal()">' + T('msg.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -5247,7 +5245,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="storageModal" onclick="if(event.target===this)closeStorageModal()">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header">
-      <div class="modal-title">📊 ${T('admin.storage')}</div>
+      <div class="modal-title">📊 ' + T('admin.storage') + '</div>
       <button class="modal-close" onclick="closeStorageModal()">x</button>
     </div>
     <div id="storageModalBody" style="padding:8px 0;"></div>
@@ -5257,7 +5255,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="devicesModal" onclick="if(event.target===this)closeDevicesModal()">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header">
-      <div class="modal-title">📱 ${T('ui.devices')}</div>
+      <div class="modal-title">📱 ' + T('ui.devices') + '</div>
       <button class="modal-close" onclick="closeDevicesModal()">x</button>
     </div>
     <div id="devicesModalBody" style="padding:8px 0;"></div>
@@ -5267,18 +5265,18 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="tagsModal" onclick="if(event.target===this)closeTagsModal()">
   <div class="modal-content" style="max-width:600px;">
     <div class="modal-header">
-      <div class="modal-title">🏷️ ${T('file.tags')}</div>
+      <div class="modal-title">🏷️ ' + T('file.tags') + '</div>
       <button class="modal-close" onclick="closeTagsModal()">x</button>
     </div>
     <div style="padding:0 16px 12px;display:flex;gap:8px;align-items:center;">
-      <input type="text" id="tagsModalSearch" placeholder="${T('ui.searchPlaceholder')}" oninput="filterTagsModal(this.value)"
+      <input type="text" id="tagsModalSearch" placeholder="' + T('ui.searchPlaceholder') + '" oninput="filterTagsModal(this.value)"
         style="flex:1;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:14px;">
       <select id="tagsModalSort" onchange="sortTagsModal(this.value)"
         style="padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;min-height:44px;">
-        <option value="count">${T('sort.byCount')}</option>
-        <option value="recent">${T('sort.byRecent')}</option>
-        <option value="alpha">${T('sort.alpha')}</option>
-        <option value="color">${T('sort.byColor')}</option>
+        <option value="count">' + T('sort.byCount') + '</option>
+        <option value="recent">' + T('sort.byRecent') + '</option>
+        <option value="alpha">' + T('sort.alpha') + '</option>
+        <option value="color">' + T('sort.byColor') + '</option>
       </select>
     </div>
     <div id="tagsModalBody" style="padding:0 16px 16px;max-height:400px;overflow-y:auto;"></div>
@@ -5288,7 +5286,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="backupModal" onclick="if(event.target===this)closeBackupModal()">
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header">
-      <div class="modal-title">💾 ${T('admin.backup')}</div>
+      <div class="modal-title">💾 ' + T('admin.backup') + '</div>
       <button class="modal-close" onclick="closeBackupModal()">x</button>
     </div>
     <div id="backupModalBody" style="padding:8px 0;"></div>
@@ -5298,14 +5296,14 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="aboutModal" onclick="if(event.target===this)closeAboutModal()">
   <div class="modal-content" style="max-width:420px;">
     <div class="modal-header">
-      <div class="modal-title">ℹ️ ${T('about.about')}</div>
+      <div class="modal-title">ℹ️ ' + T('about.about') + '</div>
       <button class="modal-close" onclick="closeAboutModal()">x</button>
     </div>
     <div style="padding:16px 0;text-align:center;">
       <div style="font-size:48px;margin-bottom:12px;">📡</div>
       <h2 style="margin:0 0 8px;">ShareTool</h2>
       <p style="color:var(--text-muted);margin:0 0 16px;">v' + VERSION + '</p>
-      <p style="font-size:13px;color:var(--text-secondary);">${T('about.desc')}</p>
+      <p style="font-size:13px;color:var(--text-secondary);">' + T('about.desc') + '</p>
     </div>
     <div id="aboutSystemStats" style="padding:0 16px 16px;font-size:12px;color:var(--text-muted)"></div>
   </div>
@@ -5314,33 +5312,33 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="shortcutModal" onclick="if(event.target===this)closeShortcutModal()">
   <div class="modal-content" style="max-width:400px;">
     <div class="modal-header">
-      <div class="modal-title">⌨️ ${T('ui.shortcuts')}</div>
+      <div class="modal-title">⌨️ ' + T('ui.shortcuts') + '</div>
       <button class="modal-close" onclick="closeShortcutModal()">x</button>
     </div>
     <div class="shortcut-list">
-      <span class="shortcut-key">j / k</span><span class="shortcut-desc">${T('ui.shortcutMoveFocus')}</span>
-      <span class="shortcut-key">Enter</span><span class="shortcut-desc">${T('ui.shortcutOpenFocused')}</span>
-      <span class="shortcut-key">x</span><span class="shortcut-desc">${T('ui.shortcutToggleSelect')}</span>
-      <span class="shortcut-key">v</span><span class="shortcut-desc">${T('ui.shortcutView')}</span>
-      <span class="shortcut-key">t</span><span class="shortcut-desc">${T('ui.shortcutTagSelected')}</span>
-      <span class="shortcut-key">a</span><span class="shortcut-desc">${T('ui.shortcutSelectAll')}</span>
-      <span class="shortcut-key">s</span><span class="shortcut-desc">${T('ui.shortcutStarFocused')}</span>
-      <span class="shortcut-key">c</span><span class="shortcut-desc">${T('ui.shortcutCopyLink')}</span>
-      <span class="shortcut-key">n</span><span class="shortcut-desc">${T('ui.shortcutNewUpload')}</span>
-      <span class="shortcut-key">m</span><span class="shortcut-desc">${T('ui.shortcutTextNote')}</span>
-      <span class="shortcut-key">g</span><span class="shortcut-desc">${T('ui.shortcutGoRoot')}</span>
-      <span class="shortcut-key">l / →</span><span class="shortcut-desc">${T('ui.shortcutEnterFolder')}</span>
-      <span class="shortcut-key">h / ←</span><span class="shortcut-desc">${T('ui.shortcutGoBack')}</span>
-      <span class="shortcut-key">Delete</span><span class="shortcut-desc">${T('ui.shortcutDeleteFocused')}</span>
-      <span class="shortcut-key">f</span><span class="shortcut-desc">${T('ui.shortcutToggleFav')}</span>
-      <span class="shortcut-key">r</span><span class="shortcut-desc">${T('ui.shortcutRefresh')}</span>
-      <span class="shortcut-key">/</span><span class="shortcut-desc">${T('ui.shortcutSearch')}</span>
-      <span class="shortcut-key">Esc</span><span class="shortcut-desc">${T('ui.shortcutClose')}</span>
-      <span class="shortcut-key">← →</span><span class="shortcut-desc">${T('ui.shortcutImageNav')}</span>
-      <span class="shortcut-key">?</span><span class="shortcut-desc">${T('ui.shortcutHelp')}</span>
-      <span class="shortcut-key">⌘K</span><span class="shortcut-desc">${T('ui.shortcutSearchCmd')}</span>
-      <span class="shortcut-key">↑↓</span><span class="shortcut-desc">${T('ui.shortcutSearchNav')}</span>
-      <span class="shortcut-key">V</span><span class="shortcut-desc">${T('ui.shortcutView')}</span>
+      <span class="shortcut-key">j / k</span><span class="shortcut-desc">' + T('ui.shortcutMoveFocus') + '</span>
+      <span class="shortcut-key">Enter</span><span class="shortcut-desc">' + T('ui.shortcutOpenFocused') + '</span>
+      <span class="shortcut-key">x</span><span class="shortcut-desc">' + T('ui.shortcutToggleSelect') + '</span>
+      <span class="shortcut-key">v</span><span class="shortcut-desc">' + T('ui.shortcutView') + '</span>
+      <span class="shortcut-key">t</span><span class="shortcut-desc">' + T('ui.shortcutTagSelected') + '</span>
+      <span class="shortcut-key">a</span><span class="shortcut-desc">' + T('ui.shortcutSelectAll') + '</span>
+      <span class="shortcut-key">s</span><span class="shortcut-desc">' + T('ui.shortcutStarFocused') + '</span>
+      <span class="shortcut-key">c</span><span class="shortcut-desc">' + T('ui.shortcutCopyLink') + '</span>
+      <span class="shortcut-key">n</span><span class="shortcut-desc">' + T('ui.shortcutNewUpload') + '</span>
+      <span class="shortcut-key">m</span><span class="shortcut-desc">' + T('ui.shortcutTextNote') + '</span>
+      <span class="shortcut-key">g</span><span class="shortcut-desc">' + T('ui.shortcutGoRoot') + '</span>
+      <span class="shortcut-key">l / →</span><span class="shortcut-desc">' + T('ui.shortcutEnterFolder') + '</span>
+      <span class="shortcut-key">h / ←</span><span class="shortcut-desc">' + T('ui.shortcutGoBack') + '</span>
+      <span class="shortcut-key">Delete</span><span class="shortcut-desc">' + T('ui.shortcutDeleteFocused') + '</span>
+      <span class="shortcut-key">f</span><span class="shortcut-desc">' + T('ui.shortcutToggleFav') + '</span>
+      <span class="shortcut-key">r</span><span class="shortcut-desc">' + T('ui.shortcutRefresh') + '</span>
+      <span class="shortcut-key">/</span><span class="shortcut-desc">' + T('ui.shortcutSearch') + '</span>
+      <span class="shortcut-key">Esc</span><span class="shortcut-desc">' + T('ui.shortcutClose') + '</span>
+      <span class="shortcut-key">← →</span><span class="shortcut-desc">' + T('ui.shortcutImageNav') + '</span>
+      <span class="shortcut-key">?</span><span class="shortcut-desc">' + T('ui.shortcutHelp') + '</span>
+      <span class="shortcut-key">⌘K</span><span class="shortcut-desc">' + T('ui.shortcutSearchCmd') + '</span>
+      <span class="shortcut-key">↑↓</span><span class="shortcut-desc">' + T('ui.shortcutSearchNav') + '</span>
+      <span class="shortcut-key">V</span><span class="shortcut-desc">' + T('ui.shortcutView') + '</span>
     </div>
   </div>
 </div>
@@ -5348,38 +5346,38 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="tagManagerModal" onclick="if(event.target===this)closeTagManager()">
   <div class="modal-content" style="max-width:480px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">${T('tag.manager')}</div>
+      <div class="modal-title">' + T('tag.manager') + '</div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-sm" onclick="showTagMergeUI()" style="font-size:11px;padding:4px 10px;">${T('tag.merge')}</button>
+        <button class="btn btn-sm" onclick="showTagMergeUI()" style="font-size:11px;padding:4px 10px;">' + T('tag.merge') + '</button>
         <button class="modal-close" onclick="closeTagManager()">x</button>
       </div>
     </div>
-    <input type="text" id="tagManagerSearch" placeholder="${T('ui.searchTags')}" style="width:100%;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;min-height:44px;margin-bottom:8px;box-sizing:border-box;" oninput="filterTagManagerList(this.value)">
+    <input type="text" id="tagManagerSearch" placeholder="' + T('ui.searchTags') + '" style="width:100%;padding:8px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;min-height:44px;margin-bottom:8px;box-sizing:border-box;" oninput="filterTagManagerList(this.value)">
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
       <select id="tagManagerSort" onchange="sortTagManagerList(this.value)" style="flex:1;padding:8px 10px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:13px;min-height:44px;box-sizing:border-box;">
-        <option value="count_desc">${T('ui.sortTagCount')}</option>
-        <option value="name_asc">${T('ui.sortTagAZ')}</option>
-        <option value="name_desc">${T('ui.sortTagZA')}</option>
-        <option value="color">${T('ui.sortByColor')}</option>
+        <option value="count_desc">' + T('ui.sortTagCount') + '</option>
+        <option value="name_asc">' + T('ui.sortTagAZ') + '</option>
+        <option value="name_desc">' + T('ui.sortTagZA') + '</option>
+        <option value="color">' + T('ui.sortByColor') + '</option>
       </select>
       <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;" id="tagManagerCount"></div>
-      <button class="btn btn-sm" onclick="toggleSelectAllTags()" id="selectAllTagsBtn" style="font-size:11px;padding:4px 8px;min-height:32px;">☑ ${T('tag.selectAll')}</button>
+      <button class="btn btn-sm" onclick="toggleSelectAllTags()" id="selectAllTagsBtn" style="font-size:11px;padding:4px 8px;min-height:32px;">☑ ' + T('tag.selectAll') + '</button>
     </div>
     <div id="tagBatchBar" style="display:none;background:var(--accent-primary);border-radius:8px;padding:8px 12px;margin-bottom:8px;align-items:center;gap:8px;justify-content:space-between;">
       <span style="font-size:12px;color:white;"></span>
       <div style="display:flex;gap:6px;">
-        <button class="btn btn-sm" onclick="openBatchColorPicker()" style="background:rgba(255,255,255,0.2);color:white;border:none;font-size:11px;padding:4px 8px;min-height:32px;">🎨 ${T('tag.changeColor')}</button>
-        <button class="btn btn-sm btn-danger" onclick="batchDeleteTags()" style="font-size:11px;padding:4px 8px;min-height:32px;">🗑 ${T('tag.delete')}</button>
+        <button class="btn btn-sm" onclick="openBatchColorPicker()" style="background:rgba(255,255,255,0.2);color:white;border:none;font-size:11px;padding:4px 8px;min-height:32px;">🎨 ' + T('tag.changeColor') + '</button>
+        <button class="btn btn-sm btn-danger" onclick="batchDeleteTags()" style="font-size:11px;padding:4px 8px;min-height:32px;">🗑 ' + T('tag.delete') + '</button>
       </div>
     </div>
     <div id="tagMergeUI" style="display:none;background:var(--bg-tertiary);border-radius:8px;padding:12px;margin-bottom:8px;">
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">${T('tag.mergeHint')}</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">' + T('tag.mergeHint') + '</div>
       <div id="tagMergeSourceList" style="display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto;margin-bottom:12px;"></div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">${T('tag.mergeTarget')}</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">' + T('tag.mergeTarget') + '</div>
       <select id="tagMergeTarget" style="width:100%;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border-color);border-radius:6px;color:var(--text-primary);font-size:16px;min-height:44px;margin-bottom:10px;box-sizing:border-box;"></select>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button class="btn btn-sm btn-secondary" onclick="hideTagMergeUI()">${T('ui.cancel')}</button>
-        <button class="btn btn-sm" onclick="executeTagMerge()" style="background:var(--accent-primary);color:white;">${T('tag.mergeConfirm')}</button>
+        <button class="btn btn-sm btn-secondary" onclick="hideTagMergeUI()">' + T('ui.cancel') + '</button>
+        <button class="btn btn-sm" onclick="executeTagMerge()" style="background:var(--accent-primary);color:white;">' + T('tag.mergeConfirm') + '</button>
       </div>
     </div>
     <div id="tagManagerList" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -5390,7 +5388,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="tagInputModal" onclick="if(event.target===this)closeTagInputModal()">
   <div class="modal-content" style="max-width:400px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">🏷 <span id="tagInputModalTitle">${T('file.addTag')}</span></div>
+      <div class="modal-title">🏷 <span id="tagInputModalTitle">' + T('file.addTag') + '</span></div>
       <button class="modal-close" onclick="closeTagInputModal()">x</button>
     </div>
     <div style="padding:8px 0;">
@@ -5398,18 +5396,18 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <!-- Existing tags as removable chips -->
       <div id="tagInputExisting" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;"></div>
       <!-- New tags input -->
-      <input type="text" id="tagInputField" placeholder="${T('tag.inputHint')}" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off">
+      <input type="text" id="tagInputField" placeholder="' + T('tag.inputHint') + '" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off">
       <!-- Tag autocomplete suggestions -->
       <div id="tagInputSuggestions" style="display:none;max-height:120px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;margin-top:4px;background:var(--bg-secondary);"></div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">${T('tag.inputHint')}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + T('tag.inputHint') + '</div>
       <!-- Color picker for new tags -->
       <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:12px;color:var(--text-muted);">${T('tag.color')}:</span>
+        <span style="font-size:12px;color:var(--text-muted);">' + T('tag.color') + ':</span>
         <div id="tagInputColorPicker" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
       </div>
       <div style="margin-top:16px;display:flex;gap:8px;">
-        <button class="btn" style="flex:1;" onclick="confirmTagInput()">${T('ui.save')}</button>
-        <button class="btn btn-secondary" style="flex:1;" onclick="closeTagInputModal()">${T('ui.cancel')}</button>
+        <button class="btn" style="flex:1;" onclick="confirmTagInput()">' + T('ui.save') + '</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeTagInputModal()">' + T('ui.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -5419,7 +5417,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="copyModal" onclick="if(event.target===this)closeCopyModal()">
   <div class="modal-content" style="max-width:420px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">📋 <span id="copyModalTitle">${T('file.copyTo')}</span></div>
+      <div class="modal-title">📋 <span id="copyModalTitle">' + T('file.copyTo') + '</span></div>
       <button class="modal-close" onclick="closeCopyModal()">x</button>
     </div>
     <div style="padding:12px 0;">
@@ -5427,8 +5425,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <input type="text" id="copyModalDest" placeholder="目标文件夹前缀（如 backup/）" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();doCopyFile()}">
     </div>
     <div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--border-color);">
-      <button class="btn btn-secondary" onclick="closeCopyModal()">${T('msg.cancel')}</button>
-      <button class="btn btn-primary" onclick="doCopyFile()">${T('ui.confirm')}</button>
+      <button class="btn btn-secondary" onclick="closeCopyModal()">' + T('msg.cancel') + '</button>
+      <button class="btn btn-primary" onclick="doCopyFile()">' + T('ui.confirm') + '</button>
     </div>
   </div>
 </div>
@@ -5437,16 +5435,16 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="renameModal" onclick="if(event.target===this)closeRenameModal()">
   <div class="modal-content" style="max-width:420px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">✏️ <span id="renameModalTitle">${T('file.rename')}</span></div>
+      <div class="modal-title">✏️ <span id="renameModalTitle">' + T('file.rename') + '</span></div>
       <button class="modal-close" onclick="closeRenameModal()">x</button>
     </div>
     <div style="padding:12px 0;">
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;" id="renameModalOldName"></div>
-      <input type="text" id="renameModalInput" placeholder="${T('file.inputNewName')}" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();doRenameFile()}">
+      <input type="text" id="renameModalInput" placeholder="' + T('file.inputNewName') + '" style="width:100%;padding:12px 14px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;box-sizing:border-box;" autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();doRenameFile()}">
     </div>
     <div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--border-color);">
-      <button class="btn btn-secondary" onclick="closeRenameModal()">${T('msg.cancel')}</button>
-      <button class="btn btn-primary" onclick="doRenameFile()">${T('ui.confirmRename')}</button>
+      <button class="btn btn-secondary" onclick="closeRenameModal()">' + T('msg.cancel') + '</button>
+      <button class="btn btn-primary" onclick="doRenameFile()">' + T('ui.confirmRename') + '</button>
     </div>
   </div>
 </div>
@@ -5475,7 +5473,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="emojiModal" onclick="if(event.target===this)closeEmojiModal()">
   <div class="modal-content" style="max-width:360px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">⭐ <span id="emojiModalTitle">${T('tag.changeIcon')}</span></div>
+      <div class="modal-title">⭐ <span id="emojiModalTitle">' + T('tag.changeIcon') + '</span></div>
       <button class="modal-close" onclick="closeEmojiModal()">x</button>
     </div>
     <div style="padding:8px 0;">
@@ -5491,8 +5489,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
         <input type="text" id="emojiCustomInput" placeholder="Paste or type emoji" style="width:100%;padding:10px 12px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:24px;text-align:center;box-sizing:border-box;" oninput="updateEmojiPreview(this.value)">
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn" style="flex:1;" onclick="confirmEmojiChange()">${T('ui.save')}</button>
-        <button class="btn btn-secondary" style="flex:1;" onclick="closeEmojiModal()">${T('ui.cancel')}</button>
+        <button class="btn" style="flex:1;" onclick="confirmEmojiChange()">' + T('ui.save') + '</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeEmojiModal()">' + T('ui.cancel') + '</button>
       </div>
     </div>
   </div>
@@ -5501,7 +5499,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="favoritesModal" onclick="if(event.target===this)closeFavoritesManager()">
   <div class="modal-content" style="max-width:480px;max-height:80vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">${T('fav.favorites')}</div>
+      <div class="modal-title">' + T('fav.favorites') + '</div>
       <button class="modal-close" onclick="closeFavoritesManager()">x</button>
     </div>
     <div id="favoritesManagerList" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -5511,26 +5509,26 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="vfModal" onclick="if(event.target===this)closeVfModal()">
   <div class="modal-content" style="max-width:600px;max-height:85vh;overflow:auto;">
     <div class="modal-header">
-      <div class="modal-title">${T('vf.virtualFolders')}</div>
+      <div class="modal-title">' + T('vf.virtualFolders') + '</div>
       <button class="modal-close" onclick="closeVfModal()">x</button>
     </div>
     <div style="margin-bottom:16px;">
-      <button class="btn" onclick="showVfCreateForm()">+ ${T('vf.createFolder')}</button>
+      <button class="btn" onclick="showVfCreateForm()">+ ' + T('vf.createFolder') + '</button>
     </div>
     <div id="vfCreateForm" style="display:none;margin-bottom:16px;padding:12px;background:var(--bg-tertiary);border-radius:8px;">
       <div style="margin-bottom:8px;">
-        <input type="text" id="vfNameInput" placeholder="${T('vf.folderName')}" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;">
+        <input type="text" id="vfNameInput" placeholder="' + T('vf.folderName') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;">
       </div>
       <div style="margin-bottom:8px;">
-        <input type="text" id="vfDescInput" placeholder="${T('vf.description')}" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;">
+        <input type="text" id="vfDescInput" placeholder="' + T('vf.description') + '" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;">
       </div>
       <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
-        <span style="font-size:12px;color:var(--text-muted);">${T('vf.color')}:</span>
+        <span style="font-size:12px;color:var(--text-muted);">' + T('vf.color') + ':</span>
         <input type="color" id="vfColorInput" value="#667eea" style="width:36px;height:28px;border:none;cursor:pointer;border-radius:4px;">
       </div>
       <div style="display:flex;gap:8px;">
-        <button class="btn" onclick="createVirtualFolder()"> ${T('ui.save')}</button>
-        <button class="btn btn-secondary" onclick="hideVfCreateForm()"> ${T('ui.cancel')}</button>
+        <button class="btn" onclick="createVirtualFolder()"> ' + T('ui.save') + '</button>
+        <button class="btn btn-secondary" onclick="hideVfCreateForm()"> ' + T('ui.cancel') + '</button>
       </div>
     </div>
     <div id="vfFolderList" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -5541,7 +5539,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 <div class="modal-overlay" id="addToVfModal" onclick="if(event.target===this)closeAddToVfModal()">
   <div class="modal-content" style="max-width:360px;padding:20px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div class="modal-title">${T('vf.addFiles')}</div>
+      <div class="modal-title">' + T('vf.addFiles') + '</div>
       <button class="modal-close" onclick="closeAddToVfModal()">x</button>
     </div>
     <div id="addToVfFileCount" style="font-size:12px;color:var(--text-muted);margin-bottom:12px;display:none;"></div>
@@ -5749,7 +5747,7 @@ async function loadNotifications() {
     const res = await fetch(API + '/api/notifications?limit=50', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
     if (!data.success || !data.notifications || data.notifications.length === 0) {
-      list.innerHTML = '<div class="notif-empty">${T('ui.noNotifications')}</div>';
+      list.innerHTML = '<div class="notif-empty">' + T('ui.noNotifications') + '</div>';
       return;
     }
     list.innerHTML = data.notifications.map(n => {
@@ -5875,25 +5873,25 @@ function showConflictDialog(conflict) {
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;';
   overlay.innerHTML = '<div style="background:var(--bg-secondary);border-radius:16px;padding:28px;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);border:1px solid var(--border-color);">' +
-    '<div style="font-size:20px;font-weight:600;margin-bottom:8px;">⚠️ ${T('sync.fileConflict')}</div>' +
+    '<div style="font-size:20px;font-weight:600;margin-bottom:8px;">⚠️ ' + T('sync.fileConflict') + '</div>' +
     '<div style="color:var(--text-muted);margin-bottom:16px;font-size:13px;">' + T('sync.conflictDesc', null, {name: escapedName}) + '</div>' +
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">' +
       '<div style="background:var(--bg-secondary);border-radius:8px;padding:12px;">' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${T('sync.localVersion')}</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">' + T('sync.localVersion') + '</div>' +
         '<div style="font-size:12px;font-family:monospace;word-break:break-all;">' + localHashDisplay + '</div>' +
         '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + localTime + '</div>' +
       '</div>' +
       '<div style="background:var(--bg-secondary);border-radius:8px;padding:12px;">' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${T('sync.remoteVersion')}</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">' + T('sync.remoteVersion') + '</div>' +
         '<div style="font-size:12px;font-family:monospace;word-break:break-all;">' + remoteHashDisplay + '</div>' +
         '<div style="font-size:11px;color:var(--text-muted);margin-top:4px;">' + remoteTime + '</div>' +
       '</div>' +
     '</div>' +
     '<div style="display:flex;flex-direction:column;gap:8px;">' +
-      '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--accent-primary);color:var(--text-inverse);border:none;border-radius:8px;cursor:pointer;font-size:14px;">${T('sync.keepLocal')}</button>' +
-      '<button id="conflict_keep_remote" style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:14px;">${T('sync.keepRemote')}</button>' +
-      '<button id="conflict_rename_both" disabled style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-muted);border:1px solid var(--border-color);border-radius:8px;cursor:not-allowed;font-size:14px;opacity:0.6;" title="${T('sync.multiVersionNote')}">${T('sync.keepBoth')}</button>' +
-      '<button id="conflict_cancel" style="padding:10px 16px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-size:13px;">${T('sync.later')}</button>' +
+      '<button id="conflict_keep_local" style="padding:10px 16px;background:var(--accent-primary);color:var(--text-inverse);border:none;border-radius:8px;cursor:pointer;font-size:14px;">' + T('sync.keepLocal') + '</button>' +
+      '<button id="conflict_keep_remote" style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:8px;cursor:pointer;font-size:14px;">' + T('sync.keepRemote') + '</button>' +
+      '<button id="conflict_rename_both" disabled style="padding:10px 16px;background:var(--bg-secondary);color:var(--text-muted);border:1px solid var(--border-color);border-radius:8px;cursor:not-allowed;font-size:14px;opacity:0.6;" title="' + T('sync.multiVersionNote') + '">' + T('sync.keepBoth') + '</button>' +
+      '<button id="conflict_cancel" style="padding:10px 16px;background:transparent;color:var(--text-muted);border:none;cursor:pointer;font-size:13px;">' + T('sync.later') + '</button>' +
     '</div>' +
   '</div>';
   document.body.appendChild(overlay);
@@ -6102,7 +6100,7 @@ function handleWsMessage(msg) {
         const { unsynced, unsyncedSize } = payload.syncStatus;
         if (unsynced > 0) {
           const sizeStr = formatSize(unsyncedSize || 0);
-          document.getElementById('syncStatus').textContent = T('device.online') + ' · ' + unsynced + ' ${T('device.syncPending')} (' + sizeStr + ')';
+          document.getElementById('syncStatus').textContent = T('device.online') + ' · ' + unsynced + ' ' + T('device.syncPending') + ' (' + sizeStr + ')';
         }
       }
       // 应用增量同步变更（差异更新，避免全量刷新）
@@ -6425,7 +6423,7 @@ function renderDevices(devices) {
   document.getElementById('deviceCount').textContent = T('device.device') + ': ' + devices.length;
 
   if (!devices.length) {
-    container.innerHTML = '<div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">${T('device.noOnlineDevices')}</div></div>';
+    container.innerHTML = '<div class="empty"><div class="empty-icon" style="font-size:32px;">📡</div><div class="empty-text">' + T('device.noOnlineDevices') + '</div></div>';
     return;
   }
 
@@ -6502,7 +6500,7 @@ function renderBreadcrumb() {
   if (!bar) return;
   // Virtual folder view — show special breadcrumb
   if (currentVfFilter !== null) {
-    bar.innerHTML = '<span class="breadcrumb-item" onclick="closeVfModal();navigateToVf(null)" style="cursor:pointer;color:var(--accent-primary);">📁 ${T('vf.virtualFolders')}</span> <span style="color:var(--text-muted);">›</span> <span class="breadcrumb-item" style="color:var(--text-secondary);font-weight:500;" id="vfBreadcrumbName">${T('vf.virtualFolders')}</span>';
+    bar.innerHTML = '<span class="breadcrumb-item" onclick="closeVfModal();navigateToVf(null)" style="cursor:pointer;color:var(--accent-primary);">📁 ' + T('vf.virtualFolders') + '</span> <span style="color:var(--text-muted);">›</span> <span class="breadcrumb-item" style="color:var(--text-secondary);font-weight:500;" id="vfBreadcrumbName">' + T('vf.virtualFolders') + '</span>';
     bar.style.display = 'block';
     // Update name async
     fetch(API + '/api/virtual-folders', { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
@@ -6517,7 +6515,7 @@ function renderBreadcrumb() {
     return;
   }
   const parts = currentFolder.split('/');
-  let html = '<span class="breadcrumb-item" onclick="navigateFolder(null)" style="cursor:pointer;color:var(--accent-primary);">📁 ${T('ui.allFiles')}</span>';
+  let html = '<span class="breadcrumb-item" onclick="navigateFolder(null)" style="cursor:pointer;color:var(--accent-primary);">📁 ' + T('ui.allFiles') + '</span>';
   let path = '';
   for (let i = 0; i < parts.length; i++) {
     path += (i > 0 ? '/' : '') + parts[i];
@@ -6643,15 +6641,15 @@ function updateTagFilterBar() {
   const currentQ = window.currentSearchQ || '';
   const activeTag = sorted.find(t => currentQ.includes('tag:' + t));
   const clearBtn = activeTag
-    ? '<span class="filter-tab" onclick="clearTagFilter()" style="font-size:11px;color:var(--text-muted);">✕${T('msg.clear')}</span>'
+    ? '<span class="filter-tab" onclick="clearTagFilter()" style="font-size:11px;color:var(--text-muted);">✕' + T('msg.clear') + '</span>'
     : '';
-  const manageBtn = '<span class="filter-tab" onclick="showTagManager()" style="font-size:11px;color:var(--text-muted);">⚙${T('tag.manager')}</span>';
+  const manageBtn = '<span class="filter-tab" onclick="showTagManager()" style="font-size:11px;color:var(--text-muted);">⚙' + T('tag.manager') + '</span>';
   bar.innerHTML = sorted.map(t => {
     const active = currentQ.includes('tag:' + t) ? 'active' : '';
     const style = getTagStyle(t) || '';
     const count = tagCount.get(t);
     return '<span class="filter-tab ' + active + '" onclick="filterByTag(\'' + t.replace(/'/g, "\\'") + '\')" style="font-size:11px;' + style + '">🏷 ' + escapeHtml(t) + '<sup style="font-size:9px;opacity:0.7;margin-left:3px;">' + count + '</sup></span>';
-  }).join('') + clearBtn + (sorted.length > 0 ? '<span class="filter-tab tag-match-toggle" id="tagMatchToggle" onclick="toggleTagMatch()" style="font-size:10px;opacity:0.7;cursor:pointer;" title="${T('ui.tagMatchHint')}">' + (window.currentTagMatch === 'any' ? 'OR' : 'AND') + '</span>' : '') + manageBtn;
+  }).join('') + clearBtn + (sorted.length > 0 ? '<span class="filter-tab tag-match-toggle" id="tagMatchToggle" onclick="toggleTagMatch()" style="font-size:10px;opacity:0.7;cursor:pointer;" title="' + T('ui.tagMatchHint') + '">' + (window.currentTagMatch === 'any' ? 'OR' : 'AND') + '</span>' : '') + manageBtn;
 }
 
 function clearTagFilter() {
@@ -6802,10 +6800,10 @@ function renderFiles() {
 
     return '<div class="file-item" data-filename="' + escapeHtml(f.name) + '" draggable="true" ondragstart="handleDragStart(event, this)" ondragover="handleDragOver(event, this)" ondrop="handleDrop(event, this)" ondragend="handleDragEnd(event, this)" ontouchstart="handleSwipeStart(event, this)" ontouchmove="handleSwipeMove(event, this)" ontouchend="handleSwipeEnd(event, this)" onclick="' + itemOnclick + '" oncontextmenu="showFileContextMenu(event, \'' + encodeURIComponent(f.name) + '\')" style="' + typeBarStyle + '">' +
       '<div class="swipe-actions" id="swipe-' + btoaSafe(f.name).substring(0, 20) + '">' +
-        (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>${T('file.addTag')}</span></button>' : '') +
-        (!isVirtualFolder ? '<button class="swipe-btn" style="background:linear-gradient(135deg,#3b82f6,#2563eb);" onclick="event.preventDefault(); event.stopPropagation(); copyFileLink(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🔗</span><span>${T('file.copyLink')}</span></button>' : '') +
-        (currentVfFilter !== null ? '<button class="swipe-btn" style="background:linear-gradient(135deg,#f97316,#ea580c);" onclick="event.preventDefault(); event.stopPropagation(); removeFromVirtualFolder(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">📤</span><span>${T('vf.remove')}</span></button>' : '') +
-        '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>${T('tag.delete')}</span></button>' +
+        (!isVirtualFolder ? '<button class="swipe-btn tag" onclick="event.preventDefault(); event.stopPropagation(); addTag(\'' + encodeURIComponent(f.name) + '\', \'' + (f.tags || '') + '\'); resetSwipe(this)"><span class="icon">🏷</span><span>' + T('file.addTag') + '</span></button>' : '') +
+        (!isVirtualFolder ? '<button class="swipe-btn" style="background:linear-gradient(135deg,#3b82f6,#2563eb);" onclick="event.preventDefault(); event.stopPropagation(); copyFileLink(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🔗</span><span>' + T('file.copyLink') + '</span></button>' : '') +
+        (currentVfFilter !== null ? '<button class="swipe-btn" style="background:linear-gradient(135deg,#f97316,#ea580c);" onclick="event.preventDefault(); event.stopPropagation(); removeFromVirtualFolder(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">📤</span><span>' + T('vf.remove') + '</span></button>' : '') +
+        '<button class="swipe-btn delete" onclick="event.preventDefault(); event.stopPropagation(); deleteFile(\'' + encodeURIComponent(f.name) + '\'); resetSwipe(this)"><span class="icon">🗑</span><span>' + T('tag.delete') + '</span></button>' +
       '</div>' +
       '<div style="margin-right: 12px; display:flex; align-items:center;">' +
         (!isVirtualFolder ? '<input type="checkbox" class="batch-checkbox" value="' + encodeURIComponent(f.name) + '" onclick="handleBatchCheckboxClick(event, this)" style="width: 18px; height: 18px; cursor: pointer;">' : '<span style="font-size:20px;">📁</span>') +
@@ -6815,39 +6813,39 @@ function renderFiles() {
           ? '<div class="file-name" style="cursor:pointer;"><span class="file-type-icon">📁</span><span class="search-target" style="color:var(--accent-primary);">' + escapeHtml(f.name) + '</span></div>'
           : (isImage
               ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><img class="file-thumb-img" id="' + thumbId + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')" /></div>'
-              : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="${T('file.dblclickRename')}"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(displayName) + '</span>' + (searchInsight ? '<span class="match-insight ' + (searchInsight.type === 'tag' ? 'match-insight-tag' : '') + '" title="' + searchInsight.desc + '">' + searchInsight.label + ' ' + searchInsight.desc + '</span>' : '') + '</div>')) +
+              : '<div class="file-name" ondblclick="startInlineRename(this, \'' + encodeURIComponent(f.name) + '\')" title="' + T('file.dblclickRename') + '"><span class="file-type-icon">' + getFileIcon(f.name) + '</span><span class="search-target">' + escapeHtml(displayName) + '</span>' + (searchInsight ? '<span class="match-insight ' + (searchInsight.type === 'tag' ? 'match-insight-tag' : '') + '" title="' + searchInsight.desc + '">' + searchInsight.label + ' ' + searchInsight.desc + '</span>' : '') + '</div>')) +
         (!isVirtualFolder && tags.length ? '<div class="file-tags">' + tags.map(t => {
           const tagEsc = t.trim().replace(/\\/g, '\\\\').replace(/'/g, "\\'");
           const tagHtml = escapeHtml(t.trim());
           return '<span class="file-tag" style="' + getTagStyle(t.trim()) + '" onclick="filterByTag(\'' + tagEsc + '\')">' + tagHtml + '<span class="remove-tag" onclick="event.stopPropagation(); removeTag(\'' + encodeURIComponent(f.name) + '\', \'' + tagEsc + '\')">×</span></span>';
         }).join('') + '</div>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + ((f.tags || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')">+${T('file.addTag')}</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px;" onclick="addTag(\'' + encodeURIComponent(f.name) + '\', \'' + ((f.tags || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')">+' + T('file.addTag') + '</button>' : '') +
         (!isVirtualFolder ? '<div class="file-meta" title="' + formatTime(f.time) + '">' + formatSize(f.size) + ' | ' + formatRelativeTime(f.time) + '</div>' : '<div class="file-meta" style="color:var(--text-muted);">' + T('file.enterFolder') + (window.folderSizes && window.folderSizes[f.name] ? ' | ' + formatSize(window.folderSizes[f.name]) : '') + '</div>') +
         (!isVirtualFolder && isText ? '<div class="file-preview" id="' + previewId + '"></div>' : '') +
         // Audio/Video/PDF inline player
         (!isVirtualFolder && isAudio ? '<div class="file-audio-player" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
         (!isVirtualFolder && isVideo ? '<div class="file-video-wrapper" id="player-' + btoaSafe(f.name).substring(0, 20) + '" style="margin-top:8px;"></div>' : '') +
         (!isVirtualFolder && isPdf ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;position:relative;"><img class="file-thumb-img" id="thumb-' + btoaSafe(f.name).substring(0, 20) + '" data-src="" loading="lazy" style="border-radius:6px;max-width:100%;max-height:120px;object-fit:cover;display:block;cursor:pointer;background:var(--bg-tertiary);" onclick="openPdfModal(\'' + encodeURIComponent(f.name) + '\')" /><div style="position:absolute;top:4px;left:6px;font-size:11px;background:rgba(0,0,0,0.5);color:white;padding:2px 6px;border-radius:4px;">📕 PDF</div></div>' : '') +
-        (!isVirtualFolder && isOfficeFile(f.name) ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openOfficeModal(\'' + encodeURIComponent(f.name) + '\')">📊 ${T('file.previewOffice')}</button>' : '') +
-        (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 ${T('file.previewMd')}</button>' : '') +
-        (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 ${T('file.preview')}</button>' : '') +
+        (!isVirtualFolder && isOfficeFile(f.name) ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openOfficeModal(\'' + encodeURIComponent(f.name) + '\')">📊 ' + T('file.previewOffice') + '</button>' : '') +
+        (!isVirtualFolder && isMarkdown ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openMarkdownModal(\'' + encodeURIComponent(f.name) + '\')">📝 ' + T('file.previewMd') + '</button>' : '') +
+        (!isVirtualFolder && isCode ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCodeModal(\'' + encodeURIComponent(f.name) + '\')">📄 ' + T('file.preview') + '</button>' : '') +
         (!isVirtualFolder && isCsv ? '<div class="file-thumb-wrapper" style="margin-bottom:8px;"><div id="csvthumb-' + btoaSafe(f.name).substring(0, 20) + '" style="font-size:10px;background:var(--bg-tertiary);border-radius:6px;padding:6px;max-height:100px;overflow:hidden;"></div></div>' : '') +
         (!isVirtualFolder && isCsv ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openCsvModal(\'' + encodeURIComponent(f.name) + '\')">📊 CSV</button>' : '') +
-        (!isVirtualFolder && isArchive ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openArchiveModal(\'' + encodeURIComponent(f.name) + '\')">📦 ${T('file.preview')}</button>' : '') +
+        (!isVirtualFolder && isArchive ? '<button class="btn btn-sm" style="margin-top:8px;font-size:11px;padding:4px 10px;" onclick="openArchiveModal(\'' + encodeURIComponent(f.name) + '\')">📦 ' + T('file.preview') + '</button>' : '') +
       '</div>' +
       '<div class="file-actions">' +
-        (isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFolder(\'' + encodeURIComponent(f.name) + '\')">📦 ${T('file.download')}</button>' : '') +
-        (!isVirtualFolder ? (isText || isCode ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">${T('file.preview')}</button>' : '') : '') +
-        (!isVirtualFolder && (isAudio || isVideo) ? '<button class="btn btn-sm" onclick="openMediaModal(\'' + encodeURIComponent(f.name) + '\')">▶ ${T('file.play')}</button>' : '') +
-        (!isVirtualFolder && isImage ? '<button class="btn btn-sm" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')">🖼 ${T('file.view')}</button>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">${T('file.copy')}</button>' : '') +
-        '<button class="btn btn-sm" onclick="renameFile(\'' + encodeURIComponent(f.name) + '\')">${T('file.rename')}</button>' +
-        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">${T('file.download')}</button>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">${T('file.share')}</button>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="showFileVersions(\'' + encodeURIComponent(f.name) + '\')">${T('file.history')}</button>' : '') +
-        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="openFileInfoPanel(\'' + encodeURIComponent(f.name) + '\')">ℹ️ ${T('file.info')}</button>' : '') +
+        (isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFolder(\'' + encodeURIComponent(f.name) + '\')">📦 ' + T('file.download') + '</button>' : '') +
+        (!isVirtualFolder ? (isText || isCode ? '<button class="btn btn-sm" onclick="openFileModal(\'' + encodeURIComponent(f.name) + '\')">' + T('file.preview') + '</button>' : '') : '') +
+        (!isVirtualFolder && (isAudio || isVideo) ? '<button class="btn btn-sm" onclick="openMediaModal(\'' + encodeURIComponent(f.name) + '\')">▶ ' + T('file.play') + '</button>' : '') +
+        (!isVirtualFolder && isImage ? '<button class="btn btn-sm" onclick="openImageModal(\'' + encodeURIComponent(f.name) + '\')">🖼 ' + T('file.view') + '</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="copyContent(\'' + encodeURIComponent(f.name) + '\')">' + T('file.copy') + '</button>' : '') +
+        '<button class="btn btn-sm" onclick="renameFile(\'' + encodeURIComponent(f.name) + '\')">' + T('file.rename') + '</button>' +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="downloadFile(\'' + encodeURIComponent(f.name) + '\')">' + T('file.download') + '</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="shareFile(\'' + encodeURIComponent(f.name) + '\')">' + T('file.share') + '</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="showFileVersions(\'' + encodeURIComponent(f.name) + '\')">' + T('file.history') + '</button>' : '') +
+        (!isVirtualFolder ? '<button class="btn btn-sm" onclick="openFileInfoPanel(\'' + encodeURIComponent(f.name) + '\')">ℹ️ ' + T('file.info') + '</button>' : '') +
         (!isVirtualFolder ? '<span class="file-star' + (f.starred ? ' starred' : '') + '" data-starfile="' + encodeURIComponent(f.name) + '" onclick="toggleFavorite(\'' + encodeURIComponent(f.name) + '\')">' + (f.starred ? '★' : '☆') + '</span>' : '') +
-        '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">${T('tag.delete')}</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteFile(\'' + encodeURIComponent(f.name) + '\')">' + T('tag.delete') + '</button>' +
       '</div>' +
     '</div>';
   }).join('') + '</div>';
@@ -7270,9 +7268,9 @@ async function loadMediaPlayer(filename, playerId) {
     const mime = mimeMap[ext] || (isAudio ? 'audio/mpeg' : 'video/mp4');
     const dataUrl = 'data:' + mime + ';base64,' + data.content;
     if (isAudio) {
-      el.innerHTML = '<audio controls style="width:100%;height:36px;border-radius:6px;"><source src="' + dataUrl + '" type="' + mime + '">${T('err.browserNotSupport')}音频</audio>';
+      el.innerHTML = '<audio controls style="width:100%;height:36px;border-radius:6px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '音频</audio>';
     } else {
-      el.innerHTML = '<div style="position:relative;width:100%;max-height:160px;border-radius:8px;overflow:hidden;background:#000;"><video controls style="width:100%;max-height:160px;border-radius:8px;display:block;background:#000;"><source src="' + dataUrl + '" type="' + mime + '">${T('err.browserNotSupport')}视频</video></div>';
+      el.innerHTML = '<div style="position:relative;width:100%;max-height:160px;border-radius:8px;overflow:hidden;background:#000;"><video controls style="width:100%;max-height:160px;border-radius:8px;display:block;background:#000;"><source src="' + dataUrl + '" type="' + mime + '">' + T('err.browserNotSupport') + '视频</video></div>';
     }
     el.dataset.src = 'loaded';
   } catch (e) { if (el) el.dataset.src = 'loaded'; }
@@ -7529,10 +7527,10 @@ async function openMediaModal(filename) {
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     if (isAudio) {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio id="mediaEl" controls style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">${T('media.browserNotSupportAudio')}</audio><div style="margin-top:8px;"><button onclick="cyclePlaybackSpeed()" id="speedBtn" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-secondary);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">速度: 1x</button></div></div>';
+        '<div style="text-align:center;padding:20px;background:var(--bg-tertiary);border-radius:8px;"><audio id="mediaEl" controls style="width:100%;max-width:500px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('media.browserNotSupportAudio') + '</audio><div style="margin-top:8px;"><button onclick="cyclePlaybackSpeed()" id="speedBtn" style="background:var(--bg-secondary);border:1px solid var(--border-color);color:var(--text-secondary);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">速度: 1x</button></div></div>';
     } else {
       document.getElementById('modalBody').innerHTML =
-        '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video id="mediaEl" controls style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">${T('media.browserNotSupportVideo')}</video><div style="margin-top:6px;"><button onclick="cyclePlaybackSpeed()" id="speedBtn" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">速度: 1x</button></div></div>';
+        '<div style="text-align:center;background:var(--bg-modal,#000);padding:10px;border-radius:8px;"><video id="mediaEl" controls style="max-width:100%;max-height:70vh;border-radius:8px;"><source src="' + dataUrl + '" type="' + mime + '">' + T('media.browserNotSupportVideo') + '</video><div style="margin-top:6px;"><button onclick="cyclePlaybackSpeed()" id="speedBtn" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;">速度: 1x</button></div></div>';
     }
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
@@ -7548,7 +7546,7 @@ async function openPdfModal(filename) {
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = formatSize(data.size || 0);
     document.getElementById('modalBody').innerHTML =
-      '<iframe title="${T('file.preview')}"  src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;background:var(--bg-tertiary);" title="PDF预览"></iframe>';
+      '<iframe title="' + T('file.preview') + '"  src="' + dataUrl + '" style="width:100%;height:70vh;border:none;border-radius:8px;background:var(--bg-tertiary);" title="PDF预览"></iframe>';
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
   } catch (e) { showToast(T('toast.openPdfFailed').replace('{msg}', e.message)); }
@@ -7558,7 +7556,7 @@ async function openOfficeModal(filename) {
   try {
     document.getElementById('modalTitle').textContent = filename;
     document.getElementById('modalMeta').textContent = T('file.loading');
-    document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">${T('file.loading')}</div>';
+    document.getElementById('modalBody').innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);">' + T('file.loading') + '</div>';
     lockScroll();
     document.getElementById('fileModal').classList.add('show');
 
@@ -7603,7 +7601,7 @@ async function openMarkdownModal(filename) {
     let tocHtml = '';
     if (tocEntries.length > 1) {
       tocHtml = '<div class="md-toc" style="background:var(--bg-tertiary);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;">' +
-        '<div style="color:var(--text-muted);margin-bottom:6px;font-weight:600;">${T('media.tableOfContents')}</div>' +
+        '<div style="color:var(--text-muted);margin-bottom:6px;font-weight:600;">' + T('media.tableOfContents') + '</div>' +
         tocEntries.map(e =>
           '<div class="toc-entry" data-id="' + e.id + '" style="padding-left:' + ((e.level - 1) * 12) + 'px;color:var(--accent-primary);cursor:pointer;margin:2px 0;transition:color 0.15s;" onclick="document.getElementById(\'' + e.id + '\').scrollIntoView({behavior:\'smooth\'})">' + escapeHtml(e.text) + '</div>'
         ).join('') + '</div>';
@@ -7716,9 +7714,9 @@ async function openCodeModal(filename) {
     document.getElementById('modalBody').innerHTML =
       '<div style="position:relative;">' +
         '<div style="position:absolute;top:8px;right:8px;display:flex;gap:6px;z-index:1;">' +
-          '<button onclick="downloadFile(\'' + filename.replace(/'/g, "\\'") + '\')" style="padding:4px 10px;font-size:12px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">⬇ ${T('ui.download')}</button>' +
-          '<button onclick="navigator.clipboard.writeText(document.getElementById(\'codeContentClone\').textContent).then(()=>{this.textContent=\'${T('file.copied')}!\';this.classList.add(\'copied\');setTimeout(()=>{this.textContent=\'${T('ui.copy')}\';this.classList.remove(\'copied\')},2000)})" ' +
-           'style="padding:4px 10px;font-size:12px;border-radius:6px;border:none;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">${T('ui.copy')}</button>' +
+          '<button onclick="downloadFile(\'' + filename.replace(/'/g, "\\'") + '\')" style="padding:4px 10px;font-size:12px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">⬇ ' + T('ui.download') + '</button>' +
+          '<button onclick="navigator.clipboard.writeText(document.getElementById(\'codeContentClone\').textContent).then(()=>{this.textContent=\'' + T('file.copied') + '!\';this.classList.add(\'copied\');setTimeout(()=>{this.textContent=\'' + T('ui.copy') + '\';this.classList.remove(\'copied\')},2000)})" ' +
+           'style="padding:4px 10px;font-size:12px;border-radius:6px;border:none;background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;">' + T('ui.copy') + '</button>' +
         '</div>' +
         '<pre id="codeContentClone" style="margin:0;overflow:auto;max-height:70vh;background:var(--bg-tertiary);border-radius:8px;padding:16px;font-size:13px;line-height:1.5;display:none;">' + escapeHtml(content) + '</pre>' +
         '<pre style="margin:0;overflow:auto;max-height:70vh;background:var(--bg-tertiary);border-radius:8px;padding:16px;font-size:13px;line-height:1.5;"><code class="hljs language-' + lang + '">' + highlighted + '</code></pre>' +
@@ -7843,9 +7841,9 @@ async function openTextEditor(filename) {
           '<span id="editorDirty"></span>' +
         '</div>' +
         '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">' +
-          '<button class="btn btn-secondary" onclick="downloadFile(\'' + filename.replace(/'/g, "\\'") + '\')">⬇ ${T('ui.download')}</button>' +
-          '<button class="btn" onclick="saveTextEditor(\'' + filename.replace(/'/g, "\\'") + '\')" id="saveEditorBtn">${T('ui.save')}</button>' +
-          '<button class="btn btn-secondary" onclick="closeModal()">${T('ui.cancel')}</button>' +
+          '<button class="btn btn-secondary" onclick="downloadFile(\'' + filename.replace(/'/g, "\\'") + '\')">⬇ ' + T('ui.download') + '</button>' +
+          '<button class="btn" onclick="saveTextEditor(\'' + filename.replace(/'/g, "\\'") + '\')" id="saveEditorBtn">' + T('ui.save') + '</button>' +
+          '<button class="btn btn-secondary" onclick="closeModal()">' + T('ui.cancel') + '</button>' +
         '</div>' +
       '</div>';
     document.getElementById('modalFooter').style.display = 'none';
@@ -7997,7 +7995,7 @@ function openFileInfoPanel(filename) {
   if (!panel) return;
 
   title.textContent = filename;
-  body.innerHTML = '<div class="file-info-loading">${T('fileInfo.loading')}</div>';
+  body.innerHTML = '<div class="file-info-loading">' + T('fileInfo.loading') + '</div>';
   panel.classList.add('open');
   lockScroll();
 
@@ -8014,7 +8012,7 @@ function openFileInfoPanel(filename) {
       renderFileInfoContent(data.meta);
     })
     .catch(() => {
-      body.innerHTML = '<div style="color:var(--danger);padding:16px;">${T('fileInfo.loadFailed')}</div>';
+      body.innerHTML = '<div style="color:var(--danger);padding:16px;">' + T('fileInfo.loadFailed') + '</div>';
     });
 }
 
@@ -8038,37 +8036,37 @@ function renderFileInfoContent(meta) {
   // Quick actions
   html += '<div class="file-info-section" style="padding-bottom:8px;">';
   html += '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
-  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="window.open(\'' + API + '/download/' + encodeURIComponent(meta.filename) + '?auth=' + (AUTH_TOKEN || '') + '\', \'_blank\')">⬇️ ${T('file.download')}</button>';
-  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="closeFileInfoPanel();createShareLink(\'' + encodeURIComponent(meta.filename) + '\')">🔗 ${T('share.create')}</button>';
-  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="copyText(\'' + escapeHtml(meta.filename) + '\')">📋 ${T('file.copyFilename')}</button>';
+  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="window.open(\'' + API + '/download/' + encodeURIComponent(meta.filename) + '?auth=' + (AUTH_TOKEN || '') + '\', \'_blank\')">⬇️ ' + T('file.download') + '</button>';
+  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="closeFileInfoPanel();createShareLink(\'' + encodeURIComponent(meta.filename) + '\')">🔗 ' + T('share.create') + '</button>';
+  html += '<button class="btn btn-sm" style="font-size:11px;padding:4px 10px;" onclick="copyText(\'' + escapeHtml(meta.filename) + '\')">📋 ' + T('file.copyFilename') + '</button>';
   html += '</div>';
   html += '</div>';
 
   // Basic info section
   html += '<div class="file-info-section">';
-  html += '<div class="file-info-section-title">${T('fileInfo.basic')}</div>';
-  html += '<div class="file-info-row"><span class="file-info-label">${T('fileInfo.size')}</span><span class="file-info-value">' + formatSize(meta.size) + '</span></div>';
-  html += '<div class="file-info-row"><span class="file-info-label">${T('fileInfo.type')}</span><span class="file-info-value">' + (meta.type || 'file') + '</span></div>';
-  html += '<div class="file-info-row"><span class="file-info-label">${T('fileInfo.downloads')}</span><span class="file-info-value">⬇️ ' + (meta.totalDownloads || 0) + '</span></div>';
-  html += '<div class="file-info-row"><span class="file-info-label">${T('fileInfo.encrypted')}</span><span class="file-info-value">' + (meta.encrypted ? T('fileInfo.yes') : T('fileInfo.no')) + '</span></div>';
+  html += '<div class="file-info-section-title">' + T('fileInfo.basic') + '</div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.size') + '</span><span class="file-info-value">' + formatSize(meta.size) + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.type') + '</span><span class="file-info-value">' + (meta.type || 'file') + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.downloads') + '</span><span class="file-info-value">⬇️ ' + (meta.totalDownloads || 0) + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.encrypted') + '</span><span class="file-info-value">' + (meta.encrypted ? T('fileInfo.yes') : T('fileInfo.no')) + '</span></div>';
   html += '<div class="file-info-row" style="flex-direction:column;align-items:flex-start;gap:4px;">';
-  html += '<span class="file-info-label" style="margin-bottom:2px;">${T('fileInfo.hash')} <button class="btn btn-sm" style="font-size:9px;padding:1px 5px;" onclick="copyText(\'' + escapeHtml(meta.hash || '') + '\')">📋</button></span>';
+  html += '<span class="file-info-label" style="margin-bottom:2px;">' + T('fileInfo.hash') + ' <button class="btn btn-sm" style="font-size:9px;padding:1px 5px;" onclick="copyText(\'' + escapeHtml(meta.hash || '') + '\')">📋</button></span>';
   html += '<span class="file-info-value" style="max-width:100%;font-size:10px;word-break:break-all;">' + (meta.hash || '--') + '</span>';
   html += '</div>';
   html += '</div>';
 
   // Timestamps
   html += '<div class="file-info-section">';
-  html += '<div class="file-info-section-title">${T('fileInfo.versions')}</div>';
-  html += '<div class="file-info-row"><span class="file-info-label">${T('fileInfo.created')}</span><span class="file-info-value" style="font-size:10px;">' + createdDate + '</span></div>';
-  html += '<div class="file-info-row"><span class="file-info-label">${T('fileInfo.updated')}</span><span class="file-info-value" style="font-size:10px;">' + updatedDate + '</span></div>';
-  html += '<div class="file-info-row"><span class="file-info-label">${T('fileInfo.versions')}</span><span class="file-info-value">' + meta.versionCount + ' <button class="btn btn-sm" style="margin-left:8px;font-size:10px;padding:2px 8px;" onclick="closeFileInfoPanel();showFileVersions(\'' + encodeURIComponent(meta.filename) + '\')">${T('fileInfo.openVersions')}</button></span></div>';
+  html += '<div class="file-info-section-title">' + T('fileInfo.versions') + '</div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.created') + '</span><span class="file-info-value" style="font-size:10px;">' + createdDate + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.updated') + '</span><span class="file-info-value" style="font-size:10px;">' + updatedDate + '</span></div>';
+  html += '<div class="file-info-row"><span class="file-info-label">' + T('fileInfo.versions') + '</span><span class="file-info-value">' + meta.versionCount + ' <button class="btn btn-sm" style="margin-left:8px;font-size:10px;padding:2px 8px;" onclick="closeFileInfoPanel();showFileVersions(\'' + encodeURIComponent(meta.filename) + '\')">' + T('fileInfo.openVersions') + '</button></span></div>';
   html += '</div>';
 
   // Tags
   if (tags.length > 0 || true) {
     html += '<div class="file-info-section">';
-    html += '<div class="file-info-section-title">${T('fileInfo.tags')}</div>';
+    html += '<div class="file-info-section-title">' + T('fileInfo.tags') + '</div>';
     if (tags.length > 0) {
       html += '<div class="file-info-tags">';
       for (const tag of tags) {
@@ -8085,7 +8083,7 @@ function renderFileInfoContent(meta) {
   // Share links
   html += '<div class="file-info-section">';
   const activeLinks = meta.shareLinks ? meta.shareLinks.filter(l => !l.expired) : [];
-  html += '<div class="file-info-section-title">${T('fileInfo.share')} (' + activeLinks.length + ')</div>';
+  html += '<div class="file-info-section-title">' + T('fileInfo.share') + ' (' + activeLinks.length + ')</div>';
   if (meta.shareLinks && meta.shareLinks.length > 0) {
     for (const link of meta.shareLinks) {
       const shareUrl = location.origin + '/s/' + link.code;
@@ -8093,7 +8091,7 @@ function renderFileInfoContent(meta) {
       html += '<div class="file-info-share-item" style="' + expiredStyle + '">';
       html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
       html += '<div style="font-size:11px;color:var(--text-muted);">';
-      if (link.expired) html += '<span style="color:var(--danger);">⛔ ${T('share.expired')}</span> ';
+      if (link.expired) html += '<span style="color:var(--danger);">⛔ ' + T('share.expired') + '</span> ';
       else if (link.hasPassword) html += '<span style="color:var(--warning);">🔑</span> ';
       if (link.maxDownloads) html += '<span>⬇️ ' + link.downloadCount + '/' + link.maxDownloads + '</span>';
       else if (!link.expired) html += '<span>⬇️ ' + link.downloadCount + '</span>';
@@ -8105,7 +8103,7 @@ function renderFileInfoContent(meta) {
       html += '</div></div>';
     }
   } else {
-    html += '<div style="color:var(--text-muted);font-size:12px;">${T('fileInfo.noShares')}</div>';
+    html += '<div style="color:var(--text-muted);font-size:12px;">' + T('fileInfo.noShares') + '</div>';
   }
   html += '</div>';
 
@@ -8224,7 +8222,7 @@ function showStorageModal() {
         '<div style="font-size:12px;color:var(--text-muted);">' + pct + '% used · ' + (data.fileCount || 0) + ' files</div>' +
         warnText +
         '</div>';
-    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">${T('storage.loadFailed')}</div>'; });
+    }).catch(() => { body.innerHTML = '<div style="padding:16px;color:var(--danger);">' + T('storage.loadFailed') + '</div>'; });
   lockScroll();
   document.getElementById('storageModal').classList.add('show');
 }
@@ -8397,9 +8395,9 @@ async function promptTagEmoji(tag) {
 function showBackupModal() {
   const body = document.getElementById('backupModalBody');
   body.innerHTML = '<div style="padding:16px;text-align:center;">' +
-    '<p style="margin:0 0 16px;font-size:13px;color:var(--text-secondary);">${T('admin.backupDesc')}</p>' +
-    '<button class="btn" style="margin:4px;" onclick="doBackup()">${T('admin.backupNow')}</button>' +
-    '<button class="btn btn-secondary" style="margin:4px;" onclick="doRestore()">${T('admin.restore')}</button>' +
+    '<p style="margin:0 0 16px;font-size:13px;color:var(--text-secondary);">' + T('admin.backupDesc') + '</p>' +
+    '<button class="btn" style="margin:4px;" onclick="doBackup()">' + T('admin.backupNow') + '</button>' +
+    '<button class="btn btn-secondary" style="margin:4px;" onclick="doRestore()">' + T('admin.restore') + '</button>' +
     '</div>';
   lockScroll();
   document.getElementById('backupModal').classList.add('show');
@@ -8492,7 +8490,7 @@ function showShareLinksModal() {
       const el = document.getElementById('shareLinksList');
       if (!el) return;
       if (!links.length) {
-        el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">${T('share.noLinks')}</div>';
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('share.noLinks') + '</div>';
       } else {
         el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' + links.map(l => {
           const url = location.origin + '/s/' + l.code + (l.password ? '?pwd=' : '');
@@ -8507,18 +8505,18 @@ function showShareLinksModal() {
               '<span style="font-size:11px;color:' + (isExpired ? 'var(--danger)' : 'var(--text-muted)') + ';">' + (isExpired ? T('share.expired') : expires) + '</span>' +
             '</div>' +
             '<div style="display:flex;gap:16px;font-size:11px;color:var(--text-muted);">' +
-              '<span>📥 ' + (l.downloadCount || 0) + (l.maxDownloads ? ' / ' + l.maxDownloads : '') + ' ${T('share.downloads')}</span>' +
+              '<span>📥 ' + (l.downloadCount || 0) + (l.maxDownloads ? ' / ' + l.maxDownloads : '') + ' ' + T('share.downloads') + '</span>' +
               '<span>🕐 ' + (l.createdAt ? new Date(l.createdAt * 1000).toLocaleDateString() : '—') + '</span>' +
             '</div>' +
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
-            (l.description ? '<div style="font-size:12px;color:var(--accent-secondary);margin-top:4px;">${T('share.description')}: ' + escapeHtml(l.description) + '</div>' : '') +
+            (l.description ? '<div style="font-size:12px;color:var(--accent-secondary);margin-top:4px;">' + T('share.description') + ': ' + escapeHtml(l.description) + '</div>' : '') +
             '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">' +
-              '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(url) + '\')">${T('share.copyLink')}</button>' +
+              '<button class="btn btn-sm" onclick="copyShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(url) + '\')">' + T('share.copyLink') + '</button>' +
               '<button class="btn btn-sm" onclick="emailShareLinkOf(\'' + l.code.replace(/'/g, "\\'") + '\')">✉️</button>' +
-              '<button class="btn btn-sm" onclick="emailShareLink(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(l.filename).replace(/'/g, "\\'") + '\')">${T('share.email')}</button>' +
-              '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code.replace(/'/g, "\\'") + '\')">${T('share.qrCode')}</button>' +
-              '<button class="btn btn-sm" onclick="showEditShareLinkModal(\'' + l.code.replace(/'/g, "\\'") + '\')">${T('ui.edit')}</button>' +
-              '<button class="btn btn-sm btn-danger" onclick="deleteShareLink(\'' + l.code.replace(/'/g, "\\'") + '\')">${T('tag.delete')}</button>' +
+              '<button class="btn btn-sm" onclick="emailShareLink(\'' + l.code.replace(/'/g, "\\'") + '\', \'' + escapeHtml(l.filename).replace(/'/g, "\\'") + '\')">' + T('share.email') + '</button>' +
+              '<button class="btn btn-sm" onclick="showShareLinkQR(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('share.qrCode') + '</button>' +
+              '<button class="btn btn-sm" onclick="showEditShareLinkModal(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('ui.edit') + '</button>' +
+              '<button class="btn btn-sm btn-danger" onclick="deleteShareLink(\'' + l.code.replace(/'/g, "\\'") + '\')">' + T('tag.delete') + '</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';
@@ -8625,7 +8623,7 @@ function showRequestLinksModal() {
       const el = document.getElementById('requestLinksList');
       if (!el) return;
       if (!links.length) {
-        el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">${T('request.noLinks')}</div>';
+        el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('request.noLinks') + '</div>';
       } else {
         el.innerHTML = '<div style="display:flex;flex-direction:column;gap:8px;">' + links.map(l => {
           const url = location.origin + '/r/' + l.code;
@@ -8647,14 +8645,14 @@ function showRequestLinksModal() {
               '</div>' +
             '</div>' +
             '<div style="display:flex;gap:16px;font-size:11px;color:var(--text-muted);">' +
-              '<span>📤 ' + uploaded + maxUploadText + ' ${T('request.uploadCount')}</span>' +
+              '<span>📤 ' + uploaded + maxUploadText + ' ' + T('request.uploadCount') + '</span>' +
               '<span>🕐 ' + expires + '</span>' +
             '</div>' +
             '<div style="font-size:11px;font-family:monospace;color:var(--text-muted);word-break:break-all;">' + escapeHtml(url) + '</div>' +
             '<div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">' +
-              '<button class="btn btn-sm" onclick="copyRequestLink(\'' + l.code + '\')">${T('share.copyLink')}</button>' +
-              '<button class="btn btn-sm" onclick="emailRequestLink(\'' + l.code + '\', \'' + escapeHtml(l.name).replace(/'/g, "\\'") + '\')">${T('share.email')}</button>' +
-              '<button class="btn btn-sm btn-danger" onclick="deleteRequestLink(\'' + l.code + '\')">${T('tag.delete')}</button>' +
+              '<button class="btn btn-sm" onclick="copyRequestLink(\'' + l.code + '\')">' + T('share.copyLink') + '</button>' +
+              '<button class="btn btn-sm" onclick="emailRequestLink(\'' + l.code + '\', \'' + escapeHtml(l.name).replace(/'/g, "\\'") + '\')">' + T('share.email') + '</button>' +
+              '<button class="btn btn-sm btn-danger" onclick="deleteRequestLink(\'' + l.code + '\')">' + T('tag.delete') + '</button>' +
             '</div>' +
           '</div>';
         }).join('') + '</div>';
@@ -8749,7 +8747,7 @@ function showShareQRModalForCode(code) {
   const content = document.getElementById('qrModalContent');
   const urlEl = document.getElementById('qrModalUrl');
   if (modal && content && urlEl) {
-    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div><div style="margin-top:8px;color:var(--text-muted);">${T('msg.loading')}</div>';
+    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div><div style="margin-top:8px;color:var(--text-muted);">' + T('msg.loading') + '</div>';
     urlEl.textContent = url;
     modal.classList.add('show');
     fetch(API + '/api/share/qr/' + code, { headers: { 'x-auth-token': AUTH_TOKEN || '' } })
@@ -8758,10 +8756,10 @@ function showShareQRModalForCode(code) {
         if (qrData.success && qrData.dataUrl) {
           content.innerHTML = '<img src="' + qrData.dataUrl + '" style="border-radius:8px;max-width:256px;width:100%;" />';
         } else {
-          content.innerHTML = '<div style="color:var(--danger-fg);">${T('err.genFailed')}</div>';
+          content.innerHTML = '<div style="color:var(--danger-fg);">' + T('err.genFailed') + '</div>';
         }
       })
-      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">${T('err.reqFailed')}</div>'; });
+      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">' + T('err.reqFailed') + '</div>'; });
   }
 }
 
@@ -8871,16 +8869,16 @@ function showAuditModal() {
       if (!data.success) { showToast(T('admin.getFailed')); return; }
       const stats = data.stats || {};
       document.getElementById('auditStats').innerHTML =
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">${T('admin.todayOps')}</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.todayCount || 0) + '</div></div>' +
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">${T('admin.totalOps')}</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.totalCount || 0) + '</div></div>' +
-        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">${T('admin.lastOp')}</div><div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(stats.lastAction || '--') + '</div></div>';
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.todayOps') + '</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.todayCount || 0) + '</div></div>' +
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.totalOps') + '</div><div style="font-size:20px;font-weight:600;color:var(--accent-primary)">' + (stats.totalCount || 0) + '</div></div>' +
+        '<div style="background:var(--bg-tertiary);padding:8px 14px;border-radius:8px;font-size:12px;"><div style="color:var(--text-muted);">' + T('admin.lastOp') + '</div><div style="font-size:12px;color:var(--text-secondary);">' + escapeHtml(stats.lastAction || '--') + '</div></div>';
 
       // Build action filter dropdown
       const allActions = [...new Set(data.logs.map(l => l.action).filter(Boolean))].sort();
       const filterSel = document.getElementById('auditFilterAction');
       if (filterSel) {
         const current = filterSel.value;
-        filterSel.innerHTML = '<option value="">${T('ui.all')}</option>' +
+        filterSel.innerHTML = '<option value="">' + T('ui.all') + '</option>' +
           allActions.map(a => '<option value="' + escapeHtml(a) + '"' + (a === current ? ' selected' : '') + '>' + escapeHtml(a) + '</option>').join('');
       }
 
@@ -8919,7 +8917,7 @@ function showAuditModal() {
           '<div style="text-align:right;flex-shrink:0;"><div style="color:var(--text-muted);font-size:11px;">' + formatTime((l.created_at || 0) * 1000) + '</div>' +
           (l.ip ? '<div style="color:var(--text-muted);font-size:10px;font-family:monospace;">' + escapeHtml(l.ip) + '</div>' : '') +
           '</div></div>'
-      ).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);">${T('admin.noLogs')}</div>';
+      ).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('admin.noLogs') + '</div>';
       lockScroll();
       document.getElementById('auditModal').classList.add('show');
     }).catch(() => showToast(T('admin.getFailed')));
@@ -9155,17 +9153,17 @@ async function showRateLimitModal() {
     const c = data.config;
     var html = '<div style="display:flex;flex-direction:column;gap:16px;">';
     html += '<div style="display:flex;gap:8px;border-bottom:1px solid var(--border-color);padding-bottom:8px;">';
-    html += '<button class="btn btn-sm" id="rlTabConfig" onclick="switchRlTab(\'config\')">${T('admin.rateLimitTabConfig')}</button>';
-    html += '<button class="btn btn-sm" id="rlTabActive" onclick="switchRlTab(\'active\')">${T('admin.rateLimitTabActive')}</button>';
+    html += '<button class="btn btn-sm" id="rlTabConfig" onclick="switchRlTab(\'config\')">' + T('admin.rateLimitTabConfig') + '</button>';
+    html += '<button class="btn btn-sm" id="rlTabActive" onclick="switchRlTab(\'active\')">' + T('admin.rateLimitTabActive') + '</button>';
     html += '</div>';
-    html += '<div id="rlContentConfig"><div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('admin.rateLimitMaxAttempts')}</div>' +
+    html += '<div id="rlContentConfig"><div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('admin.rateLimitMaxAttempts') + '</div>' +
     html += '<input type="number" id="rlMaxAttempts" value="' + c.maxAttempts + '" min="1" max="100" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
-    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('admin.rateLimitWindow')}</div>' +
+    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('admin.rateLimitWindow') + '</div>' +
     html += '<input type="number" id="rlWindow" value="' + c.windowSeconds + '" min="60" max="86400" step="60" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
-    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">${T('admin.rateLimitLockout')}</div>' +
+    html += '<div><div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">' + T('admin.rateLimitLockout') + '</div>' +
     html += '<input type="number" id="rlLockout" value="' + c.lockoutSeconds + '" min="30" max="86400" step="30" style="width:100%;padding:8px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;color:var(--text-primary);font-size:16px;"></div>';
-    html += '<div style="font-size:11px;color:var(--text-muted);">${T('admin.rateLimitEffectImmediately')}</div>';
-    html += '<button class="btn" onclick="saveRateLimitConfig()" style="width:100%;">${T('ui.save')}</button></div>';
+    html += '<div style="font-size:11px;color:var(--text-muted);">' + T('admin.rateLimitEffectImmediately') + '</div>';
+    html += '<button class="btn" onclick="saveRateLimitConfig()" style="width:100%;">' + T('ui.save') + '</button></div>';
     html += '<div id="rlContentActive" style="display:none;"><div id="rlActiveList" style="max-height:300px;overflow-y:auto;"></div></div>';
     openModal(T('admin.rateLimitModal'), html, 'modal-small');
     // Load active records by default if any exist
@@ -9187,13 +9185,13 @@ async function loadRateLimitActiveRecords() {
     const data = await res.json();
     const list = document.getElementById('rlActiveList');
     if (!data.success || !data.records || data.records.length === 0) {
-      list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">${T('admin.rateLimitNoRecords')}</div>';
+      list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">' + T('admin.rateLimitNoRecords') + '</div>';
       return;
     }
     const statusColor = { locked: 'var(--danger)', expired: 'var(--text-muted)', warn: 'var(--warning)', active: 'var(--success)' };
     const now = Math.floor(Date.now() / 1000);
     let html = '<table style="width:100%;font-size:11px;border-collapse:collapse;">';
-    html += '<tr style="color:var(--text-muted);"><td style="padding:4px 6px;">${T('admin.rateLimitType')}</td><td style="padding:4px 6px;">${T('admin.rateLimitIp')}</td><td style="padding:4px 6px;">${T('admin.rateLimitCode')}</td><td style="padding:4px 6px;">${T('admin.rateLimitAtts')}</td><td style="padding:4px 6px;">${T('admin.rateLimitStatus')}</td><td style="padding:4px 6px;">${T('admin.rateLimitWhen')}</td><td></td></tr>';
+    html += '<tr style="color:var(--text-muted);"><td style="padding:4px 6px;">' + T('admin.rateLimitType') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitIp') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitCode') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitAtts') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitStatus') + '</td><td style="padding:4px 6px;">' + T('admin.rateLimitWhen') + '</td><td></td></tr>';
     for (const r of data.records) {
       const when = r.secondsAgo < 60 ? r.secondsAgo + 's ' + T('admin.rateLimitAgo') : r.secondsAgo < 3600 ? Math.floor(r.secondsAgo/60) + 'm ' + T('admin.rateLimitAgo') : Math.floor(r.secondsAgo/3600) + 'h ' + T('admin.rateLimitAgo');
       const lockedIn = r.lockedUntil && r.lockedUntil > now ? Math.ceil((r.lockedUntil - now)/60) + 'm ' + T('admin.rateLimitLeft') : '';
@@ -10271,7 +10269,7 @@ async function doCreateShareLink() {
       if (data.expiresAt) {
         const expiryDate = new Date(data.expiresAt);
         const expiryStr = expiryDate.toLocaleString();
-        showToast('✓ ${T('share.successCreated')} ' + expiryStr);
+        showToast('✓ ' + T('share.successCreated') + ' ' + expiryStr);
       } else {
         showToast('✓ ' + T('share.successCreated'));
       }
@@ -10296,7 +10294,7 @@ function showShareQRModal() {
   const content = document.getElementById('qrModalContent');
   const urlEl = document.getElementById('qrModalUrl');
   if (modal && content && urlEl) {
-    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div><div style="margin-top:8px;color:var(--text-muted);">${T('msg.loading')}</div>';
+    content.innerHTML = '<div style="font-size:40px;animation:spin 1s linear infinite;">⏳</div><div style="margin-top:8px;color:var(--text-muted);">' + T('msg.loading') + '</div>';
     urlEl.textContent = url;
     modal.classList.add('show');
     // Generate QR from URL (share code is embedded)
@@ -10308,10 +10306,10 @@ function showShareQRModal() {
         if (qrData.success && qrData.dataUrl) {
           content.innerHTML = '<img src="' + qrData.dataUrl + '" style="border-radius:8px;max-width:256px;width:100%;" />';
         } else {
-          content.innerHTML = '<div style="color:var(--danger-fg);">${T('err.genFailed')}: ' + escapeHtml(qrData.error || T('err.unknown')) + '</div>';
+          content.innerHTML = '<div style="color:var(--danger-fg);">' + T('err.genFailed') + ': ' + escapeHtml(qrData.error || T('err.unknown')) + '</div>';
         }
       })
-      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">${T('err.reqFailed')}: ' + escapeHtml(e.message || T('err.unknown')) + '</div>'; });
+      .catch(e => { content.innerHTML = '<div style="color:var(--danger-fg);">' + T('err.reqFailed') + ': ' + escapeHtml(e.message || T('err.unknown')) + '</div>'; });
   }
 }
 
@@ -10571,7 +10569,7 @@ async function uploadFiles(files) {
     if (uploadQueue) {
       const retryBar = document.createElement('div');
       retryBar.style.cssText = 'display:flex;gap:8px;align-items:center;padding-top:8px;border-top:1px solid var(--border-color);margin-top:4px;';
-      retryBar.innerHTML = '<span style="color:var(--danger-fg,var(--danger));font-size:12px;">' + failCount + ' ${T('file.numFiles')} ${T('err.failed')}</span><button id="retryAllBtn" style="padding:4px 12px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;font-size:12px;cursor:pointer;">${T('msg.retry.all')}</button><button id="dismissQueueBtn" style="padding:4px 12px;background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border-color);border-radius:4px;font-size:12px;cursor:pointer;">${T('msg.close')}</button>';
+      retryBar.innerHTML = '<span style="color:var(--danger-fg,var(--danger));font-size:12px;">' + failCount + ' ' + T('file.numFiles') + ' ' + T('err.failed') + '</span><button id="retryAllBtn" style="padding:4px 12px;background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:4px;font-size:12px;cursor:pointer;">' + T('msg.retry.all') + '</button><button id="dismissQueueBtn" style="padding:4px 12px;background:var(--bg-tertiary);color:var(--text-secondary);border:1px solid var(--border-color);border-radius:4px;font-size:12px;cursor:pointer;">' + T('msg.close') + '</button>';
       uploadQueue.appendChild(retryBar);
       retryBar.querySelector('#retryAllBtn').onclick = () => retryAllFailed();
       retryBar.querySelector('#dismissQueueBtn').onclick = () => {
@@ -11465,7 +11463,7 @@ async function batchCreateShare() {
   if (filenameEl) filenameEl.value = filenames.join(',');
   if (titleEl) titleEl.textContent = '🔗 ' + T('share.batchCreate').replace('{n}', filenames.length);
   if (fileNameDisplayEl) {
-    fileNameDisplayEl.textContent = filenames.length + ' ${T('ui.files')}:\n' + filenames.map(f => '  · ' + f).join('\n');
+    fileNameDisplayEl.textContent = filenames.length + ' ' + T('ui.files') + ':\n' + filenames.map(f => '  · ' + f).join('\n');
     fileNameDisplayEl.style.whiteSpace = 'pre-wrap';
     fileNameDisplayEl.style.maxHeight = '120px';
     fileNameDisplayEl.style.overflowY = 'auto';
@@ -11590,7 +11588,7 @@ async function showFileVersions(filename) {
   const versions = data.versions || [];
   let html = '';
   if (versions.length === 0) {
-    html = '<div style="color:var(--text-muted);padding:20px;text-align:center;">${T('ver.noVersions')}</div>';
+    html = '<div style="color:var(--text-muted);padding:20px;text-align:center;">' + T('ver.noVersions') + '</div>';
   } else {
     html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-color);">' +
       '<div style="font-size:12px;color:var(--text-muted);">选择两个版本进行对比</div>' +
@@ -11606,9 +11604,9 @@ async function showFileVersions(filename) {
         '<div style="font-weight:500;">v' + v.id + ' <span style="font-weight:400;font-size:11px;color:var(--text-muted);">' + ts + ' · ' + size + '</span></div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;">' +
-        '<button class="btn btn-sm" onclick="previewVersion(' + v.id + ')">${T('file.view')}</button>' +
-        '<button class="btn btn-sm" onclick="restoreVersion(' + v.id + ')">${T('ver.restore')}</button>' +
-        '<button class="btn btn-sm btn-danger" onclick="deleteVersion(' + v.id + ')">${T('tag.delete')}</button>' +
+        '<button class="btn btn-sm" onclick="previewVersion(' + v.id + ')">' + T('file.view') + '</button>' +
+        '<button class="btn btn-sm" onclick="restoreVersion(' + v.id + ')">' + T('ver.restore') + '</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="deleteVersion(' + v.id + ')">' + T('tag.delete') + '</button>' +
         '</div>' +
         '</div>';
     }
@@ -11648,7 +11646,7 @@ async function compareSelectedVersions() {
   const linesA = textA.split('\n'), linesB = textB.split('\n');
   // LCS-based line diff
   const lcs = computeLCS(linesA, linesB);
-  let html = '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(window._versionsFilename || '').replace(/'/g, "\\'") + '\')">${T('ver.backToList')}</button></div>';
+  let html = '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(window._versionsFilename || '').replace(/'/g, "\\'") + '\')">' + T('ver.backToList') + '</button></div>';
   html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:500px;overflow-y:auto;">';
   html += '<div style="padding:8px;font-size:12px;">';
   for (let i = 0; i < linesA.length; i++) {
@@ -11664,7 +11662,7 @@ async function compareSelectedVersions() {
   }
   html += '</div></div>';
   html += '<div style="margin-top:8px;font-size:11px;color:var(--text-muted);">' +
-    '<span style="color:var(--danger-fg);">- ${T('ver.oldVersion')}</span> · <span style="color:var(--success-fg);">+ ${T('ver.newVersion')}</span>' +
+    '<span style="color:var(--danger-fg);">- ' + T('ver.oldVersion') + '</span> · <span style="color:var(--success-fg);">+ ' + T('ver.newVersion') + '</span>' +
     '</div>';
   document.getElementById('versionsContent').innerHTML = html;
 }
@@ -11702,7 +11700,7 @@ async function showTrashModal() {
   updateTrashBadge(trash.length);
   let html = '';
   if (trash.length === 0) {
-    html = '<div style="color:var(--text-muted);text-align:center;padding:20px;">${T('ui.trashNoItems')}</div>';
+    html = '<div style="color:var(--text-muted);text-align:center;padding:20px;">' + T('ui.trashNoItems') + '</div>';
   } else {
     html = '<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">';
     for (const item of trash) {
@@ -11712,16 +11710,16 @@ async function showTrashModal() {
       html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:var(--bg-secondary);border-radius:8px;">' +
         '<div style="flex:1;min-width:0;">' +
         '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(item.filename) + '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);">' + ts + (size ? ' · ' + size : '') + ' · ${T('ui.trashExpiresIn').replace('{n}', expiresIn)}</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);">' + ts + (size ? ' · ' + size : '') + ' · ' + T('ui.trashExpiresIn').replace('{n}', expiresIn) + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:6px;flex-shrink:0;">' +
-        '<button class="btn btn-sm" onclick="restoreTrashItem(' + item.id + ')">${T('ui.trashRestore')}</button>' +
-        '<button class="btn btn-sm btn-danger" onclick="permanentDeleteTrashItem(' + item.id + ')">${T('ui.trashPermanentDelete')}</button>' +
+        '<button class="btn btn-sm" onclick="restoreTrashItem(' + item.id + ')">' + T('ui.trashRestore') + '</button>' +
+        '<button class="btn btn-sm btn-danger" onclick="permanentDeleteTrashItem(' + item.id + ')">' + T('ui.trashPermanentDelete') + '</button>' +
         '</div>' +
         '</div>';
     }
     html += '</div>';
-    html += '<div style="text-align:center;margin-top:12px;"><button class="btn btn-sm btn-danger" onclick="emptyTrash()">${T('ui.trashEmpty')}</button></div>';
+    html += '<div style="text-align:center;margin-top:12px;"><button class="btn btn-sm btn-danger" onclick="emptyTrash()">' + T('ui.trashEmpty') + '</button></div>';
   }
   document.getElementById('trashContent').innerHTML = html;
   document.getElementById('trashModal').classList.add('show');
@@ -11791,7 +11789,7 @@ async function previewVersion(versionId) {
   const v = data.version;
   const content = escapeHtml(v.content || T('ver.empty'));
   document.getElementById('versionsContent').innerHTML =
-    '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(v.filename).replace(/'/g, "\\'") + '\')">${T('ver.backToList')}</button></div>' +
+    '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="showFileVersions(\'' + escapeHtml(v.filename).replace(/'/g, "\\'") + '\')">' + T('ver.backToList') + '</button></div>' +
     '<div style="background:var(--bg-secondary);padding:12px;border-radius:8px;white-space:pre-wrap;word-break:break-all;font-size:12px;max-height:400px;overflow-y:auto;">' + content + '</div>';
 }
 
@@ -11829,7 +11827,7 @@ function renderTagMergeList() {
   const tags = _tagManagerData;
 
   if (!tags.length) {
-    list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">${T('admin.noTags')}</div>';
+    list.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:8px;">' + T('admin.noTags') + '</div>';
     return;
   }
 
@@ -11849,7 +11847,7 @@ function renderTagMergeList() {
   ).join('');
 
   if (targetTags.length === 0) {
-    targetSelect.innerHTML = '<option value="">${T('tag.mergeNoTarget')}</option>';
+    targetSelect.innerHTML = '<option value="">' + T('tag.mergeNoTarget') + '</option>';
   }
 }
 
@@ -11973,11 +11971,11 @@ async function openBatchColorPicker() {
     overlay.style.zIndex = '10000';
     overlay.onclick = (e) => { if (e.target === overlay) { overlay.remove(); resolve(null); } };
     overlay.innerHTML = '<div class="modal-content" style="max-width:320px;padding:20px;">' +
-      '<div style="font-size:14px;font-weight:500;margin-bottom:16px;">${T('tag.changeColor')}</div>' +
+      '<div style="font-size:14px;font-weight:500;margin-bottom:16px;">' + T('tag.changeColor') + '</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:16px;">' +
       colors.map(c => '<div style="width:40px;height:40px;border-radius:50%;background:' + c + ';cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);" data-color="' + c + '"></div>').join('') +
       '</div>' +
-      '<button class="btn btn-secondary" style="width:100%;" id="batchColorCancelBtn">${T('ui.cancel')}</button>' +
+      '<button class="btn btn-secondary" style="width:100%;" id="batchColorCancelBtn">' + T('ui.cancel') + '</button>' +
       '</div>';
     document.body.appendChild(overlay);
     overlay.querySelectorAll('[data-color]').forEach(el => {
@@ -12076,7 +12074,7 @@ function filterTagManagerList(q) {
 function renderTagManagerItems(tags) {
   const list = document.getElementById('tagManagerList');
   if (!tags.length) {
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">${T('admin.noTags')}</div>';
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('admin.noTags') + '</div>';
     document.getElementById('tagManagerCount').textContent = '';
     return;
   }
@@ -12091,7 +12089,7 @@ function renderTagManagerItems(tags) {
     return '<div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg-tertiary);border-radius:12px;border:1px solid var(--border-color);transition:border-color 0.15s;">' +
       '<input type="checkbox" id="tagchk_' + tagId + '" ' + checked + ' onchange="toggleTagSelect(\'' + tagJs + '\', this.checked)" style="width:18px;height:18px;cursor:pointer;accent-color:var(--accent-primary);flex-shrink:0;" title="批量选择">' +
       '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;">' +
-        '<div style="width:36px;height:28px;border-radius:6px;background:' + color + ';display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);" title="${T('tag.clickChangeColor')}" onclick="document.getElementById(\'colorPicker_' + tagId + '\').click()">' +
+        '<div style="width:36px;height:28px;border-radius:6px;background:' + color + ';display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);" title="' + T('tag.clickChangeColor') + '" onclick="document.getElementById(\'colorPicker_' + tagId + '\').click()">' +
           '<span style="font-size:14px;">' + escapeHtml(emoji) + '</span>' +
           '<input type="color" id="colorPicker_' + tagId + '" value="' + escapeHtml(color) + '" style="position:absolute;width:0;height:0;opacity:0;" onchange="updateTagColor(\'' + tagJs + '\', this.value);">' +
         '</div>' +
@@ -12099,12 +12097,12 @@ function renderTagManagerItems(tags) {
         '<span style="font-size:10px;color:var(--text-muted);cursor:pointer;" title="Change icon" onclick="changeTagEmoji(\'' + tagJs + '\')">✏️</span>' +
       '</div>' +
       '<div style="flex:1;min-width:0;">' +
-        '<div style="font-size:14px;font-weight:500;color:var(--text-primary);cursor:pointer;" ondblclick="renameTag(\'' + tagJs + '\')" title="${T('tag.doubleClickRename')}">' + tagHtml + '</div>' +
-        '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;cursor:pointer;" onclick="filterByTag(\'' + tagJs + '\');closeTagManager()" title="${T('tag.viewFiles')}"><span style="color:var(--accent-primary);">' + t.count + '</span> ${T('tag.count')}</div>' +
+        '<div style="font-size:14px;font-weight:500;color:var(--text-primary);cursor:pointer;" ondblclick="renameTag(\'' + tagJs + '\')" title="' + T('tag.doubleClickRename') + '">' + tagHtml + '</div>' +
+        '<div style="font-size:11px;color:var(--text-muted);margin-top:2px;cursor:pointer;" onclick="filterByTag(\'' + tagJs + '\');closeTagManager()" title="' + T('tag.viewFiles') + '"><span style="color:var(--accent-primary);">' + t.count + '</span> ' + T('tag.count') + '</div>' +
       '</div>' +
       '<div style="display:flex;gap:6px;align-items:center;">' +
-        '<button class="btn btn-sm" style="font-size:11px;padding:8px 10px;min-height:44px;" onclick="renameTag(\'' + tagJs + '\')" title="${T('tag.rename')}">✏️</button>' +
-        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:8px 10px;min-height:44px;" onclick="deleteTag(\'' + tagJs + '\')" title="${T('tag.delete')}">🗑</button>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:8px 10px;min-height:44px;" onclick="renameTag(\'' + tagJs + '\')" title="' + T('tag.rename') + '">✏️</button>' +
+        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:8px 10px;min-height:44px;" onclick="deleteTag(\'' + tagJs + '\')" title="' + T('tag.delete') + '">🗑</button>' +
       '</div>' +
     '</div>';
   }).join('');
@@ -12316,11 +12314,11 @@ async function batchRemoveTag() {
       escapeHtml(tag) + ' <sup style="font-size:10px;opacity:0.7;">' + count + '</sup></span>';
   }).join('');
 
-  const content = '<div style="padding:8px 0;text-align:center;color:var(--text-muted);font-size:12px;margin-bottom:12px;">${T('tag.removePrompt')}</div>' +
+  const content = '<div style="padding:8px 0;text-align:center;color:var(--text-muted);font-size:12px;margin-bottom:12px;">' + T('tag.removePrompt') + '</div>' +
     '<div id="batchRemoveTagList" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">' + tagChips + '</div>' +
     '<div id="batchRemoveTagSelected" style="font-size:12px;color:var(--accent-primary);margin-bottom:12px;min-height:20px;"></div>' +
-    '<div style="display:flex;gap:8px;"><button class="btn" id="batchRemoveTagConfirm" style="flex:1;opacity:0.5;pointer-events:none;" disabled onclick="confirmBatchRemoveTag()">${T('ui.remove')}</button>' +
-    '<button class="btn btn-secondary" style="flex:1;" onclick="closeBatchRemoveTagModal()">${T('ui.cancel')}</button></div>';
+    '<div style="display:flex;gap:8px;"><button class="btn" id="batchRemoveTagConfirm" style="flex:1;opacity:0.5;pointer-events:none;" disabled onclick="confirmBatchRemoveTag()">' + T('ui.remove') + '</button>' +
+    '<button class="btn btn-secondary" style="flex:1;" onclick="closeBatchRemoveTagModal()">' + T('ui.cancel') + '</button></div>';
 
   _batchRemoveSelectedTags = [];
   // Reuse tagInputModal structure
@@ -12450,7 +12448,7 @@ function showBatchRenameModal() {
   footer.style.display = 'flex';
   footer.style.gap = '8px';
   footer.style.justifyContent = 'flex-end';
-  footer.innerHTML = '<button class="btn btn-sm" onclick="batchRename()">${T('batch.confirmRename')}</button><button class="btn btn-sm btn-secondary" onclick="closeModal()">${T('batch.cancel')}</button>';
+  footer.innerHTML = '<button class="btn btn-sm" onclick="batchRename()">' + T('batch.confirmRename') + '</button><button class="btn btn-sm btn-secondary" onclick="closeModal()">' + T('batch.cancel') + '</button>';
   lockScroll();
   document.getElementById('fileModal').classList.add('show');
   window._batchRenameFiles = filenames;
@@ -12595,14 +12593,14 @@ function showFavoritesManager() {
   const favs = getFavorites();
   const list = document.getElementById('favoritesManagerList');
   if (!favs.length) {
-    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">${T('fav.noFavorites')}</div>';
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);">' + T('fav.noFavorites') + '</div>';
   } else {
     list.innerHTML = favs.map(f => {
       const enc = encodeURIComponent(f);
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-tertiary);border-radius:8px;">' +
         '<span style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(f) + '</span>' +
-        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="navigateToFav(\'' + enc + '\')">${T('fav.goTo')}</button>' +
-        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="removeFav(\'' + enc + '\')">${T('tag.delete')}</button>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="navigateToFav(\'' + enc + '\')">' + T('fav.goTo') + '</button>' +
+        '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="removeFav(\'' + enc + '\')">' + T('tag.delete') + '</button>' +
       '</div>';
     }).join('');
   }
@@ -12698,7 +12696,7 @@ async function loadVirtualFolders() {
 function renderVfFolderList(folders) {
   const container = document.getElementById('vfFolderList');
   if (!folders || folders.length === 0) {
-    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">${T('vf.noFolders')}</div>';
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">' + T('vf.noFolders') + '</div>';
     return;
   }
   container.innerHTML = folders.map(f => {
@@ -12708,7 +12706,7 @@ function renderVfFolderList(folders) {
         '<span style="width:12px;height:12px;border-radius:50%;' + colorStyle + '"></span>' +
         '<span style="flex:1;font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(f.name) + '</span>' +
         '<span style="font-size:11px;color:var(--text-muted);">' + f.fileCount + ' files</span>' +
-        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="navigateToVf(' + f.id + ')">${T('vf.goTo')}</button>' +
+        '<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;" onclick="navigateToVf(' + f.id + ')">' + T('vf.goTo') + '</button>' +
         '<button class="btn btn-sm btn-danger" style="font-size:11px;padding:4px 8px;" onclick="deleteVirtualFolder(' + f.id + ')">✕</button>' +
       '</div>' +
       '<div style="padding:0 12px 10px;font-size:12px;color:var(--text-muted);">' + escapeHtml(f.description || '') + '</div>' +
@@ -13426,7 +13424,7 @@ async function init() {
             el.innerHTML = '<span style="color:var(--success-fg)">✅ HTTPS 已启用</span> <span style="' + warnStyle + '">到期: ' + (data.expires || '未知') + (data.daysRemaining !== null ? ' (' + data.daysRemaining + '天)' : '') + '</span>';
             if (btnEl) btnEl.style.display = 'inline-block';
           } else {
-            el.innerHTML = '<span style="color:var(--warning)">⚠️ ${T('file.httpsDisabled')}</span> <span style="color:var(--text-muted)">${T('file.httpsLanSkip')}</span>';
+            el.innerHTML = '<span style="color:var(--warning)">⚠️ ' + T('file.httpsDisabled') + '</span> <span style="color:var(--text-muted)">' + T('file.httpsLanSkip') + '</span>';
             if (btnEl) btnEl.style.display = 'none';
           }
         }
@@ -13501,7 +13499,7 @@ async function renderRecentSearches() {
       '<span class="recent-search-tag" style="background:rgba(255,100,0,0.1);border-color:rgba(255,100,0,0.3);" onclick="document.getElementById(\'searchInput\').value=\'' + escapeHtml(s).replace(/'/g, "\\'") + '\';doSearch()">' + escapeHtml(s) + '</span>'
     ).join('');
   }
-  html += '<span class="recent-search-tag" style="color:var(--danger);margin-left:auto;" onclick="clearRecentSearches()">${T('ui.clearSearchHistory')}</span>';
+  html += '<span class="recent-search-tag" style="color:var(--danger);margin-left:auto;" onclick="clearRecentSearches()">' + T('ui.clearSearchHistory') + '</span>';
   container.innerHTML = html;
 }
 
@@ -13650,10 +13648,10 @@ init();
   <div style="display:flex;align-items:center;gap:12px;">
     <span style="font-size:24px;">📲</span>
     <div style="flex:1;">
-      <div style="font-size:14px;font-weight:600;color:var(--text-primary);">${T('pwa.installTitle')}</div>
-      <div style="font-size:12px;color:var(--text-muted);">${T('pwa.installDesc')}</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text-primary);">' + T('pwa.installTitle') + '</div>
+      <div style="font-size:12px;color:var(--text-muted);">' + T('pwa.installDesc') + '</div>
     </div>
-    <button onclick="installPWA()" style="background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:8px;padding:6px 16px;font-size:13px;cursor:pointer;white-space:nowrap;">${T('pwa.install')}</button>
+    <button onclick="installPWA()" style="background:var(--accent-primary);color:var(--text-inverse,#fff);border:none;border-radius:8px;padding:6px 16px;font-size:13px;cursor:pointer;white-space:nowrap;">' + T('pwa.install') + '</button>
     <button onclick="dismissPWAInstall()" style="background:transparent;color:var(--text-muted);border:none;font-size:18px;cursor:pointer;padding:4px;line-height:1;">✕</button>
   </div>
 </div>
@@ -13665,11 +13663,11 @@ init();
 <div class="fab-drawer-overlay" id="fabDrawerOverlay" onclick="fabClose()"></div>
 <div class="fab-drawer" id="fabDrawer">
   <div class="drawer-header">
-    <span class="drawer-title">${T('ui.menu')}</span>
+    <span class="drawer-title">' + T('ui.menu') + '</span>
     <button class="drawer-close" onclick="fabClose()">×</button>
   </div>
-  <button class="btn" onclick="fabUpload()">📤 <span>${T('file.upload')}</span></button>
-  <button class="btn" onclick="fabText()">📝 <span>${T('file.textShare')}</span></button>
+  <button class="btn" onclick="fabUpload()">📤 <span>' + T('file.upload') + '</span></button>
+  <button class="btn" onclick="fabText()">📝 <span>' + T('file.textShare') + '</span></button>
 </div>
 
 <script>
@@ -13756,15 +13754,15 @@ window.addEventListener('DOMContentLoaded', updateFabVisibility);
       <button onclick="toggleMobileMenu()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-muted);padding:4px;">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:4px;">
-      <button class="menu-item" onclick="showStorageInfo();toggleMobileMenu()">📊 ${T('admin.storage')}</button>
-      <button class="menu-item" onclick="showAuditModal();toggleMobileMenu()">📋 ${T('admin.auditLog')}</button>
-      <button class="menu-item" onclick="showTokenModal();toggleMobileMenu()">🔑 ${T('admin.changeToken')}</button>
-      <button class="menu-item" onclick="showShareLinksModal();toggleMobileMenu()">🔗 ${T('share.title')}</button>
-      <button class="menu-item" onclick="showRequestLinksModal();toggleMobileMenu()">📥 ${T('request.title')}</button>
-      <button class="menu-item" onclick="showDevicesModal();toggleMobileMenu()">📱 ${T('ui.devices')}</button>
-      <button class="menu-item" onclick="showTagsModal();toggleMobileMenu()">🏷️ ${T('file.tags')}</button>
-      <button class="menu-item" onclick="showBackupModal();toggleMobileMenu()">💾 ${T('admin.backup')}</button>
-      <button class="menu-item" onclick="showAboutModal();toggleMobileMenu()">ℹ️ ${T('about.about')}</button>
+      <button class="menu-item" onclick="showStorageInfo();toggleMobileMenu()">📊 ' + T('admin.storage') + '</button>
+      <button class="menu-item" onclick="showAuditModal();toggleMobileMenu()">📋 ' + T('admin.auditLog') + '</button>
+      <button class="menu-item" onclick="showTokenModal();toggleMobileMenu()">🔑 ' + T('admin.changeToken') + '</button>
+      <button class="menu-item" onclick="showShareLinksModal();toggleMobileMenu()">🔗 ' + T('share.title') + '</button>
+      <button class="menu-item" onclick="showRequestLinksModal();toggleMobileMenu()">📥 ' + T('request.title') + '</button>
+      <button class="menu-item" onclick="showDevicesModal();toggleMobileMenu()">📱 ' + T('ui.devices') + '</button>
+      <button class="menu-item" onclick="showTagsModal();toggleMobileMenu()">🏷️ ' + T('file.tags') + '</button>
+      <button class="menu-item" onclick="showBackupModal();toggleMobileMenu()">💾 ' + T('admin.backup') + '</button>
+      <button class="menu-item" onclick="showAboutModal();toggleMobileMenu()">ℹ️ ' + T('about.about') + '</button>
     </div>
   </div>
 </div>

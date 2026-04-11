@@ -1,0 +1,29 @@
+--- a/db.js
++++ b/db.js
+@@ -74,10 +74,11 @@ function initDatabase() {
+   if (tableCount <= 1) {
+     initSchemaV1(db);
+     initSchemaV2(db);
+     initSchemaV3(db);
+     initSchemaV4(db);
+     initSchemaV5(db);
+     initSchemaV6(db);
+     initSchemaV7(db);
++    initSchemaV8(db);  // 修复：添加 v8 初始化
+     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
+     console.log('[DB] Fresh database initialized (v1-v8 schema)');
+     return;
+   }
+@@ -96,11 +97,8 @@ function initDatabase() {
+   if (currentVersion < SCHEMA_VERSION) {
+     runMigrations(db, currentVersion);
+     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
+     currentVersion = SCHEMA_VERSION;
+-  } else if (currentVersion === 1) {
+-    // 已有旧数据但未迁移，补齐 v2 字段
+-    initSchemaV2(db);
+-    db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', 2);
+   }
+ 
+   console.log('[DB] Database ready at', DB_PATH);
+   return db;
