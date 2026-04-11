@@ -1696,11 +1696,6 @@ const I18N = {
     'err.notFound': 'Not found',
     'err.unauthorized': 'Unauthorized',
     'err.browserNotSupport': 'Your browser does not support',
-    'file.audio': 'Audio',
-    'file.video': 'Video',
-    'file.size': 'Size',
-    'file.modified': 'Modified',
-    'file.previewFailed': 'Failed to load preview',
     'err.getLinkFailed': 'Failed to get share link',
 
     // 标签
@@ -7802,7 +7797,7 @@ async function openCsvModal(filename) {
     });
     tableHtml += '</tbody></table></div>';
     if (lines.length > maxRows) {
-      tableHtml = '<div style="color:var(--text-muted);font-size:12px;margin-bottom:8px;">Showing ' + maxRows + ' of ' + lines.length + ' rows</div>' + tableHtml;
+      tableHtml = '<div style="color:var(--text-muted);font-size:12px;margin-bottom:8px;">' + T('csv.showingRows').replace('{current}', maxRows).replace('{total}', lines.length) + '</div>' + tableHtml;
     }
     tableHtml = '<div style="padding:12px;">' + tableHtml + '</div>';
 
@@ -13822,15 +13817,15 @@ function sendHtml(res, html = HTML_PAGE, statusCode = 200) {
   // 动态渲染 T() 调用
   if (html && typeof html === 'string') {
     // 简单 T() 调用: ' + T('key') + '
-    html = html.replace(/' + T\('([^']+)'\) + '/g, (m, key) => {
+    html = html.replace(/' \+ T\('([^']+)'\) \+ '/g, (m, key) => {
       try { return T(key); } catch(e) { return m; }
     });
     // 双引号版本
-    html = html.replace(/" + T\("([^"]+)"\) + "/g, (m, key) => {
+    html = html.replace(/" \+ T\("([^"]+)"\) \+ "/g, (m, key) => {
       try { return T(key); } catch(e) { return m; }
     });
     // 链式 .replace() 调用
-    html = html.replace(/' + T\('([^']+)'\)\.replace\('([^']+)', '([^']+)'\) + '/g, 
+    html = html.replace(/' \+ T\('([^']+)'\)\.replace\('([^']+)', '([^']+)'\) \+ '/g, 
       (m, key, from, to) => {
         try { return T(key).replace(from, to); } catch(e) { return m; }
       }
