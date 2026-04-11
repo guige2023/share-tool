@@ -111,6 +111,8 @@ const I18N = {
     'toast.vfCreateFailed': '文件夹创建失败',
     'toast.vfDeleted': '文件夹已删除',
     'toast.vfDeleteFailed': '文件夹删除失败',
+    'toast.fetchConfigFailed': '获取配置失败',
+    'toast.loadFailed': '加载失败',
 
     // 批量重命名
     'rename.pattern': '模式',
@@ -422,6 +424,7 @@ const I18N = {
     'err.genFailed': '生成失败',
     'err.reqFailed': '请求失败',
     'err.notFound': '未找到',
+    'err.unauthorized': '未授权',
     'err.browserNotSupport': '您的浏览器不支持',
     'err.getLinkFailed': '获取分享链接失败',
     'err.openImageFailed': '打开图片失败',
@@ -447,6 +450,8 @@ const I18N = {
     'tag.manager': '标签管理',
     'tag.rename': '重命名',
     'tag.delete': '删除',
+    'tag.enterColor': '请输入标签颜色',
+    'tag.enterEmoji': '请输入标签 emoji',
     'tag.merge': '合并',
     'tag.mergeHint': '选择要合并的标签（将合并到目标标签）',
     'tag.mergeTarget': '合并到：',
@@ -1326,6 +1331,8 @@ const I18N = {
     'toast.vfCreateFailed': 'Failed to create folder',
     'toast.vfDeleted': 'Folder deleted',
     'toast.vfDeleteFailed': 'Failed to delete folder',
+    'toast.fetchConfigFailed': 'Failed to fetch config',
+    'toast.loadFailed': 'Load failed',
 
     // Batch Rename
     'rename.pattern': 'Pattern',
@@ -8236,7 +8243,7 @@ async function promptTagColor(tag) {
     renderFiles();
     // Refresh tags modal if open
     if (document.getElementById('tagsModal').classList.contains('show')) showTagsModal();
-  } catch(e) { showAlert('listAlert', 'Failed: ' + e.message, 'error'); }
+  } catch(e) { showAlert('listAlert', T('err.failed') + ': ' + e.message, 'error'); }
 }
 async function promptTagEmoji(tag) {
   const input = prompt('Enter emoji for "' + tag + '":', tagEmojis[tag] || '🏷');
@@ -8250,7 +8257,7 @@ async function promptTagEmoji(tag) {
     tagEmojis[tag] = input;
     renderFiles();
     if (document.getElementById('tagsModal').classList.contains('show')) showTagsModal();
-  } catch(e) { showAlert('listAlert', 'Failed: ' + e.message, 'error'); }
+  } catch(e) { showAlert('listAlert', T('err.failed') + ': ' + e.message, 'error'); }
 }
 
 function showBackupModal() {
@@ -9010,7 +9017,7 @@ async function showRateLimitModal() {
   try {
     const res = await fetch(API + '/api/admin/rate-limit', { headers: { 'x-auth-token': AUTH_TOKEN || '' } });
     const data = await res.json();
-    if (!data.success) { showToast('fetch config failed', 'error'); return; }
+    if (!data.success) { showToast(T('toast.fetchConfigFailed'), 'error'); return; }
     const c = data.config;
     var html = '<div style="display:flex;flex-direction:column;gap:16px;">';
     html += '<div style="display:flex;gap:8px;border-bottom:1px solid var(--border-color);padding-bottom:8px;">';
@@ -9029,7 +9036,7 @@ async function showRateLimitModal() {
     openModal('Rate Limit Config', html, 'modal-small');
     // Load active records by default if any exist
     loadRateLimitActiveRecords();
-  } catch (e) { showToast('load failed', 'error'); }
+  } catch (e) { showToast(T('toast.loadFailed'), 'error'); }
 }
 
 function switchRlTab(tab) {
