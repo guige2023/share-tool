@@ -86,6 +86,7 @@ const I18N = {
     'msg.confirm': '确认',
     'msg.optional': '可选',
     'msg.confirmDelete': '确定删除 {name}？',
+    'msg.confirmDeleteFolder': '确定删除文件夹 {name} 及其全部内容？',
     'batch.confirmRename': '确认重命名',
     'batch.cancel': '取消',
     'ui.confirmDelete': '确定删除',
@@ -238,6 +239,7 @@ const I18N = {
     'request.toggleOff': '已停用',
     'request.uploadCount': '已上传',
     'share.expired': '已过期',
+    'share.confirmDeleteN': '确定删除选中的 {n} 个分享链接？',
     'share.neverExpire': '永不过期',
     'share.manualRenew': '手动续期',
     'share.password': '密码',
@@ -1301,6 +1303,7 @@ const I18N = {
     'share.batchResult': '✓ Created {n} share links, {m} failed',
     'share.failed': 'Share failed:',
     'share.generateFirst': 'Please generate a share link first',
+    'share.confirmDeleteN': 'Delete {n} selected share links?',
 
     // 管理
     'admin.auditTitle': '📊 Audit Log',
@@ -1466,6 +1469,7 @@ const I18N = {
     'msg.copiedTo': '{n} files copied to {dest}',
     'msg.batchStarred': '{n} files starred',
     'msg.confirmDelete': 'Confirm delete {name}?',
+    'msg.confirmDeleteFolder': 'Confirm delete folder {name} and all its contents?',
     'msg.confirmDeleteAll': 'Delete all files?',
     'msg.confirmDeleteDays': 'Delete files older than {n} days?',
     'msg.confirmDeleteSelected': 'Delete {n} selected files?',
@@ -10388,9 +10392,10 @@ async function toggleStar(filename) {
 
 async function deleteFile(filename) {
   const isVirtual = filename.includes('/');
+  const name = decodeURIComponent(filename).split('/').pop();
   var msg = isVirtual
-    ? "Confirm delete folder [" + filename + "] and all contents?"
-    : "Confirm delete?";
+    ? T('msg.confirmDeleteFolder', {name: name})
+    : T('msg.confirmDelete', {name: name});
   if (!confirm(msg)) return;
   try {
     var res;

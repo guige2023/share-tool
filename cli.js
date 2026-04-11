@@ -371,7 +371,7 @@ async function main() {
     console.log('  sync           Trigger sync push');
     console.log('  status         Check if server is online');
     console.log('  open           Open server URL in browser');
-    console.log('  log [--limit=n] [--action=x] [--date=YYYY-MM-DD]  Show audit logs');
+    console.log('  log [--limit=n] [--action=x] [--date=YYYY-MM-DD] [-f]  Show audit logs (-f: follow)');
     console.log('  stats          Show storage stats');
     console.log('  recent [n]     Show recently modified files (default: 10)');
     console.log('  trash [list|restore <id>|delete <id>|empty]  Manage trash');
@@ -1022,8 +1022,9 @@ async function main() {
         break;
       }
       case 'log': {
-        // share-tool log [--limit=50] [--action=<action>] [--ip=<ip>] [--date=YYYY-MM-DD]
-        const limit = parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1]) || 50;
+        // share-tool log [--limit=50] [--action=<action>] [--ip=<ip>] [--date=YYYY-MM-DD] [-f|--follow]
+        const follow = args.includes('-f') || args.includes('--follow');
+        const limit = follow ? 20 : (parseInt(args.find(a => a.startsWith('--limit='))?.split('=')[1]) || 50);
         const action = args.find(a => a.startsWith('--action='))?.split('=')[1] || '';
         const ip = args.find(a => a.startsWith('--ip='))?.split('=')[1] || '';
         const date = args.find(a => a.startsWith('--date='))?.split('=')[1] || '';
@@ -1031,31 +1032,51 @@ async function main() {
         if (action) endpoint += '&action=' + encodeURIComponent(action);
         if (ip) endpoint += '&ip=' + encodeURIComponent(ip);
         if (date) endpoint += '&date=' + encodeURIComponent(date);
-        const res = await request('GET', endpoint);
-        if (res.status >= 400) {
-          printError('Server error: ' + res.status);
-          process.exit(1);
-        }
-        const logs = res.data.logs || [];
-        if (logs.length === 0) {
-          console.log('No audit logs found.');
-          break;
-        }
         const fmtTime = ts => {
           const d = new Date(ts * 1000);
           return d.toISOString().replace('T', ' ').slice(0, 19);
         };
-        console.log('=== Audit Logs (' + logs.length + ') ===');
-        for (const l of logs) {
-          const action = (l.action || '').padEnd(20);
-          const time = fmtTime(l.timestamp);
-          const details = (l.details || '').slice(0, 60);
-          console.log(time + '  ' + action + '  ' + details + (l.details && l.details.length > 60 ? '...' : ''));
-        }
-        if (res.data.stats) {
-          const s = res.data.stats;
-          console.log('\n=== Summary ===');
-          console.log('Total: ' + s.total + '  |  Today: ' + s.todayCount);
+        if (follow) {
+          let lastTimestamp = 0;
+          console.log('Following audit logs... (Ctrl+C to stop)');
+          const interval = setInterval(async () => {
+            try {
+              const res = await request('GET', endpoint + '&since=' + lastTimestamp);
+              if (res.status >= 400) return;
+              const logs = res.data.logs || [];
+              for (const l of logs) {
+                const ts = l.timestamp || 0;
+                if (ts > lastTimestamp) lastTimestamp = ts;
+                const act = (l.action || '').padEnd(20);
+                const details = (l.details || '').slice(0, 80);
+                console.log(fmtTime(ts) + '  ' + act + '  ' + details);
+              }
+            } catch (_) {}
+          }, 3000);
+          process.on('SIGINT', () => { clearInterval(interval); process.exit(0); });
+        } else {
+          const res = await request('GET', endpoint);
+          if (res.status >= 400) {
+            printError('Server error: ' + res.status);
+            process.exit(1);
+          }
+          const logs = res.data.logs || [];
+          if (logs.length === 0) {
+            console.log('No audit logs found.');
+            break;
+          }
+          console.log('=== Audit Logs (' + logs.length + ') ===');
+          for (const l of logs) {
+            const act = (l.action || '').padEnd(20);
+            const time = fmtTime(l.timestamp);
+            const details = (l.details || '').slice(0, 60);
+            console.log(time + '  ' + act + '  ' + details + (l.details && l.details.length > 60 ? '...' : ''));
+          }
+          if (res.data.stats) {
+            const s = res.data.stats;
+            console.log('\n=== Summary ===');
+            console.log('Total: ' + s.total + '  |  Today: ' + s.todayCount);
+          }
         }
         break;
       }
