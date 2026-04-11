@@ -164,6 +164,7 @@ module.exports = function handleShareRoutes(req, res, pathname, query, ctx) {
         const cardBg = isDark ? '#2a2a2a' : '#fff';
         const border = isDark ? '#444' : '#ddd';
         const accent = '#007AFF';
+        const safeCode = escapeHtml(code);
         sendHtml(res, `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -188,7 +189,7 @@ button:hover{opacity:.85}
 <div class="card">
 <div class="icon">🔒</div>
 <div class="filename">${escapeHtml(file.filename)}</div>
-<form method="POST" action="/s/${code}" id="pwdForm">
+<form method="POST" action="/s/${safeCode}" id="pwdForm">
 <input type="password" name="password" id="pwdInput" placeholder="请输入访问密码" autofocus required>
 <button type="submit" id="submitBtn">验证并访问</button>
 </form>
@@ -207,12 +208,12 @@ err.style.display='none';
 try{
 const fd=new FormData();
 fd.append('password',pwd);
-const r=await fetch('/s/${code}',{method:'POST',body:fd});
+const r=await fetch('/s/${safeCode}',{method:'POST',body:fd});
 const d=await r.json();
 if(d.success){
 if(d.type==='text'){
 document.getElementById('pwdForm').innerHTML='<div style="max-height:60vh;overflow:auto;background:#f5f5f5;padding:16px;border-radius:8px;text-align:left;white-space:pre-wrap;font-size:14px;">'+d.content.replace(/</g,'&lt;')+'</div>';
-}else{window.location.href='/s/${code}?download=1&token='+encodeURIComponent(d.token||'');}
+}else{window.location.href='/s/${safeCode}?download=1&token='+encodeURIComponent(d.token||'');}
 }else{
 err.textContent=d.error||'密码错误';
 err.style.display='block';
@@ -416,6 +417,12 @@ btn.textContent='验证并访问';
   // GET /r/:code - 公开收集页面上传页面（无需认证）
   if (pathname.startsWith('/r/') && method === 'GET' && !pathname.includes('/upload')) {
     const code = pathname.slice(3);
+    // 验证 code 只含安全字符，防止 XSS
+    if (!/^[a-zA-Z0-9_-]+$/.test(code)) {
+      sendHtml(res, '<html><body style="font-family:sans-serif;text-align:center;padding:40px;"><h2>无效的收集链接</h2></body></html>', 400);
+      return true;
+    }
+    const safeCode = escapeHtml(code);
     const link = db.getRequestLink(code);
     if (!link) {
       sendHtml(res, '<html><body style="font-family:sans-serif;text-align:center;padding:40px;"><h2>收集链接不存在或已失效</h2></body></html>', 404);
@@ -479,7 +486,7 @@ input{background:#0f3460;border-color:#0f3460;color:#e0e0e0}
 <script>
 document.getElementById('f').onsubmit=function(e){
 e.preventDefault();
-fetch('/r/${code}/verify?pwd='+encodeURIComponent(document.getElementById('pwd').value))
+fetch('/r/${safeCode}/verify?pwd='+encodeURIComponent(document.getElementById('pwd').value))
 .then(r=>r.json())
 .then(d=>{if(d.success)location.reload();else{document.getElementById('e').style.display='block';document.getElementById('e').textContent=d.error||'密码错误';}});
 };
@@ -584,7 +591,7 @@ function upload(file){
         msg.scrollIntoView({behavior:'smooth'});
         setTimeout(()=>msg.innerHTML='',3000);
       } else {
-        msg.innerHTML='<div class="msg err">上传失败: '+(r.error||'未知错误')+'</div>';
+        msg.innerHTML='<div class="msg err">上传失败: '+(r.error||'未知错误').replace(/</g,'&lt;')+'</div>';
       }
     } else {
       msg.innerHTML='<div class="msg err">上传失败 (HTTP '+x.status+')</div>';
@@ -594,7 +601,7 @@ function upload(file){
     setTimeout(()=>pr.style.display='none',2000);
   };
   x.onerror=()=>{msg.innerHTML='<div class="msg err">网络错误</div>';pr.style.display='none'};
-  x.open('POST','/r/${code}/upload');
+  x.open('POST','/r/${safeCode}/upload');
   x.send(fd);
 }
 </script>
