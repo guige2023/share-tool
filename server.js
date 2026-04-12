@@ -330,6 +330,7 @@ function renderPage() {
   <meta name="apple-mobile-web-app-title" content="ShareTool">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#0f172a">
+  <link rel="manifest" href="/manifest.json">
   <title>ShareTool</title>
   <style>
     :root{
@@ -3656,6 +3657,15 @@ function renderPage() {
       });
       updateActiveFilterChips();
     };
+
+    // Service Worker registration (PWA offline support)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {
+          // SW registration failure is non-fatal
+        });
+      });
+    }
   </script>
 </body>
 </html>`;
