@@ -431,6 +431,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       'Content-Length': body.length
     });
     res.end(body);
+    db.addFileAccessLog(file.id, 'download', getClientIp(req));
     return true;
   }
 

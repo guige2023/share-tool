@@ -689,6 +689,52 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // POST /api/file-access-log - 记录文件访问日志
+  if (pathname === '/api/file-access-log' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    if (!body || !body.filename || !body.action) {
+      sendJson(res, { success: false, error: 'filename and action required' }, 400);
+      return true;
+    }
+    const file = db.getFileByName(body.filename);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    db.addFileAccessLog(file.id, body.action, getClientIp(req));
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // GET /api/file-access-log/:filename - 获取文件访问历史
+  if (pathname.startsWith('/api/file-access-log/') && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const filename = decodeURIComponent(pathname.slice('/api/file-access-log/'.length));
+    const file = db.getFileByName(filename);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    const limit = parseInt(query.get('limit') || '50', 10);
+    const rows = db.getFileAccessLog(file.id, limit);
+    sendJson(res, { success: true, logs: rows });
+    return true;
+  }
+
+  // GET /api/file-access-log/stats/most-accessed - 获取热门文件
+  if (pathname === '/api/file-access-log/stats/most-accessed' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const limit = parseInt(query.get('limit') || '20', 10);
+    const since = query.get('since');
+    const rows = db.getMostAccessedFiles(limit, since ? parseInt(since, 10) : null);
+    sendJson(res, { success: true, files: rows });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {

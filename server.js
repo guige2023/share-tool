@@ -3168,6 +3168,13 @@ function renderPage() {
         return;
       }
 
+      // 非阻塞记录文件访问日志（预览成功后才记录）
+      fetch('/api/file-access-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers() },
+        body: JSON.stringify({ filename, action: 'view' })
+      }).catch(function() {});
+
       // Detect language for syntax highlighting
       const ext = filename.split('.').pop().toLowerCase();
       const langMap = { js:'javascript', ts:'typescript', py:'python', rb:'ruby', go:'go', rs:'rust', java:'java', c:'c', cpp:'cpp', h:'c', cs:'csharp', php:'php', swift:'swift', kt:'kotlin', tsx:'typescript', jsx:'javascript', sh:'bash', bash:'bash', zsh:'bash', yaml:'yaml', yml:'yaml', xml:'xml', sql:'sql', md:'markdown', json:'json', css:'css', html:'html', htm:'html' };

@@ -2167,6 +2167,45 @@ function getAuditStats() {
 }
 
 // ============================================================
+// 文件访问日志
+// ============================================================
+function addFileAccessLog(fileId, action, ip = null) {
+  const db = getDb();
+  db.prepare('INSERT INTO file_access_log (file_id, action, ip) VALUES (?, ?, ?)').run(fileId, action, ip);
+}
+
+function getFileAccessLog(fileId, limit = 50) {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT fal.*, f.filename
+    FROM file_access_log fal
+    LEFT JOIN files f ON fal.file_id = f.id
+    WHERE fal.file_id = ?
+    ORDER BY fal.timestamp DESC
+    LIMIT ?
+  `).all(fileId, limit);
+  return rows;
+}
+
+function getMostAccessedFiles(limit = 20, since = null) {
+  const db = getDb();
+  const cond = since ? 'WHERE fal.timestamp >= ?' : '';
+  const params = since ? [since, limit] : [limit];
+  return db.prepare(`
+    SELECT fal.file_id, f.filename, COUNT(*) as access_count,
+           MAX(fal.timestamp) as last_access,
+           SUM(CASE WHEN fal.action = 'view' THEN 1 ELSE 0 END) as view_count,
+           SUM(CASE WHEN fal.action = 'download' THEN 1 ELSE 0 END) as download_count
+    FROM file_access_log fal
+    LEFT JOIN files f ON fal.file_id = f.id
+    ${cond}
+    GROUP BY fal.file_id
+    ORDER BY access_count DESC
+    LIMIT ?
+  `).all(...params);
+}
+
+// ============================================================
 // 速率限制（防暴力破解）
 // ============================================================
 // 策略：共享 token 限速（同一 IP/分享码组合）
@@ -3318,7 +3357,7 @@ module.exports = {
   // Token
   generateToken, validateToken, refreshToken, revokeToken, revokeAllTokens,
   // 审计
-  addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV,
+  addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV, addFileAccessLog, getFileAccessLog, getMostAccessedFiles,
   // 速率限制
   checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig, listRateLimits, deleteRateLimit,
   // 通知
