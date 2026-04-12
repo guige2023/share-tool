@@ -3,7 +3,7 @@
  */
 
 module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) {
-  const { db, sendJson, authRequired, VERSION, getClientIp } = ctx;
+  const { db, sendJson, authRequired, VERSION, getClientIp, SHARE_TOKEN } = ctx;
   const { method } = req;
 
   if (pathname === '/api/health' && method === 'GET') {
@@ -120,11 +120,50 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
 
   // ── Rate Limit Status ───────────────────────────────────────────────
   if (pathname === '/api/rate-limit/check' && method === 'GET') {
-    // Check rate limit for current IP (for share code password brute-force protection)
     const ip = getClientIp(req);
     const key = query.get('key') || `share_verify:${ip}:default`;
     const status = db.checkRateLimit(key);
     sendJson(res, { success: true, ...status });
+    return true;
+  }
+
+  // ── Auth: Login (exchange static token for dynamic db tokens) ──────
+  if (pathname === '/api/auth/login' && method === 'POST') {
+    const body = await readJsonBody(req);
+    const { password } = body || {};
+    if (password !== SHARE_TOKEN) {
+      sendJson(res, { success: false, error: 'Invalid credentials' }, 401);
+      return true;
+    }
+    const result = db.generateToken(null, 86400 * 7);
+    sendJson(res, {
+      success: true,
+      token: result.token,
+      refreshToken: result.refreshToken,
+      expiresAt: result.expiresAt
+    });
+    return true;
+  }
+
+  // ── Auth: Refresh token ─────────────────────────────────────────────
+  if (pathname === '/api/auth/refresh' && method === 'POST') {
+    const body = await readJsonBody(req);
+    const { refreshToken: rt } = body || {};
+    if (!rt) {
+      sendJson(res, { success: false, error: 'refreshToken required' }, 400);
+      return true;
+    }
+    const result = db.refreshToken(rt);
+    if (!result.success) {
+      sendJson(res, { success: false, error: result.error }, 401);
+      return true;
+    }
+    sendJson(res, {
+      success: true,
+      token: result.token,
+      refreshToken: result.refreshToken,
+      expiresAt: result.expiresAt
+    });
     return true;
   }
 
