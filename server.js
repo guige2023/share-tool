@@ -771,15 +771,15 @@ function renderPage() {
       body.innerHTML = shares.map(function (share) {
         const expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
         return '<tr>' +
-          '<td><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
-          '<td><a href="' + share.url + '" target="_blank">' + share.url + '</a></td>' +
-          '<td><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '"></td>' +
-          '<td>' +
+          '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
+          '<td data-label="链接"><a href="' + share.url + '" target="_blank">' + share.url + '</a></td>' +
+          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '"></td>' +
+          '<td data-label="信息">' +
             '<div>到期: ' + expireText + '</div>' +
             '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
             '<div>' + (share.hasPassword ? '有密码' : '无密码') + '</div>' +
           '</td>' +
-          '<td class="actions">' +
+          '<td class="actions-cell" data-label="操作">' +
             '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
             '<button class="danger" onclick=' + "'" + 'deleteShare(' + JSON.stringify(share.code) + ')' + "'" + '>删除</button>' +
           '</td>' +

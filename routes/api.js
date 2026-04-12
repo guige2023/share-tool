@@ -3,7 +3,7 @@
  */
 
 module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) {
-  const { db, sendJson, authRequired, VERSION } = ctx;
+  const { db, sendJson, authRequired, VERSION, getClientIp } = ctx;
   const { method } = req;
 
   if (pathname === '/api/health' && method === 'GET') {
@@ -31,5 +31,97 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Device Management ──────────────────────────────────────────────
+  if (pathname === '/api/devices' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const devices = db.listDevices();
+    sendJson(res, { success: true, devices });
+    return true;
+  }
+
+  if (pathname === '/api/devices/online' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const devices = db.getOnlineDevices();
+    sendJson(res, { success: true, devices });
+    return true;
+  }
+
+  if (pathname.startsWith('/api/devices/') && pathname.endsWith('/ping') && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const deviceId = pathname.slice('/api/devices/'.length, -'/ping'.length);
+    const { deviceName } = (await readJsonBody(req)) || {};
+    if (deviceName) {
+      db.touchDevice(deviceId);
+      db.setDeviceOnline(deviceId);
+    }
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  if (pathname.startsWith('/api/devices/') && pathname.endsWith('/offline') && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const deviceId = pathname.slice('/api/devices/'.length, -'/offline'.length);
+    db.setDeviceOffline(deviceId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // ── Sync Status ─────────────────────────────────────────────────────
+  if (pathname === '/api/sync/status' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const status = db.getSyncStatus();
+    sendJson(res, { success: true, ...status });
+    return true;
+  }
+
+  if (pathname === '/api/sync/logs' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const since = parseInt(query.get('since') || '0', 10);
+    const logs = db.getUnsyncedLogs(since);
+    sendJson(res, { success: true, logs });
+    return true;
+  }
+
+  // ── Audit Logs ──────────────────────────────────────────────────────
+  if (pathname === '/api/audit/logs' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const limit = Math.min(parseInt(query.get('limit') || '100', 10), 1000);
+    const offset = parseInt(query.get('offset') || '0', 10);
+    const action = query.get('action') || null;
+    const logs = db.listAuditLogs(limit, offset, action ? { action } : {});
+    const stats = db.getAuditStats();
+    sendJson(res, { success: true, logs, stats });
+    return true;
+  }
+
+  // ── Rate Limit Status ───────────────────────────────────────────────
+  if (pathname === '/api/rate-limit/check' && method === 'GET') {
+    // Check rate limit for current IP (for share code password brute-force protection)
+    const ip = getClientIp(req);
+    const key = query.get('key') || `share_verify:${ip}:default`;
+    const status = db.checkRateLimit(key);
+    sendJson(res, { success: true, ...status });
+    return true;
+  }
+
   return false;
 };
+
+function readJsonBody(req) {
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try { resolve(body ? JSON.parse(body) : {}); }
+      catch { resolve({}); }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
