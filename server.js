@@ -3698,7 +3698,7 @@ function renderPage() {
             const colorDot = colorPresets.map(function(c) {
               return '<span onclick="setTagColor(\'' + escapeHtmlClient(t.tag) + '\',\'' + c + '\')" style="display:inline-block;width:20px;height:20px;border-radius:50%;background:' + c + ';cursor:pointer;margin-right:4px;border:' + (t.color === c ? '2px solid var(--primary)' : '2px solid transparent') + ';box-sizing:border-box"></span>';
             }).join('');
-            html += '<div style="display:flex;align-items:center;padding:8px 4px;border-bottom:1px solid var(--border);gap:8px">';
+            html += '<div data-tag-item style="display:flex;align-items:center;padding:8px 4px;border-bottom:1px solid var(--border);gap:8px" data-tag="' + escapeHtmlClient(t.tag) + '">';
             html += '<input type="checkbox" id="mtag_' + escapeHtmlClient(t.tag) + '" onchange="toggleTagMergeSelect(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);flex-shrink:0">';
             html += '<div style="flex:1;min-width:0">';
             html += '<span style="font-size:14px" id="tagname_' + escapeHtmlClient(t.tag) + '">' + escapeHtmlClient(t.tag) + '</span>';
@@ -3716,6 +3716,14 @@ function renderPage() {
       } catch (e) {
         document.getElementById('tagManagerContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
       }
+    }
+
+    function filterTagList(query) {
+      const items = document.querySelectorAll('#tagManagerContent [data-tag-item]');
+      const q = query.toLowerCase().trim();
+      items.forEach(function(el) {
+        el.style.display = q ? (el.dataset.tag.toLowerCase().includes(q) ? '' : 'none') : '';
+      });
     }
 
     async function createNewTag() {
