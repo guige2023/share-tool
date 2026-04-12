@@ -152,7 +152,13 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
       if (method === 'POST') {
         const body = await new Promise((resolve, reject) => {
           let raw = '';
-          req.on('data', (chunk) => { raw += chunk; });
+          let size = 0;
+          const limit = 1024; // 1KB max for form body
+          req.on('data', (chunk) => {
+            size += chunk.length;
+            if (size > limit) { reject(new Error('Body too large')); return; }
+            raw += chunk;
+          });
           req.on('end', () => resolve(raw));
           req.on('error', reject);
         });

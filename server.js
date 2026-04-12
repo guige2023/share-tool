@@ -98,16 +98,34 @@ function sendHtml(res, html, status = 200) {
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (chunk) => { body += chunk; });
+    let size = 0;
+    const limit = maxUploadBytes;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limit) {
+        reject(new Error('Request body too large'));
+        return;
+      }
+      body += chunk;
+    });
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
 }
 
 async function readJsonBody(req) {
-  const body = await readBody(req);
+  let body;
+  try {
+    body = await readBody(req);
+  } catch (e) {
+    return { _error: e.message };
+  }
   if (!body) return {};
-  return JSON.parse(body);
+  try {
+    return JSON.parse(body);
+  } catch (e) {
+    return { _error: 'Invalid JSON' };
+  }
 }
 
 function getClientIp(req) {

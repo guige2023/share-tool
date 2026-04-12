@@ -91,8 +91,13 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
   if (pathname === '/api/sync/mark' && method === 'POST') {
     const auth = authRequired(req, res);
     if (!auth) return true;
-    let body = '';
-    req.on('data', d => body += d);
+    let body = '', size = 0;
+    const limit = 1024 * 1024; // 1MB max for sync mark payload
+    req.on('data', d => {
+      size += d.length;
+      if (size > limit) { req.destroy(); return; }
+      body += d;
+    });
     req.on('end', () => {
       try {
         const { ids = [] } = JSON.parse(body);
@@ -329,10 +334,10 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const suggestions = [];
 
     // 1. 匹配文件名
-    const files = db.listFiles({ limit: 200 });
-    const matchedFiles = files.filter(f => f.name.toLowerCase().includes(q)).slice(0, 5);
+    const filesResult = db.listFiles(200, 0);
+    const matchedFiles = (Array.isArray(filesResult) ? filesResult : (filesResult.files || [])).filter(f => (f.filename || '').toLowerCase().includes(q)).slice(0, 5);
     for (const f of matchedFiles) {
-      suggestions.push({ text: f.name, type: 'file' });
+      suggestions.push({ text: f.filename, type: 'file' });
     }
 
     // 2. 匹配标签
@@ -343,8 +348,8 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     }
 
     // 3. 匹配搜索历史
-    const history = db.getSearchHistory(null, 20);
-    const matchedHistory = history.filter(h => h.query.toLowerCase().includes(q)).slice(0, 3);
+    const history = db.getSearchHistory(20);
+    const matchedHistory = (Array.isArray(history) ? history : []).filter(h => (h.query || '').toLowerCase().includes(q)).slice(0, 3);
     for (const h of matchedHistory) {
       suggestions.push({ text: h.query, type: 'history' });
     }
@@ -357,8 +362,13 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
 };
 function readJsonBody(req) {
   return new Promise((resolve) => {
-    let body = '';
-    req.on('data', d => body += d);
+    let body = '', size = 0;
+    const limit = 1024 * 1024; // 1MB max for JSON body
+    req.on('data', d => {
+      size += d.length;
+      if (size > limit) { req.destroy(); resolve({}); return; }
+      body += d;
+    });
     req.on('end', () => {
       try { resolve(body ? JSON.parse(body) : {}); }
       catch { resolve({}); }
