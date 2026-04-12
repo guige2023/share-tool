@@ -304,8 +304,67 @@ function renderPage() {
       --danger:#b91c1c;
       --shadow:0 24px 60px rgba(15,23,42,.08);
     }
+    @media (prefers-color-scheme: dark) {
+      :root{
+        --bg:#0f172a;
+        --panel:#1e293b;
+        --line:#334155;
+        --text:#f1f5f9;
+        --muted:#94a3b8;
+        --accent:#2dd4bf;
+        --accent-weak:#134e4a;
+        --danger:#f87171;
+        --shadow:0 24px 60px rgba(0,0,0,.3);
+      }
+      body{background:var(--bg);color:var(--text)}
+      .hero{background:rgba(30,41,59,.86)}
+      input[type="text"],input[type="password"],input[type="number"],textarea{background:#0f172a;color:#f1f5f9;border-color:#334155}
+      pre{background:#0f172a!important;color:#e2e8f0!important}
+      .modal-card{background:#1e293b}
+      .panel{background:#1e293b;border-color:#334155}
+      .toast{background:#1e293b;color:#f1f5f9}
+      #toast{background:#1e293b;color:#f1f5f9}
+      .chip{color:#2dd4bf}
+      .tag-badge{color:#c7d2fe}
+      .fab{background:#0f766e}
+    }
+    [data-theme="dark"]{
+      --bg:#0f172a;
+      --panel:#1e293b;
+      --line:#334155;
+      --text:#f1f5f9;
+      --muted:#94a3b8;
+      --accent:#2dd4bf;
+      --accent-weak:#134e4a;
+      --danger:#f87171;
+      --shadow:0 24px 60px rgba(0,0,0,.3);
+    }
+    [data-theme="dark"] body{background:var(--bg);color:var(--text)}
+    [data-theme="dark"] .hero{background:rgba(30,41,59,.86)}
+    [data-theme="dark"] input[type="text"],
+    [data-theme="dark"] input[type="password"],
+    [data-theme="dark"] input[type="number"],
+    [data-theme="dark"] textarea{background:#0f172a;color:#f1f5f9;border-color:#334155}
+    [data-theme="dark"] pre{background:#0f172a!important;color:#e2e8f0!important}
+    [data-theme="dark"] .modal-card{background:#1e293b}
+    [data-theme="dark"] .panel{background:#1e293b;border-color:#334155}
+    [data-theme="dark"] #toast{background:#1e293b;color:#f1f5f9}
+    [data-theme="dark"] .chip{color:#2dd4bf}
+    [data-theme="dark"] .tag-badge{color:#c7d2fe}
+    [data-theme="dark"] .fab{background:#0f766e}
     *{box-sizing:border-box}
-    body{margin:0;background:radial-gradient(circle at top left,#effcf6 0,#f4f7fb 45%,#eef2ff 100%);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    [data-theme="dark"] body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    [data-theme="dark"] .hero{border-color:var(--line);background:rgba(30,41,59,.86)}
+    [data-theme="dark"] .modal-card pre{background:#0f172a!important;color:#e2e8f0!important}
+    [data-theme="dark"] button.secondary{background:#334155;color:#f1f5f9}
+    [data-theme="dark"] .tag-badge{color:#c7d2fe}
+    [data-theme="dark"] .progress-bar-wrap{background:#1e293b}
+    [data-theme="dark"] .shares img{background:#0f172a}
+    [data-theme="dark"] .shares .empty-state span{color:#94a3b8}
+    [data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="password"], [data-theme="dark"] input[type="number"], [data-theme="dark"] textarea{background:#0f172a;color:#f1f5f9;border-color:#334155}
+    [data-theme="dark"] button{background:#334155;color:#f1f5f9}
+    [data-theme="dark"] button.secondary{background:#334155}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     .wrap{max-width:1200px;margin:0 auto;padding:24px}
     .hero{display:grid;gap:18px;padding:28px;border:1px solid var(--line);border-radius:28px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);box-shadow:var(--shadow)}
     .hero h1{margin:0;font-size:34px}
@@ -444,9 +503,12 @@ function renderPage() {
   </div>
   <div class="wrap">
     <section class="hero">
-      <div>
-        <h1>ShareTool</h1>
-        <p>精简后的局域网分享工具，只保留局域网传文件、传文字、分享链接、搜索和下载能力。</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h1>ShareTool</h1>
+          <p>精简后的局域网分享工具，只保留局域网传文件、传文字、分享链接、搜索和下载能力。</p>
+        </div>
+        <button id="themeToggle" onclick="toggleTheme()" title="切换深色/浅色模式" style="background:none;border:1px solid var(--line);border-radius:12px;padding:8px 12px;cursor:pointer;font-size:18px;line-height:1">☾</button>
       </div>
       <div class="meta">
         <div class="chip">局域网地址 https://${escapeHtml(pageInfo.localIp)}:${pageInfo.port}</div>
@@ -632,7 +694,29 @@ function renderPage() {
     let _refreshing = false;
 
     // STATIC_TOKEN is the server-side SHARE_TOKEN, used only for initial login
-    const STATIC_TOKEN = ${JSON.stringify(SHARE_TOKEN)};
+    const STATIC_TOKEN=${JSON.stringify(pageInfo.staticToken || '')};
+
+    // Theme management
+    const STORAGE_KEY_THEME = 'st_theme';
+    function getPreferredTheme() {
+      const saved = localStorage.getItem(STORAGE_KEY_THEME);
+      if (saved) return saved;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    function applyTheme(theme) {
+      if (theme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+      localStorage.setItem(STORAGE_KEY_THEME, theme);
+    }
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    }
+    // Apply saved theme on load
+    applyTheme(getPreferredTheme());
 
     function getToken() {
       return _authToken || localStorage.getItem('st_auth_token') || STATIC_TOKEN;
