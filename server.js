@@ -3341,7 +3341,8 @@ function renderPage() {
 
     // Real-time file change notifications via SSE
     (function initSSE() {
-      var es = new EventSource('/api/events');
+      var token = localStorage.getItem('st_auth_token') || STATIC_TOKEN;
+      var es = new EventSource('/api/events?token=' + encodeURIComponent(token));
       es.addEventListener('files_changed', function (e) {
         loadFiles();
         showToast('文件已更新', 'info', 3000);

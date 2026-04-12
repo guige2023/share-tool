@@ -394,6 +394,11 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
 
   // ── Server-Sent Events: real-time file change notifications ──────────
   if (pathname === '/api/events' && method === 'GET') {
+    // Support token via query param (EventSource can't send headers)
+    const token = query && query.token;
+    if (token) {
+      req.headers['authorization'] = 'Bearer ' + token;
+    }
     const auth = authRequired(req, res);
     if (!auth) return true;
 
