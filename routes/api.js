@@ -3,8 +3,18 @@
  */
 
 module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) {
-  const { db, sendJson, authRequired, VERSION, getClientIp, SHARE_TOKEN, addAuditLog } = ctx;
+  const { db, sendJson, authRequired, VERSION, getClientIp, SHARE_TOKEN, addAuditLog, I18N, t } = ctx;
   const { method } = req;
+
+  // ── i18n: Get translations ────────────────────────────────────────
+  if (pathname === '/api/i18n' && method === 'GET') {
+    const lang = (query.get('lang') || 'zh').toLowerCase();
+    const supported = ['en', 'zh'];
+    const targetLang = supported.includes(lang) ? lang : 'zh';
+    const dict = I18N[targetLang] || I18N.zh;
+    sendJson(res, { success: true, lang: targetLang, dict });
+    return true;
+  }
 
   if (pathname === '/api/health' && method === 'GET') {
     const uptime = Math.floor(process.uptime());

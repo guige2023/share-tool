@@ -18,6 +18,73 @@ const { initWebSocketServer } = require('./routes/sync');
 
 const VERSION = require('./package.json').version;
 const PORT = parseInt(process.env.SHARE_TOOL_PORT || '18790', 10);
+
+// ── i18n: Internationalization ─────────────────────────────────────
+const I18N = {
+  en: {
+    // Navigation & Actions
+    files: 'Files', folders: 'Folders', upload: 'Upload', download: 'Download',
+    delete: 'Delete', rename: 'Rename', move: 'Move', copy: 'Copy', cancel: 'Cancel', confirm: 'Confirm',
+    selectAll: 'Select All', clearAll: 'Clear', search: 'Search', settings: 'Settings',
+    help: 'Help', about: 'About', save: 'Save', close: 'Close', edit: 'Edit', view: 'View',
+    // File ops
+    preview: 'Preview', share: 'Share', copyLink: 'Copy Link', copyPath: 'Copy Path',
+    addTag: 'Add Tag', removeTag: 'Remove Tag', addToVF: 'Add to Favorites', removeFromVF: 'Remove from Favorites',
+    restore: 'Restore', permanentDelete: 'Delete Forever', versions: 'Versions', compareVersions: 'Compare',
+    // Tags & Organization
+    tags: 'Tags', favorites: 'Favorites', virtualFolders: 'Virtual Folders', newFolder: 'New Folder',
+    tagManager: 'Tag Manager', mergeTags: 'Merge Tags', batchTag: 'Batch Tag',
+    // Sorting & View
+    sortBy: 'Sort by', name: 'Name', size: 'Size', updated: 'Updated', created: 'Created', type: 'Type',
+    gridView: 'Grid', listView: 'List', recentSearches: 'Recent Searches', clearSearchHistory: 'Clear History',
+    // Status
+    selected: 'selected', of: 'of', loading: 'Loading...', processing: 'Processing...', noFiles: 'No files yet',
+    uploadTip: 'Drop files here or click to upload', dragSortTip: 'Drag to reorder',
+    // Messages
+    deleted: 'Deleted', restored: 'Restored', saved: 'Saved', copied: 'Copied', moved: 'Moved',
+    confirmDelete: 'Confirm delete', confirmDeleteMsg: 'Are you sure you want to delete this file?',
+    confirmDeleteMulti: 'Delete selected files? This cannot be undone.',
+    // System
+    storage: 'Storage', usage: 'Usage', duplicateFiles: 'Duplicate Files', cleanupTrash: 'Empty Trash',
+    auditLog: 'Audit Log', exportData: 'Export', language: 'Language', theme: 'Theme',
+  },
+  zh: {
+    // Navigation & Actions
+    files: '文件', folders: '文件夹', upload: '上传', download: '下载',
+    delete: '删除', rename: '重命名', move: '移动', copy: '复制', cancel: '取消', confirm: '确认',
+    selectAll: '全选', clearAll: '清空', search: '搜索', settings: '设置',
+    help: '帮助', about: '关于', save: '保存', close: '关闭', edit: '编辑', view: '查看',
+    // File ops
+    preview: '预览', share: '分享', copyLink: '复制链接', copyPath: '复制路径',
+    addTag: '添加标签', removeTag: '移除标签', addToVF: '添加到收藏', removeFromVF: '从收藏移除',
+    restore: '恢复', permanentDelete: '永久删除', versions: '版本历史', compareVersions: '版本对比',
+    // Tags & Organization
+    tags: '标签', favorites: '收藏夹', virtualFolders: '虚拟文件夹', newFolder: '新建文件夹',
+    tagManager: '标签管理', mergeTags: '合并标签', batchTag: '批量标签',
+    // Sorting & View
+    sortBy: '排序', name: '名称', size: '大小', updated: '更新时间', created: '创建时间', type: '类型',
+    gridView: '网格', listView: '列表', recentSearches: '最近搜索', clearSearchHistory: '清除历史',
+    // Status
+    selected: '已选择', of: '/', loading: '加载中...', processing: '处理中...', noFiles: '暂无文件',
+    uploadTip: '拖拽文件到此处或点击上传', dragSortTip: '拖拽调整顺序',
+    // Messages
+    deleted: '已删除', restored: '已恢复', saved: '已保存', copied: '已复制', moved: '已移动',
+    confirmDelete: '确认删除', confirmDeleteMsg: '确定要删除此文件吗？',
+    confirmDeleteMulti: '删除所选文件？此操作不可撤销。',
+    // System
+    storage: '存储', usage: '使用量', duplicateFiles: '重复文件', cleanupTrash: '清空回收站',
+    auditLog: '审计日志', exportData: '导出数据', language: '语言', theme: '主题',
+  }
+};
+
+function t(lang, key, ...args) {
+  const dict = I18N[lang] || I18N.zh;
+  let text = dict[key] || I18N.zh[key] || key;
+  if (args.length > 0) {
+    text = text.replace(/\{(\d+)\}/g, (_, i) => args[parseInt(i)] ?? _);
+  }
+  return text;
+}
 const HTTPS_PORT = parseInt(process.env.SHARE_TOOL_HTTPS_PORT || '18793', 10);
 const CONFIG_DIR = path.join(os.homedir(), '.share-tool');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -667,6 +734,10 @@ function renderPage() {
           <option value="light">☀ 浅色</option>
           <option value="dark">☾ 深色</option>
         </select>
+        <select id="langSelect" onchange="setLanguage(this.value)" title="语言" style="background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;padding:6px 10px;cursor:pointer;font-size:13px;color:var(--text)">
+          <option value="zh">🇨🇳 中文</option>
+          <option value="en">🇺🇸 English</option>
+        </select>
       </div>
       <div class="meta">
         <div class="chip">局域网地址 https://${escapeHtml(pageInfo.localIp)}:${pageInfo.port}</div>
@@ -948,6 +1019,49 @@ function renderPage() {
     // Theme management
     const STORAGE_KEY_THEME = 'st_theme_mode'; // 'light' | 'dark' | 'system'
     const STORAGE_KEY_THEME_RESOLVED = 'st_theme'; // 'light' | 'dark' (resolved value)
+    const STORAGE_KEY_LANG = 'st_lang'; // 'zh' | 'en'
+
+    // Language / i18n management
+    var currentLang = 'zh';
+    var langDict = {};
+
+    async function setLanguage(lang) {
+      localStorage.setItem(STORAGE_KEY_LANG, lang);
+      currentLang = lang;
+      try {
+        const res = await fetch('/api/i18n?lang=' + lang);
+        const data = await res.json();
+        if (data.success) {
+          langDict = data.dict;
+          applyTranslations();
+        }
+      } catch (e) { /* ignore */ }
+      var langSelect = document.getElementById('langSelect');
+      if (langSelect) langSelect.value = lang;
+    }
+
+    function applyTranslations() {
+      document.querySelectorAll('[data-i18n]').forEach(function(el) {
+        var key = el.getAttribute('data-i18n');
+        if (langDict[key]) el.textContent = langDict[key];
+      });
+      document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+        var key = el.getAttribute('data-i18n-title');
+        if (langDict[key]) el.title = langDict[key];
+      });
+    }
+
+    async function initLanguage() {
+      var savedLang = localStorage.getItem(STORAGE_KEY_LANG) || 'zh';
+      currentLang = savedLang;
+      try {
+        const res = await fetch('/api/i18n?lang=' + savedLang);
+        const data = await res.json();
+        if (data.success) langDict = data.dict;
+      } catch (e) { /* ignore */ }
+      var langSelect = document.getElementById('langSelect');
+      if (langSelect) langSelect.value = savedLang;
+    }
 
     function getSystemTheme() {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -992,6 +1106,7 @@ function renderPage() {
 
     // Apply saved theme on load
     initTheme();
+    initLanguage();
 
     function getToken() {
       return _authToken || localStorage.getItem('st_auth_token') || STATIC_TOKEN;
@@ -4750,6 +4865,8 @@ async function requestHandler(req, res) {
     authRequired,
     getClientIp,
     escapeHtml,
+    I18N,
+    t,
     guessMimeType,
     decodeStoredFile,
     createShareLink,

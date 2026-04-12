@@ -243,6 +243,17 @@ function initSchemaV1(db) {
     )
   `);
 
+  // 文件访问日志表（记录每个文件的浏览/下载）
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS file_access_log (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      file_id    INTEGER NOT NULL,
+      action     TEXT    NOT NULL,
+      ip         TEXT,
+      timestamp  INTEGER NOT NULL DEFAULT (unixepoch())
+    )
+  `);
+
   // 速率限制表（防暴力破解）
   db.exec(`
     CREATE TABLE IF NOT EXISTS rate_limit (
@@ -347,6 +358,7 @@ function initSchemaV1(db) {
     CREATE INDEX IF NOT EXISTS idx_sync_log_synced ON sync_log(synced);
     CREATE INDEX IF NOT EXISTS idx_tokens_token ON tokens(token);
     CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_file_access_log_file_id ON file_access_log(file_id);
     CREATE INDEX IF NOT EXISTS idx_share_links_code ON share_links(code);
   `);
 
