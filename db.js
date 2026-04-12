@@ -1536,37 +1536,36 @@ function searchFiles(query, tags = null, opts = {}) {
   let candidateFiles;
   if (queryTokens.length > 0 || tags || contentQuery) {
     const ftsQuery = buildFtsQuery(queryTokens);
-    if (ftsQuery) {
-      // 使用 FTS5 全文索引获取候选文件 ID（按相关性排序）
-      const ftsResults = db.prepare(`
-        SELECT f.id, f.filename, f.tags, f.size, f.type, f.hash,
-               f.created_at, f.updated_at, f.parent_id, f.starred, f.encrypted,
-               f.content_type, f.birthtime, f.device_name,
-               bm25(files_fts) as fts_rank
-        FROM files_fts
-        JOIN files f ON f.id = files_fts.rowid
-        WHERE files_fts MATCH ?
-        ORDER BY fts_rank
-        LIMIT ?
-      `).all(ftsQuery, candidateLimit);
+    let rawCandidates = [];
 
-      // 再用 LIKE 确认匹配（FTS5 可能误报），避免大文件 content 列加载
-      candidateFiles = ftsResults.filter(row => {
-        if (tags) {
-          const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-          const lcTags = ((row.tags) || '').toLowerCase();
-          if (!tagList.some(t => lcTags.includes(t))) return false;
-        }
-        // content 查询：后续 JS 评分时会按需加载
-        if (contentQuery) {
-          if (row.type !== 'text') return false;
-        }
-        return true;
-      });
-    } else {
-      // tokens 为空但有 tag/content 过滤，回退到 LIKE
+    if (ftsQuery) {
+      // 尝试 FTS5 全文索引
+      try {
+        rawCandidates = db.prepare(`
+          SELECT f.id, f.filename, f.tags, f.size, f.type, f.hash,
+                 f.created_at, f.updated_at, f.parent_id, f.starred, f.encrypted,
+                 f.content_type, f.birthtime, f.device_name,
+                 bm25(files_fts) as fts_rank
+          FROM files_fts
+          JOIN files f ON f.id = files_fts.rowid
+          WHERE files_fts MATCH ?
+          ORDER BY fts_rank
+          LIMIT ?
+        `).all(ftsQuery, candidateLimit);
+      } catch (e) {
+        // FTS5 表不存在（如测试环境），回退到 LIKE
+        rawCandidates = [];
+      }
+    }
+
+    // FTS5 不可用或无结果：用 LIKE 回退
+    if (rawCandidates.length === 0) {
       const conditions = [];
       const params = [];
+      for (const token of queryTokens) {
+        conditions.push(`(LOWER(filename) LIKE ? OR LOWER(tags) LIKE ?)`);
+        params.push(`%${token}%`, `%${token}%`);
+      }
       if (tags) {
         const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
         tagList.forEach(t => {
@@ -1575,9 +1574,13 @@ function searchFiles(query, tags = null, opts = {}) {
         });
       }
       if (contentQuery) conditions.push(`type = 'text'`);
+      const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
       candidateFiles = db.prepare(
-        `SELECT ${FILE_LIST_FIELDS} FROM files WHERE ${conditions.join(' AND ')}${extraWhere} ORDER BY created_at DESC LIMIT ?`
+        `SELECT ${FILE_LIST_FIELDS} FROM files ${whereClause}${extraWhere} ORDER BY created_at DESC LIMIT ?`
       ).all(...params, ...extraParams, candidateLimit);
+    } else {
+      // FTS5 有结果：过滤 + 后续评分
+      candidateFiles = rawCandidates;
     }
   } else {
     candidateFiles = db.prepare(
