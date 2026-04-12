@@ -386,6 +386,13 @@ function renderPage() {
     [data-theme="dark"] .progress-bar-wrap{background:#1e293b}
     [data-theme="dark"] .shares img{background:#0f172a}
     [data-theme="dark"] .shares .empty-state span{color:#94a3b8}
+    [data-theme="dark"] .list-scroll::-webkit-scrollbar{background:#1e293b}
+    [data-theme="dark"] .list-scroll::-webkit-scrollbar-thumb{background:#475569;border-radius:4px}
+    [data-theme="dark"] .empty{color:#475569}
+    [data-theme="dark"] #ctxMenu{background:#1e293b;border-color:#334155;color:#f1f5f9}
+    [data-theme="dark"] .ctx-item:hover{background:#334155}
+    [data-theme="dark"] .view-toggle button.active{background:var(--primary);color:#fff}
+    [data-theme="dark"] .view-toggle button{background:#334155;color:#f1f5f9}
     [data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="password"], [data-theme="dark"] input[type="number"], [data-theme="dark"] textarea{background:#0f172a;color:#f1f5f9;border-color:#334155}
     [data-theme="dark"] button{background:#334155;color:#f1f5f9}
     [data-theme="dark"] button.secondary{background:#334155}
@@ -425,6 +432,7 @@ function renderPage() {
     .suggestion-item{padding:9px 14px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;transition:background .1s}
     .suggestion-item:hover{background:var(--bg-secondary)}
     .suggestion-item mark{background:#fef08a;color:inherit;padding:0 2px;border-radius:2px}
+    [data-theme="dark"] .suggestion-item mark{background:#854d0e;color:#fef08a}
     .suggestion-type{font-size:11px;color:var(--muted);flex-shrink:0;margin-left:10px}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px 8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:14px}
@@ -441,10 +449,10 @@ function renderPage() {
     .empty{padding:30px 10px;color:var(--muted);text-align:center}
     .modal{position:fixed;inset:0;background:rgba(15,23,42,.58);display:none;align-items:center;justify-content:center;padding:20px}
     .modal.open{display:flex}
-    .modal-card{width:min(900px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:24px;padding:20px;border:1px solid var(--line)}
+    .modal-card{width:min(900px,96vw);max-height:88vh;overflow:auto;background:var(--panel);border-radius:24px;padding:20px;border:1px solid var(--line)}
     .modal-card pre{white-space:pre-wrap;word-break:break-word;background:#0f172a;color:#e2e8f0;padding:18px;border-radius:16px;overflow:auto}
     .modal-card img{max-width:100%;border-radius:16px}
-    .shares img{width:84px;height:84px;border:1px solid var(--line);border-radius:12px;background:#fff}
+    .shares img{width:84px;height:84px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
     @media (max-width: 960px){
       .grid{grid-template-columns:1fr}
       .toolbar{flex-wrap:wrap}
@@ -1470,7 +1478,7 @@ function renderPage() {
       var tagHtml = tags
         ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
             var tc = tagColorMap[t.trim()] || '#e0e7ff';
-            return '<span class="tag-badge" style="background:' + tc + ';color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block">' + escapeHtmlClient(t.trim()) + '</span>';
+            return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
       return '<tr data-index="' + file._index + '">' +
@@ -1494,7 +1502,7 @@ function renderPage() {
       var tagHtml = tags
         ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
             var tc = tagColorMap[t.trim()] || '#e0e7ff';
-            return '<span class="tag-badge" style="background:' + tc + ';color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block">' + escapeHtmlClient(t.trim()) + '</span>';
+            return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
 
