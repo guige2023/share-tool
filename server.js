@@ -336,6 +336,8 @@ function renderPage() {
     .toolbar input{flex:1 1 260px}
     .batch-bar{display:flex;gap:8px;align-items:center;padding:10px 14px;background:var(--bg-secondary);border-radius:12px;margin-bottom:12px;font-size:13px}
     .batch-bar button{min-height:36px;padding:6px 12px;font-size:13px;border-radius:8px;flex-shrink:0}
+    .recent-search-tag{display:inline-block;padding:4px 12px;background:var(--accent-weak);color:var(--accent);border-radius:999px;font-size:12px;margin-right:6px;cursor:pointer}
+    .recent-search-tag:hover{opacity:.8}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px 8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:14px}
     .sort-arrow{font-size:10px;color:var(--muted);margin-left:2px}
@@ -461,6 +463,7 @@ function renderPage() {
         <button class="secondary" onclick="openTagManager()">标签管理</button>
         <button class="danger" onclick="deleteAllFiles()">删除全部</button>
       </div>
+      <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
       <div id="batchBar" class="batch-bar" style="display:none">
         <span id="batchCount" style="font-size:13px;color:var(--muted)"></span>
         <button class="ghost" onclick="openBatchTagModal()">添加标签</button>
@@ -917,7 +920,54 @@ function renderPage() {
     }
 
     async function searchFiles() {
+      const q = document.getElementById('searchInput').value.trim();
+      if (q) {
+        saveRecentSearch(q);
+        renderRecentSearches();
+      }
       await loadFiles();
+    }
+
+    var RECENT_SEARCHES_KEY = 'sharetool_recent_searches';
+    var MAX_RECENT_SEARCHES = 8;
+
+    function getRecentSearches() {
+      try {
+        return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+      } catch (e) { return []; }
+    }
+
+    function saveRecentSearch(query) {
+      var q = query.trim();
+      if (!q) return;
+      var searches = getRecentSearches().filter(function (s) { return s !== q; });
+      searches.unshift(q);
+      if (searches.length > MAX_RECENT_SEARCHES) searches = searches.slice(0, MAX_RECENT_SEARCHES);
+      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches));
+    }
+
+    function renderRecentSearches() {
+      var searches = getRecentSearches();
+      var container = document.getElementById('recentSearches');
+      if (!container) return;
+      if (!searches.length) {
+        container.style.display = 'none';
+        return;
+      }
+      container.style.display = 'block';
+      container.innerHTML = searches.map(function (s) {
+        return '<span class="recent-search-tag" onclick="applyRecentSearch(' + JSON.stringify(s) + ')">' + escapeHtmlClient(s) + '</span>';
+      }).join('') + '<span class="recent-search-tag" style="color:var(--muted)" onclick="clearRecentSearches()">✕清除</span>';
+    }
+
+    function applyRecentSearch(query) {
+      document.getElementById('searchInput').value = query;
+      searchFiles();
+    }
+
+    function clearRecentSearches() {
+      localStorage.removeItem(RECENT_SEARCHES_KEY);
+      renderRecentSearches();
     }
 
     async function previewFile(filename) {
@@ -1399,6 +1449,8 @@ function renderPage() {
     }
 
     setupDragDrop();
+    loadFiles();
+    renderRecentSearches();
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function (e) {
