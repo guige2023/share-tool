@@ -1011,13 +1011,13 @@ function moveToTrash(filename) {
   const existing = getFileByName(filename);
   if (!existing) return false;
   // 软删除：写入 trash 表，30天后自动清理
-  db.prepare(`
+  const result = db.prepare(`
     INSERT INTO trash (file_id, filename, content, size, type, hash, tags, deleted_at, expires_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch() + 2592000)
   `).run(existing.id, existing.filename, existing.content, existing.size, existing.type, existing.hash, existing.tags || '');
   addSyncLog(existing.id, filename, 'delete', existing.hash, null, existing.size);
   db.prepare('DELETE FROM files WHERE filename = ?').run(filename);
-  return true;
+  return result.lastInsertRowid;
 }
 
 function deleteFileByName(filename) {

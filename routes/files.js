@@ -336,13 +336,14 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     if (!auth) return true;
 
     const filename = decodeURIComponent(pathname.slice('/api/files/'.length));
-    if (!db.deleteFileByName(filename)) {
+    const trashId = db.deleteFileByName(filename);
+    if (!trashId) {
       sendJson(res, { success: false, error: 'File not found' }, 404);
       return true;
     }
 
     db.addAuditLog('delete', filename, getClientIp(req), auth.token);
-    sendJson(res, { success: true });
+    sendJson(res, { success: true, trash_id: trashId });
     global.broadcastSSE({ type: 'files_changed' });
     return true;
   }

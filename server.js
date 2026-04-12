@@ -1132,12 +1132,45 @@ function renderPage() {
       if (fileBar) fileBar.style.width = '0%';
     }
 
-    function showToast(message, type = '') {
+    // 删除撤销状态
+    var lastDeletedTrashId = null;
+    var undoDeleteTimer = null;
+
+    function showToast(message, type = '', undoCallback = null) {
       const el = document.getElementById('toast');
-      el.textContent = message;
+      if (undoCallback) {
+        el.innerHTML = '<span style="margin-right:12px">' + message + '</span><button onclick="event.stopPropagation();undoLastDelete()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer">撤销</button>';
+      } else {
+        el.textContent = message;
+      }
       el.className = 'show' + (type ? ' ' + type : '');
       clearTimeout(el._timer);
-      el._timer = setTimeout(() => { el.className = ''; }, 3000);
+      el._timer = setTimeout(() => {
+        el.className = '';
+        if (undoCallback) {
+          clearTimeout(undoDeleteTimer);
+          lastDeletedTrashId = null;
+        }
+      }, 5000);
+    }
+
+    async function undoLastDelete() {
+      if (!lastDeletedTrashId) return;
+      const idToRestore = lastDeletedTrashId;
+      clearTimeout(undoDeleteTimer);
+      lastDeletedTrashId = null;
+      try {
+        await fetch('/api/trash/restore', {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ trashId: idToRestore })
+        });
+        showToast('已恢复', 'success');
+        await loadFiles();
+        await loadShares();
+      } catch (e) {
+        showToast('恢复失败: ' + e.message, 'error');
+      }
     }
 
     function formatBytes(bytes) {
@@ -2846,9 +2879,21 @@ function renderPage() {
 
     async function deleteFile(filename) {
       if (!confirm('删除 ' + filename + ' ?')) return;
-      await request('/api/files/' + encodeURIComponent(filename), { method: 'DELETE' });
-      await loadFiles();
-      await loadShares();
+      try {
+        const res = await request('/api/files/' + encodeURIComponent(filename), { method: 'DELETE' });
+        // 保存被删除文件的 trashId 以便撤销
+        if (res && res.trash_id) {
+          lastDeletedTrashId = res.trash_id;
+          undoDeleteTimer = setTimeout(() => { lastDeletedTrashId = null; }, 5500);
+          showToast('已删除', '', true);
+        } else {
+          showToast('已删除', 'success');
+        }
+        await loadFiles();
+        await loadShares();
+      } catch (error) {
+        showToast(error.message, 'error');
+      }
     }
 
     async function deleteAllFiles() {
