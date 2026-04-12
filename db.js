@@ -1423,6 +1423,22 @@ function deleteAllFiles() {
 }
 
 /**
+ * 从 tokens 构建 FTS5 MATCH 查询字符串
+ * 英文 token 用前缀匹配（token*），中文 token 用精确匹配
+ */
+function buildFtsQuery(tokens) {
+  if (!tokens || tokens.length === 0) return null;
+  // FTS5: terms joined with OR, single-char use exact phrase, longer use prefix
+  const parts = tokens.map(t => {
+    if (t.length >= 2) {
+      return t + '*';  // FTS5 prefix match
+    }
+    return '"' + t + '"';  // exact phrase
+  });
+  return parts.join(' OR ');
+}
+
+/**
  * 智能分词 - 分离中英文混合查询词
  * 中文按字符切分，英文按空格/特殊字符切分
  */
@@ -1500,35 +1516,56 @@ function searchFiles(query, tags = null, opts = {}) {
       .all(...tagParams, ...extraParams, limit);
   }
 
-  // 有查询词：先用 SQLite LIKE 过滤候选集（避免全表扫描）
-  // 对每个 token 构建 OR 条件，减少内存中处理的文件数
+  // 有查询词：先用 FTS5 全文索引过滤候选集（避免全表扫描）
+  // FTS5 MATCH 查询：英文前缀匹配（token*），中文精确匹配（"字"）
+  // tags/content 仍用 LIKE 辅助过滤
   const candidateLimit = 500;
   let candidateFiles;
   if (queryTokens.length > 0 || tags || contentQuery) {
-    // 构建 OR 条件：任一 token 匹配即入选（宽泛初筛）
-    const conditions = [];
-    const params = [];
-    if (queryTokens.length > 0) {
-      queryTokens.forEach(token => {
-        conditions.push(`LOWER(filename) LIKE ?`, `LOWER(tags) LIKE ?`);
-        params.push(`%${token}%`, `%${token}%`);
+    const ftsQuery = buildFtsQuery(queryTokens);
+    if (ftsQuery) {
+      // 使用 FTS5 全文索引获取候选文件 ID（按相关性排序）
+      const ftsResults = db.prepare(`
+        SELECT f.id, f.filename, f.tags, f.size, f.type, f.hash,
+               f.created_at, f.updated_at, f.parent_id, f.starred, f.encrypted,
+               f.content_type, f.birthtime, f.device_name,
+               bm25(files_fts) as fts_rank
+        FROM files_fts
+        JOIN files f ON f.id = files_fts.rowid
+        WHERE files_fts MATCH ?
+        ORDER BY fts_rank
+        LIMIT ?
+      `).all(ftsQuery, candidateLimit);
+
+      // 再用 LIKE 确认匹配（FTS5 可能误报），避免大文件 content 列加载
+      candidateFiles = ftsResults.filter(row => {
+        if (tags) {
+          const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+          const lcTags = ((row.tags) || '').toLowerCase();
+          if (!tagList.some(t => lcTags.includes(t))) return false;
+        }
+        // content 查询：后续 JS 评分时会按需加载
+        if (contentQuery) {
+          if (row.type !== 'text') return false;
+        }
+        return true;
       });
+    } else {
+      // tokens 为空但有 tag/content 过滤，回退到 LIKE
+      const conditions = [];
+      const params = [];
+      if (tags) {
+        const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+        tagList.forEach(t => {
+          conditions.push(`LOWER(tags) LIKE ?`);
+          params.push(`%${t}%`);
+        });
+      }
+      if (contentQuery) conditions.push(`type = 'text'`);
+      candidateFiles = db.prepare(
+        `SELECT ${FILE_LIST_FIELDS} FROM files WHERE ${conditions.join(' AND ')}${extraWhere} ORDER BY created_at DESC LIMIT ?`
+      ).all(...params, ...extraParams, candidateLimit);
     }
-    if (tags) {
-      const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-      tagList.forEach(t => {
-        conditions.push(`LOWER(tags) LIKE ?`);
-        params.push(`%${t}%`);
-      });
-    }
-    if (contentQuery) {
-      conditions.push(`type = 'text'`);
-    }
-    // content 查询：使用不含 content 的字段，避免大文件内容撑爆内存
-    // 仅在需要评分时按 id 单独获取 content
-    candidateFiles = db.prepare(
-      `SELECT ${FILE_LIST_FIELDS} FROM files WHERE ${conditions.join(' OR ')}${extraWhere} ORDER BY created_at DESC LIMIT ?`
-    ).all(...params, candidateLimit);
   } else {
     candidateFiles = db.prepare(
       `SELECT ${FILE_LIST_FIELDS} FROM files${extraWhere} LIMIT ?`

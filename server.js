@@ -686,6 +686,7 @@ function renderPage() {
         </select>
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
+        <button id="advancedSearchBtn" class="ghost" onclick="toggleAdvancedSearch()">高级 ⌄</button>
         <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
         <button class="secondary" onclick="openTagManager()">标签管理</button>
         <button class="danger" onclick="deleteAllFiles()">删除全部</button>
@@ -696,6 +697,52 @@ function renderPage() {
         </div>
       </div>
       <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
+      <div id="advancedSearchPanel" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px;gap:12px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">文件大小</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="sizeMin" type="number" placeholder="最小 KB" min="0" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px">
+              <span style="color:var(--muted)">-</span>
+              <input id="sizeMax" type="number" placeholder="最大 KB" min="0" style="width:80px;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px">
+              <span style="font-size:11px;color:var(--muted)">KB</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">日期范围</label>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input id="dateFrom" type="date" style="padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px">
+              <span style="color:var(--muted)">-</span>
+              <input id="dateTo" type="date" style="padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px">
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">文件类型</label>
+            <select id="typeFilter" style="padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px;min-width:100px">
+              <option value="">全部类型</option>
+              <option value="image">图片</option>
+              <option value="video">视频</option>
+              <option value="audio">音频</option>
+              <option value="text">文本</option>
+              <option value="pdf">PDF</option>
+              <option value="doc">文档</option>
+              <option value="archive">压缩包</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <label style="font-size:11px;color:var(--muted)">标签匹配</label>
+            <select id="tagMatchFilter" style="padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px;min-width:100px">
+              <option value="all">包含全部</option>
+              <option value="any">包含任一</option>
+            </select>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:flex-end">
+            <button onclick="doAdvancedSearch()" class="secondary" style="font-size:12px;padding:5px 12px">应用筛选</button>
+            <button onclick="clearAdvancedSearch()" class="ghost" style="font-size:12px;padding:5px 10px">清除</button>
+          </div>
+        </div>
+        <div id="activeFilters" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
       <div id="searchSuggestions" style="position:relative;z-index:100;display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)"></div>
       <div id="batchBar" class="batch-bar" style="display:none">
         <span id="batchCount" style="font-size:13px;color:var(--muted)"></span>
