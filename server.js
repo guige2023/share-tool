@@ -3654,6 +3654,11 @@ function renderPage() {
           ['?', '显示/隐藏快捷键'],
           ['r', '刷新文件列表'],
           ['f', '聚焦搜索框'],
+          ['n', '新建文本文件'],
+          ['Enter', '打开/预览文件'],
+          ['d', '删除选中文件'],
+          ['c', '复制分享链接'],
+          ['s', '切换排序方向'],
           ['Ctrl+A', '全选文件'],
           ['Ctrl+Enter', '上传/保存'],
           ['Esc', '关闭弹窗/取消选择'],
@@ -3703,6 +3708,78 @@ function renderPage() {
         e.preventDefault();
         document.querySelectorAll('.file-check').forEach(function(el) { el.checked = true; });
         updateBatchBar();
+      }
+      // Enter: open/preview selected file (or first keyboard-navigated file)
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        var items = getAllFileItems();
+        var targetItem = null;
+        if (keyboardNavIndex >= 0 && items[keyboardNavIndex]) {
+          targetItem = items[keyboardNavIndex];
+        } else {
+          var checked = document.querySelectorAll('.file-check:checked');
+          if (checked.length === 1) {
+            targetItem = checked[0].closest('tr') || checked[0].closest('.file-item');
+          }
+        }
+        if (targetItem) {
+          var fn = targetItem.getAttribute('data-filename') || targetItem.querySelector('.filename') && targetItem.querySelector('.filename').textContent;
+          if (fn) { previewFile(fn.trim()); }
+        }
+        return;
+      }
+      // n: new text file
+      if (e.key === 'n' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        document.getElementById('newFileDialog').style.display = 'block';
+        var nfi = document.getElementById('newFileInput');
+        if (nfi) { nfi.focus(); nfi.select(); }
+        return;
+      }
+      // d: delete selected files (with confirmation)
+      if (e.key === 'd' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        var checked = document.querySelectorAll('.file-check:checked');
+        if (checked.length === 0 && keyboardNavIndex >= 0) {
+          var items = getAllFileItems();
+          var item = items[keyboardNavIndex];
+          if (item) {
+            var fn3 = item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent;
+            if (fn3) { deleteFile(fn3.trim()); }
+          }
+        } else if (checked.length > 0) {
+          deleteSelected();
+        }
+        return;
+      }
+      // c: copy share link of selected file
+      if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        if (keyboardNavIndex >= 0) {
+          var items = getAllFileItems();
+          var item = items[keyboardNavIndex];
+          if (item) {
+            var fn4 = item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent;
+            if (fn4) { copyShareLink(fn4.trim()); }
+          }
+        }
+        return;
+      }
+      // s: toggle safe area / toggle sidebar
+      if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        // Toggle sort direction
+        var currentOrder = localStorage.getItem('st_sort_order') || 'desc';
+        var newOrder = currentOrder === 'desc' ? 'asc' : 'desc';
+        localStorage.setItem('st_sort_order', newOrder);
+        loadFiles();
+        showToast('排序: ' + (newOrder === 'desc' ? '最新优先' : '最旧优先'), 'info', 1500);
+        return;
       }
       // Escape: close modal, or clear selection if no modal open
       if (e.key === 'Escape') {
