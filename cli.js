@@ -58,7 +58,9 @@ function connectSyncWs() {
     const wsUrl = createWsUrl();
     const token = getToken();
     
-    wsClient = new WebSocket(`${wsUrl}?token=${encodeURIComponent(token)}`);
+    wsClient = new WebSocket(`${wsUrl}?token=${encodeURIComponent(token)}`, {
+      rejectUnauthorized: false  // Allow self-signed HTTPS certs
+    });
     
     wsClient.on('open', () => {
       // Register this device

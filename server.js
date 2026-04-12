@@ -400,10 +400,23 @@ function renderPage() {
     .tag-badge{background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500}
     .tag-edit-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;padding:2px 4px;border-radius:4px;transition:color .2s,background .2s}
     .tag-edit-btn:hover{color:var(--primary);background:rgba(99,102,241,.1)}
+    /* Context menu */
+    .ctx-item{padding:10px 16px;cursor:pointer;transition:background .15s}
+    .ctx-item:hover{background:var(--bg-tertiary)}
+    .ctx-sep{height:1px;background:var(--border);margin:4px 0}
   </style>
 </head>
 <body>
   <div id="toast"></div>
+  <div id="ctxMenu" style="display:none;position:fixed;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:10000;min-width:160px;overflow:hidden;font-size:14px">
+    <div class="ctx-item" onclick="ctxAction('open')">👁 查看</div>
+    <div class="ctx-item" onclick="ctxAction('download')">⬇ 下载</div>
+    <div class="ctx-item" onclick="ctxAction('share')">🔗 分享</div>
+    <div class="ctx-item" onclick="ctxAction('copyLink')">📋 复制链接</div>
+    <div class="ctx-sep"></div>
+    <div class="ctx-item" onclick="ctxAction('rename')">✎ 重命名</div>
+    <div class="ctx-item" onclick="ctxAction('delete')" style="color:var(--danger)">🗑 删除</div>
+  </div>
   <div class="wrap">
     <section class="hero">
       <div>
@@ -929,6 +942,62 @@ function renderPage() {
       await loadFiles();
     }
 
+    // --- Context Menu ---
+    var ctxTarget = null;
+
+    document.addEventListener('contextmenu', function(e) {
+      // Only show for file rows
+      var row = e.target.closest('tr');
+      if (!row) return;
+      var checkbox = row.querySelector('.file-check');
+      if (!checkbox) return;
+      e.preventDefault();
+      ctxTarget = checkbox.value;
+      var menu = document.getElementById('ctxMenu');
+      var x = Math.min(e.clientX, window.innerWidth - 170);
+      var y = Math.min(e.clientY, window.innerHeight - 220);
+      menu.style.left = x + 'px';
+      menu.style.top = y + 'px';
+      menu.style.display = 'block';
+    });
+
+    document.addEventListener('click', function(e) {
+      var menu = document.getElementById('ctxMenu');
+      if (!menu.contains(e.target)) menu.style.display = 'none';
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') document.getElementById('ctxMenu').style.display = 'none';
+    });
+
+    async function ctxAction(action) {
+      document.getElementById('ctxMenu').style.display = 'none';
+      if (!ctxTarget) return;
+      var filename = decodeURIComponent(ctxTarget);
+      switch (action) {
+        case 'open': previewFile(filename); break;
+        case 'download': downloadFile(filename); break;
+        case 'share': createShare(filename); break;
+        case 'copyLink': await copyShareLink(filename); break;
+        case 'rename': renameFile(filename); break;
+        case 'delete': if (confirm('确认删除 ' + filename + '？')) deleteFile(filename); break;
+      }
+    }
+
+    async function copyShareLink(filename) {
+      const data = await request('/api/share/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename, expiryHours: 168, password: '' })
+      });
+      if (!data || !data.success || !data.share || !data.share.url) {
+        showToast('复制链接失败', 'error');
+        return;
+      }
+      await copyToClipboard(data.share.url);
+      showToast('分享链接已复制', 'success');
+    }
+
     var recentSearchesCache = [];
     var MAX_RECENT_SEARCHES = 8;
 
@@ -1339,6 +1408,10 @@ function renderPage() {
           password: password
         })
       });
+      if (!data || !data.success || !data.share || !data.share.url) {
+        showToast('创建分享链接失败', 'error');
+        return;
+      }
       await copyToClipboard(data.share.url);
       showToast('分享链接已复制', 'success');
       await loadShares();
