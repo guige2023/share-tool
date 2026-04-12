@@ -607,6 +607,8 @@ function renderPage() {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme:dark)">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
   <div id="toast"></div>
@@ -2112,6 +2114,54 @@ function renderPage() {
         modalBody.innerHTML = '<img alt="" src="data:' + file.mime + ';base64,' + file.content + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px">';
       } else if (file.mime === 'application/pdf') {
         modalBody.innerHTML = '<iframe src="data:application/pdf;base64,' + file.content + '" style="width:100%;height:70vh;border:none;border-radius:8px" title="PDF预览"></iframe>';
+      } else if (file.mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        modalBody.innerHTML = '<div id="docxPreview" style="max-height:70vh;overflow:auto;padding:16px;background:#fff;color:#222;border-radius:8px"><div style="text-align:center;color:var(--text-muted);padding:40px">正在加载文档...</div></div>';
+        try {
+          const binaryStr = atob(file.content);
+          const data = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) data[i] = binaryStr.charCodeAt(i);
+          Mammoth.convertToHtml({ arrayBuffer: data.buffer }).then(result => {
+            document.getElementById('docxPreview').innerHTML = result.value;
+          }).catch(() => {
+            document.getElementById('docxPreview').innerHTML = '<p class="muted">文档预览失败，请下载查看。</p>';
+          });
+        } catch () {
+          document.getElementById('docxPreview').innerHTML = '<p class="muted">文档预览失败，请下载查看。</p>';
+        }
+        return;
+      } else if (file.mime === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+        modalBody.innerHTML = '<div id="pptxPreview" style="max-height:70vh;overflow:auto;padding:16px;background:#fff;color:#222;border-radius:8px"><div style="text-align:center;color:var(--text-muted);padding:40px">正在加载演示文稿...</div></div>';
+        try {
+          const binaryStr = atob(file.content);
+          const data = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) data[i] = binaryStr.charCodeAt(i);
+          Mammoth.convertToHtml({ arrayBuffer: data.buffer }).then(result => {
+            const html = result.value || '<p class="muted">无法提取演示文稿内容。</p>';
+            document.getElementById('pptxPreview').innerHTML = html;
+          }).catch(() => {
+            document.getElementById('pptxPreview').innerHTML = '<p class="muted">演示文稿预览失败，请下载查看。</p>';
+          });
+        } catch () {
+          document.getElementById('pptxPreview').innerHTML = '<p class="muted">演示文稿预览失败，请下载查看。</p>';
+        }
+        return;
+      } else if (file.mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+        modalBody.innerHTML = '<div id="xlsxPreview" style="max-height:70vh;overflow:auto;padding:0;background:#fff;border-radius:8px"><div style="text-align:center;color:var(--text-muted);padding:40px">正在加载表格...</div></div>';
+        try {
+          const binaryStr = atob(file.content);
+          const data = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) data[i] = binaryStr.charCodeAt(i);
+          const wb = XLSX.read(data, { type: 'array' });
+          const firstSheet = wb.Sheets[wb.SheetNames[0]];
+          const html = XLSX.utils.sheet_to_html(firstSheet, { editable: false });
+          document.getElementById('xlsxPreview').innerHTML = '<div style="overflow:auto;max-height:70vh">' + html + '</div>';
+          const style = document.createElement('style');
+          style.textContent = '#xlsxPreview table{border-collapse:collapse;width:100%;font-size:13px}#xlsxPreview td,#xlsxPreview th{border:1px solid #d0d0d0;padding:6px 10px;white-space:nowrap}#xlsxPreview th{background:#f5f5f5;font-weight:600}#xlsxPreview tr:hover{background:#f0f0f0}';
+          document.getElementById('xlsxPreview').appendChild(style);
+        } catch () {
+          document.getElementById('xlsxPreview').innerHTML = '<p class="muted">表格预览失败，请下载查看。</p>';
+        }
+        return;
       } else if ((file.mime || '').startsWith('video/')) {
         modalBody.innerHTML = '<video controls style="width:100%;max-height:70vh;border-radius:8px;background:#000"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持视频预览</video>';
       } else if ((file.mime || '').startsWith('audio/')) {
