@@ -1120,7 +1120,43 @@ function renderPage() {
         const tags = data.tags || [];
         const colorPresets = ['#e0e7ff','#fce7f3','#dcfce7','#fef9c3','#ffedd5','#f3e8ff','#ecfeff','#ffe4e6','#f0fdf4'];
 
-        let html = '<div style="margin-bottom:12px">';
+        // Tag statistics
+        const totalTags = tags.length;
+        const totalTaggedFiles = tags.reduce(function (s, t) { return s + (t.count || 0); }, 0);
+        const topTag = tags.length > 0 ? tags[0] : null;
+        const maxCount = tags.length > 0 ? tags[0].count : 0;
+
+        let statsHtml = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">';
+        statsHtml += '<div style="background:var(--bg-secondary);padding:12px;border-radius:10px;text-align:center">';
+        statsHtml += '<div style="font-size:22px;font-weight:700;color:var(--primary)">' + totalTags + '</div>';
+        statsHtml += '<div style="font-size:11px;color:var(--muted);margin-top:2px">标签总数</div></div>';
+        statsHtml += '<div style="background:var(--bg-secondary);padding:12px;border-radius:10px;text-align:center">';
+        statsHtml += '<div style="font-size:22px;font-weight:700;color:var(--accent)">' + totalTaggedFiles + '</div>';
+        statsHtml += '<div style="font-size:11px;color:var(--muted);margin-top:2px">已标记文件</div></div>';
+        statsHtml += '<div style="background:var(--bg-secondary);padding:12px;border-radius:10px;text-align:center">';
+        statsHtml += '<div style="font-size:22px;font-weight:700;color:var(--warning)">' + (topTag ? escapeHtmlClient(topTag.tag) : '--') + '</div>';
+        statsHtml += '<div style="font-size:11px;color:var(--muted);margin-top:2px">最常用标签</div></div>';
+        statsHtml += '</div>';
+
+        // Tag distribution bars (top 8)
+        if (tags.length > 0) {
+          statsHtml += '<div style="margin-bottom:16px">';
+          statsHtml += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">标签分布</div>';
+          tags.slice(0, 8).forEach(function (t) {
+            const pct = maxCount > 0 ? Math.round((t.count / maxCount) * 100) : 0;
+            const barColor = t.color || '#e0e7ff';
+            statsHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+            statsHtml += '<span style="font-size:12px;min-width:60px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(t.tag) + '</span>';
+            statsHtml += '<div style="flex:1;height:8px;background:var(--bg-secondary);border-radius:999px;overflow:hidden">';
+            statsHtml += '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:999px"></div>';
+            statsHtml += '</div>';
+            statsHtml += '<span style="font-size:11px;color:var(--muted);min-width:28px;text-align:right">' + t.count + '</span>';
+            statsHtml += '</div>';
+          });
+          statsHtml += '</div>';
+        }
+
+        let html = statsHtml + '<div style="margin-bottom:12px">';
         html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
         html += '<input id="newTagInput" type="text" placeholder="新标签名称" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:14px">';
         html += '<button class="primary" onclick="createNewTag()" style="padding:8px 16px">添加</button>';
