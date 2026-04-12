@@ -3664,8 +3664,14 @@ function renderPage() {
         }
 
         let html = statsHtml + '<div style="margin-bottom:12px">';
+        // Tag search within manager
+        if (tags.length > 5) {
+          html += '<div style="margin-bottom:12px">';
+          html += '<input id="tagSearchInput" type="text" placeholder="搜索标签…" oninput="filterTagList(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:14px;box-sizing:border-box;margin-bottom:8px">';
+          html += '</div>';
+        }
         html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
-        html += '<input id="newTagInput" type="text" placeholder="新标签名称" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:14px">';
+        html += '<input id="newTagInput" type="text" placeholder="新标签名称" inputmode="text" autocomplete="off" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:16px">';
         html += '<button class="primary" onclick="createNewTag()" style="padding:8px 16px">添加</button>';
         html += '</div>';
 
@@ -3908,13 +3914,12 @@ function renderPage() {
     }
 
     async function openDashboard() {
-      var loadingHtml = '<div style="display:flex;justify-content:center;align-items:center;height:120px;color:var(--muted)">加载中...</div>';
-      var dashContentId = 'dashboard_' + Date.now();
-      var dashEl = document.createElement('div');
-      dashEl.id = dashContentId;
-      dashEl.style.cssText = 'max-height:70vh;overflow:auto;padding:4px 0';
-      dashEl.innerHTML = loadingHtml;
-      var modal = createModal('\uD83D\uDCC8 \u5B58\u50A8\u5206\u6790', dashEl.outerHTML, { wide: true, onClose: null });
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '\uD83D\uDCC8 \u5B58\u50A8\u5206\u6790';
+      body.innerHTML = '<div id="dashboardContent" style="max-height:70vh;overflow:auto;padding:4px 0"><div style="display:flex;justify-content:center;align-items:center;height:120px;color:var(--muted)">\u52A0\u8F7D\u4E2D...</div></div>';
+      modal.classList.add('show');
       try {
         var res = await fetch('/api/dashboard', { headers: headers() });
         var data = await res.json();
@@ -3946,7 +3951,6 @@ function renderPage() {
         }
         html += '</div>';
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">';
-        // Type distribution
         html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
         html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">\uD83D\uDCC1 \u6587\u4EF6\u7C7B\u578B\u5206\u5E03</div>';
         if (byType && byType.length) {
@@ -3968,7 +3972,6 @@ function renderPage() {
           html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
         }
         html += '</div>';
-        // Extension list
         html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
         html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">\uD83D\uDD24 \u5E38\u89C1\u540E\u7F00 TOP 10</div>';
         if (byExt && byExt.length) {
@@ -3986,7 +3989,6 @@ function renderPage() {
           html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
         }
         html += '</div></div>';
-        // 7-day chart
         html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:20px">';
         html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">\uD83D\uDCC8 \u8FD17\u5929\u6587\u4EF6\u6D3B\u52A8</div>';
         if (activity.dailyNew && activity.dailyNew.length) {
@@ -4005,7 +4007,6 @@ function renderPage() {
           html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
         }
         html += '</div>';
-        // System stats
         html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';
         var sysItems = [
           { label: '\u6587\u672C\u6587\u4EF6', value: files.text },
@@ -4026,10 +4027,10 @@ function renderPage() {
           html += '<span style="font-weight:600;color:var(--text)">' + escapeHtmlClient('' + s.value) + '</span></div>';
         }
         html += '</div>';
-        var targetEl = document.getElementById(dashContentId);
+        var targetEl = document.getElementById('dashboardContent');
         if (targetEl) targetEl.innerHTML = html;
       } catch (e) {
-        var errEl = document.getElementById(dashContentId);
+        var errEl = document.getElementById('dashboardContent');
         if (errEl) errEl.innerHTML = '<div style="color:var(--error);padding:12px">\u52A0\u8F7D\u5931\u8D25: ' + escapeHtmlClient(e.message) + '</div>';
       }
     }
