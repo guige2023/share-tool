@@ -670,6 +670,15 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/duplicates - 查找重复文件（按 hash 分组）
+  if (pathname === '/api/duplicates' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const duplicates = db.findDuplicates();
+    sendJson(res, { success: true, duplicates });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {
