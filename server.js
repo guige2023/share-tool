@@ -2109,7 +2109,40 @@ function renderPage() {
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(function() {});
+
+      // Listen for SW sync events
+      navigator.serviceWorker.addEventListener('message', function (event) {
+        var data = event.data || {};
+        if (data.type === 'UPLOAD_SYNC_STARTED') {
+          showToast('\u4E0A\u4F20\u961F\u5217\u540C\u6B65\u4E2D\u2026 (' + data.count + ')', 'info', 4000);
+        }
+        if (data.type === 'UPLOAD_SYNC_COMPLETE') {
+          if (data.failed === 0) {
+            showToast('\u4E0A\u4F20\u961F\u5217\u5DF2\u5168\u90E8\u5B8C\u6210 (' + data.success + ')', 'success');
+          } else {
+            showToast('\u4E0A\u4F20\u961F\u5217\u5B8C\u6210 ' + data.success + '\uFF0C\u5931\u8D25 ' + data.failed, 'warn', 6000);
+          }
+          if (typeof loadFiles === 'function') loadFiles();
+        }
+      });
     }
+
+    // Queue upload when offline
+    window.queueUpload = function(endpoint, body, headers) {
+      if (!navigator.serviceWorker.controller) return false;
+      var mc = new MessageChannel();
+      navigator.serviceWorker.controller.postMessage(
+        { type: 'QUEUE_UPLOAD', payload: { endpoint: endpoint, body: body, headers: headers } },
+        [mc.port2]
+      );
+      return true;
+    };
+
+    // Trigger SW sync
+    window.syncUploads = function() {
+      if (!navigator.serviceWorker.controller) return;
+      navigator.serviceWorker.controller.postMessage({ type: 'SYNC_UPLOADS' });
+    };
   </script>
 </body>
 </html>`;
