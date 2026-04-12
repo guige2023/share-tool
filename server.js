@@ -486,6 +486,44 @@ function renderPage() {
         <div id="shareEmpty" class="empty" style="display:none">还没有创建分享链接</div>
       </div>
     </section>
+
+    <section class="panel" style="margin-top:18px">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h2>操作日志</h2>
+        <button class="ghost" onclick="toggleAudit()" id="auditToggleBtn">展开</button>
+      </div>
+      <div id="auditSection" style="display:none">
+        <div class="toolbar" style="margin:12px 0">
+          <select id="auditActionFilter" style="padding:10px 12px;border-radius:14px;border:1px solid var(--line)">
+            <option value="">全部操作</option>
+            <option value="upload">上传</option>
+            <option value="delete">删除</option>
+            <option value="share_create">分享创建</option>
+            <option value="share_access">分享访问</option>
+            <option value="share_delete">分享删除</option>
+            <option value="rename">重命名</option>
+            <option value="batch_download">批量下载</option>
+            <option value="delete_all">删除全部</option>
+          </select>
+          <button class="secondary" onclick="loadAuditLogs()">刷新</button>
+        </div>
+        <div class="list-scroll" style="max-height:400px">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:180px">时间</th>
+                <th style="width:100px">操作</th>
+                <th>详情</th>
+                <th style="width:120px">IP</th>
+              </tr>
+            </thead>
+            <tbody id="auditTable"></tbody>
+          </table>
+          <div id="auditEmpty" class="empty" style="display:none">暂无日志</div>
+        </div>
+        <div id="auditStats" style="margin-top:12px;font-size:13px;color:var(--muted)"></div>
+      </div>
+    </section>
   </div>
 
   <div id="modal" class="modal" onclick="closeModal(event)">
@@ -778,6 +816,56 @@ function renderPage() {
       } catch (e) {
         showToast('下载失败: ' + e.message, 'error');
       }
+    }
+
+    var auditVisible = false;
+
+    function toggleAudit() {
+      auditVisible = !auditVisible;
+      var section = document.getElementById('auditSection');
+      var btn = document.getElementById('auditToggleBtn');
+      if (auditVisible) {
+        section.style.display = 'block';
+        btn.textContent = '收起';
+        loadAuditLogs();
+      } else {
+        section.style.display = 'none';
+        btn.textContent = '展开';
+      }
+    }
+
+    async function loadAuditLogs() {
+      var action = document.getElementById('auditActionFilter').value;
+      var url = '/api/audit/logs?limit=100' + (action ? '&action=' + encodeURIComponent(action) : '');
+      var data = await request(url);
+      var logs = data.logs || [];
+      var stats = data.stats || {};
+      var body = document.getElementById('auditTable');
+      var empty = document.getElementById('auditEmpty');
+      if (!logs.length) {
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      body.innerHTML = logs.map(function (log) {
+        var actionLabel = {
+          upload: '上传', delete: '删除', share_create: '分享创建',
+          share_access: '分享访问', share_delete: '分享删除',
+          rename: '重命名', batch_download: '批量下载',
+          delete_all: '删除全部', text_update: '文字更新',
+          delete_old: '清理旧文件'
+        }[log.action] || log.action;
+        return '<tr>' +
+          '<td data-label="时间">' + formatTime(log.created_at * 1000) + '</td>' +
+          '<td data-label="操作"><span style="font-weight:600">' + actionLabel + '</span></td>' +
+          '<td data-label="详情" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+            escapeHtmlClient(String(log.detail || '')) + '</td>' +
+          '<td data-label="IP" style="color:var(--muted);font-size:12px">' + escapeHtmlClient(log.ip || '') + '</td>' +
+        '</tr>';
+      }).join('');
+      var statsEl = document.getElementById('auditStats');
+      statsEl.textContent = '共 ' + stats.total + ' 条记录';
     }
 
     async function copyToClipboard(text) {
