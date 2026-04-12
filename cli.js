@@ -92,20 +92,34 @@ function connectSyncWs() {
     });
 
     // Resolve after registration ack
-    wsClient.once('message', (data) => {
+    // Use 'on' instead of 'once' because broadcastDeviceList sends device_list
+    // to this client before register_ack, which would prematurely satisfy 'once'
+    let resolved = false;
+    wsClient.on('message', function handler(data) {
       try {
         const msg = JSON.parse(data.toString());
-        if (msg.type === 'register_ack' && msg.success) {
-          resolve(msg);
-        } else {
-          reject(new Error('WS registration failed'));
+        if (msg.type === 'register_ack') {
+          if (resolved) return;
+          resolved = true;
+          wsClient.removeListener('message', handler);
+          if (msg.success) {
+            resolve(msg);
+          } else {
+            reject(new Error('WS registration failed'));
+          }
         }
+        // All other messages (device_list, etc.) handled by handleWsMessage below
       } catch (e) {
-        reject(e);
+        // ignore non-JSON messages
       }
     });
 
-    setTimeout(() => reject(new Error('WS connect timeout')), 10000);
+    setTimeout(() => {
+      if (!resolved) {
+        wsClient.removeListener('message', handler);
+        reject(new Error('WS connect timeout'));
+      }
+    }, 10000);
   });
 }
 
@@ -141,6 +155,7 @@ async function syncPush(changes) {
       try {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'sync_ack') {
+          clearTimeout(pushTimeout);
           wsClient.removeListener('message', replyHandler);
           resolve(msg);
         }
@@ -148,8 +163,8 @@ async function syncPush(changes) {
     };
     wsClient.on('message', replyHandler);
     wsClient.send(JSON.stringify({ type: 'sync_push', payload: { changes } }));
-    setTimeout(() => {
-      wsClient.removeListener('message', replyHandler);
+    const pushTimeout = setTimeout(() => {
+      if (wsClient) wsClient.removeListener('message', replyHandler);
       reject(new Error('sync_push timeout'));
     }, 10000);
   });
@@ -164,6 +179,7 @@ async function syncPull() {
       try {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'sync_response') {
+          clearTimeout(syncTimeout);
           wsClient.removeListener('message', replyHandler);
           // Mark received logs as synced via REST API
           if (msg.payload && msg.payload.logs && msg.payload.logs.length > 0) {
@@ -182,8 +198,8 @@ async function syncPull() {
     };
     wsClient.on('message', replyHandler);
     wsClient.send(JSON.stringify({ type: 'sync_request', payload: { since: lastSyncTs } }));
-    setTimeout(() => {
-      wsClient.removeListener('message', replyHandler);
+    const syncTimeout = setTimeout(() => {
+      if (wsClient) wsClient.removeListener('message', replyHandler);
       reject(new Error('sync_request timeout'));
     }, 10000);
   });
@@ -262,6 +278,10 @@ async function buildManifestFromServer() {
 // Apply incoming change to local manifest and download file
 async function applyRemoteChange(log, onEvent) {
   const { action, filename, content, hash } = log;
+  if (!filename) {
+    onEvent(`Skipped: ${action} — no filename in log`);
+    return;
+  }
   switch (action) {
     case 'create':
     case 'update': {
