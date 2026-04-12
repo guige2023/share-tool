@@ -633,6 +633,7 @@ async function main() {
     console.log('  list [-l]      List all files (-l: long format)');
     console.log('  upload <file>  Upload a single file');
     console.log('  upload-dir <dir>  Upload all files in a directory');
+    console.log('  batch-upload <file1> [file2] ... [--dir <dir>]  Batch upload multiple files or all files in a directory');
     console.log('  download <name> [-o dir]  Download a file');
     console.log('  delete <name>  Delete a file');
     console.log('  copy <src> <dest>  Copy a file to a new name');
@@ -765,6 +766,74 @@ async function main() {
           process.exit(1);
         }
         printJson(res.data);
+        break;
+      }
+
+      case 'batch-upload': {
+        const files = args.slice(1).filter(a => !a.startsWith('-'));
+        const dirFlag = args.includes('--dir');
+        if (files.length === 0) {
+          printError('Usage: share-tool batch-upload <file1> [file2] ... or share-tool batch-upload <directory> --dir');
+          process.exit(1);
+        }
+        let toUpload = [];
+        if (dirFlag && files.length === 1) {
+          // Upload all files from a directory (non-recursive)
+          const dirPath = files[0];
+          if (!fs.existsSync(dirPath)) {
+            printError(`Directory not found: ${dirPath}`);
+            process.exit(1);
+          }
+          const entries = fs.readdirSync(dirPath);
+          for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry);
+            const stat = fs.statSync(fullPath);
+            if (stat.isFile()) toUpload.push(fullPath);
+          }
+        } else {
+          toUpload = files;
+        }
+        if (toUpload.length === 0) {
+          console.log('No files to upload.');
+          process.exit(0);
+        }
+        let success = 0, failed = 0;
+        const totalSize = toUpload.reduce((acc, f) => acc + (fs.statSync(f).size || 0), 0);
+        let uploadedBytes = 0;
+        const startTime = Date.now();
+        const bar = (pct) => {
+          const W = 20;
+          const filled = Math.round((pct / 100) * W);
+          return '█'.repeat(filled) + '░'.repeat(W - filled);
+        };
+        console.log(`📦 Batch upload: ${toUpload.length} files (${fmtSize(totalSize)} total)`);
+        for (let i = 0; i < toUpload.length; i++) {
+          const filePath = toUpload[i];
+          const fileName = path.basename(filePath);
+          const fileSize = fs.statSync(filePath).size;
+          process.stdout.write(`\n[${i + 1}/${toUpload.length}] ${fileName} (${fmtSize(fileSize)})...\n`);
+          try {
+            const res = await uploadFile(filePath);
+            if (res.status >= 400) {
+              console.log(`  ❌ Failed: ${res.data?.error || res.status}`);
+              failed++;
+            } else {
+              console.log(`  ✅ Done`);
+              success++;
+            }
+            uploadedBytes += fileSize;
+          } catch (e) {
+            console.log(`  ❌ Error: ${e.message}`);
+            failed++;
+          }
+          const elapsed = (Date.now() - startTime) / 1000;
+          const overallPct = totalSize > 0 ? Math.round((uploadedBytes / totalSize) * 100) : 0;
+          const speed = elapsed > 0 ? fmtSize(Math.round(uploadedBytes / elapsed)) + '/s' : '';
+          process.stdout.write(`  ▌ Overall: [${bar(overallPct)}] ${overallPct}%  ${fmtSize(uploadedBytes)}/${fmtSize(totalSize)}  ${speed}  \n`);
+        }
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`\n📊 Summary: ${success} ✅  ${failed} ❌  (${elapsed}s)`);
+        process.exit(failed > 0 ? 1 : 0);
         break;
       }
 
