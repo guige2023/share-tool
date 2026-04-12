@@ -1278,15 +1278,19 @@ function renderPage() {
     function batchDeleteSelected() {
       const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
-      if (!confirm('确定删除 ' + names.length + ' 个文件？此操作不可恢复。')) return;
-      Promise.all(names.map(function (name) {
-        return fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE', headers: headers() });
-      })).then(function () {
-        showToast('已删除 ' + names.length + ' 个文件', 'success');
-        clearSelection();
-        loadFiles();
-        document.getElementById('viewListBtn').classList.toggle('active', currentView === 'list');
-        document.getElementById('viewGridBtn').classList.toggle('active', currentView === 'grid');
+      if (!confirm('确定删除 ' + names.length + ' 个文件？文件将移入回收站。')) return;
+      fetch('/api/files/batch-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers() },
+        body: JSON.stringify({ filenames: names })
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data.success) {
+          showToast('已删除 ' + data.deleted + ' 个文件', 'success');
+          clearSelection();
+          loadFiles();
+        } else {
+          showToast(data.error || '删除失败', 'error');
+        }
       }).catch(function () { showToast('删除失败', 'error'); });
     }
 
@@ -2083,61 +2087,65 @@ function renderPage() {
     }
 
     var draggedIndex = null;
+    var dragDropInitialized = false;
 
     function setupFileDragDrop() {
+      if (dragDropInitialized) return; // Only set up once via delegation
+      dragDropInitialized = true;
       var container = document.getElementById('fileTableBody');
       if (!container) return;
-      container.querySelectorAll('tr[data-index]').forEach(function(row) {
-        row.addEventListener('dragstart', function(e) {
-          draggedIndex = parseInt(row.dataset.index, 10);
-          row.classList.add('dragging');
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', draggedIndex);
-        });
-        row.addEventListener('dragend', function() {
-          row.classList.remove('dragging');
-          container.querySelectorAll('tr').forEach(function(r) { r.classList.remove('drag-over'); });
-          draggedIndex = null;
-        });
-        row.addEventListener('dragover', function(e) {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          if (!row.classList.contains('dragging')) {
-            row.classList.add('drag-over');
-          }
-        });
-        row.addEventListener('dragleave', function(e) {
-          if (!row.contains(e.relatedTarget)) {
-            row.classList.remove('drag-over');
-          }
-        });
-        row.addEventListener('drop', async function(e) {
-          e.preventDefault();
+      container.addEventListener('dragstart', function(e) {
+        var row = e.target.closest('tr[data-index]');
+        if (!row) return;
+        draggedIndex = parseInt(row.dataset.index, 10);
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', draggedIndex);
+      });
+      container.addEventListener('dragend', function(e) {
+        var row = e.target.closest('tr[data-index]');
+        if (row) row.classList.remove('dragging');
+        container.querySelectorAll('tr').forEach(function(r) { r.classList.remove('drag-over'); });
+        draggedIndex = null;
+      });
+      container.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        var row = e.target.closest('tr[data-index]');
+        if (row && !row.classList.contains('dragging')) {
+          row.classList.add('drag-over');
+        }
+      });
+      container.addEventListener('dragleave', function(e) {
+        var row = e.target.closest('tr[data-index]');
+        if (row && !row.contains(e.relatedTarget)) {
           row.classList.remove('drag-over');
-          var targetIndex = parseInt(row.dataset.index, 10);
-          if (draggedIndex === null || draggedIndex === targetIndex) return;
-          // Reorder: move dragged item to target position
-          var reordered = Array.from(currentFiles);
-          var [moved] = reordered.splice(draggedIndex, 1);
-          reordered.splice(targetIndex, 0, moved);
-          // Assign sequential positions
-          var positions = reordered.map(function(f, i) {
-            return { id: f.id, position: i };
-          });
-          try {
-            await fetch('/api/file-positions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ positions })
-            });
-            // Reload with position sort
-            currentSort = 'position';
-            currentOrder = 'asc';
-            loadFiles();
-          } catch (err) {
-            showToast('排序保存失败', 'error');
-          }
+        }
+      });
+      container.addEventListener('drop', async function(e) {
+        e.preventDefault();
+        var row = e.target.closest('tr[data-index]');
+        if (row) row.classList.remove('drag-over');
+        if (!row) return;
+        var targetIndex = parseInt(row.dataset.index, 10);
+        if (draggedIndex === null || draggedIndex === targetIndex) return;
+        var reordered = Array.from(currentFiles);
+        var [moved] = reordered.splice(draggedIndex, 1);
+        reordered.splice(targetIndex, 0, moved);
+        var positions = reordered.map(function(f, i) {
+          return { id: f.id, position: i };
         });
+        try {
+          await fetch('/api/file-positions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ positions })
+          });
+          currentSort = 'position';
+          currentOrder = 'asc';
+          loadFiles();
+        } catch (err) {
+          showToast('排序保存失败', 'error');
+        }
       });
     }
 
@@ -2153,6 +2161,7 @@ function renderPage() {
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()"></td>' +
         '<td data-label="文件"><strong>' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
+        '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
         '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
         '<td data-label="更新时间">' + formatTime(file.updatedAt || file.createdAt) + '</td>' +
         '<td class="actions-cell" data-label="操作">' +
@@ -3833,6 +3842,12 @@ function renderPage() {
     var currentSort = localStorage.getItem('sortBy') || 'updated_at';
     var currentOrder = localStorage.getItem('sortOrder') || 'desc';
     var currentTypeFilter = localStorage.getItem('typeFilter') || '';
+
+    // Initialize sort arrows on page load
+    ['filename', 'size', 'updated_at', 'position'].forEach(function(c) {
+      var arrow = document.getElementById('arrow-' + c);
+      if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
+    });
 
     // Type filter chips
     function setTypeFilter(type) {

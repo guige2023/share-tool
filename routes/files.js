@@ -490,5 +490,44 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // POST /api/files/batch-delete - 批量删除（进回收站）
+  if (pathname === '/api/files/batch-delete' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    try {
+      const body = await readJsonBody(req);
+      if (!body || !Array.isArray(body.filenames)) {
+        sendJson(res, { success: false, error: 'filenames array required' }, 400);
+        return true;
+      }
+      if (body.filenames.length === 0) {
+        sendJson(res, { success: false, error: 'filenames 不能为空' }, 400);
+        return true;
+      }
+      if (body.filenames.length > 500) {
+        sendJson(res, { success: false, error: '一次最多删除 500 个文件' }, 400);
+        return true;
+      }
+
+      const result = db.deleteFiles(body.filenames);
+      if (result.deleted > 0) {
+        db.addAuditLog('batch_delete', `${result.deleted} 个文件移入回收站`, getClientIp(req), auth.token);
+        // 广播变更给其他设备
+        global.broadcastSSE({ type: 'batch_delete', filenames: body.filenames });
+      }
+
+      sendJson(res, {
+        success: true,
+        deleted: result.deleted,
+        failed: result.failed,
+        errors: result.errors.length > 0 ? result.errors : undefined
+      });
+    } catch (error) {
+      sendJson(res, { success: false, error: error.message }, 400);
+    }
+    return true;
+  }
+
   return false;
 };

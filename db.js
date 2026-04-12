@@ -1041,6 +1041,51 @@ function permanentlyDeleteFile(filename) {
   return true;
 }
 
+// 批量删除文件（进回收站）
+function deleteFiles(filenames) {
+  const db = getDb();
+  if (!Array.isArray(filenames) || filenames.length === 0) return { deleted: 0, failed: 0, errors: [] };
+  const errors = [];
+  let deleted = 0;
+  const now = Math.floor(Date.now() / 1000);
+  const expireAt = now + 2592000; // 30天
+
+  // 单事务批量处理
+  const transaction = db.transaction(() => {
+    for (const filename of filenames) {
+      try {
+        const existing = getFileByName(filename);
+        if (!existing) {
+          errors.push({ filename, error: '文件不存在' });
+          continue;
+        }
+        // 软删除：写入 trash 表
+        db.prepare(`
+          INSERT INTO trash (file_id, filename, content, size, type, hash, tags, deleted_at, expires_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(existing.id, existing.filename, existing.content, existing.size, existing.type, existing.hash, existing.tags || '', now, expireAt);
+        // 写 sync_log
+        addSyncLog(existing.id, filename, 'delete', existing.hash, null, existing.size);
+        // 从 files 表删除
+        db.prepare('DELETE FROM files WHERE filename = ?').run(filename);
+        // 更新标签统计
+        updateTagStats(existing.tags, null);
+        deleted++;
+      } catch (e) {
+        errors.push({ filename, error: e.message });
+      }
+    }
+  });
+
+  try {
+    transaction();
+  } catch (e) {
+    errors.push({ error: e.message });
+  }
+
+  return { deleted, failed: filenames.length - deleted, errors };
+}
+
 function listTrash(limit = 100) {
   const db = getDb();
   return db.prepare('SELECT * FROM trash ORDER BY deleted_at DESC LIMIT ?').all(limit);
@@ -3235,7 +3280,7 @@ module.exports = {
   hashPassword, verifyPassword,
   // 文件
   addFile, getFile, getFileByName, toggleStar, listFiles, updateFile, updateFileByName,
-  deleteFile, deleteFileByName, renameFile, batchRenameFiles, parseRenamePattern, deleteOldFiles, deleteAllFiles,
+  deleteFile, deleteFileByName, deleteFiles, renameFile, batchRenameFiles, parseRenamePattern, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
   setFilePositions,
   searchFiles, searchFilesFTS, getFilesByHashSince, getFileCount, getTotalStorageSize, getFolderSize, getAllFolderSizes, findDuplicates,
