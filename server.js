@@ -3064,7 +3064,8 @@ function renderPage() {
         const origSize = file.previewOriginalSize;
         renderTextPreview(filename, content, origSize, isTruncated, lang, ext);
       } else if ((file.mime || '').startsWith('image/')) {
-        modalBody.innerHTML = '<img alt="" src="data:' + file.mime + ';base64,' + file.content + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px">';
+        var imgSrc = 'data:' + file.mime + ';base64,' + file.content;
+        modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\')"><img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大</div>';
       } else if (file.mime === 'application/pdf') {
         modalBody.innerHTML = '<iframe src="data:application/pdf;base64,' + file.content + '" style="width:100%;height:70vh;border:none;border-radius:8px" title="PDF预览"></iframe>';
       } else if (file.mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
@@ -3633,6 +3634,53 @@ function renderPage() {
     }
 
     var selectedTrashItems = new Set();
+
+    async function openDuplicates() {
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
+      title.textContent = '重复文件';
+      body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">扫描中...</div>';
+      modal.classList.add('open');
+
+      try {
+        const res = await fetch('/api/duplicates', { headers: headers() });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        const dupes = data.duplicates || [];
+        if (dupes.length === 0) {
+          body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">没有发现重复文件 ✓</div>';
+          return;
+        }
+
+        let html = '<div style="margin-bottom:12px;color:var(--muted);font-size:13px">发现 ' + dupes.length + ' 组重复文件（' + dupes.reduce(function(s, g) { return s + g.count; }, 0) + ' 个文件）</div>';
+        html += '<div style="max-height:60vh;overflow-y:auto">';
+
+        dupes.forEach(function(group, gi) {
+          html += '<div style="margin-bottom:16px;padding:12px;background:var(--bg-secondary);border-radius:10px">';
+          html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Hash: <code style="font-size:11px">' + escapeHtmlClient(group.hash || 'N/A') + '</code> · ' + group.count + ' 个副本</div>';
+          group.files.forEach(function(f) {
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">';
+            html += '<input type="checkbox" class="dupe-check" value="' + escapeHtmlClient(f.filename) + '" style="flex-shrink:0">';
+            html += '<span style="flex:1;word-break:break-all;font-size:13px">' + escapeHtmlClient(f.filename) + '</span>';
+            html += '<button class="ghost" style="padding:4px 10px;font-size:12px;flex-shrink:0" onclick="previewFile(' + JSON.stringify(f.filename) + ')">预览</button>';
+            html += '<button class="danger" style="padding:4px 10px;font-size:12px;flex-shrink:0" onclick="deleteDupe(\'' + escapeHtmlClient(f.filename).replace(/'/g, "\\'") + '\')">删除</button>';
+            html += '</div>';
+          });
+          html += '</div>';
+        });
+
+        html += '</div>';
+        html += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;gap:8px">';
+        html += '<button class="secondary" onclick="selectAllDupes()">全选</button>';
+        html += '<button class="danger" onclick="deleteSelectedDupes()">删除选中</button>';
+        html += '</div>';
+        body.innerHTML = html;
+      } catch (e) {
+        body.innerHTML = '<p class="muted">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
 
     async function openTrash() {
       const modal = document.getElementById('modal');
