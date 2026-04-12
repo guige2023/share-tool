@@ -496,6 +496,12 @@ function renderPage() {
       body{overflow-x:hidden}
       /* Grid view: smaller cards on narrow screens */
       #fileTableGrid tbody{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+      #fileTableGrid .file-item .file-name{word-break:break-word;hyphens:auto;line-height:1.3}
+      #fileTableGrid .file-item{padding:10px}
+      /* On mobile grid: hide inline actions, use context menu instead */
+      @media (max-width: 600px){
+        #fileTableGrid .file-actions{display:none}
+      }
     }
     /* Toast notification */
     #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--toast-bg,#111827);color:var(--toast-color,#fff);padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:transform .3s,opacity .3s;pointer-events:none;z-index:9999;max-width:90vw;text-align:center;word-break:break-all}
@@ -2823,7 +2829,7 @@ function renderPage() {
       if (existing) { existing.remove(); return; }
       var div = document.createElement('div');
       div.id = 'shortcutsHelp';
-      div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;padding:24px;z-index:10001;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-size:13px';
+      div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;z-index:10001;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-size:13px';
       var shortcuts = [
         ['↑↓←→ / Tab', '导航文件'],
         ['Enter', '打开预览'],
@@ -2833,8 +2839,8 @@ function renderPage() {
         ['?', '显示此帮助'],
         ['Esc', '关闭弹窗/菜单']
       ];
-      div.innerHTML = '<div style="font-weight:600;margin-bottom:12px;font-size:15px">⌨️ 快捷键</div>' +
-        shortcuts.map(function(s) { return '<div style="display:flex;justify-content:space-between;margin:6px 0"><kbd style="background:var(--bg-tertiary);padding:2px 7px;border-radius:4px;font-size:12px;min-width:60px;text-align:center">' + escapeHtmlClient(s[0]) + '</kbd><span style="color:var(--text-secondary)">' + escapeHtmlClient(s[1]) + '</span></div>'; }).join('') +
+      div.innerHTML = '<div style="font-weight:600;margin-bottom:12px;font-size:15px;color:var(--text-primary)">⌨️ 快捷键</div>' +
+        shortcuts.map(function(s) { return '<div style="display:flex;justify-content:space-between;margin:6px 0"><kbd style="background:var(--bg-secondary);padding:2px 7px;border-radius:4px;font-size:12px;min-width:60px;text-align:center;border:1px solid var(--line);color:var(--text-primary)">' + escapeHtmlClient(s[0]) + '</kbd><span style="color:var(--text-secondary)">' + escapeHtmlClient(s[1]) + '</span></div>'; }).join('') +
         '<div style="margin-top:16px;text-align:center"><button class="btn secondary" onclick="toggleShortcutsHelp()" style="font-size:12px;padding:5px 14px">关闭</button></div>';
       document.body.appendChild(div);
       div.addEventListener('click', function(e) { if (e.target === div) div.remove(); });
