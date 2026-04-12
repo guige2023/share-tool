@@ -458,6 +458,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
 
       // 记录审计日志
       db.addAuditLog('batch_rename', `${result.renamed} 个文件重命名`, getClientIp(req), auth.token);
+      if (result.renamed > 0) global.broadcastSSE({ type: 'files_changed' });
       sendJson(res, {
         success: true,
         renamed: result.renamed,
