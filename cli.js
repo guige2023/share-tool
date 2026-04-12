@@ -12,6 +12,7 @@ const { spawn } = require('child_process');
 const CONFIG_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'config.json');
 const HISTORY_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'history');
 const MANIFEST_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'sync-manifest.json');
+const SYNC_DIR = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'sync-files');
 const DEFAULT_URL = 'http://localhost:18790';
 const CHUNK_SIZE = 512 * 1024; // 512KB per chunk
 const MAX_HISTORY = 500;
@@ -263,8 +264,7 @@ async function applyRemoteChange(log, onEvent) {
     case 'create':
     case 'update': {
       if (content !== undefined) {
-        const dir = path.dirname(MANIFEST_PATH);
-        const filePath = path.join(dir || '.', filename);
+        const filePath = path.join(SYNC_DIR, filename);
         const parentDir = path.dirname(filePath);
         if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
         if (typeof content === 'string') {
@@ -278,8 +278,7 @@ async function applyRemoteChange(log, onEvent) {
         try {
           const res = await request('GET', '/api/content/' + encodeURIComponent(filename));
           if (res.status === 200 && res.data && res.data.content !== undefined) {
-            const dir = path.dirname(MANIFEST_PATH);
-            const filePath = path.join(dir || '.', filename);
+            const filePath = path.join(SYNC_DIR, filename);
             const parentDir = path.dirname(filePath);
             if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
             if (typeof res.data.content === 'string') {
@@ -296,8 +295,7 @@ async function applyRemoteChange(log, onEvent) {
       break;
     }
     case 'delete': {
-      const dir = path.dirname(MANIFEST_PATH);
-      const filePath = path.join(dir || '.', filename);
+      const filePath = path.join(SYNC_DIR, filename);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
         onEvent(`Deleted: ${filename}`);
@@ -306,9 +304,8 @@ async function applyRemoteChange(log, onEvent) {
     }
     case 'rename': {
       const { oldFilename, newFilename } = log;
-      const dir = path.dirname(MANIFEST_PATH);
-      const oldPath = path.join(dir || '.', oldFilename);
-      const newPath = path.join(dir || '.', newFilename);
+      const oldPath = path.join(SYNC_DIR, oldFilename);
+      const newPath = path.join(SYNC_DIR, newFilename);
       if (fs.existsSync(oldPath)) {
         const parentDir = path.dirname(newPath);
         if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
@@ -1237,6 +1234,7 @@ async function main() {
           // Connect WebSocket for real-time updates
           const ws = await connectSyncWs();
           console.log('Connected. Watching for real-time changes...');
+          console.log(`Sync directory: ${SYNC_DIR}`);
           console.log('Press Ctrl+C to stop.\n');
 
           // Override handleWsMessage to apply changes in real-time
