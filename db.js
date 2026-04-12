@@ -623,30 +623,25 @@ function runMigrations(db, fromVersion) {
 // ============================================================
 function searchFilesFTS(query, tags = null, opts = {}) {
   const db = getDb();
-  const { limit = 100, tagMatch = 'all' } = opts;
+  const { limit = 100, tagMatch = 'all', size_min, size_max, date_from, date_to, type } = opts;
 
   // 检查 FTS5 表是否存在
-  let ftsExists = false;
   try {
     db.prepare("SELECT COUNT(*) FROM files_fts").get();
-    ftsExists = true;
   } catch (e) {
     return null; // FTS5 不可用，返回 null 让调用方 fallback
   }
 
-  if (!query && !tags) {
+  // 无查询词且无过滤条件：直接走列表
+  if (!query && !tags && !size_min && !size_max && !date_from && !date_to && !type) {
     return db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
   }
 
   const tokens = tokenizeQuery(query);
-  if (tokens.length === 0 && !tags) {
-    return [];
-  }
 
   // 构建 FTS5 MATCH 表达式
   let ftsResults = [];
   if (tokens.length > 0) {
-    // 将 token 转为 FTS5 前缀查询：token* 匹配所有以前缀开头的词
     const ftsQuery = tokens.map(t => `"${t.replace(/"/g, '""')}"*`).join(' OR ');
     try {
       ftsResults = db.prepare(`
@@ -658,29 +653,47 @@ function searchFilesFTS(query, tags = null, opts = {}) {
         LIMIT ?
       `).all(ftsQuery, limit * 2);
     } catch (e) {
-      // FTS5 查询失败，返回空
       ftsResults = [];
     }
   } else {
     ftsResults = db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
   }
 
-  // 如果没有标签过滤，直接返回 FTS 结果
-  if (!tags) {
+  // 无任何过滤：直接返回
+  if (!tags && !size_min && !size_max && !date_from && !date_to && !type) {
     return ftsResults.slice(0, limit);
   }
 
-  // 标签后过滤
-  const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-  const filtered = ftsResults.filter(f => {
+  // 后置过滤：标签 + size + date + type
+  const tagList = tags ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+  return ftsResults.filter(f => {
     const fileTags = (f.tags || '').toLowerCase();
-    if (tagMatch === 'any') {
-      return tagList.some(t => fileTags.includes(t));
-    }
-    return tagList.every(t => fileTags.includes(t));
-  });
 
-  return filtered.slice(0, limit);
+    // 标签过滤
+    if (tagList.length > 0) {
+      if (tagMatch === 'any') {
+        if (!tagList.some(t => fileTags.includes(t))) return false;
+      } else {
+        if (!tagList.every(t => fileTags.includes(t))) return false;
+      }
+    }
+
+    // 大小过滤
+    if (size_min != null && f.size < size_min) return false;
+    if (size_max != null && f.size > size_max) return false;
+
+    // 日期过滤
+    if (date_from != null && f.created_at < date_from) return false;
+    if (date_to != null && f.created_at > date_to) return false;
+
+    // 类型过滤
+    if (type) {
+      const ext = '.' + type.toLowerCase();
+      if (!f.filename.toLowerCase().endsWith(ext)) return false;
+    }
+
+    return true;
+  }).slice(0, limit);
 }
 
 // ============================================================

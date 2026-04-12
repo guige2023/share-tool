@@ -54,16 +54,35 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const q = (query.get('q') || '').trim();
     const tags = query.get('tags') || null;
     const tagMatch = query.get('tagMatch') || 'all';
-    if (!q && !tags) {
+    const sizeMin = query.get('size_min') || null;
+    const sizeMax = query.get('size_max') || null;
+    const dateFrom = query.get('date_from') || null;
+    const dateTo = query.get('date_to') || null;
+    const typeFilter = query.get('type') || null;
+    if (!q && !tags && !sizeMin && !sizeMax && !dateFrom && !dateTo && !typeFilter) {
       sendJson(res, { success: true, files: [] });
       return true;
     }
 
     // 优先使用 FTS5 搜索（更快），fallback 到 LIKE
-    let results = db.searchFilesFTS(q, tags, { fuzzy: true, limit: 100, tagMatch });
+    let results = db.searchFilesFTS(q, tags, {
+      fuzzy: true, limit: 100, tagMatch,
+      size_min: sizeMin ? parseInt(sizeMin) : null,
+      size_max: sizeMax ? parseInt(sizeMax) : null,
+      date_from: dateFrom ? parseInt(dateFrom) : null,
+      date_to: dateTo ? parseInt(dateTo) : null,
+      type: typeFilter
+    });
     if (!results) {
       // FTS5 不可用，fallback 到 LIKE 搜索
-      results = db.searchFiles(q, tags, { fuzzy: true, limit: 100, tagMatch });
+      results = db.searchFiles(q, tags, {
+        fuzzy: true, limit: 100, tagMatch,
+        size_min: sizeMin ? parseInt(sizeMin) : null,
+        size_max: sizeMax ? parseInt(sizeMax) : null,
+        date_from: dateFrom ? parseInt(dateFrom) : null,
+        date_to: dateTo ? parseInt(dateTo) : null,
+        type: typeFilter
+      });
     }
 
     const sort = query.get('sort') || 'updated_at';

@@ -1560,6 +1560,10 @@ function renderPage() {
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
       const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam : '/api/list?' + sortParam + tagParam;
+      await loadFilesFromUrl(url);
+    }
+
+    async function loadFilesFromUrl(url) {
       const [data, tagData] = await Promise.all([request(url), request('/api/tags')]);
       currentFiles = (data.files || []).map(function(f, i) { f._index = i; return f; });
       const tagColorMap = {};
@@ -3077,6 +3081,91 @@ function renderPage() {
     window.syncUploads = function() {
       if (!navigator.serviceWorker.controller) return;
       navigator.serviceWorker.controller.postMessage({ type: 'SYNC_UPLOADS' });
+    };
+
+    // Advanced search panel toggle
+    window.toggleAdvancedSearch = function() {
+      var panel = document.getElementById('advancedSearchPanel');
+      var btn = document.getElementById('advancedSearchBtn');
+      if (!panel) return;
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        btn.textContent = '高级 ∧';
+      } else {
+        panel.style.display = 'none';
+        btn.textContent = '高级 ⌄';
+      }
+    };
+
+    // Get current advanced filter values
+    function getAdvancedFilters() {
+      var sizeMin = document.getElementById('sizeMin') && document.getElementById('sizeMin').value;
+      var sizeMax = document.getElementById('sizeMax') && document.getElementById('sizeMax').value;
+      var dateFrom = document.getElementById('dateFrom') && document.getElementById('dateFrom').value;
+      var dateTo = document.getElementById('dateTo') && document.getElementById('dateTo').value;
+      var typeFilter = document.getElementById('typeFilter') && document.getElementById('typeFilter').value;
+      var tagMatch = document.getElementById('tagMatchFilter') && document.getElementById('tagMatchFilter').value;
+      return { sizeMin, sizeMax, dateFrom, dateTo, typeFilter, tagMatch };
+    }
+
+    // Update active filter chips
+    function updateActiveFilterChips() {
+      var container = document.getElementById('activeFilters');
+      if (!container) return;
+      var filters = getAdvancedFilters();
+      var chips = [];
+      if (filters.sizeMin) chips.push('<span class="filter-chip">大小≥' + filters.sizeMin + 'KB</span>');
+      if (filters.sizeMax) chips.push('<span class="filter-chip">大小≤' + filters.sizeMax + 'KB</span>');
+      if (filters.dateFrom) chips.push('<span class="filter-chip">从' + filters.dateFrom + '</span>');
+      if (filters.dateTo) chips.push('<span class="filter-chip">至' + filters.dateTo + '</span>');
+      if (filters.typeFilter) chips.push('<span class="filter-chip">类型:' + filters.typeFilter + '</span>');
+      if (filters.tagMatch === 'any') chips.push('<span class="filter-chip">标签:任一</span>');
+      container.innerHTML = chips.join('');
+    }
+
+    // Attach input listeners for filter chips
+    ['sizeMin','sizeMax','dateFrom','dateTo','typeFilter','tagMatchFilter'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('change', updateActiveFilterChips);
+    });
+
+    // Apply advanced filters and search
+    window.doAdvancedSearch = function() {
+      var filters = getAdvancedFilters();
+      var hasFilters = filters.sizeMin || filters.sizeMax || filters.dateFrom || filters.dateTo || filters.typeFilter;
+      // Update chips
+      updateActiveFilterChips();
+      // If no text query, just update the regular search with filters
+      var q = document.getElementById('searchInput').value.trim();
+      if (!q && !hasFilters) return;
+      var params = [];
+      if (q) params.push('q=' + encodeURIComponent(q));
+      if (hasFilters) {
+        if (filters.sizeMin) params.push('size_min=' + (parseInt(filters.sizeMin) * 1024));
+        if (filters.sizeMax) params.push('size_max=' + (parseInt(filters.sizeMax) * 1024));
+        if (filters.dateFrom) params.push('date_from=' + Math.floor(new Date(filters.dateFrom).getTime() / 1000));
+        if (filters.dateTo) params.push('date_to=' + Math.floor(new Date(filters.dateTo + 'T23:59:59').getTime() / 1000));
+        if (filters.typeFilter) params.push('type=' + filters.typeFilter);
+      }
+      var tags = document.getElementById('tagFilterSelect') && document.getElementById('tagFilterSelect').value;
+      if (tags) params.push('tags=' + encodeURIComponent(tags));
+      if (filters.tagMatch === 'any') params.push('tagMatch=any');
+      var sort = document.getElementById('sortSelect') && document.getElementById('sortSelect').value;
+      var order = document.getElementById('orderSelect') && document.getElementById('orderSelect').value;
+      if (sort) params.push('sort=' + sort);
+      if (order) params.push('order=' + order);
+      var url = '/api/search?' + params.join('&');
+      currentSearchQuery = q;
+      loadFilesFromUrl(url);
+    };
+
+    // Clear advanced filters
+    window.clearAdvancedSearch = function() {
+      ['sizeMin','sizeMax','dateFrom','dateTo','typeFilter','tagMatchFilter'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      updateActiveFilterChips();
     };
   </script>
 </body>
