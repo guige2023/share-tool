@@ -347,8 +347,7 @@ function renderPage() {
       pre{background:#0f172a!important;color:#e2e8f0!important}
       .modal-card{background:#1e293b}
       .panel{background:#1e293b;border-color:#334155}
-      .toast{background:#1e293b;color:#f1f5f9}
-      #toast{background:#1e293b;color:#f1f5f9}
+      .toast{--toast-bg:#1e293b;--toast-color:#f1f5f9}
       .chip{color:#2dd4bf}
       .tag-badge{color:#c7d2fe}
       .fab{background:#0f766e}
@@ -373,7 +372,6 @@ function renderPage() {
     [data-theme="dark"] pre{background:#0f172a!important;color:#e2e8f0!important}
     [data-theme="dark"] .modal-card{background:#1e293b}
     [data-theme="dark"] .panel{background:#1e293b;border-color:#334155}
-    [data-theme="dark"] #toast{background:#1e293b;color:#f1f5f9}
     [data-theme="dark"] .chip{color:#2dd4bf}
     [data-theme="dark"] .tag-badge{color:#c7d2fe}
     [data-theme="dark"] .fab{background:#0f766e}
@@ -498,11 +496,14 @@ function renderPage() {
       #fileTableGrid tbody{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
     }
     /* Toast notification */
-    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:#111827;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:transform .3s,opacity .3s;pointer-events:none;z-index:9999;max-width:90vw;text-align:center;word-break:break-all}
+    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--toast-bg,#111827);color:var(--toast-color,#fff);padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:transform .3s,opacity .3s;pointer-events:none;z-index:9999;max-width:90vw;text-align:center;word-break:break-all}
     @keyframes spin{to{transform:rotate(360deg)}}
     #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
     #toast.success{background:#059669}
     #toast.error{background:#dc2626}
+    [data-theme="dark"] #toast{--toast-bg:#1e293b;--toast-color:#f1f5f9}
+    [data-theme="dark"] #toast.success{background:#065f46}
+    [data-theme="dark"] #toast.error{background:#991b1b}
     .file-tags{display:flex;flex-wrap:wrap;gap:3px;max-width:110px}
     .tag-badge{background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500}
     .tag-edit-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;padding:2px 4px;border-radius:4px;transition:color .2s,background .2s}
