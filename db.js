@@ -1063,10 +1063,21 @@ function restoreFromTrash(trashId) {
 function permanentlyDeleteTrash(trashId) {
   const db = getDb();
   const item = db.prepare('SELECT * FROM trash WHERE id = ?').get(trashId);
-  if (!item) return;
+  if (!item) return { success: false, error: 'Item not found' };
   // 更新标签统计
   if (item.tags) updateTagStats(item.tags, null);
   db.prepare('DELETE FROM trash WHERE id = ?').run(trashId);
+  return { success: true, filename: item.filename };
+}
+
+function emptyTrash() {
+  const db = getDb();
+  const items = db.prepare('SELECT * FROM trash').all();
+  for (const item of items) {
+    if (item.tags) updateTagStats(item.tags, null);
+  }
+  const result = db.prepare('DELETE FROM trash').run();
+  return { success: true, deleted: result.changes };
 }
 
 function cleanupExpiredTrash() {
@@ -3257,8 +3268,8 @@ module.exports = {
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, touchTag,
   getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, ensureTagStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags,
-  // 回收站
-  moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, cleanupExpiredTrash,
+  // 垃圾桶
+  moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, emptyTrash, cleanupExpiredTrash,
   // 文件版本历史
   saveFileVersion, listFileVersions, getFileVersion, getFileVersionCount, deleteFileVersion, pruneFileVersions,
   // 分片上传

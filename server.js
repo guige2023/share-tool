@@ -3418,7 +3418,7 @@ function renderPage() {
     }
 
     async function emptyTrash() {
-      if (!confirm('确定清空回收站？过期文件将被永久删除。')) return;
+      if (!confirm('确定清空回收站？所有文件将被永久删除。')) return;
       try {
         const res = await fetch('/api/trash/empty', { method: 'POST', headers: headers() });
         const data = await res.json();

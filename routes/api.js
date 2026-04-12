@@ -508,8 +508,8 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
   if (pathname === '/api/trash/empty' && method === 'POST') {
     const auth = authRequired(req, res);
     if (!auth) return true;
-    db.cleanupExpiredTrash();
-    sendJson(res, { success: true });
+    const result = db.emptyTrash();
+    sendJson(res, result);
     return true;
   }
 
