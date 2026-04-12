@@ -223,11 +223,22 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
       sendJson(res, { success: false, error: 'files, action, tags required' }, 400);
       return true;
     }
+    if (files.length === 0) {
+      sendJson(res, { success: true, updated: 0, failed: 0, total: 0 });
+      return true;
+    }
     const tagList = tagStr.split(',').map(t => t.trim()).filter(Boolean);
+    const db2 = require('../db').getDb();
+
+    // Batch fetch all files in one query (avoid N getFileByName calls)
+    const placeholders = files.map(() => '?').join(',');
+    const allFiles = db2.prepare(`SELECT id, filename, tags FROM files WHERE filename IN (${placeholders})`).all(...files);
+    const fileMap = new Map(allFiles.map(f => [f.filename, f]));
+
     let updated = 0, failed = 0;
     for (const filename of files) {
       try {
-        const file = db.getFileByName(filename);
+        const file = fileMap.get(filename);
         if (!file) { failed++; continue; }
         const current = file.tags ? file.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
         let next;
@@ -240,13 +251,22 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
         } else {
           failed++; continue;
         }
-        db.updateFileByName(filename, { tags: next });
-        tagList.forEach(t => db.touchTag(t));
+        db2.prepare('UPDATE files SET tags = ?, updated_at = unixepoch() WHERE id = ?').run(next, file.id);
+        // FTS5 trigger fires automatically on UPDATE — no manual index update needed
         updated++;
       } catch (e) {
         failed++;
       }
     }
+
+    // Update tag stats for new tags
+    if (tagList.length > 0 && updated > 0) {
+      for (const t of tagList) {
+        db2.prepare(`INSERT OR IGNORE INTO tag_stats(tag, count) VALUES(?, 0)`).run(t);
+        db2.prepare(`UPDATE tag_stats SET count = (SELECT COUNT(*) FROM files WHERE LOWER(tags) LIKE ?) WHERE tag = ?`).run(`%${t.toLowerCase()}%`, t);
+      }
+    }
+
     sendJson(res, { success: true, updated, failed, total: files.length });
     return true;
   }

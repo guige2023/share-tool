@@ -454,6 +454,9 @@ function renderPage() {
     .toolbar input{flex:1 1 260px}
     .batch-bar{display:flex;gap:8px;align-items:center;padding:10px 14px;background:var(--bg-secondary);border-radius:12px;margin-bottom:12px;font-size:13px}
     .batch-bar button{min-height:36px;padding:6px 12px;font-size:13px;border-radius:8px;flex-shrink:0}
+    .type-chip{background:var(--bg-tertiary);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12px;cursor:pointer;transition:all .15s;color:var(--text-secondary);white-space:nowrap}
+    .type-chip:hover{background:var(--bg-secondary);color:var(--text)}
+    .type-chip.active{background:var(--accent-weak);border-color:var(--accent);color:var(--accent);font-weight:500}
     .recent-search-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 8px 4px 12px;background:var(--accent-weak);color:var(--accent);border-radius:999px;font-size:12px;margin-right:6px;cursor:pointer}
     .recent-search-tag .delete-btn{opacity:0;padding:2px 4px;border-radius:999px;font-size:13px;line-height:1;transition:opacity .15s}
     .recent-search-tag:hover .delete-btn{opacity:1}
@@ -738,6 +741,12 @@ function renderPage() {
         </div>
       </div>
       <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
+      <div id="typeFilterBar" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+        <button class="type-chip active" data-type="" onclick="setTypeFilter('')">全部</button>
+        <button class="type-chip" data-type="text" onclick="setTypeFilter('text')">📄 文本</button>
+        <button class="type-chip" data-type="image" onclick="setTypeFilter('image')">🖼️ 图片</button>
+        <button class="type-chip" data-type="file" onclick="setTypeFilter('file')">📦 文件</button>
+      </div>
       <div id="fileStatsBar" style="display:flex;gap:16px;align-items:center;padding:0 0 8px 0;font-size:12px;color:var(--muted);font-family:monospace">
         <span id="fileCountDisplay">共 <strong>0</strong> 个文件</span>
         <span id="selectedCountDisplay" style="display:none">，已选 <strong>0</strong> 个</span>
@@ -1713,7 +1722,8 @@ function renderPage() {
       const selectedTag = (document.getElementById('tagFilterSelect') || {}).value || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
-      const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam : '/api/list?' + sortParam + tagParam;
+      const typeParam = currentTypeFilter ? '&type=' + encodeURIComponent(currentTypeFilter) : '';
+      const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam + typeParam : '/api/list?' + sortParam + tagParam + typeParam;
       await loadFilesFromUrl(url, false);
     }
 
@@ -3736,6 +3746,17 @@ function renderPage() {
     // Sort state
     var currentSort = localStorage.getItem('sortBy') || 'updated_at';
     var currentOrder = localStorage.getItem('sortOrder') || 'desc';
+    var currentTypeFilter = localStorage.getItem('typeFilter') || '';
+
+    // Type filter chips
+    function setTypeFilter(type) {
+      currentTypeFilter = type;
+      localStorage.setItem('typeFilter', type);
+      document.querySelectorAll('.type-chip').forEach(function(c) {
+        c.classList.toggle('active', c.getAttribute('data-type') === type);
+      });
+      loadFiles();
+    }
 
     // Show initial sort arrow
     (function initArrows() {
