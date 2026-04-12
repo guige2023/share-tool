@@ -3287,8 +3287,8 @@ function renderPage() {
     });
 
     // Sort state
-    var currentSort = 'updated_at';
-    var currentOrder = 'desc';
+    var currentSort = localStorage.getItem('sortBy') || 'updated_at';
+    var currentOrder = localStorage.getItem('sortOrder') || 'desc';
 
     // Show initial sort arrow
     (function initArrows() {
@@ -3305,6 +3305,8 @@ function renderPage() {
         currentSort = col;
         currentOrder = col === 'updated_at' ? 'desc' : 'asc';
       }
+      localStorage.setItem('sortBy', currentSort);
+      localStorage.setItem('sortOrder', currentOrder);
       // Update arrow indicators
       ['filename', 'size', 'updated_at'].forEach(function (c) {
         var arrow = document.getElementById('arrow-' + c);
