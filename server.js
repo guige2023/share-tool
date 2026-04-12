@@ -2008,11 +2008,21 @@ function renderPage() {
       if (!currentFiles.length) {
         listBody.innerHTML = '';
         gridBody.innerHTML = '';
+        let emptyIcon, emptyTitle, emptyHint;
         if (currentSearchQuery) {
-          empty.innerHTML = '未找到匹配「' + escapeHtmlClient(currentSearchQuery) + '」的文件';
+          emptyIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M8 11h6"/></svg>';
+          emptyTitle = '未找到匹配「' + escapeHtmlClient(currentSearchQuery) + '」的文件';
+          emptyHint = '试试其他关键词，或清除筛选条件';
         } else {
-          empty.innerHTML = '还没有内容';
+          emptyIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>';
+          emptyTitle = '还没有内容';
+          emptyHint = '上传一个文件或创建文字，开始使用 ShareTool';
         }
+        empty.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:40px 20px;color:var(--muted)">' +
+          '<div style="opacity:0.4">' + emptyIcon + '</div>' +
+          '<div style="font-size:15px;font-weight:500;color:var(--text-secondary)">' + emptyTitle + '</div>' +
+          '<div style="font-size:13px;color:var(--text-muted)">' + emptyHint + '</div>' +
+          '</div>';
         empty.style.display = 'block';
         return;
       }
