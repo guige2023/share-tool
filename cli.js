@@ -639,7 +639,7 @@ async function main() {
     console.log('  copy <src> <dest>  Copy a file to a new name');
     console.log('  rename <old> <new>  Rename a file');
     console.log('  batch-delete <name1> [name2] ...  Delete multiple files');
-    console.log('  batch-download <name1> [name2] .. Download multiple files [-o <dir>]');
+    console.log('  batch-download [-c N] [-o <dir>] [--search <pattern>] [name1] [name2] .. Download multiple files');
     console.log('  batch-tag <tag> [files...]        Add tag to files (alias: share-tool batch-tag add <tag> [files])');
     console.log('  batch-tag remove <tag> [files]   Remove tag from files');
     console.log('  batch-tag set <tag> [files]       Set (replace) tag on files');
@@ -882,20 +882,49 @@ async function main() {
       }
 
       case 'batch-download': {
-        const names = args.slice(1);
-        if (names.length === 0) {
+        const raw = args.slice(1);
+        if (raw.length === 0) {
           printError('At least one file name required');
           process.exit(1);
         }
+
+        let concurrency = 1;
         let outputDir = '.';
-        const oIndex = names.indexOf('-o');
-        if (oIndex !== -1) {
-          if (oIndex + 1 >= names.length) { printError('-o requires output directory'); process.exit(1); }
-          outputDir = names[oIndex + 1];
-          names.splice(oIndex, 2);
+        let showHelp = false;
+
+        // Parse flags: -o <dir>, -c <N>, --search <pattern>, --help
+        const names = [];
+        for (let i = 0; i < raw.length; i++) {
+          const arg = raw[i];
+          if (arg === '-o' && i + 1 < raw.length) { outputDir = raw[++i]; }
+          else if (arg === '-c' && i + 1 < raw.length) { concurrency = parseInt(raw[++i], 10) || 1; }
+          else if (arg === '--search' && i + 1 < raw.length) {
+            // Search server for matching files
+            const pattern = raw[++i];
+            process.stdout.write('Searching for: ' + pattern + '\n');
+            const res = await request('GET', '/api/files?search=' + encodeURIComponent(pattern) + '&limit=100');
+            if (res.status >= 400) { printError('Search failed: ' + res.status); process.exit(1); }
+            const files = res.data.files || [];
+            if (files.length === 0) { console.log('No files found matching: ' + pattern); process.exit(0); }
+            for (const f of files) names.push(f.filename);
+            console.log('Found ' + files.length + ' file(s)\n');
+          }
+          else if (arg === '--help') { showHelp = true; }
+          else { names.push(arg); }
         }
-        if (names.length === 0) { printError('No files specified'); process.exit(1); }
-        console.log('Downloading ' + names.length + ' file(s) to ' + outputDir + '/...\n');
+
+        if (showHelp || names.length === 0) {
+          console.log('Usage: share-tool batch-download [-c N] [-o <dir>] [--search <pattern>] <name1> [name2] ...\n');
+          console.log('Options:');
+          console.log('  -c N        Concurrent downloads (default: 1, max: 10)');
+          console.log('  -o <dir>    Output directory (default: current dir)');
+          console.log('  --search    Search for files by pattern, then download all matches');
+          console.log('  --help      Show this help');
+          process.exit(showHelp ? 0 : 1);
+        }
+
+        concurrency = Math.min(Math.max(concurrency, 1), 10);
+        console.log('Downloading ' + names.length + ' file(s) to ' + outputDir + '/ (concurrency=' + concurrency + ')\n');
         const cliFs = require('fs');
         if (!cliFs.existsSync(outputDir)) cliFs.mkdirSync(outputDir, { recursive: true });
 
@@ -914,41 +943,53 @@ async function main() {
         }
 
         let success = 0, failed = 0;
+        const results = new Array(names.length).fill(null);
         let overallDone = 0;
-        for (const name of names) {
-          const startTime = Date.now();
-          let fileDone = false;
-          let lastPct = -1;
 
-          const progressCallback = (downloaded, total, fname) => {
-            const pct = downloaded / total;
-            if (Math.floor(pct * 10) > Math.floor(lastPct * 10) || pct >= 1) {
-              lastPct = pct;
-              const speed = downloaded / ((Date.now() - startTime) / 1000);
-              process.stdout.write('\r  ' + renderBar(pct) + ' ' + formatBytes(downloaded) + '/' + formatBytes(total) + ' ' + Math.round(pct * 100) + '% ' + formatBytes(speed) + '/s   \n');
-            }
-            fileDone = true;
-          };
+        // Process in concurrency-sized batches
+        for (let batchStart = 0; batchStart < names.length; batchStart += concurrency) {
+          const batch = names.slice(batchStart, batchStart + concurrency);
+          const batchPromises = batch.map(async (name, idx) => {
+            const globalIdx = batchStart + idx;
+            const startTime = Date.now();
+            let lastPct = -1;
 
-          process.stdout.write('  ▼ ' + name + '\n');
-          try {
-            const res = await downloadFile(name, outputDir, progressCallback);
-            if (res.status < 400) {
-              const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-              const size = formatBytes(res.data.size || 0);
-              console.log('  ✓ ' + name + ' ' + size + ' in ' + elapsed + 's\n');
-              success++;
-            } else {
-              console.log('  ✗ ' + name + ' FAILED (' + res.status + ')\n');
-              failed++;
+            const progressCallback = (downloaded, total) => {
+              const pct = downloaded / total;
+              if (Math.floor(pct * 10) > Math.floor(lastPct * 10) || pct >= 1) {
+                lastPct = pct;
+                const speed = downloaded / ((Date.now() - startTime) / 1000);
+                process.stdout.write('\r  [' + name.padEnd(30) + '] ' + renderBar(pct) + ' ' + Math.round(pct * 100) + '% ' + formatBytes(speed) + '/s  ');
+              }
+            };
+
+            process.stdout.write('  ▼ ' + name + '\n');
+            try {
+              const res = await downloadFile(name, outputDir, progressCallback);
+              if (res.status < 400) {
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+                const size = formatBytes(res.data.size || 0);
+                results[globalIdx] = { name, status: 'success', size, elapsed };
+                process.stdout.write('\r  ✓ ' + name + ' ' + size + ' in ' + elapsed + 's\n');
+              } else {
+                results[globalIdx] = { name, status: 'failed', statusCode: res.status };
+                process.stdout.write('\r  ✗ ' + name + ' FAILED (' + res.status + ')\n');
+              }
+            } catch (e) {
+              results[globalIdx] = { name, status: 'error', message: e.message };
+              process.stdout.write('\r  ✗ ' + name + ' ERROR: ' + e.message + '\n');
             }
-          } catch (e) {
-            console.log('  ✗ ' + name + ' ERROR: ' + e.message + '\n');
-            failed++;
-          }
-          overallDone++;
+          });
+
+          await Promise.all(batchPromises);
+          overallDone += batch.length;
         }
-        console.log('Done: ' + success + ' succeeded, ' + failed + ' failed');
+
+        for (const r of results) {
+          if (r && r.status === 'success') success++;
+          else failed++;
+        }
+        console.log('\nDone: ' + success + ' succeeded, ' + failed + ' failed');
         process.exit(failed > 0 ? 1 : 0);
         break;
       }
