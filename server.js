@@ -111,8 +111,16 @@ function getClientIp(req) {
 
 function authRequired(req, res) {
   const token = req.headers['x-auth-token'];
+  // Static token always valid
   if (token === SHARE_TOKEN) {
-    return { token: SHARE_TOKEN };
+    return { token: SHARE_TOKEN, type: 'static' };
+  }
+  // Dynamic token from tokens table
+  if (token) {
+    const valid = db.validateToken(token);
+    if (valid) {
+      return { token, type: 'dynamic', deviceId: valid.device_id };
+    }
   }
   sendJson(res, { success: false, error: 'Unauthorized' }, 401);
   return null;
