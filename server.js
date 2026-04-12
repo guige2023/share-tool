@@ -454,8 +454,10 @@ function renderPage() {
     .toolbar input{flex:1 1 260px}
     .batch-bar{display:flex;gap:8px;align-items:center;padding:10px 14px;background:var(--bg-secondary);border-radius:12px;margin-bottom:12px;font-size:13px}
     .batch-bar button{min-height:36px;padding:6px 12px;font-size:13px;border-radius:8px;flex-shrink:0}
-    .recent-search-tag{display:inline-block;padding:4px 12px;background:var(--accent-weak);color:var(--accent);border-radius:999px;font-size:12px;margin-right:6px;cursor:pointer}
-    .recent-search-tag:hover{opacity:.8}
+    .recent-search-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 8px 4px 12px;background:var(--accent-weak);color:var(--accent);border-radius:999px;font-size:12px;margin-right:6px;cursor:pointer}
+    .recent-search-tag .delete-btn{opacity:0;padding:2px 4px;border-radius:999px;font-size:13px;line-height:1;transition:opacity .15s}
+    .recent-search-tag:hover .delete-btn{opacity:1}
+    .recent-search-tag .delete-btn:hover{background:var(--accent);color:#fff}
     .suggestion-item{padding:9px 12px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;white-space:nowrap;overflow:hidden}
     .suggestion-item:hover,.suggestion-item.selected{background:var(--bg-tertiary)}
     .suggestion-item mark{background:#fef08a;color:inherit;padding:0 2px;border-radius:2px}
@@ -2601,8 +2603,10 @@ function renderPage() {
       }
       container.style.display = 'block';
       container.innerHTML = searches.map(function (s) {
-        return '<span class="recent-search-tag" onclick="applyRecentSearch(' + JSON.stringify(s) + ')">' + escapeHtmlClient(s) + '</span>';
-      }).join('') + '<span class="recent-search-tag" style="color:var(--muted)" onclick="clearRecentSearches()">✕清除</span>';
+        return '<span class="recent-search-tag" onclick="applyRecentSearch(' + JSON.stringify(s) + ')">' +
+          escapeHtmlClient(s) +
+          '<span class="delete-btn" onclick="event.stopPropagation();deleteRecentSearch(' + JSON.stringify(s) + ')">✕</span></span>';
+      }).join('') + '<span class="recent-search-tag" style="color:var(--muted)" onclick="clearRecentSearches()">清除全部</span>';
     }
 
     function applyRecentSearch(query) {
@@ -2617,6 +2621,32 @@ function renderPage() {
       } catch (e) { /* non-critical */ }
       renderRecentSearches();
     }
+
+    async function deleteRecentSearch(query) {
+      recentSearchesCache = recentSearchesCache.filter(function (s) { return s !== query; });
+      try {
+        await fetch('/api/search/history?query=' + encodeURIComponent(query), { method: 'DELETE' });
+      } catch (e) { /* non-critical */ }
+      renderRecentSearches();
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function (e) {
+      // "/" focuses search (not in input/textarea)
+      if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
+      }
+      // Escape clears search and closes modals
+      if (e.key === 'Escape') {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput && searchInput.value.trim()) {
+          searchInput.value = '';
+          searchFiles();
+        }
+        closeModal();
+      }
+    });
 
     async function previewFile(filename) {
       const modalBody = document.getElementById('modalBody');

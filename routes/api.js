@@ -350,9 +350,14 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
-  // DELETE /api/search/history - 清除搜索历史
+  // DELETE /api/search/history - 清除搜索历史（?query=xxx 单项删除）
   if (pathname === '/api/search/history' && method === 'DELETE') {
-    db.clearSearchHistory();
+    const q = query.get('query');
+    if (q) {
+      db.deleteSearchHistoryItem(q);
+    } else {
+      db.clearSearchHistory();
+    }
     sendJson(res, { success: true });
     return true;
   }

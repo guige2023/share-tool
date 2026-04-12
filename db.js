@@ -2257,6 +2257,11 @@ function clearSearchHistory(userId = null) {
   }
 }
 
+function deleteSearchHistoryItem(query) {
+  const db = getDb();
+  db.prepare('DELETE FROM search_history WHERE query = ?').run(query);
+}
+
 function getPopularSearches(limit = 5) {
   const db = getDb();
   // Returns the most frequently searched queries (all users, all time)
@@ -3229,7 +3234,7 @@ module.exports = {
   // 通知
   addNotification, getNotifications, getUnreadNotificationCount, markNotificationsRead, clearNotifications,
   // 搜索历史
-  addSearchHistory, getSearchHistory, clearSearchHistory, getPopularSearches,
+  addSearchHistory, getSearchHistory, clearSearchHistory, deleteSearchHistoryItem, getPopularSearches,
   // 分享链接
   saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload,
   listShareLinks, cleanupExpiredShareLinks,
