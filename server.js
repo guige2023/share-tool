@@ -1746,9 +1746,11 @@ function renderPage() {
       }
       currentOffset = currentFiles.length;
       const tagColorMap = {};
-      (tagData.tags || []).forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
-      updateTagFilterOptions(tagData.tags || []);
-      renderTagQuickBar(tagData);
+      if (tagData && tagData.tags) {
+        tagData.tags.forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
+        updateTagFilterOptions(tagData.tags);
+        renderTagQuickBar(tagData);
+      }
       renderFiles(tagColorMap);
       loading.style.display = 'none';
       // Hide sentinel if no more files
