@@ -963,6 +963,28 @@ function renderPage() {
 
     setupDragDrop();
 
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function (e) {
+      // Ctrl/Cmd + Enter: upload files
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        var fi = document.getElementById('fileInput');
+        if (fi && fi.files && fi.files.length) {
+          e.preventDefault();
+          uploadFiles();
+        }
+      }
+      // Ctrl/Cmd + F: focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
+        document.getElementById('searchInput').select();
+      }
+      // Escape: close modal
+      if (e.key === 'Escape') {
+        forceCloseModal();
+      }
+    });
+
     Promise.all([loadFiles(), loadShares()]).catch(function (error) {
       status(error.message);
     });
