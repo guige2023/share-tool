@@ -2214,6 +2214,18 @@ function renderPage() {
       var tagInFocus = document.activeElement && document.activeElement.tagName;
       if (tagInFocus === 'INPUT' || tagInFocus === 'TEXTAREA') return;
 
+      // Escape closes modal
+      if (e.key === 'Escape') {
+        var modal = document.getElementById('modal');
+        if (modal && modal.classList.contains('open')) {
+          modal.classList.remove('open');
+          return;
+        }
+        var ctx = document.getElementById('ctxMenu');
+        if (ctx) ctx.style.display = 'none';
+        return;
+      }
+
       var items = getAllFileItems();
       if (!items.length) return;
 
@@ -2572,7 +2584,8 @@ function renderPage() {
         modalBody.innerHTML = truncatedNote + bodyContent;
         const mdDiv = document.getElementById('mdPreview');
         if (typeof marked !== 'undefined') {
-          mdDiv.innerHTML = marked.parse(content);
+          // GFM: tables, task lists, strikethrough, breaks
+          mdDiv.innerHTML = marked.parse(content, { gfm: true, breaks: true });
           // Add copy buttons to code blocks
           mdDiv.querySelectorAll('pre code').forEach(block => {
             const pre = block.parentElement;
@@ -2616,8 +2629,20 @@ function renderPage() {
         wrapper.style.position = 'relative';
         wrapper.appendChild(btn);
       } else {
-        // Plain text
-        modalBody.innerHTML = truncatedNote + '<pre id="plainTextPre" style="white-space:pre-wrap;max-height:65vh;overflow:auto;background:var(--bg-secondary);padding:12px;border-radius:8px;font-size:13px;line-height:1.5">' + escapeHtmlClient(content) + '</pre>';
+        // Plain text with line numbers
+        const lines = content.split('\n');
+        const lineNumbers = lines.map((_, i) => '<span class="ln">' + (i + 1) + '</span>').join('');
+        modalBody.innerHTML = truncatedNote +
+          '<div id="plainTextWrapper" style="display:flex;max-height:65vh;border-radius:8px;overflow:hidden;background:var(--bg-tertiary)">' +
+          '<div id="plainLineNumbers" style="padding:12px 12px 12px 16px;text-align:right;user-select:none;min-width:48px;background:var(--bg-secondary);color:var(--text-muted);font-family:monospace;font-size:13px;line-height:1.5;overflow:hidden;flex-shrink:0;border-right:1px solid var(--line)">' + lineNumbers + '</div>' +
+          '<div id="plainTextScroll" style="flex:1;overflow:auto"><pre id="plainTextPre" style="margin:0;padding:12px 16px;white-space:pre-wrap;background:var(--bg-secondary);font-size:13px;line-height:1.5">' + escapeHtmlClient(content) + '</pre></div>' +
+          '</div>';
+        // Sync scroll
+        const plainScroll = document.getElementById('plainTextScroll');
+        const plainLineNumbers = document.getElementById('plainLineNumbers');
+        if (plainScroll && plainLineNumbers) {
+          plainScroll.addEventListener('scroll', () => { plainLineNumbers.scrollTop = plainScroll.scrollTop; });
+        }
       }
     }
 
