@@ -46,7 +46,7 @@ const I18N = {
     confirmDeleteMulti: 'Delete selected files? This cannot be undone.',
     // System
     storage: 'Storage', usage: 'Usage', duplicateFiles: 'Duplicate Files', cleanupTrash: 'Empty Trash',
-    auditLog: 'Audit Log', exportData: 'Export', language: 'Language', theme: 'Theme',
+    auditLog: 'Audit Log', exportData: 'Export', language: 'Language', theme: 'Theme', dashboard: 'Storage Analysis',
   },
   zh: {
     // Navigation & Actions
@@ -73,7 +73,7 @@ const I18N = {
     confirmDeleteMulti: '删除所选文件？此操作不可撤销。',
     // System
     storage: '存储', usage: '使用量', duplicateFiles: '重复文件', cleanupTrash: '清空回收站',
-    auditLog: '审计日志', exportData: '导出数据', language: '语言', theme: '主题',
+    auditLog: '审计日志', exportData: '导出数据', language: '语言', theme: '主题', dashboard: '存储分析',
   }
 };
 
@@ -555,7 +555,6 @@ function renderPage() {
     .modal-card img{max-width:100%;border-radius:16px}
     .shares img{width:84px;height:84px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
     @media (max-width: 960px){
-      .grid{grid-template-columns:1fr}
       .toolbar{flex-wrap:wrap}
       .toolbar input,.toolbar button{min-width:0}
       .toolbar button{padding:9px 12px;font-size:13px}
@@ -812,6 +811,7 @@ function renderPage() {
         <button id="advancedSearchBtn" class="ghost" onclick="toggleAdvancedSearch()">高级 ⌄</button>
         <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
         <button class="secondary" onclick="openTagManager()">标签管理</button>
+        <button class="secondary" onclick="openDashboard()">📊 存储分析</button>
         <button class="ghost" onclick="openTrash()">回收站</button>
         <button class="danger" onclick="deleteAllFiles()">删除全部</button>
         <div class="view-toggle">
@@ -1772,10 +1772,33 @@ function renderPage() {
     function setupDragDrop() {
       var dropZone = document.getElementById('dropZone');
       if (!dropZone) return;
+
+      // Full-screen drop overlay (shown when dragging files anywhere over the page)
+      var globalDropOverlay = null;
+      function showGlobalDropOverlay() {
+        if (globalDropOverlay) return;
+        globalDropOverlay = document.createElement('div');
+        globalDropOverlay.id = 'globalDropOverlay';
+        globalDropOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(16,185,129,0.12);border:4px dashed #10b981;z-index:9999;display:flex;align-items:center;justify-content:center;pointer-events:none;font-size:28px;font-weight:bold;color:#10b981;border-radius:16px;margin:16px';
+        globalDropOverlay.textContent = '📥 释放文件以上传';
+        document.body.appendChild(globalDropOverlay);
+      }
+      function hideGlobalDropOverlay() {
+        if (!globalDropOverlay) return;
+        globalDropOverlay.remove();
+        globalDropOverlay = null;
+      }
+
       ['dragenter', 'dragover'].forEach(function (evt) {
         dropZone.addEventListener(evt, function (e) {
           e.preventDefault();
           dropZone.classList.add('dragover');
+        });
+        // Also show global overlay for page-level drag
+        document.addEventListener(evt, function (e) {
+          if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
+            showGlobalDropOverlay();
+          }
         });
       });
       ['dragleave', 'drop'].forEach(function (evt) {
@@ -1784,7 +1807,12 @@ function renderPage() {
           dropZone.classList.remove('dragover');
         });
       });
-      dropZone.addEventListener('drop', function (e) {
+      // Hide global overlay on drop or when leaving window
+      document.addEventListener('dragleave', function (e) {
+        if (e.target === document.documentElement) hideGlobalDropOverlay();
+      });
+      document.addEventListener('drop', function (e) {
+        hideGlobalDropOverlay();
         var files = e.dataTransfer.files;
         if (files.length) {
           document.getElementById('fileInput').files = files;
@@ -2572,6 +2600,8 @@ function renderPage() {
           tagHtml +
         '</div>' +
         '<div class="file-actions">' +
+          // Mobile: compact ⋮ menu (shown in grid mode on mobile via CSS)
+          '<button class="mobile-more-btn" onclick=' + "'" + 'showFileActions(' + JSON.stringify(file.name) + ', event)' + "'" + ' title="更多操作" style="display:none">⋮</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
@@ -2653,6 +2683,18 @@ function renderPage() {
     }, { passive: false });
     document.addEventListener('touchend', function() { clearTimeout(longPressTimer); });
     document.addEventListener('touchmove', function() { clearTimeout(longPressTimer); });
+
+    // Mobile: show context menu for grid items (triggered by ⋮ button)
+    function showMobileMenu(filename, event) {
+      event.stopPropagation();
+      ctxTarget = filename;
+      var menu = document.getElementById('ctxMenu');
+      var x = Math.min(event.clientX, window.innerWidth - 170);
+      var y = Math.min(event.clientY, window.innerHeight - 220);
+      menu.style.left = x + 'px';
+      menu.style.top = y + 'px';
+      menu.style.display = 'block';
+    }
 
     // --- Drag-to-Reorder ---
     var draggedItem = null;
@@ -3844,6 +3886,133 @@ function renderPage() {
         openDuplicates(); // refresh
       } else {
         showToast(data.error || '删除失败', 'error');
+      }
+    }
+
+    async function openDashboard() {
+      var loadingHtml = '<div style="display:flex;justify-content:center;align-items:center;height:120px;color:var(--muted)">加载中...</div>';
+      var dashContentId = 'dashboard_' + Date.now();
+      var dashEl = document.createElement('div');
+      dashEl.id = dashContentId;
+      dashEl.style.cssText = 'max-height:70vh;overflow:auto;padding:4px 0';
+      dashEl.innerHTML = loadingHtml;
+      var modal = createModal('\uD83D\uDCC8 \u5B58\u50A8\u5206\u6790', dashEl.outerHTML, { wide: true, onClose: null });
+      try {
+        var res = await fetch('/api/dashboard', { headers: headers() });
+        var data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        var files = data.files, storage = data.storage, byType = data.byType, byExt = data.byExt;
+        var activity = data.activity, shares = data.shares, devices = data.devices;
+        var tokens = data.tokens, audit = data.audit;
+        var fmtSize = function(b) {
+          if (b < 1024) return b + ' B';
+          if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+          if (b < 1073741824) return (b/1048576).toFixed(1) + ' MB';
+          return (b/1073741824).toFixed(2) + ' GB';
+        };
+        var cards = [
+          { label: '\u6587\u4EF6\u603B\u6570', value: files.total, icon: '\uD83D\uDCC4' },
+          { label: '\u5B58\u50A8\u7528\u91CF', value: fmtSize(storage.total), icon: '\uD83D\uDCBE' },
+          { label: '\u4ECA\u65E5\u65B0\u589E', value: activity.today, icon: '\uD83D\uDCC8' },
+          { label: '\u672C\u5468\u65B0\u589E', value: activity.week, icon: '\uD83D\uDCC5' },
+          { label: '\u6D3B\u8DC3\u5206\u4EAB', value: shares.active, icon: '\uD83D\uDD17' },
+          { label: '\u5728\u7EBF\u8BBE\u5907', value: devices.online + '/' + devices.total, icon: '\uD83D\uDCF1' },
+        ];
+        var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">';
+        for (var ci = 0; ci < cards.length; ci++) {
+          var c = cards[ci];
+          html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;text-align:center">';
+          html += '<div style="font-size:22px;margin-bottom:4px">' + c.icon + '</div>';
+          html += '<div style="font-size:20px;font-weight:700;color:var(--text)">' + escapeHtmlClient('' + c.value) + '</div>';
+          html += '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + c.label + '</div></div>';
+        }
+        html += '</div>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">';
+        // Type distribution
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
+        html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">\uD83D\uDCC1 \u6587\u4EF6\u7C7B\u578B\u5206\u5E03</div>';
+        if (byType && byType.length) {
+          var totalFiles = 0, ti;
+          for (ti = 0; ti < byType.length; ti++) totalFiles += byType[ti].count;
+          var colors = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6'];
+          for (ti = 0; ti < byType.length; ti++) {
+            var r = byType[ti];
+            var pct = totalFiles > 0 ? Math.round(r.count / totalFiles * 100) : 0;
+            var color = colors[ti % colors.length];
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+            html += '<div style="width:12px;height:12px;border-radius:3px;background:' + color + ';flex-shrink:0"></div>';
+            html += '<div style="flex:1;font-size:12px;color:var(--text-secondary)">' + escapeHtmlClient(r.type || 'unknown') + '</div>';
+            html += '<div style="font-size:12px;color:var(--muted)">' + r.count + ' (' + pct + '%)</div></div>';
+            html += '<div style="height:4px;background:var(--bg-tertiary);border-radius:4px;margin-bottom:10px">';
+            html += '<div style="height:4px;width:' + pct + '%;background:' + color + ';border-radius:4px"></div></div>';
+          }
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
+        }
+        html += '</div>';
+        // Extension list
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
+        html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">\uD83D\uDD24 \u5E38\u89C1\u540E\u7F00 TOP 10</div>';
+        if (byExt && byExt.length) {
+          var maxCount = byExt[0] ? byExt[0].count : 1;
+          for (var ei = 0; ei < byExt.length; ei++) {
+            var er = byExt[ei];
+            var epct = Math.round(er.count / maxCount * 100);
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+            html += '<div style="width:40px;font-size:11px;color:var(--muted);flex-shrink:0">.' + escapeHtmlClient(er.ext || 'none') + '</div>';
+            html += '<div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px">';
+            html += '<div style="height:6px;width:' + epct + '%;background:var(--accent);border-radius:3px;opacity:0.7"></div></div>';
+            html += '<div style="font-size:11px;color:var(--muted);width:28px;text-align:right">' + er.count + '</div></div>';
+          }
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
+        }
+        html += '</div></div>';
+        // 7-day chart
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:20px">';
+        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">\uD83D\uDCC8 \u8FD17\u5929\u6587\u4EF6\u6D3B\u52A8</div>';
+        if (activity.dailyNew && activity.dailyNew.length) {
+          var maxDay = Math.max.apply(null, activity.dailyNew.map(function(d) { return d.count; }).concat([1]));
+          html += '<div style="display:flex;align-items:flex-end;gap:4px;height:80px">';
+          for (var di = 0; di < activity.dailyNew.length; di++) {
+            var dd = activity.dailyNew[di];
+            var dh = Math.max(Math.round(dd.count / maxDay * 70), dd.count > 0 ? 4 : 1);
+            html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">';
+            html += '<div style="font-size:10px;color:var(--muted)">' + dd.count + '</div>';
+            html += '<div style="width:100%;height:' + dh + 'px;background:var(--accent);border-radius:3px 3px 0 0;opacity:0.8"></div>';
+            html += '<div style="font-size:9px;color:var(--muted)">' + escapeHtmlClient(dd.date) + '</div></div>';
+          }
+          html += '</div>';
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
+        }
+        html += '</div>';
+        // System stats
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';
+        var sysItems = [
+          { label: '\u6587\u672C\u6587\u4EF6', value: files.text },
+          { label: '\u4E8C\u8FDB\u5236\u6587\u4EF6', value: files.binary },
+          { label: '\u661F\u6807\u6587\u4EF6', value: files.starred },
+          { label: '\u56DE\u6536\u7AD9', value: files.trash },
+          { label: '\u603B\u5206\u4EAB\u6570', value: shares.total },
+          { label: '\u5BC6\u7801\u4FDD\u62A4', value: shares.withPassword },
+          { label: 'Token \u603B\u6570', value: tokens.total },
+          { label: 'Token \u6D3B\u8DC3', value: tokens.active },
+          { label: '\u5BA1\u8BA1\u65E5\u5FD7', value: audit.total },
+          { label: '\u4ECA\u65E5\u5BA1\u8BA1', value: audit.today },
+        ];
+        for (var si = 0; si < sysItems.length; si++) {
+          var s = sysItems[si];
+          html += '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg-secondary);border-radius:8px;font-size:12px">';
+          html += '<span style="color:var(--muted)">' + s.label + '</span>';
+          html += '<span style="font-weight:600;color:var(--text)">' + escapeHtmlClient('' + s.value) + '</span></div>';
+        }
+        html += '</div>';
+        var targetEl = document.getElementById(dashContentId);
+        if (targetEl) targetEl.innerHTML = html;
+      } catch (e) {
+        var errEl = document.getElementById(dashContentId);
+        if (errEl) errEl.innerHTML = '<div style="color:var(--error);padding:12px">\u52A0\u8F7D\u5931\u8D25: ' + escapeHtmlClient(e.message) + '</div>';
       }
     }
 
