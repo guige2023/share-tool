@@ -334,6 +334,9 @@ function renderPage() {
     td.actions button{padding:8px 10px;border-radius:10px;font-size:13px}
     .muted{color:var(--muted)}
     .status{margin-top:12px;min-height:22px;color:var(--muted)}
+    .progress-bar-wrap{display:none;margin-top:10px;background:#edf2f7;border-radius:999px;height:10px;overflow:hidden}
+    .progress-bar-wrap.active{display:block}
+    .progress-bar{height:100%;background:var(--accent);border-radius:999px;transition:width .15s;min-width:2px}
     .list-scroll{max-height:620px;overflow:auto}
     .empty{padding:30px 10px;color:var(--muted);text-align:center}
     .modal{position:fixed;inset:0;background:rgba(15,23,42,.58);display:none;align-items:center;justify-content:center;padding:20px}
@@ -428,6 +431,9 @@ function renderPage() {
           <button onclick="uploadFiles()">上传文件</button>
           <button class="secondary" onclick="clearFileInput()">清空选择</button>
         </div>
+        <div class="progress-bar-wrap" id="progressBarWrap">
+          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+        </div>
         <div class="status" id="uploadStatus"></div>
       </section>
     </div>
@@ -519,6 +525,22 @@ function renderPage() {
 
     function status(text) {
       document.getElementById('uploadStatus').textContent = text || '';
+    }
+
+    function showProgress(current, total) {
+      var wrap = document.getElementById('progressBarWrap');
+      var bar = document.getElementById('progressBar');
+      if (!wrap || !bar) return;
+      var pct = total > 0 ? Math.round((current / total) * 100) : 0;
+      wrap.classList.add('active');
+      bar.style.width = pct + '%';
+    }
+
+    function clearProgress() {
+      var wrap = document.getElementById('progressBarWrap');
+      var bar = document.getElementById('progressBar');
+      if (wrap) wrap.classList.remove('active');
+      if (bar) bar.style.width = '0%';
     }
 
     function showToast(message, type = '') {
@@ -656,6 +678,7 @@ function renderPage() {
       }
       let completed = 0;
       status('开始上传 ' + files.length + ' 个文件...');
+      showProgress(0, files.length);
       for (const file of files) {
         const name = file.name;
         const content = await readFileAsBase64(file);
@@ -666,8 +689,11 @@ function renderPage() {
         });
         completed += 1;
         status('已上传 ' + completed + ' / ' + files.length);
+        showProgress(completed, files.length);
       }
       input.value = '';
+      clearFileInput();
+      clearProgress();
       await loadFiles();
       status('上传完成');
     }
@@ -965,12 +991,18 @@ function renderPage() {
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function (e) {
-      // Ctrl/Cmd + Enter: upload files
+      // Ctrl/Cmd + Enter: upload files (or save text if textarea focused)
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         var fi = document.getElementById('fileInput');
         if (fi && fi.files && fi.files.length) {
           e.preventDefault();
           uploadFiles();
+        } else {
+          var tc = document.getElementById('textContent');
+          if (tc && document.activeElement === tc) {
+            e.preventDefault();
+            uploadText();
+          }
         }
       }
       // Ctrl/Cmd + F: focus search
