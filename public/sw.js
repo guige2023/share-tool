@@ -9,10 +9,104 @@ const STATIC_ASSETS = [
   '/manifest.json',
   '/favicon.ico'
 ];
-// App shell resources to prefetch after install (low priority)
-const PREFETCH_ASSETS = [
-  '/manifest.json'
-];
+// IndexedDB config for offline upload queue
+const IDB_NAME = 'sharetool-uploads';
+const IDB_STORE = 'pending-uploads';
+const DB_VERSION = 1;
+
+// Open IndexedDB
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+  });
+}
+
+// Store pending upload in IndexedDB
+async function storePendingUpload(file) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const store = tx.objectStore(IDB_STORE);
+    store.add({ ...file, storedAt: Date.now() });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// Get all pending uploads
+async function getPendingUploads() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const store = tx.objectStore(IDB_STORE);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// Remove pending upload from IndexedDB
+async function removePendingUpload(id) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const store = tx.objectStore(IDB_STORE);
+    store.delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// Upload a single pending file via fetch
+async function uploadPendingFile(item) {
+  const { filename, content, type, token } = item;
+  const res = await fetch('/api/upload', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + (token || '')
+    },
+    body: JSON.stringify({ filename, content, type })
+  });
+  if (!res.ok) throw new Error('Upload failed: ' + res.status);
+  return res.json();
+}
+
+// Background sync: upload all pending files
+async function syncPendingUploads(client) {
+  const pending = await getPendingUploads();
+  if (!pending.length) return { success: 0, failed: 0 };
+
+  let success = 0, failed = 0;
+  for (const item of pending) {
+    try {
+      await uploadPendingFile(item);
+      await removePendingUpload(item.id);
+      success++;
+    } catch (e) {
+      failed++;
+      // Remove if definitively failed (not network issue)
+      if (e.message.includes('4') || e.message.includes('5')) {
+        await removePendingUpload(item.id);
+      }
+    }
+  }
+
+  // Notify all clients
+  const msg = { type: 'UPLOAD_SYNC_COMPLETE', success, failed };
+  if (client) client.postMessage(msg);
+  const clients = await self.clients.matchAll();
+  clients.forEach(c => c.postMessage(msg));
+  return { success, failed };
+}
 
 // Install: cache static assets
 self.addEventListener('install', event => {
@@ -21,8 +115,6 @@ self.addEventListener('install', event => {
       await cache.addAll(STATIC_ASSETS).catch(() => {
         // Ignore cache.addAll failure (e.g. network unavailable at install time)
       });
-      // Prefetch additional assets without blocking activation
-      fetch('/manifest.json').then(r => r.ok && cache.put('/manifest.json', r)).catch(() => {});
       return;
     }).then(() => self.skipWaiting())
   );
@@ -70,6 +162,25 @@ self.addEventListener('fetch', event => {
 
 // Handle messages from the main thread
 self.addEventListener('message', event => {
-  if (event.data === 'skipWaiting') self.skipWaiting();
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+  const data = event.data || {};
+  if (data === 'skipWaiting' || data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+  // Store a pending upload (called before going offline)
+  if (data.type === 'STORE_PENDING_UPLOAD') {
+    storePendingUpload(data.file).catch(() => {});
+  }
+  // Sync pending uploads
+  if (data.type === 'SYNC_UPLOADS') {
+    syncPendingUploads(event.source).catch(() => {});
+  }
+  // Online event — auto-sync
+  if (data.type === 'ONLINE') {
+    syncPendingUploads(event.source).catch(() => {});
+  }
+});
+
+// Listen for online event to trigger sync
+self.addEventListener('online', () => {
+  syncPendingUploads().catch(() => {});
 });

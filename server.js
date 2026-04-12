@@ -736,6 +736,7 @@ function renderPage() {
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button class="ghost" onclick="openKeyboardHelp()" title="键盘快捷键 (?)">?</button>
+        <button id="installPwaBtn" class="secondary" style="display:none" onclick="installPWA()">安装应用</button>
         <button id="advancedSearchBtn" class="ghost" onclick="toggleAdvancedSearch()">高级 ⌄</button>
         <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
         <button class="secondary" onclick="openTagManager()">标签管理</button>
@@ -1220,6 +1221,34 @@ function renderPage() {
 
     function formatTime(ts) {
       return new Date(ts).toLocaleString();
+    }
+
+    // PWA Install prompt
+    var deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      var btn = document.getElementById('installPwaBtn');
+      if (btn) { btn.style.display = ''; }
+    });
+    window.addEventListener('appinstalled', function() {
+      deferredPrompt = null;
+      var btn = document.getElementById('installPwaBtn');
+      if (btn) { btn.style.display = 'none'; }
+      showToast('ShareTool 已安装到主屏幕！', 'success');
+    });
+    async function installPWA() {
+      if (!deferredPrompt) {
+        showToast('请使用 Chrome/Edge 浏览器访问此页面来安装应用', 'error');
+        return;
+      }
+      deferredPrompt.prompt();
+      var result = await deferredPrompt.userChoice;
+      if (result.outcome === 'accepted') {
+        showToast('正在安装...', 'success');
+      }
+      deferredPrompt = null;
+      document.getElementById('installPwaBtn').style.display = 'none';
     }
 
     function escapeHtmlClient(value) {
