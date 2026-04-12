@@ -2230,6 +2230,37 @@ function renderPage() {
       draggedIndex = -1;
     });
 
+    // Paste images/files from clipboard (Ctrl+V / Cmd+V)
+    document.addEventListener('paste', function(e) {
+      // Skip if focus is in an input/textarea
+      var active = document.activeElement;
+      var tag = active && active.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      var items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+
+      var files = [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file') {
+          var file = items[i].getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (!files.length) return;
+
+      e.preventDefault();
+      // Use existing fileInput + handleFileSelect flow
+      var fi = document.getElementById('fileInput');
+      if (!fi) return;
+      // Create a DataTransfer to set files on the input
+      var dt = new DataTransfer();
+      files.forEach(function(f) { dt.items.add(f); });
+      fi.files = dt.files;
+      showToast('已粘贴 ' + files.length + ' 个文件，正在上传...', 'info');
+      uploadFiles();
+    });
+
     document.addEventListener('dragover', function(e) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
@@ -3784,6 +3815,7 @@ function renderPage() {
           ['r', '刷新文件列表'],
           ['f', '聚焦搜索框'],
           ['n', '新建文本文件'],
+          ['Ctrl+V', '粘贴图片/文件上传'],
           ['Enter', '打开/预览文件'],
           ['d', '删除选中文件'],
           ['c', '复制分享链接'],
