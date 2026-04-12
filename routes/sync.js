@@ -153,12 +153,16 @@ function handleMessage(ws, msg, reply, broadcast, getWsForDevice) {
       }
 
       reply({ type: 'sync_ack', processed });
-      // Broadcast to other devices
+      // Broadcast to other WebSocket devices
       for (const p of processed) {
         broadcast({
           type: p.action === 'create' ? 'file_create' : p.action === 'delete' ? 'file_delete' : 'file_update',
           payload: p
         });
+      }
+      // Also notify SSE clients (web UI) so they refresh file list
+      if (processed.length > 0 && global.broadcastSSE) {
+        global.broadcastSSE({ type: 'files_changed' });
       }
       break;
     }
