@@ -352,11 +352,29 @@ function renderPage() {
       .actions-cell{display:flex;gap:6px;flex-wrap:wrap}
     }
     @media (max-width: 480px){
+      /* iOS auto-zoom fix: all inputs must be >=16px */
+      input,select,textarea{font-size:16px!important}
+      /* Prevent iOS from auto-zooming on inputs inside toolbar/search */
+      .toolbar input{font-size:16px!important}
+      .search-input-wrap input{font-size:16px!important}
       .meta .chip{font-size:11px;padding:7px 10px}
       .hero h1{font-size:24px}
       .panel{padding:14px}
       .toolbar button{width:100%}
+      /* Touch targets: min 44px height for buttons */
+      button,.btn{min-height:44px;font-size:15px}
+      /* Card-mode table: readable labels */
+      td{padding:6px 0 6px 40%;font-size:13px}
+      td:first-child{font-size:15px;font-weight:500}
+      td.actions-cell a,td.actions-cell button{padding:8px 10px;font-size:13px}
+      /* Prevent horizontal overflow */
+      body{overflow-x:hidden}
     }
+    /* Toast notification */
+    #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:#111827;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:transform .3s,opacity .3s;pointer-events:none;z-index:9999;max-width:90vw;text-align:center;word-break:break-all}
+    #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+    #toast.success{background:#059669}
+    #toast.error{background:#dc2626}
   </style>
 </head>
 <body>
@@ -428,6 +446,11 @@ function renderPage() {
 
     <section class="panel shares" style="margin-top:18px">
       <h2>分享链接</h2>
+      <div class="toolbar" style="margin-bottom:12px">
+        <input id="shareSearchInput" type="text" placeholder="搜索分享链接" style="flex:1 1 200px">
+        <button class="secondary" onclick="filterShares()">过滤</button>
+        <button class="ghost" onclick="copyAllShares()">复制全部链接</button>
+      </div>
       <div class="list-scroll">
         <table>
           <thead>
@@ -762,6 +785,7 @@ function renderPage() {
     async function loadShares() {
       const data = await request('/api/share/list');
       const shares = data.shares || [];
+      currentShares = shares;
       const body = document.getElementById('shareTable');
       const empty = document.getElementById('shareEmpty');
       if (!shares.length) {
@@ -789,6 +813,47 @@ function renderPage() {
       }).join('');
     }
 
+    var currentShares = [];
+
+    function filterShares() {
+      var q = document.getElementById('shareSearchInput').value.trim().toLowerCase();
+      var body = document.getElementById('shareTable');
+      var empty = document.getElementById('shareEmpty');
+      var filtered = q ? currentShares.filter(function (s) {
+        return s.filename.toLowerCase().includes(q) || (s.url || '').toLowerCase().includes(q);
+      }) : currentShares;
+      if (!filtered.length) {
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      body.innerHTML = filtered.map(function (share) {
+        var expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
+        return '<tr>' +
+          '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
+          '<td data-label="链接"><a href="' + share.url + '" target="_blank">' + share.url + '</a></td>' +
+          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '"></td>' +
+          '<td data-label="信息">' +
+            '<div>到期: ' + expireText + '</div>' +
+            '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
+            '<div>' + (share.hasPassword ? '有密码' : '无密码') + '</div>' +
+          '</td>' +
+          '<td class="actions-cell" data-label="操作">' +
+            '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
+            '<button class="danger" onclick=' + "'" + 'deleteShare(' + JSON.stringify(share.code) + ')' + "'" + '>删除</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    async function copyAllShares() {
+      if (!currentShares.length) return;
+      var urls = currentShares.map(function (s) { return s.url; }).join('\n');
+      await copyToClipboard(urls);
+      alert('已复制 ' + currentShares.length + ' 个链接');
+    }
+
     async function copyShare(url) {
       await copyToClipboard(url);
       alert('已复制');
@@ -802,6 +867,10 @@ function renderPage() {
 
     document.getElementById('searchInput').addEventListener('keydown', function (event) {
       if (event.key === 'Enter') searchFiles();
+    });
+
+    document.getElementById('shareSearchInput').addEventListener('keydown', function (event) {
+      if (event.key === 'Enter') filterShares();
     });
 
     // Sort state
