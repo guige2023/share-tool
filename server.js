@@ -608,6 +608,7 @@ function renderPage() {
           <div id="auditEmpty" class="empty" style="display:none">暂无日志</div>
         </div>
         <div id="auditStats" style="margin-top:12px;font-size:13px;color:var(--muted)"></div>
+        <button class="ghost" style="margin-top:10px;font-size:13px" onclick="exportAuditCSV()">📥 导出 CSV</button>
       </div>
     </section>
   </div>
@@ -1305,6 +1306,12 @@ function renderPage() {
       }).join('');
       var statsEl = document.getElementById('auditStats');
       statsEl.textContent = '共 ' + stats.total + ' 条记录';
+    }
+
+    async function exportAuditCSV() {
+      var action = document.getElementById('auditActionFilter').value;
+      var url = '/api/audit/export' + (action ? '?action=' + encodeURIComponent(action) : '');
+      window.location.href = url;
     }
 
     async function copyToClipboard(text) {

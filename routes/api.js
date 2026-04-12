@@ -118,6 +118,19 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Audit Logs CSV Export ────────────────────────────────────────────
+  if (pathname === '/api/audit/export' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const action = query.get('action') || null;
+    const filters = action ? { action } : {};
+    const csv = db.exportAuditLogsCSV(filters);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="audit-log-' + Date.now() + '.csv"');
+    res.end(csv);
+    return true;
+  }
+
   // ── Rate Limit Status ───────────────────────────────────────────────
   if (pathname === '/api/rate-limit/check' && method === 'GET') {
     const ip = getClientIp(req);

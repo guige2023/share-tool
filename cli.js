@@ -668,6 +668,7 @@ async function main() {
     console.log('  diff <filename> [v1] [v2]  Compare file versions');
     console.log('  export [-o dir]  Export all files to local directory');
     console.log('  token          Show current token');
+    console.log('  token refresh  Refresh dynamic token via /api/auth/login');
     console.log('  history [--clear]  Show command history');
     console.log('  renew-cert     Force renew HTTPS certificate');
     console.log('  config         Show all config');
@@ -973,6 +974,44 @@ async function main() {
 
       case 'token': {
         const config = getConfig();
+        const sub = args[1];
+        if (sub === 'refresh') {
+          // Exchange static token for a new dynamic token via /api/auth/login
+          const staticToken = config.shareToken || config.token;
+          if (!staticToken) {
+            console.log('No static token found in config. Run: share-tool token');
+            process.exit(1);
+          }
+          // Login to get new dynamic token (exchanges static for dynamic)
+          const req = http.request({ hostname: 'localhost', port: 18790, path: '/api/auth/login', method: 'POST', headers: { 'Content-Type': 'application/json' } }, (res) => {
+            let body = '';
+            res.on('data', d => body += d);
+            res.on('end', () => {
+              try {
+                const data = JSON.parse(body);
+                if (data.success) {
+                  console.log('New dynamic token:', data.token);
+                  console.log('Refresh token:', data.refreshToken);
+                  console.log('Expires at:', new Date(data.expiresAt * 1000).toLocaleString());
+                  // Update config with new token
+                  saveConfig({ ...config, token: data.token, refreshToken: data.refreshToken });
+                  console.log('Config updated.');
+                } else {
+                  console.log('Login failed:', data.error);
+                  process.exit(1);
+                }
+              } catch (e) {
+                console.log('Response parse error:', e.message);
+                process.exit(1);
+              }
+            });
+          }).on('error', (e) => {
+            console.log('Cannot connect to server:', e.message);
+            process.exit(1);
+          });
+          req.end(JSON.stringify({ password: staticToken }));
+          return; // async, don't fall through
+        }
         if (config.shareToken || config.token) {
           console.log('Current token:', config.shareToken || config.token);
         } else {
