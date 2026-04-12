@@ -474,6 +474,8 @@ function renderPage() {
       .file-tags{max-width:none}
     }
     @media (max-width: 480px){
+      /* Context menu: larger touch targets on mobile */
+      .ctx-item{padding:14px 16px;font-size:15px}
       /* iOS auto-zoom fix: all inputs must be >=16px */
       input,select,textarea{font-size:16px!important}
       /* Prevent iOS from auto-zooming on inputs inside toolbar/search */
@@ -485,7 +487,7 @@ function renderPage() {
       .wrap{padding:12px}
       .panel{padding:14px}
       /* Let toolbar buttons wrap naturally - remove 100% width that broke toolbar layout */
-      .toolbar{flex-wrap:wrap}
+      .toolbar{flex-wrap:wrap;gap:8px}
       .toolbar button{min-width:44px;width:auto;padding:9px 12px;font-size:13px}
       .toolbar input{flex:1 1 100%!important;min-width:0!important}
       #tagFilterSelect{flex:1 1 100%;max-width:100%}
@@ -507,6 +509,13 @@ function renderPage() {
       @media (max-width: 600px){
         #fileTableGrid .file-actions{display:none}
       }
+      /* Batch bar: horizontal scroll on small screens */
+      #batchBar{overflow-x:auto;justify-content:flex-start!important;padding:8px 12px!important;gap:6px;flex-wrap:nowrap;white-space:nowrap}
+      #batchBar button{min-height:36px;padding:7px 12px;font-size:12px;white-space:nowrap;flex-shrink:0}
+      #batchCount{white-space:nowrap;font-size:12px;flex-shrink:0}
+      /* Mobile modal: full-screen preview */
+      .modal-card{width:100%;max-height:100vh;height:100vh;border-radius:0;padding:12px}
+      .modal{padding:0}
     }
     /* Toast notification */
     #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--toast-bg,#111827);color:var(--toast-color,#fff);padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:transform .3s,opacity .3s;pointer-events:none;z-index:9999;max-width:90vw;text-align:center;word-break:break-all}
