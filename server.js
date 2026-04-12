@@ -328,6 +328,10 @@ function renderPage() {
       --accent-weak:#dff7f1;
       --danger:#b91c1c;
       --shadow:0 24px 60px rgba(15,23,42,.08);
+      --btn-bg:#0f172a;
+      --btn-color:#fff;
+      --btn-secondary-bg:#e2e8f0;
+      --btn-secondary-color:#0f172a;
     }
     @media (prefers-color-scheme: dark) {
       :root{
@@ -381,7 +385,8 @@ function renderPage() {
     [data-theme="dark"] .modal-card pre{background:#0f172a!important;color:#e2e8f0!important}
     [data-theme="dark"] button.secondary{background:#334155;color:#f1f5f9}
     [data-theme="dark"] .modal-card button:not(.secondary):not(.danger):not(.ghost){background:#334155;color:#f1f5f9}
-    [data-theme="dark"] .modal-card button.ghost{background:transparent;border-color:#475569;color:#f1f5f9}
+    [data-theme="dark"] button.ghost{background:transparent;border-color:#475569;color:#f1f5f9}
+    [data-theme="dark"] button{--btn-bg:#e2e8f0;--btn-color:#0f172a;--btn-secondary-bg:#334155;--btn-secondary-color:#f1f5f9}
     [data-theme="dark"] .tag-badge{color:#c7d2fe}
     [data-theme="dark"] .progress-bar-wrap{background:#1e293b}
     [data-theme="dark"] .shares img{background:#0f172a}
@@ -413,9 +418,9 @@ function renderPage() {
     }
     textarea{min-height:140px;resize:vertical}
     button{
-      border:none;border-radius:14px;padding:11px 16px;background:#111827;color:#fff;cursor:pointer
+      border:none;border-radius:14px;padding:11px 16px;background:var(--btn-bg,#111827);color:var(--btn-color,#fff);cursor:pointer
     }
-    button.secondary{background:#e2e8f0;color:#0f172a}
+    button.secondary{background:var(--btn-secondary-bg,#e2e8f0);color:var(--btn-secondary-color,#0f172a)}
     button.danger{background:var(--danger)}
     button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
     .drop-zone{border:2px dashed var(--line);border-radius:16px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:rgba(255,255,255,.4)}
