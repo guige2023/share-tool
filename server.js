@@ -1787,6 +1787,23 @@ function renderPage() {
 
     function uploadItem(item) {
       return new Promise(function(resolve, reject) {
+        // Offline: store in IndexedDB via SW for later sync
+        if (!navigator.onLine) {
+          item.status = 'pending';
+          item.pct = 0;
+          var token = localStorage.getItem('st_auth_token') || STATIC_TOKEN;
+          navigator.serviceWorker.controller &&
+            navigator.serviceWorker.controller.postMessage({
+              type: 'STORE_PENDING_UPLOAD',
+              file: { filename: item.name, content: '[deferred]', type: 'file', token: token }
+            });
+          updateQueueItem(uploadQueue.indexOf(item), { status: 'pending' });
+          uploadActive--;
+          processUploadQueue();
+          resolve(null);
+          return;
+        }
+
         item.status = 'uploading';
         updateQueueItem(uploadQueue.indexOf(item), { status: 'uploading' });
 
