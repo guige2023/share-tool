@@ -1012,7 +1012,7 @@ function renderPage() {
       '</tr>';
     }
 
-    function renderFileItem(file, tagColorMap) {
+    function renderFileItem(file, tagColorMap, mode) {
       var tags = file.tags || '';
       var tagHtml = tags
         ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
@@ -1020,9 +1020,25 @@ function renderPage() {
             return '<span class="tag-badge" style="background:' + tc + ';color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block">' + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
+
+      // File type icon for grid view
+      var gridIcon = '';
+      if (mode === 'grid') {
+        var mime = file.content_type || file.mime || '';
+        var iconSvg;
+        if (mime.startsWith('image/')) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+        else if (mime === 'application/pdf') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>';
+        else if (mime.startsWith('video/')) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.5"><polygon points="23,7 16,12 23,17"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>';
+        else if (mime.startsWith('audio/')) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+        else if (mime.startsWith('text/')) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+        else iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>';
+        gridIcon = '<div style="display:flex;align-items:center;justify-content:center;height:64px;margin-bottom:8px">' + iconSvg + '</div>';
+      }
+
       return '<div class="file-item">' +
         '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()">' +
         '<div class="file-content">' +
+          gridIcon +
           '<div class="file-name">' + escapeHtmlClient(file.name) + '</div>' +
           '<div class="file-meta">' + formatBytes(file.size) + ' · ' + formatTime(file.updatedAt || file.createdAt) + '</div>' +
           tagHtml +
@@ -1182,7 +1198,13 @@ function renderPage() {
       if (file.type === 'text') {
         modalBody.innerHTML = '<pre>' + escapeHtmlClient(file.content || '') + '</pre>';
       } else if ((file.mime || '').startsWith('image/')) {
-        modalBody.innerHTML = '<img alt="" src="data:' + file.mime + ';base64,' + file.content + '">';
+        modalBody.innerHTML = '<img alt="" src="data:' + file.mime + ';base64,' + file.content + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px">';
+      } else if (file.mime === 'application/pdf') {
+        modalBody.innerHTML = '<iframe src="data:application/pdf;base64,' + file.content + '" style="width:100%;height:70vh;border:none;border-radius:8px" title="PDF预览"></iframe>';
+      } else if ((file.mime || '').startsWith('video/')) {
+        modalBody.innerHTML = '<video controls style="width:100%;max-height:70vh;border-radius:8px;background:#000"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持视频预览</video>';
+      } else if ((file.mime || '').startsWith('audio/')) {
+        modalBody.innerHTML = '<audio controls style="width:100%;margin-top:20px"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持音频预览</audio>';
       } else {
         modalBody.innerHTML = '<p class="muted">此文件类型不做内嵌预览，请直接下载。</p><button onclick=' + "'" + 'downloadFile(' + JSON.stringify(filename) + ')' + "'" + '>下载文件</button>';
       }

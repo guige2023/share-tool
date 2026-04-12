@@ -572,8 +572,47 @@ function runMigrations(db, fromVersion) {
 // ============================================================
 // 文件操作
 // ============================================================
-const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, starred, position, created_at, updated_at';
-const FILE_LIST_FIELDS = 'id, filename, type, size, hash, tags, encrypted, starred, position, created_at, updated_at';
+const FILE_FIELDS = 'id, filename, content, type, size, hash, tags, encrypted, starred, position, created_at, updated_at, content_type';
+const FILE_LIST_FIELDS = 'id, filename, type, size, hash, tags, encrypted, starred, position, created_at, updated_at, content_type';
+
+// MIME type detection from filename extension
+const MIME_TYPES = {
+  '.pdf': 'application/pdf',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  '.zip': 'application/zip',
+  '.tar': 'application/x-tar',
+  '.gz': 'application/gzip',
+  '.json': 'application/json',
+  '.xml': 'application/xml',
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.txt': 'text/plain',
+};
+
+function detectMimeType(filename) {
+  const lower = filename.toLowerCase();
+  for (const [ext, mime] of Object.entries(MIME_TYPES)) {
+    if (lower.endsWith(ext)) return mime;
+  }
+  return 'application/octet-stream';
+}
 
 // Security helper: validate filename against path traversal
 function validateFilename(filename) {
@@ -594,7 +633,7 @@ function addFile(filename, content, type = 'file', hash = null, encrypted = fals
   try {
     // 新文件 position = 当前最大 + 1
     const maxPos = db.prepare('SELECT COALESCE(MAX(position), -1) as m FROM files').get().m;
-    const contentType = type === 'text' ? 'text/plain' : 'application/octet-stream';
+    const contentType = type === 'text' ? 'text/plain' : detectMimeType(filename);
     const stmt = db.prepare(`
       INSERT INTO files (filename, content, type, size, hash, encrypted, content_type, position, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())
@@ -780,6 +819,11 @@ function updateFileByName(filename, updates) {
     values.push(crypto.createHash('md5').update(updates.content).digest('hex'));
   }
   if (updates.type !== undefined) { fields.push('type = ?'); values.push(updates.type); }
+  if (updates.content !== undefined) {
+    // Re-detect MIME type when content changes
+    fields.push('content_type = ?');
+    values.push(existing.type === 'text' ? 'text/plain' : detectMimeType(existing.filename));
+  }
   if (updates.tags !== undefined) {
     updateTagStats(existing.tags, updates.tags);
     fields.push('tags = ?');

@@ -39,7 +39,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         type: file.type,
         hash: file.hash,
         createdAt: file.created_at * 1000,
-        updatedAt: file.updated_at * 1000
+        updatedAt: file.updated_at * 1000,
+        content_type: file.content_type || null
       }))
     });
     return true;
@@ -78,7 +79,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         createdAt: file.created_at * 1000,
         updatedAt: file.updated_at * 1000,
         tags: file.tags || '',
-        score: file.score || 0
+        score: file.score || 0,
+        content_type: file.content_type || null
       }))
     });
     return true;
@@ -153,7 +155,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         type: file.type,
         size: file.size,
         updatedAt: file.updated_at * 1000,
-        mime: guessMimeType(file.filename),
+        mime: file.content_type || guessMimeType(file.filename),
+        content_type: file.content_type || guessMimeType(file.filename),
         content: file.content || ''
       }
     });
