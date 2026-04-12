@@ -392,6 +392,32 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Server-Sent Events: real-time file change notifications ──────────
+  if (pathname === '/api/events' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+
+    // Send current file count as initial heartbeat
+    const fileCount = db.getFileCount();
+    res.write('data: ' + JSON.stringify({ type: 'connected', fileCount }) + '\n\n');
+
+    // Register this response as an active SSE client
+    if (!global._sseClients) global._sseClients = new Set();
+    global._sseClients.add(res);
+
+    req.on('close', () => {
+      global._sseClients.delete(res);
+    });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {
