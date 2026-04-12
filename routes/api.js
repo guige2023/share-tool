@@ -418,6 +418,49 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Trash: List ────────────────────────────────────────────────────
+  if (pathname === '/api/trash' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const limit = Math.min(parseInt(query.get('limit') || '100', 10), 500);
+    const items = db.listTrash(limit);
+    sendJson(res, { success: true, items });
+    return true;
+  }
+
+  // ── Trash: Restore ─────────────────────────────────────────────────
+  if (pathname === '/api/trash/restore' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { trashId } = body;
+    if (!trashId) { sendJson(res, { success: false, error: 'trashId required' }, 400); return true; }
+    const result = db.restoreFromTrash(trashId);
+    sendJson(res, result);
+    return true;
+  }
+
+  // ── Trash: Permanent Delete ─────────────────────────────────────────
+  if (pathname === '/api/trash/delete' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { trashId } = body;
+    if (!trashId) { sendJson(res, { success: false, error: 'trashId required' }, 400); return true; }
+    const result = db.permanentlyDeleteTrash(trashId);
+    sendJson(res, result);
+    return true;
+  }
+
+  // ── Trash: Empty ───────────────────────────────────────────────────
+  if (pathname === '/api/trash/empty' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    db.cleanupExpiredTrash();
+    sendJson(res, { success: true });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {

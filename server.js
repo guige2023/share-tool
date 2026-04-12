@@ -689,6 +689,7 @@ function renderPage() {
         <button id="advancedSearchBtn" class="ghost" onclick="toggleAdvancedSearch()">高级 ⌄</button>
         <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
         <button class="secondary" onclick="openTagManager()">标签管理</button>
+        <button class="ghost" onclick="openTrash()">回收站</button>
         <button class="danger" onclick="deleteAllFiles()">删除全部</button>
         <div class="view-toggle">
           <input type="checkbox" id="gridSelectAll" onchange="toggleAll(this.checked)" style="display:none;margin-right:6px;cursor:pointer" title="全选">
@@ -2554,6 +2555,112 @@ function renderPage() {
       } finally {
         btn.disabled = false;
         btn.textContent = '合并到目标';
+      }
+    }
+
+    async function openTrash() {
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
+      title.textContent = '回收站';
+      body.innerHTML = '<div id="trashContent" style="padding:8px 0"><div style="text-align:center;color:var(--muted);padding:20px">加载中…</div></div>';
+      modal.classList.add('show');
+
+      try {
+        const res = await fetch('/api/trash', { headers: headers() });
+        const data = await res.json();
+        if (!data.success) { throw new Error(data.error || '加载失败'); }
+
+        const items = data.items || [];
+        const expiredCount = items.filter(i => i.expires_at && Date.now() / 1000 > i.expires_at).length;
+
+        let html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px">';
+        html += '<div style="font-size:13px;color:var(--muted)">共 <strong id="trashCount">' + items.length + '</strong> 个文件';
+        if (expiredCount > 0) html += '（<span style="color:var(--warning)">' + expiredCount + ' 个已过期</span>）';
+        html += '</div>';
+        html += '<button class="danger" onclick="emptyTrash()" style="padding:6px 14px;font-size:12px" ' + (items.length === 0 ? 'disabled' : '') + '>清空回收站</button>';
+        html += '</div>';
+
+        if (items.length === 0) {
+          html += '<div style="text-align:center;color:var(--muted);padding:40px 20px">回收站为空</div>';
+        } else {
+          html += '<div style="max-height:500px;overflow-y:auto">';
+          items.forEach(function(item) {
+            const deletedAt = new Date(item.deleted_at * 1000);
+            const expiryInfo = item.expires_at ? ('（' + Math.max(0, Math.ceil((item.expires_at * 1000 - Date.now()) / 86400000)) + ' 天后永久删除）') : '';
+            const sizeStr = item.size > 1024 * 1024 ? (Math.round(item.size / 1024 / 1024) + ' MB') : (Math.round(item.size / 1024) + ' KB');
+            const typeIcon = '📄';
+            html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:var(--bg-secondary);margin-bottom:8px">';
+            html += '<span style="font-size:20px;flex-shrink:0">' + typeIcon + '</span>';
+            html += '<div style="flex:1;min-width:0">';
+            html += '<div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(item.filename) + '">' + escapeHtmlClient(item.filename) + '</div>';
+            html += '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + sizeStr + ' · 删除于 ' + deletedAt.toLocaleDateString('zh-CN') + ' ' + expiryInfo + '</div>';
+            html += '</div>';
+            html += '<button onclick="restoreTrashItem(' + item.id + ')" style="padding:5px 12px;font-size:12px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer">恢复</button>';
+            html += '<button onclick="permanentDeleteTrashItem(' + item.id + ')" style="padding:5px 12px;font-size:12px;background:var(--bg-tertiary);color:var(--muted);border:1px solid var(--line);border-radius:6px;cursor:pointer">彻底删除</button>';
+            html += '</div>';
+          });
+          html += '</div>';
+        }
+
+        document.getElementById('trashContent').innerHTML = html;
+      } catch (e) {
+        document.getElementById('trashContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
+    }
+
+    async function restoreTrashItem(trashId) {
+      try {
+        const res = await fetch('/api/trash/restore', {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ trashId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('已恢复', 'success');
+          openTrash();
+        } else {
+          showToast('恢复失败: ' + (data.error || '未知错误'), 'error');
+        }
+      } catch (e) {
+        showToast('恢复失败: ' + e.message, 'error');
+      }
+    }
+
+    async function permanentDeleteTrashItem(trashId) {
+      if (!confirm('彻底删除后无法恢复，确定？')) return;
+      try {
+        const res = await fetch('/api/trash/delete', {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ trashId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('已彻底删除', 'success');
+          openTrash();
+        } else {
+          showToast('删除失败: ' + (data.error || '未知错误'), 'error');
+        }
+      } catch (e) {
+        showToast('删除失败: ' + e.message, 'error');
+      }
+    }
+
+    async function emptyTrash() {
+      if (!confirm('确定清空回收站？过期文件将被永久删除。')) return;
+      try {
+        const res = await fetch('/api/trash/empty', { method: 'POST', headers: headers() });
+        const data = await res.json();
+        if (data.success) {
+          showToast('回收站已清空', 'success');
+          openTrash();
+        } else {
+          showToast('清空失败: ' + (data.error || '未知错误'), 'error');
+        }
+      } catch (e) {
+        showToast('清空失败: ' + e.message, 'error');
       }
     }
 
