@@ -55,6 +55,16 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     }
 
     const results = db.searchFiles(q, null, { fuzzy: true, limit: 100 });
+    const sort = query.get('sort') || 'updated_at';
+    const order = (query.get('order') || 'desc').toLowerCase();
+    const dir = order === 'asc' ? 1 : -1;
+    if (sort === 'filename') {
+      results.sort((a, b) => dir * a.filename.localeCompare(b.filename));
+    } else if (sort === 'size') {
+      results.sort((a, b) => dir * (a.size - b.size));
+    } else if (sort === 'updated_at') {
+      results.sort((a, b) => dir * (a.updated_at - b.updated_at));
+    }
     sendJson(res, {
       success: true,
       files: results.map((file) => ({

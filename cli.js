@@ -161,6 +161,14 @@ async function syncPull() {
         const msg = JSON.parse(data.toString());
         if (msg.type === 'sync_response') {
           wsClient.removeListener('message', replyHandler);
+          // Mark received logs as synced
+          if (msg.payload && msg.payload.logs && msg.payload.logs.length > 0) {
+            const ids = msg.payload.logs.map(l => l.id).filter(Boolean);
+            if (ids.length > 0) {
+              // Send ack to mark as synced on server
+              wsClient.send(JSON.stringify({ type: 'sync_ack', payload: { ids } }));
+            }
+          }
           resolve(msg);
         }
       } catch (e) {}

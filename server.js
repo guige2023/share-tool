@@ -590,7 +590,8 @@ function renderPage() {
 
     async function loadFiles() {
       const q = document.getElementById('searchInput').value.trim();
-      const url = q ? '/api/search?q=' + encodeURIComponent(q) : '/api/list?sort=updated_at&order=desc';
+      const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
+      const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam : '/api/list?' + sortParam;
       const data = await request(url);
       currentFiles = data.files || [];
       const body = document.getElementById('fileTable');
@@ -806,6 +807,14 @@ function renderPage() {
     // Sort state
     var currentSort = 'updated_at';
     var currentOrder = 'desc';
+
+    // Show initial sort arrow
+    (function initArrows() {
+      ['filename', 'size', 'updated_at'].forEach(function (c) {
+        var arrow = document.getElementById('arrow-' + c);
+        if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
+      });
+    })();
 
     function setSort(col) {
       if (currentSort === col) {
