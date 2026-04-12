@@ -617,6 +617,7 @@ function renderPage() {
     <div class="ctx-item" onclick="ctxAction('download')">⬇ 下载</div>
     <div class="ctx-item" onclick="ctxAction('share')">🔗 分享</div>
     <div class="ctx-item" onclick="ctxAction('copyLink')">📋 复制链接</div>
+    <div class="ctx-item" onclick="ctxAction('history')">📜 版本历史</div>
     <div class="ctx-sep"></div>
     <div class="ctx-item" onclick="ctxAction('rename')">✎ 重命名</div>
     <div class="ctx-item" onclick="ctxAction('delete')" style="color:var(--danger)">🗑 删除</div>
@@ -1999,6 +2000,88 @@ function renderPage() {
         case 'copyLink': await copyShareLink(filename); break;
         case 'rename': renameFile(filename); break;
         case 'delete': if (confirm('确认删除 ' + filename + '？')) deleteFile(filename); break;
+        case 'history': openVersionHistory(filename); break;
+      }
+    }
+
+    async function openVersionHistory(filename) {
+      const modalBody = document.getElementById('modalBody');
+      document.getElementById('modalTitle').textContent = '版本历史: ' + escapeHtmlClient(filename);
+      modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
+      document.getElementById('modal').classList.add('open');
+      try {
+        const encoded = encodeURIComponent(filename);
+        const res = await fetch('/api/versions?filename=' + encoded, { headers: headers() });
+        const data = await res.json();
+        if (!data.success || !data.versions.length) {
+          modalBody.innerHTML = '<p style="text-align:center;padding:40px;color:var(--text-muted)">暂无版本记录。文件修改时会自动保存版本。</p>';
+          return;
+        }
+        const html = '<div style="max-height:60vh;overflow:auto">' +
+          data.versions.map(v => {
+            const date = new Date(v.created_at * 1000).toLocaleString('zh-CN');
+            const size = formatSize ? formatSize(v.size) : v.size + ' B';
+            const isCurrent = v.hash === data.currentHash;
+            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+              '<div style="flex:1">' +
+                '<div style="color:var(--text)">' + date + (isCurrent ? ' <span style="background:var(--accent);color:#fff;font-size:10px;padding:1px 5px;border-radius:3px">当前</span>' : '') + '</div>' +
+                '<div style="color:var(--text-muted);font-size:11px;margin-top:2px">' + size + ' · ' + escapeHtmlClient(v.hash ? v.hash.slice(0, 8) : '') + '</div>' +
+              '</div>' +
+              '<div style="display:flex;gap:6px">' +
+                '<button class="btn-sm secondary" onclick="viewVersion(' + v.id + ')" style="padding:5px 12px;font-size:12px">预览</button>' +
+                (!isCurrent ? '<button class="btn-sm primary" onclick="restoreVersion(' + v.id + ')" style="padding:5px 12px;font-size:12px">恢复</button>' : '') +
+              '</div>' +
+            '</div>';
+          }).join('') + '</div>';
+        modalBody.innerHTML = html;
+        window._versionHistoryFilename = filename;
+      } catch (e) {
+        modalBody.innerHTML = '<p style="color:var(--danger);padding:20px;text-align:center">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
+
+    async function viewVersion(versionId) {
+      const modalBody = document.getElementById('modalBody');
+      modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
+      try {
+        const res = await fetch('/api/versions/' + versionId, { headers: headers() });
+        const data = await res.json();
+        if (!data.success || !data.version) {
+          modalBody.innerHTML = '<p class="muted">版本不存在</p>'; return;
+        }
+        const v = data.version;
+        const ext = (v.filename || '').split('.').pop().toLowerCase();
+        const langMap = { js:'javascript', ts:'typescript', py:'python', rb:'ruby', go:'go', rs:'rust', java:'java', md:'markdown', json:'json', css:'css', html:'html', htm:'html', sh:'bash', yaml:'yaml', yml:'yaml', xml:'xml', sql:'sql' };
+        const lang = langMap[ext] || '';
+        const isText = ['js','ts','py','rb','go','rs','java','md','json','css','html','htm','sh','yaml','yml','xml','sql'].includes(ext);
+        if (isText && v.content) {
+          const truncated = v.content.length > 500000;
+          const display = truncated ? v.content.slice(0, 500000) : v.content;
+          modalBody.innerHTML = '<div style="max-height:70vh;overflow:auto;background:var(--bg-secondary);border-radius:8px;padding:16px;font-family:monospace;font-size:13px;white-space:pre-wrap;word-break:break-all">' + escapeHtmlClient(display) + '</div>' + (truncated ? '<p style="color:var(--text-muted);font-size:12px;margin-top:8px;text-align:center">内容过长，已截断</p>' : '');
+        } else if (v.content) {
+          modalBody.innerHTML = '<p class="muted">此版本为非文本文件，请下载查看。</p><button class="btn secondary" onclick="downloadVersion(' + versionId + ')">下载此版本</button>';
+        } else {
+          modalBody.innerHTML = '<p class="muted">版本内容不可用</p>';
+        }
+      } catch (e) {
+        modalBody.innerHTML = '<p class="muted">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
+
+    async function restoreVersion(versionId) {
+      if (!confirm('确认恢复此版本？当前内容将保存为新版本。')) return;
+      try {
+        const res = await fetch('/api/versions/' + versionId + '/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('版本已恢复', 'success');
+          document.getElementById('modal').classList.remove('open');
+          if (typeof loadFiles === 'function') loadFiles();
+        } else {
+          showToast('恢复失败: ' + (data.error || '未知错误'), 'error');
+        }
+      } catch (e) {
+        showToast('恢复失败: ' + e.message, 'error');
       }
     }
 
