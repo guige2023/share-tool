@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 8; // v8: virtual_folders.position
+const SCHEMA_VERSION = 9; // v9: FTS5 full-text search index
 
 let db = null;
 
