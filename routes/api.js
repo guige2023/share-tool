@@ -452,6 +452,48 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Trash: Batch Restore ──────────────────────────────────────────
+  if (pathname === '/api/trash/restore-batch' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { trashIds } = body;
+    if (!Array.isArray(trashIds) || trashIds.length === 0) {
+      sendJson(res, { success: false, error: 'trashIds array required' }, 400);
+      return true;
+    }
+    const restored = [];
+    const failed = [];
+    for (const trashId of trashIds) {
+      const result = db.restoreFromTrash(trashId);
+      if (result.success) restored.push(trashId);
+      else failed.push({ trashId, error: result.error });
+    }
+    sendJson(res, { success: true, restored: restored.length, failed });
+    return true;
+  }
+
+  // ── Trash: Batch Permanent Delete ─────────────────────────────────
+  if (pathname === '/api/trash/delete-batch' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { trashIds } = body;
+    if (!Array.isArray(trashIds) || trashIds.length === 0) {
+      sendJson(res, { success: false, error: 'trashIds array required' }, 400);
+      return true;
+    }
+    const deleted = [];
+    const failed = [];
+    for (const trashId of trashIds) {
+      const result = db.permanentlyDeleteTrash(trashId);
+      if (result.success) deleted.push(trashId);
+      else failed.push({ trashId, error: result.error });
+    }
+    sendJson(res, { success: true, deleted: deleted.length, failed });
+    return true;
+  }
+
   // ── Trash: Empty ───────────────────────────────────────────────────
   if (pathname === '/api/trash/empty' && method === 'POST') {
     const auth = authRequired(req, res);

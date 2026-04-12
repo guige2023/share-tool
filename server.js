@@ -2704,11 +2704,14 @@ function renderPage() {
       }
     }
 
+    var selectedTrashItems = new Set();
+
     async function openTrash() {
       const modal = document.getElementById('modal');
       const title = document.getElementById('modalTitle');
       const body = document.getElementById('modalBody');
       title.textContent = '回收站';
+      selectedTrashItems.clear();
       body.innerHTML = '<div id="trashContent" style="padding:8px 0"><div style="text-align:center;color:var(--muted);padding:20px">加载中…</div></div>';
       modal.classList.add('show');
 
@@ -2720,11 +2723,20 @@ function renderPage() {
         const items = data.items || [];
         const expiredCount = items.filter(i => i.expires_at && Date.now() / 1000 > i.expires_at).length;
 
-        let html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px">';
+        let html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap">';
+        html += '<div style="display:flex;align-items:center;gap:12px">';
         html += '<div style="font-size:13px;color:var(--muted)">共 <strong id="trashCount">' + items.length + '</strong> 个文件';
         if (expiredCount > 0) html += '（<span style="color:var(--warning)">' + expiredCount + ' 个已过期</span>）';
         html += '</div>';
-        html += '<button class="danger" onclick="emptyTrash()" style="padding:6px 14px;font-size:12px" ' + (items.length === 0 ? 'disabled' : '') + '>清空回收站</button>';
+        html += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none">';
+        html += '<input type="checkbox" id="trashSelectAll" onchange="toggleTrashSelectAll()" style="width:16px;height:16px;cursor:pointer">全选';
+        html += '</label>';
+        html += '</div>';
+        html += '<div style="display:flex;gap:8px;align-items:center">';
+        html += '<button id="trashBatchRestore" onclick="batchRestoreTrash()" disabled style="padding:6px 14px;font-size:12px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;opacity:0.5">恢复(<span id="trashRestoreCount">0</span>)</button>';
+        html += '<button id="trashBatchDelete" onclick="batchPermanentDeleteTrash()" disabled style="padding:6px 14px;font-size:12px;background:var(--error);color:#fff;border:none;border-radius:6px;cursor:pointer;opacity:0.5">彻底删除(<span id="trashDeleteCount">0</span>)</button>';
+        html += '<button class="danger" onclick="emptyTrash()" style="padding:6px 14px;font-size:12px" ' + (items.length === 0 ? 'disabled' : '') + '>清空</button>';
+        html += '</div>';
         html += '</div>';
 
         if (items.length === 0) {
@@ -2736,7 +2748,8 @@ function renderPage() {
             const expiryInfo = item.expires_at ? ('（' + Math.max(0, Math.ceil((item.expires_at * 1000 - Date.now()) / 86400000)) + ' 天后永久删除）') : '';
             const sizeStr = item.size > 1024 * 1024 ? (Math.round(item.size / 1024 / 1024) + ' MB') : (Math.round(item.size / 1024) + ' KB');
             const typeIcon = '📄';
-            html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:var(--bg-secondary);margin-bottom:8px">';
+            html += '<div id="trash-item-' + item.id + '" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--bg-secondary);margin-bottom:8px">';
+            html += '<input type="checkbox" data-id="' + item.id + '" onchange="toggleTrashItem(' + item.id + ')" style="width:18px;height:18px;flex-shrink:0;cursor:pointer">';
             html += '<span style="font-size:20px;flex-shrink:0">' + typeIcon + '</span>';
             html += '<div style="flex:1;min-width:0">';
             html += '<div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(item.filename) + '">' + escapeHtmlClient(item.filename) + '</div>';
@@ -2752,6 +2765,88 @@ function renderPage() {
         document.getElementById('trashContent').innerHTML = html;
       } catch (e) {
         document.getElementById('trashContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
+    }
+
+    function toggleTrashItem(id) {
+      if (selectedTrashItems.has(id)) selectedTrashItems.delete(id);
+      else selectedTrashItems.add(id);
+      updateTrashBatchButtons();
+    }
+
+    function toggleTrashSelectAll() {
+      const checked = document.getElementById('trashSelectAll').checked;
+      const checkboxes = document.querySelectorAll('#trashContent input[type="checkbox"]');
+      selectedTrashItems.clear();
+      checkboxes.forEach(cb => {
+        if (cb.id !== 'trashSelectAll') {
+          cb.checked = checked;
+          if (checked) {
+            const id = parseInt(cb.getAttribute('data-id'));
+            if (id) selectedTrashItems.add(id);
+          }
+        }
+      });
+      updateTrashBatchButtons();
+    }
+
+    function updateTrashBatchButtons() {
+      const count = selectedTrashItems.size;
+      const restoreBtn = document.getElementById('trashBatchRestore');
+      const deleteBtn = document.getElementById('trashBatchDelete');
+      if (restoreBtn) {
+        restoreBtn.disabled = count === 0;
+        restoreBtn.style.opacity = count === 0 ? '0.5' : '1';
+        document.getElementById('trashRestoreCount').textContent = count;
+      }
+      if (deleteBtn) {
+        deleteBtn.disabled = count === 0;
+        deleteBtn.style.opacity = count === 0 ? '0.5' : '1';
+        document.getElementById('trashDeleteCount').textContent = count;
+      }
+    }
+
+    async function batchRestoreTrash() {
+      const ids = Array.from(selectedTrashItems);
+      if (ids.length === 0) return;
+      try {
+        const res = await fetch('/api/trash/restore-batch', {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ trashIds: ids })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('已恢复 ' + data.restored + ' 个文件', 'success');
+          openTrash();
+          loadFiles();
+        } else {
+          showToast('恢复失败: ' + (data.error || '未知错误'), 'error');
+        }
+      } catch (e) {
+        showToast('恢复失败: ' + e.message, 'error');
+      }
+    }
+
+    async function batchPermanentDeleteTrash() {
+      const ids = Array.from(selectedTrashItems);
+      if (ids.length === 0) return;
+      if (!confirm('彻底删除 ' + ids.length + ' 个文件后无法恢复，确定？')) return;
+      try {
+        const res = await fetch('/api/trash/delete-batch', {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ trashIds: ids })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('已删除 ' + data.deleted + ' 个文件', 'success');
+          openTrash();
+        } else {
+          showToast('删除失败: ' + (data.error || '未知错误'), 'error');
+        }
+      } catch (e) {
+        showToast('删除失败: ' + e.message, 'error');
       }
     }
 
