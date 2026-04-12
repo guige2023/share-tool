@@ -702,6 +702,10 @@ function renderPage() {
         </div>
       </div>
       <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
+      <div id="fileStatsBar" style="display:flex;gap:16px;align-items:center;padding:0 0 8px 0;font-size:12px;color:var(--muted);font-family:monospace">
+        <span id="fileCountDisplay">共 <strong>0</strong> 个文件</span>
+        <span id="selectedCountDisplay" style="display:none">，已选 <strong>0</strong> 个</span>
+      </div>
       <div id="advancedSearchPanel" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px;gap:12px">
         <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
           <div style="display:flex;flex-direction:column;gap:4px">
@@ -1153,11 +1157,15 @@ function renderPage() {
       if (names.length > 0) {
         bar.style.display = 'flex';
         count.textContent = '已选择 ' + names.length + ' 个文件';
+        var selEl = document.getElementById('selectedCountDisplay');
+        if (selEl) { selEl.style.display = 'inline'; selEl.innerHTML = '，已选 <strong>' + names.length + '</strong> 个'; }
         var total = document.querySelectorAll('.file-check').length;
         if (selectAll) selectAll.checked = names.length === total;
       } else {
         bar.style.display = 'none';
         if (selectAll) selectAll.checked = false;
+        var selEl = document.getElementById('selectedCountDisplay');
+        if (selEl) selEl.style.display = 'none';
       }
     }
 
@@ -1653,6 +1661,22 @@ function renderPage() {
       const empty = document.getElementById('fileEmpty');
       const listBody = document.getElementById('fileTableBody');
       const gridBody = document.getElementById('fileTableGrid');
+      // Update stats bar
+      const countEl = document.getElementById('fileCountDisplay');
+      if (countEl) {
+        const total = currentFiles.length;
+        const selected = document.querySelectorAll('.file-check:checked').length;
+        countEl.innerHTML = '共 <strong>' + total + '</strong> 个文件';
+        const selEl = document.getElementById('selectedCountDisplay');
+        if (selEl) {
+          if (selected > 0) {
+            selEl.style.display = 'inline';
+            selEl.innerHTML = '，已选 <strong>' + selected + '</strong> 个';
+          } else {
+            selEl.style.display = 'none';
+          }
+        }
+      }
       if (!currentFiles.length) {
         listBody.innerHTML = '';
         gridBody.innerHTML = '';
