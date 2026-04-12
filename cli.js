@@ -386,46 +386,78 @@ function parseUrl(serverUrl, endpoint) {
 }
 
 function request(method, endpoint, options = {}) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const serverUrl = getServerUrl();
     const parsedUrl = parseUrl(serverUrl, endpoint);
     const isHttps = parsedUrl.protocol === 'https:';
     const client = isHttps ? https : http;
 
-    const token = getToken();
-    const reqOptions = {
-      hostname: parsedUrl.hostname,
-      port: parsedUrl.port || (isHttps ? 443 : 80),
-      path: parsedUrl.pathname + parsedUrl.search,
-      method: method,
-      headers: {
-        'Content-Type': options.contentType || 'application/json'
+    let token = getToken();
+
+    const doReq = () => {
+      const reqOptions = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (isHttps ? 443 : 80),
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: method,
+        headers: {
+          'Content-Type': options.contentType || 'application/json'
+        }
+      };
+
+      if (token) {
+        reqOptions.headers['x-auth-token'] = token;
       }
+
+      const req = client.request(reqOptions, async (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', async () => {
+          try {
+            const json = JSON.parse(data);
+            // Auto-refresh on 401 (once)
+            if (res.statusCode === 401 && !options._retried) {
+              const config = getConfig();
+              const rt = config.refreshToken;
+              if (rt) {
+                try {
+                  const refreshRes = await new Promise((resolv, rej) => {
+                    const r = http.request({
+                      hostname: 'localhost', port: 18790,
+                      path: '/api/auth/refresh', method: 'POST',
+                      headers: { 'Content-Type': 'application/json' }
+                    }, (resp) => {
+                      let d = '';
+                      resp.on('data', c => d += c);
+                      resp.on('end', () => resolv({ status: resp.statusCode, data: JSON.parse(d) }));
+                    }).on('error', rej);
+                    r.end(JSON.stringify({ refreshToken: rt }));
+                  });
+                  if (refreshRes.data.success) {
+                    saveConfig({ ...config, token: refreshRes.data.token, refreshToken: refreshRes.data.refreshToken });
+                    token = refreshRes.data.token;
+                    options._retried = true;
+                    doReq();
+                    return;
+                  }
+                } catch (e) { /* refresh failed */ }
+              }
+            }
+            resolve({ status: res.statusCode, data: json });
+          } catch (e) {
+            resolve({ status: res.statusCode, data: data });
+          }
+        });
+      });
+
+      req.on('error', reject);
+      if (options.body) {
+        req.write(options.body);
+      }
+      req.end();
     };
 
-    if (token) {
-      reqOptions.headers['x-auth-token'] = token;
-    }
-
-    const req = client.request(reqOptions, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          resolve({ status: res.statusCode, data: json });
-        } catch (e) {
-          resolve({ status: res.statusCode, data: data });
-        }
-      });
-    });
-
-    req.on('error', reject);
-
-    if (options.body) {
-      req.write(options.body);
-    }
-    req.end();
+    doReq();
   });
 }
 
@@ -1086,40 +1118,62 @@ async function main() {
         const config = getConfig();
         const sub = args[1];
         if (sub === 'refresh') {
-          // Exchange static token for a new dynamic token via /api/auth/login
+          // Token refresh: prefer /api/auth/refresh with stored refresh token,
+          // fall back to /api/auth/login with static token if no refresh token
+          const refreshToken = config.refreshToken;
           const staticToken = config.shareToken || config.token;
-          if (!staticToken) {
-            console.log('No static token found in config. Run: share-tool token');
-            process.exit(1);
-          }
-          // Login to get new dynamic token (exchanges static for dynamic)
-          const req = http.request({ hostname: 'localhost', port: 18790, path: '/api/auth/login', method: 'POST', headers: { 'Content-Type': 'application/json' } }, (res) => {
-            let body = '';
-            res.on('data', d => body += d);
-            res.on('end', () => {
-              try {
-                const data = JSON.parse(body);
-                if (data.success) {
-                  console.log('New dynamic token:', data.token);
-                  console.log('Refresh token:', data.refreshToken);
-                  console.log('Expires at:', new Date(data.expiresAt * 1000).toLocaleString());
-                  // Update config with new token
-                  saveConfig({ ...config, token: data.token, refreshToken: data.refreshToken });
-                  console.log('Config updated.');
-                } else {
-                  console.log('Login failed:', data.error);
+
+          function doRefresh(refreshTokenToUse, useRefreshEndpoint) {
+            const path = useRefreshEndpoint ? '/api/auth/refresh' : '/api/auth/login';
+            const body = useRefreshEndpoint
+              ? JSON.stringify({ refreshToken: refreshTokenToUse })
+              : JSON.stringify({ password: staticToken });
+            const req = http.request({
+              hostname: 'localhost', port: 18790, path,
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...(useRefreshEndpoint ? {} : { 'x-auth-token': staticToken }) }
+            }, (res) => {
+              let data = '';
+              res.on('data', d => data += d);
+              res.on('end', () => {
+                try {
+                  const json = JSON.parse(data);
+                  if (json.success) {
+                    console.log('New dynamic token:', json.token);
+                    console.log('Refresh token:', json.refreshToken);
+                    console.log('Expires at:', new Date(json.expiresAt * 1000).toLocaleString());
+                    saveConfig({ ...config, token: json.token, refreshToken: json.refreshToken });
+                    console.log('Config updated.');
+                  } else if (!useRefreshEndpoint) {
+                    // refresh endpoint failed without fallback, give up
+                    console.log('Token refresh failed:', json.error);
+                    process.exit(1);
+                  } else {
+                    // refresh token expired/invalid, fall back to static token login
+                    console.log('Refresh token expired, re-authenticating with static token...');
+                    doRefresh(null, false);
+                  }
+                } catch (e) {
+                  console.log('Response parse error:', e.message);
                   process.exit(1);
                 }
-              } catch (e) {
-                console.log('Response parse error:', e.message);
-                process.exit(1);
-              }
+              });
+            }).on('error', (e) => {
+              console.log('Cannot connect to server:', e.message);
+              process.exit(1);
             });
-          }).on('error', (e) => {
-            console.log('Cannot connect to server:', e.message);
+            req.end(body);
+          }
+
+          if (!refreshToken && !staticToken) {
+            console.log('No token found. Run: share-tool token');
             process.exit(1);
-          });
-          req.end(JSON.stringify({ password: staticToken }));
+          }
+          if (refreshToken) {
+            doRefresh(refreshToken, true);
+          } else {
+            doRefresh(null, false);
+          }
           return; // async, don't fall through
         }
         if (config.shareToken || config.token) {
