@@ -11,6 +11,7 @@ const { spawn } = require('child_process');
 
 const CONFIG_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'config.json');
 const HISTORY_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'history');
+const MANIFEST_PATH = path.join(process.env.HOME || process.env.USERPROFILE, '.share-tool', 'sync-manifest.json');
 const DEFAULT_URL = 'http://localhost:18790';
 const CHUNK_SIZE = 512 * 1024; // 512KB per chunk
 const MAX_HISTORY = 500;
@@ -221,6 +222,102 @@ function saveConfig(updates) {
   }
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2), 'utf8');
   return merged;
+}
+
+// ============================================================
+// Sync manifest: local file snapshot for incremental sync
+// ============================================================
+function loadManifest() {
+  try {
+    if (fs.existsSync(MANIFEST_PATH)) {
+      const data = fs.readFileSync(MANIFEST_PATH, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (e) {}
+  return { version: 1, files: {}, lastSync: 0 };
+}
+
+function saveManifest(manifest) {
+  const dir = path.dirname(MANIFEST_PATH);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2), 'utf8');
+}
+
+// Build manifest from server file list
+async function buildManifestFromServer() {
+  const res = await request('GET', '/api/list?limit=10000');
+  if (res.status >= 400 || !res.data || !res.data.files) return null;
+  const manifest = { version: 1, files: {}, lastSync: Math.floor(Date.now() / 1000) };
+  for (const f of res.data.files) {
+    manifest.files[f.name] = { hash: f.hash, size: f.size, updatedAt: f.updatedAt };
+  }
+  return manifest;
+}
+
+// Apply incoming change to local manifest and download file
+async function applyRemoteChange(log, onEvent) {
+  const { action, filename, content, hash } = log;
+  switch (action) {
+    case 'create':
+    case 'update': {
+      if (content !== undefined) {
+        const dir = path.dirname(MANIFEST_PATH);
+        const filePath = path.join(dir || '.', filename);
+        const parentDir = path.dirname(filePath);
+        if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+        if (typeof content === 'string') {
+          fs.writeFileSync(filePath, content, 'utf8');
+        } else {
+          fs.writeFileSync(filePath, Buffer.from(content));
+        }
+        onEvent(`Downloaded: ${filename}`);
+      } else {
+        // No content in log — download from server
+        try {
+          const res = await request('GET', '/api/content/' + encodeURIComponent(filename));
+          if (res.status === 200 && res.data && res.data.content !== undefined) {
+            const dir = path.dirname(MANIFEST_PATH);
+            const filePath = path.join(dir || '.', filename);
+            const parentDir = path.dirname(filePath);
+            if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+            if (typeof res.data.content === 'string') {
+              fs.writeFileSync(filePath, res.data.content, 'utf8');
+            } else {
+              fs.writeFileSync(filePath, Buffer.from(res.data.content));
+            }
+            onEvent(`Downloaded: ${filename}`);
+          }
+        } catch (e) {
+          onEvent(`Failed to download ${filename}: ${e.message}`);
+        }
+      }
+      break;
+    }
+    case 'delete': {
+      const dir = path.dirname(MANIFEST_PATH);
+      const filePath = path.join(dir || '.', filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        onEvent(`Deleted: ${filename}`);
+      }
+      break;
+    }
+    case 'rename': {
+      const { oldFilename, newFilename } = log;
+      const dir = path.dirname(MANIFEST_PATH);
+      const oldPath = path.join(dir || '.', oldFilename);
+      const newPath = path.join(dir || '.', newFilename);
+      if (fs.existsSync(oldPath)) {
+        const parentDir = path.dirname(newPath);
+        if (!fs.existsSync(parentDir)) fs.mkdirSync(parentDir, { recursive: true });
+        fs.renameSync(oldPath, newPath);
+        onEvent(`Renamed: ${oldFilename} → ${newFilename}`);
+      }
+      break;
+    }
+  }
 }
 
 function loadHistory() {
@@ -1081,11 +1178,24 @@ async function main() {
           const ws = await connectSyncWs();
           console.log('Connected. Syncing...');
           const pullResult = await syncPull();
+          const manifest = loadManifest();
           if (pullResult.payload && pullResult.payload.logs && pullResult.payload.logs.length > 0) {
             console.log(`Pulled ${pullResult.payload.logs.length} change(s) from server.`);
             for (const log of pullResult.payload.logs) {
-              console.log(`  [${log.action}] ${log.filename || '(no name)'} (id=${log.id})`);
+              console.log(`  [${log.action}] ${log.filename || '(no name)'}`);
+              await applyRemoteChange(log, (msg) => console.log('    ' + msg));
+              // Update manifest
+              if (log.action === 'delete') {
+                delete manifest.files[log.filename];
+              } else if (log.action === 'rename') {
+                delete manifest.files[log.oldFilename];
+                manifest.files[log.newFilename] = { hash: log.hash, size: log.size };
+              } else {
+                manifest.files[log.filename] = { hash: log.hash, size: log.size };
+              }
             }
+            manifest.lastSync = Math.floor(Date.now() / 1000);
+            saveManifest(manifest);
           } else {
             console.log('No new changes from server.');
           }
@@ -1098,14 +1208,71 @@ async function main() {
       }
 
       case 'sync-watch': {
-        console.log('Starting sync watch mode (Ctrl+C to stop)...');
+        console.log('Starting sync watch mode...');
         try {
+          // Load or bootstrap manifest
+          let manifest = loadManifest();
+          const isNew = Object.keys(manifest.files).length === 0;
+          if (isNew) {
+            console.log('No local manifest found. Fetching server file list...');
+            manifest = await buildManifestFromServer();
+            if (!manifest) throw new Error('Failed to fetch server file list');
+            saveManifest(manifest);
+            console.log(`Manifest created: ${Object.keys(manifest.files).length} files synced.`);
+          } else {
+            console.log(`Loaded manifest: ${Object.keys(manifest.files).length} files tracked.`);
+            // Do a full sync pull on startup
+            const pullResult = await syncPull();
+            if (pullResult.payload && pullResult.payload.logs && pullResult.payload.logs.length > 0) {
+              for (const log of pullResult.payload.logs) {
+                await applyRemoteChange(log, (msg) => console.log('  ' + msg));
+              }
+              // Update manifest lastSync
+              manifest.lastSync = Math.floor(Date.now() / 1000);
+              saveManifest(manifest);
+              console.log(`Synced ${pullResult.payload.logs.length} change(s).`);
+            }
+          }
+
+          // Connect WebSocket for real-time updates
           const ws = await connectSyncWs();
-          console.log('Connected to sync server. Waiting for changes...');
-          // Keep alive
+          console.log('Connected. Watching for real-time changes...');
+          console.log('Press Ctrl+C to stop.\n');
+
+          // Override handleWsMessage to apply changes in real-time
+          const origHandler = wsClient.listeners('message')[0];
+          wsClient.removeAllListeners('message');
+          wsClient.on('message', async (data) => {
+            try {
+              const msg = JSON.parse(data.toString());
+              const { type, payload } = msg;
+              // Real-time file changes from server broadcast
+              if (['file_create', 'file_update', 'file_delete', 'file_rename'].includes(type)) {
+                const now = new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' });
+                console.log(`[${now}] ${type}: ${payload.filename}`);
+                await applyRemoteChange(payload, (evMsg) => console.log('    ' + evMsg));
+                // Update manifest
+                if (type === 'file_delete') {
+                  delete manifest.files[payload.filename];
+                } else if (type === 'file_rename') {
+                  delete manifest.files[payload.oldFilename];
+                  manifest.files[payload.newFilename] = { hash: payload.hash, size: payload.size };
+                } else {
+                  manifest.files[payload.filename] = { hash: payload.hash, size: payload.size };
+                }
+                manifest.lastSync = Math.floor(Date.now() / 1000);
+                saveManifest(manifest);
+              } else {
+                // Pass to original handler for other message types
+                if (origHandler) origHandler(data);
+              }
+            } catch (e) {}
+          });
+
+          // Keep alive — wait forever
           await new Promise(() => {});
         } catch (err) {
-          printError(`Failed: ${err.message}`);
+          printError(`Sync watch failed: ${err.message}`);
           process.exit(1);
         }
         break;
