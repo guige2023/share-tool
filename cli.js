@@ -847,30 +847,44 @@ async function main() {
           return '█'.repeat(filled) + '░'.repeat(W - filled);
         };
         console.log(`📦 Batch upload: ${toUpload.length} files (${fmtSize(totalSize)} total)`);
-        for (let i = 0; i < toUpload.length; i++) {
-          const filePath = toUpload[i];
-          const fileName = path.basename(filePath);
-          const fileSize = fs.statSync(filePath).size;
-          process.stdout.write(`\n[${i + 1}/${toUpload.length}] ${fileName} (${fmtSize(fileSize)})...\n`);
-          try {
-            const res = await uploadFile(filePath);
-            if (res.status >= 400) {
-              console.log(`  ❌ Failed: ${res.data?.error || res.status}`);
-              failed++;
-            } else {
-              console.log(`  ✅ Done`);
-              success++;
-            }
-            uploadedBytes += fileSize;
-          } catch (e) {
-            console.log(`  ❌ Error: ${e.message}`);
-            failed++;
-          }
+        const CONCURRENCY = 4;
+        const results = [];
+        let idx = 0;
+        const total = toUpload.length;
+        // Progress bar helper
+        const printOverall = () => {
           const elapsed = (Date.now() - startTime) / 1000;
           const overallPct = totalSize > 0 ? Math.round((uploadedBytes / totalSize) * 100) : 0;
           const speed = elapsed > 0 ? fmtSize(Math.round(uploadedBytes / elapsed)) + '/s' : '';
           process.stdout.write(`  ▌ Overall: [${bar(overallPct)}] ${overallPct}%  ${fmtSize(uploadedBytes)}/${fmtSize(totalSize)}  ${speed}  \n`);
-        }
+        };
+        // Worker: upload one file
+        const uploadOne = async () => {
+          while (idx < total) {
+            const i = idx++;
+            const filePath = toUpload[i];
+            const fileName = path.basename(filePath);
+            const fileSize = fs.statSync(filePath).size;
+            process.stdout.write(`[${i + 1}/${total}] ${fileName} (${fmtSize(fileSize)})... `);
+            try {
+              const res = await uploadFile(filePath);
+              if (res.status >= 400) {
+                console.log(`❌ ${res.data?.error || res.status}`);
+                failed++;
+              } else {
+                console.log(`✅`);
+                success++;
+              }
+              uploadedBytes += fileSize;
+            } catch (e) {
+              console.log(`❌ ${e.message}`);
+              failed++;
+            }
+            printOverall();
+          }
+        };
+        // Run CONCURRENCY workers in parallel
+        await Promise.all(Array.from({ length: Math.min(CONCURRENCY, total) }, uploadOne));
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`\n📊 Summary: ${success} ✅  ${failed} ❌  (${elapsed}s)`);
         process.exit(failed > 0 ? 1 : 0);
