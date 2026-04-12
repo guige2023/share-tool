@@ -404,6 +404,30 @@ function renderPage() {
     .ctx-item{padding:10px 16px;cursor:pointer;transition:background .15s}
     .ctx-item:hover{background:var(--bg-tertiary)}
     .ctx-sep{height:1px;background:var(--border);margin:4px 0}
+    /* View toggle */
+    .view-toggle{display:flex;gap:2px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:8px;padding:2px;margin-left:auto}
+    .view-toggle button{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;font-size:13px;line-height:1;transition:all .15s}
+    .view-toggle button:hover{color:var(--text-primary)}
+    .view-toggle button.active{background:var(--primary);color:#fff}
+    /* Grid view */
+    #fileTable,#fileTableGrid{display:table;width:100%;table-layout:fixed}
+    #fileTableGrid tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    #fileTable .file-item,#fileTableGrid .file-item{display:flex;flex-direction:column;padding:14px;background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;transition:box-shadow .2s,border-color .2s;min-height:140px}
+    #fileTable .file-item:hover,#fileTableGrid .file-item:hover{box-shadow:var(--shadow);border-color:var(--primary)}
+    #fileTable .file-content,#fileTableGrid .file-content{flex:1}
+    #fileTable .file-name,#fileTableGrid .file-name{font-size:13px;font-weight:500;word-break:break-all;margin-bottom:4px}
+    #fileTable .file-meta,#fileTableGrid .file-meta{font-size:11px;color:var(--muted);margin-top:4px}
+    #fileTable .file-tags,#fileTableGrid .file-tags{margin-top:6px;flex-wrap:wrap}
+    #fileTable .file-tag,#fileTableGrid .file-tag{font-size:10px;padding:2px 6px}
+    #fileTable .file-actions,#fileTableGrid .file-actions{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+    #fileTable .file-actions .btn,#fileTableGrid .file-actions .btn{font-size:11px;padding:5px 8px;min-height:30px}
+    #fileTable .file-check-row,#fileTableGrid .file-check-row{position:absolute;top:6px;left:6px}
+    #fileTable .file-item,#fileTableGrid .file-item{position:relative}
+    #fileTable tbody tr,#fileTableGrid tbody tr{display:contents}
+    @media (max-width: 960px) {
+      #fileTable tbody tr,#fileTableGrid tbody tr{display:contents}
+      #fileTableGrid tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+    }
   </style>
 </head>
 <body>
@@ -476,6 +500,10 @@ function renderPage() {
         <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
         <button class="secondary" onclick="openTagManager()">标签管理</button>
         <button class="danger" onclick="deleteAllFiles()">删除全部</button>
+        <div class="view-toggle">
+          <button id="viewListBtn" class="active" onclick="setView('list')" title="列表视图">☰</button>
+          <button id="viewGridBtn" onclick="setView('grid')" title="网格视图">⊞</button>
+        </div>
       </div>
       <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
       <div id="batchBar" class="batch-bar" style="display:none">
@@ -486,7 +514,7 @@ function renderPage() {
         <button class="ghost" onclick="clearSelection()">取消选择</button>
       </div>
       <div class="list-scroll">
-        <table>
+        <table id="fileTable">
           <thead>
             <tr>
               <th style="width:42px"><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"></th>
@@ -497,8 +525,9 @@ function renderPage() {
               <th style="width:320px">操作</th>
             </tr>
           </thead>
-          <tbody id="fileTable"></tbody>
+          <tbody id="fileTableBody"></tbody>
         </table>
+        <div id="fileTableGrid" style="display:none"></div>
         <div id="fileEmpty" class="empty" style="display:none">还没有内容</div>
       </div>
     </section>
@@ -696,6 +725,8 @@ function renderPage() {
         showToast('已删除 ' + names.length + ' 个文件', 'success');
         clearSelection();
         loadFiles();
+        document.getElementById('viewListBtn').classList.toggle('active', currentView === 'list');
+        document.getElementById('viewGridBtn').classList.toggle('active', currentView === 'grid');
       }).catch(function () { showToast('删除失败', 'error'); });
     }
 
@@ -900,38 +931,93 @@ function renderPage() {
       currentFiles = data.files || [];
       const tagColorMap = {};
       (tagData.tags || []).forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
-      const body = document.getElementById('fileTable');
       const empty = document.getElementById('fileEmpty');
+      const listBody = document.getElementById('fileTableBody');
+      const gridBody = document.getElementById('fileTableGrid');
       if (!currentFiles.length) {
-        body.innerHTML = '';
+        listBody.innerHTML = '';
+        gridBody.innerHTML = '';
         empty.style.display = 'block';
         return;
       }
       empty.style.display = 'none';
-      body.innerHTML = currentFiles.map(function (file) {
-        var tags = file.tags || '';
-        var tagHtml = tags
-          ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
-              var tc = tagColorMap[t.trim()] || '#e0e7ff';
-              return '<span class="tag-badge" style="background:' + tc + ';color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block">' + escapeHtmlClient(t.trim()) + '</span>';
-            }).join('') + '</div>'
-          : '<span class="muted" style="font-size:11px">—</span>';
-        return '<tr>' +
-          '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()"></td>' +
-          '<td data-label="文件"><strong>' + escapeHtmlClient(file.name) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
-          '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
-          '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
-          '<td data-label="更新时间">' + formatTime(file.updatedAt || file.createdAt) + '</td>' +
-          '<td class="actions-cell" data-label="操作">' +
-            '<button onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
-            '<button class="secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
-            '<button class="secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
-            '<button class="secondary" onclick=' + "'" + 'renameFile(' + JSON.stringify(file.name) + ')' + "'" + '>重命名</button>' +
-            '<button class="danger" onclick=' + "'" + 'deleteFile(' + JSON.stringify(file.name) + ')' + "'" + '>删除</button>' +
-          '</td>' +
-        '</tr>';
-      }).join('');
+
+      if (currentView === 'grid') {
+        document.getElementById('fileTable').style.display = 'none';
+        gridBody.style.display = 'block';
+        gridBody.innerHTML = currentFiles.map(function (file) {
+          return renderFileItem(file, tagColorMap, 'grid');
+        }).join('');
+      } else {
+        document.getElementById('fileTable').style.display = 'table';
+        gridBody.style.display = 'none';
+        listBody.innerHTML = currentFiles.map(function (file) {
+          return renderFileRow(file, tagColorMap);
+        }).join('');
+      }
     }
+
+    function renderFileRow(file, tagColorMap) {
+      var tags = file.tags || '';
+      var tagHtml = tags
+        ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
+            var tc = tagColorMap[t.trim()] || '#e0e7ff';
+            return '<span class="tag-badge" style="background:' + tc + ';color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block">' + escapeHtmlClient(t.trim()) + '</span>';
+          }).join('') + '</div>'
+        : '<span class="muted" style="font-size:11px">—</span>';
+      return '<tr>' +
+        '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()"></td>' +
+        '<td data-label="文件"><strong>' + escapeHtmlClient(file.name) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
+        '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
+        '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
+        '<td data-label="更新时间">' + formatTime(file.updatedAt || file.createdAt) + '</td>' +
+        '<td class="actions-cell" data-label="操作">' +
+          '<button onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
+          '<button class="secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
+          '<button class="secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
+          '<button class="secondary" onclick=' + "'" + 'renameFile(' + JSON.stringify(file.name) + ')' + "'" + '>重命名</button>' +
+          '<button class="danger" onclick=' + "'" + 'deleteFile(' + JSON.stringify(file.name) + ')' + "'" + '>删除</button>' +
+        '</td>' +
+      '</tr>';
+    }
+
+    function renderFileItem(file, tagColorMap) {
+      var tags = file.tags || '';
+      var tagHtml = tags
+        ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
+            var tc = tagColorMap[t.trim()] || '#e0e7ff';
+            return '<span class="tag-badge" style="background:' + tc + ';color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block">' + escapeHtmlClient(t.trim()) + '</span>';
+          }).join('') + '</div>'
+        : '<span class="muted" style="font-size:11px">—</span>';
+      return '<div class="file-item">' +
+        '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()">' +
+        '<div class="file-content">' +
+          '<div class="file-name">' + escapeHtmlClient(file.name) + '</div>' +
+          '<div class="file-meta">' + formatBytes(file.size) + ' · ' + formatTime(file.updatedAt || file.createdAt) + '</div>' +
+          tagHtml +
+        '</div>' +
+        '<div class="file-actions">' +
+          '<button class="btn secondary" onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
+          '<button class="btn secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
+          '<button class="btn secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
+          '<button class="btn danger" onclick=' + "'" + 'deleteFile(' + JSON.stringify(file.name) + ')' + "'" + '>删除</button>' +
+        '</div>' +
+      '</div>';
+    }
+
+    var currentView = localStorage.getItem('viewMode') || 'list';
+
+    function setView(view) {
+      currentView = view;
+      localStorage.setItem('viewMode', view);
+      document.getElementById('viewListBtn').classList.toggle('active', view === 'list');
+      document.getElementById('viewGridBtn').classList.toggle('active', view === 'grid');
+      loadFiles();
+    }
+
+    // Init view toggle button state on page load
+    document.getElementById('viewListBtn').classList.toggle('active', currentView === 'list');
+    document.getElementById('viewGridBtn').classList.toggle('active', currentView === 'grid');
 
     async function searchFiles() {
       const q = document.getElementById('searchInput').value.trim();
