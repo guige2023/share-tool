@@ -341,6 +341,8 @@ function renderPage() {
       --muted:#64748b;
       --accent:#0f766e;
       --accent-weak:#dff7f1;
+      --primary:#4f46e5;
+      --warning:#d97706;
       --danger:#b91c1c;
       --shadow:0 24px 60px rgba(15,23,42,.08);
       --border:var(--line);
@@ -358,6 +360,8 @@ function renderPage() {
         --muted:#94a3b8;
         --accent:#2dd4bf;
         --accent-weak:#134e4a;
+        --primary:#818cf8;
+        --warning:#fbbf24;
         --danger:#f87171;
         --shadow:0 24px 60px rgba(0,0,0,.3);
         --border:#334155;
@@ -493,9 +497,19 @@ function renderPage() {
       .actions-cell{display:flex;gap:6px;flex-wrap:wrap}
       .file-tags{max-width:none}
     }
-    @media (max-width: 480px){
+    @media(max-width:600px){
       /* Context menu: larger touch targets on mobile */
-      .ctx-item{padding:14px 16px;font-size:15px}
+      .ctx-menu{min-width:180px}
+      /* Sticky toolbar on mobile scroll */
+      .panel:first-of-type{position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+      /* Hero section compact on mobile */
+      .hero .meta{gap:6px}
+      .hero .chip{padding:5px 8px;font-size:10px}
+      .hero p{display:none}
+      /* Touch-friendly: increase tap targets */
+      button,.ctx-item{padding:10px 14px}
+      /* Hide less-used toolbar buttons on small screens, show via FAB+menu */
+      #advancedSearchBtn,#downloadSelected,#openTagManager,#deleteAllFiles,#trashBtn{display:none}
       /* iOS auto-zoom fix: all inputs must be >=16px */
       input,select,textarea{font-size:16px!important}
       /* Mobile: drop zone is the primary upload affordance - make it prominent */
@@ -548,6 +562,17 @@ function renderPage() {
     #toast.error{background:#dc2626}
     [data-theme="dark"] #toast{--toast-bg:#1e293b;--toast-color:#f1f5f9}
     [data-theme="dark"] #toast.success{background:#065f46}
+    /* ===== FAB - Mobile Floating Action Button ===== */
+    .fab{
+      position:fixed;right:20px;bottom:max(20px,env(safe-area-inset-bottom));width:56px;height:56px;
+      border-radius:50%;background:var(--accent);color:#fff;border:none;
+      font-size:28px;line-height:1;cursor:pointer;z-index:9000;
+      box-shadow:0 4px 16px rgba(15,118,110,.4);display:none;align-items:center;justify-content:center;
+      transition:transform .2s,box-shadow .2s;
+    }
+    .fab:hover{transform:scale(1.08);box-shadow:0 6px 20px rgba(15,118,110,.5)}
+    .fab:active{transform:scale(.96)}
+    @media(max-width:600px){.fab{display:flex}}
     [data-theme="dark"] #toast.error{background:#991b1b}
     .file-tags{display:flex;flex-wrap:wrap;gap:3px;max-width:110px}
     .tag-badge{background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500}
@@ -3993,6 +4018,9 @@ function renderPage() {
       });
     }
   </script>
+    <!-- FAB for mobile: trigger file input -->
+    <button class="fab" onclick="document.getElementById('fileInput').click()" title="上传文件">+</button>
+
 </body>
 </html>`;
 }
