@@ -608,9 +608,6 @@ function renderPage() {
     }
 
     // Drag and drop handlers
-    var dropZone = document.getElementById('dropZone');
-    var uploadSection = document.getElementById('uploadSection');
-
     function handleFileSelect(files) {
       var list = document.getElementById('fileList');
       if (!files.length) {
@@ -627,6 +624,7 @@ function renderPage() {
     }
 
     function setupDragDrop() {
+      var dropZone = document.getElementById('dropZone');
       if (!dropZone) return;
       ['dragenter', 'dragover'].forEach(function (evt) {
         dropZone.addEventListener(evt, function (e) {
@@ -962,6 +960,8 @@ function renderPage() {
       });
       loadFiles();
     }
+
+    setupDragDrop();
 
     Promise.all([loadFiles(), loadShares()]).catch(function (error) {
       status(error.message);
