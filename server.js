@@ -747,9 +747,15 @@ function renderPage() {
         <button class="type-chip" data-type="image" onclick="setTypeFilter('image')">🖼️ 图片</button>
         <button class="type-chip" data-type="file" onclick="setTypeFilter('file')">📦 文件</button>
       </div>
-      <div id="fileStatsBar" style="display:flex;gap:16px;align-items:center;padding:0 0 8px 0;font-size:12px;color:var(--muted);font-family:monospace">
+      <div id="fileStatsBar" style="display:flex;gap:16px;align-items:center;padding:0 0 8px 0;font-size:12px;color:var(--muted);font-family:monospace;flex-wrap:wrap">
         <span id="fileCountDisplay">共 <strong>0</strong> 个文件</span>
         <span id="selectedCountDisplay" style="display:none">，已选 <strong>0</strong> 个</span>
+        <span id="storageBar" style="display:none;align-items:center;gap:6px">
+          <span id="storageText"></span>
+          <span id="storageTrack" style="display:inline-block;width:60px;height:6px;background:var(--line);border-radius:3px;overflow:hidden;vertical-align:middle">
+            <span id="storageFill" style="display:inline-block;height:100%;background:var(--accent);border-radius:3px;width:0%;transition:width .4s ease"></span>
+          </span>
+        </span>
       </div>
       <div id="tagQuickBar" style="display:none;margin-bottom:4px"></div>
       <div id="advancedSearchPanel" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px;gap:12px">
@@ -816,6 +822,7 @@ function renderPage() {
               <th style="width:42px"><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"></th>
               <th style="cursor:pointer;user-select:none" onclick="setSort('filename')">文件 <span class="sort-arrow" id="arrow-filename"></span></th>
               <th style="width:140px">标签</th>
+              <th style="width:60px;cursor:pointer;user-select:none" onclick="setSort('position')" title="手动排序，拖拽调整顺序">📌 <span class="sort-arrow" id="arrow-position"></span></th>
               <th style="width:100px;cursor:pointer;user-select:none" onclick="setSort('size')">大小 <span class="sort-arrow" id="arrow-size"></span></th>
               <th style="width:170px;cursor:pointer;user-select:none" onclick="setSort('updated_at')">更新时间 <span class="sort-arrow" id="arrow-updated_at"></span></th>
               <th style="width:320px">操作</th>
@@ -1118,7 +1125,15 @@ function renderPage() {
     // Init auth on page load
     initAuth().then(function() {
       loadFiles();
+      loadStorageStats();
       setupInfiniteScroll();
+    });
+
+    // Refresh storage stats when page becomes visible again
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        loadStorageStats();
+      }
     });
 
     function status(text) {
@@ -1647,6 +1662,7 @@ function renderPage() {
       clearFileInput();
       clearProgress();
       await loadFiles();
+      loadStorageStats();
       status('上传完成');
     }
 
@@ -2059,6 +2075,70 @@ function renderPage() {
           return renderFileRow(file, tagColorMap);
         }).join('');
       }
+
+      // Set up drag-and-drop for file reordering (list view only, sort by position)
+      if (currentView !== 'grid' && currentSort === 'position') {
+        setupFileDragDrop();
+      }
+    }
+
+    var draggedIndex = null;
+
+    function setupFileDragDrop() {
+      var container = document.getElementById('fileTableBody');
+      if (!container) return;
+      container.querySelectorAll('tr[data-index]').forEach(function(row) {
+        row.addEventListener('dragstart', function(e) {
+          draggedIndex = parseInt(row.dataset.index, 10);
+          row.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', draggedIndex);
+        });
+        row.addEventListener('dragend', function() {
+          row.classList.remove('dragging');
+          container.querySelectorAll('tr').forEach(function(r) { r.classList.remove('drag-over'); });
+          draggedIndex = null;
+        });
+        row.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!row.classList.contains('dragging')) {
+            row.classList.add('drag-over');
+          }
+        });
+        row.addEventListener('dragleave', function(e) {
+          if (!row.contains(e.relatedTarget)) {
+            row.classList.remove('drag-over');
+          }
+        });
+        row.addEventListener('drop', async function(e) {
+          e.preventDefault();
+          row.classList.remove('drag-over');
+          var targetIndex = parseInt(row.dataset.index, 10);
+          if (draggedIndex === null || draggedIndex === targetIndex) return;
+          // Reorder: move dragged item to target position
+          var reordered = Array.from(currentFiles);
+          var [moved] = reordered.splice(draggedIndex, 1);
+          reordered.splice(targetIndex, 0, moved);
+          // Assign sequential positions
+          var positions = reordered.map(function(f, i) {
+            return { id: f.id, position: i };
+          });
+          try {
+            await fetch('/api/file-positions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ positions })
+            });
+            // Reload with position sort
+            currentSort = 'position';
+            currentOrder = 'asc';
+            loadFiles();
+          } catch (err) {
+            showToast('排序保存失败', 'error');
+          }
+        });
+      });
     }
 
     function renderFileRow(file, tagColorMap) {
@@ -3762,6 +3842,33 @@ function renderPage() {
         c.classList.toggle('active', c.getAttribute('data-type') === type);
       });
       loadFiles();
+    }
+
+    // Storage usage bar
+    var _storageStatsTimer = null;
+    function loadStorageStats() {
+      clearTimeout(_storageStatsTimer);
+      _storageStatsTimer = setTimeout(async function() {
+        try {
+          var res = await fetch('/api/storage', { headers: headers() });
+          if (res.status < 400) {
+            var data = await res.json();
+            var used = data.totalSize || 0;
+            var max = data.maxSize || 10 * 1024 * 1024 * 1024;
+            var pct = Math.min(100, Math.round(used / max * 100));
+            var fill = document.getElementById('storageFill');
+            var track = document.getElementById('storageTrack');
+            var text = document.getElementById('storageText');
+            var bar = document.getElementById('storageBar');
+            if (fill && track && text && bar) {
+              bar.style.display = 'inline-flex';
+              fill.style.width = pct + '%';
+              fill.style.background = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : 'var(--accent)';
+              text.textContent = '存储 ' + formatSize(used) + ' / ' + formatSize(max) + ' (' + pct + '%)';
+            }
+          }
+        } catch (e) {}
+      }, 500);
     }
 
     // Show initial sort arrow
