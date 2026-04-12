@@ -1765,7 +1765,20 @@ function renderPage() {
         html += '<input id="newTagInput" type="text" placeholder="新标签名称" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:14px">';
         html += '<button class="primary" onclick="createNewTag()" style="padding:8px 16px">添加</button>';
         html += '</div>';
-        html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">点击颜色圆点切换，点击 ✕ 删除</div>';
+
+        // Merge section
+        html += '<div id="mergeSection" style="margin-bottom:12px;display:none">';
+        html += '<div style="font-size:12px;color:var(--muted);margin-bottom:6px">合并标签（选中 2 个以上标签后出现）</div>';
+        html += '<div style="display:flex;gap:8px;align-items:center">';
+        html += '<span style="font-size:12px;color:var(--muted);white-space:nowrap" id="mergeLabel">已选 0 个标签</span>';
+        html += '<button id="mergeBtn" class="secondary" onclick="executeMergeTags()" style="padding:6px 14px;font-size:12px" disabled>合并到目标</button>';
+        html += '<select id="mergeTargetSelect" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:13px">';
+        html += '<option value="">选择目标标签…</option>';
+        tags.forEach(function(t) { html += '<option value="' + escapeHtmlClient(t.tag) + '">' + escapeHtmlClient(t.tag) + '</option>'; });
+        html += '</select>';
+        html += '</div></div>';
+
+        html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">点击颜色圆点切换，点击 ✕ 删除；勾选后可合并标签</div>';
         html += '</div>';
 
         if (tags.length === 0) {
@@ -1777,6 +1790,7 @@ function renderPage() {
               return '<span onclick="setTagColor(\'' + escapeHtmlClient(t.tag) + '\',\'' + c + '\')" style="display:inline-block;width:20px;height:20px;border-radius:50%;background:' + c + ';cursor:pointer;margin-right:4px;border:' + (t.color === c ? '2px solid var(--primary)' : '2px solid transparent') + ';box-sizing:border-box"></span>';
             }).join('');
             html += '<div style="display:flex;align-items:center;padding:8px 4px;border-bottom:1px solid var(--border);gap:8px">';
+            html += '<input type="checkbox" id="mtag_' + escapeHtmlClient(t.tag) + '" onchange="toggleTagMergeSelect(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);flex-shrink:0">';
             html += '<div style="flex:1;min-width:0">';
             html += '<span style="font-size:14px">' + escapeHtmlClient(t.tag) + '</span>';
             html += '<span style="font-size:11px;color:var(--muted);margin-left:6px">' + t.count + ' 个文件</span>';
@@ -1798,10 +1812,10 @@ function renderPage() {
       const input = document.getElementById('newTagInput');
       const tag = (input.value || '').trim();
       if (!tag) { showToast('请输入标签名称', 'error'); return; }
-      const res = await fetch('/api/tags/colors', {
-        method: 'PUT',
+      const res = await fetch('/api/tags', {
+        method: 'POST',
         headers: headers({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ tag: tag, color: '#e0e7ff' })
+        body: JSON.stringify({ tag: tag })
       });
       const data = await res.json();
       if (data.success) {
@@ -1836,6 +1850,56 @@ function renderPage() {
         openTagManager();
       } else {
         showToast('删除失败: ' + (data.error || '未知错误'), 'error');
+      }
+    }
+
+    var _selectedMergeTags = new Set();
+    function toggleTagMergeSelect(tag) {
+      if (_selectedMergeTags.has(tag)) {
+        _selectedMergeTags.delete(tag);
+      } else {
+        _selectedMergeTags.add(tag);
+      }
+      var section = document.getElementById('mergeSection');
+      var label = document.getElementById('mergeLabel');
+      var btn = document.getElementById('mergeBtn');
+      if (!_selectedMergeTags.size) {
+        section.style.display = 'none';
+      } else {
+        section.style.display = 'block';
+        label.textContent = '已选 ' + _selectedMergeTags.size + ' 个标签';
+        btn.disabled = _selectedMergeTags.size < 2;
+      }
+    }
+
+    async function executeMergeTags() {
+      var sources = Array.from(_selectedMergeTags);
+      var target = document.getElementById('mergeTargetSelect').value;
+      if (sources.length < 2) { showToast('请至少选择 2 个标签', 'error'); return; }
+      if (!target) { showToast('请选择目标标签', 'error'); return; }
+      if (sources.includes(target)) { showToast('目标标签不能在被合并的标签中', 'error'); return; }
+      var btn = document.getElementById('mergeBtn');
+      btn.disabled = true;
+      btn.textContent = '合并中…';
+      try {
+        var res = await fetch('/api/tags/merge', {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ sources: sources, target: target })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已合并 ' + data.updated + ' 个文件', 'success');
+          _selectedMergeTags = new Set();
+          openTagManager();
+        } else {
+          showToast('合并失败: ' + (data.error || '未知错误'), 'error');
+        }
+      } catch(e) {
+        showToast('合并失败: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '合并到目标';
       }
     }
 

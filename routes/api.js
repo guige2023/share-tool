@@ -251,6 +251,21 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  if (pathname === '/api/tags' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { tag } = body || {};
+    if (!tag) {
+      sendJson(res, { success: false, error: 'tag name required' }, 400);
+      return true;
+    }
+    const color = db.getSuggestedColor(tag);
+    db.setTagColor(tag, color);
+    sendJson(res, { success: true, tag, color });
+    return true;
+  }
+
   if (pathname === '/api/tags/colors' && method === 'PUT') {
     const auth = authRequired(req, res);
     if (!auth) return true;
@@ -294,6 +309,25 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
       return true;
     }
     sendJson(res, { success: true, oldTag, newTag, updated: result2.updated });
+    return true;
+  }
+
+  // POST /api/tags/merge - 合并多个标签到目标标签
+  if (pathname === '/api/tags/merge' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { sources = [], target } = body || {};
+    if (!Array.isArray(sources) || !target || sources.length === 0) {
+      sendJson(res, { success: false, error: 'sources (array) and target required' }, 400);
+      return true;
+    }
+    const result = db.mergeTags(sources, target);
+    if (result.error) {
+      sendJson(res, { success: false, error: result.error }, 400);
+      return true;
+    }
+    sendJson(res, { success: true, target, updated: result.updated, deletedSources: sources.length });
     return true;
   }
 
