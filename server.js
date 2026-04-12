@@ -315,7 +315,12 @@ function renderPage() {
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ShareTool">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f172a">
   <title>ShareTool</title>
   <style>
     :root{
@@ -328,6 +333,7 @@ function renderPage() {
       --accent-weak:#dff7f1;
       --danger:#b91c1c;
       --shadow:0 24px 60px rgba(15,23,42,.08);
+      --border:var(--line);
       --btn-bg:#0f172a;
       --btn-color:#fff;
       --btn-secondary-bg:#e2e8f0;
@@ -344,6 +350,7 @@ function renderPage() {
         --accent-weak:#134e4a;
         --danger:#f87171;
         --shadow:0 24px 60px rgba(0,0,0,.3);
+        --border:#334155;
       }
       body{background:var(--bg);color:var(--text)}
       .hero{background:rgba(30,41,59,.86)}
@@ -366,6 +373,7 @@ function renderPage() {
       --accent-weak:#134e4a;
       --danger:#f87171;
       --shadow:0 24px 60px rgba(0,0,0,.3);
+      --border:#334155;
     }
     [data-theme="dark"] body{background:var(--bg);color:var(--text)}
     [data-theme="dark"] .hero{background:rgba(30,41,59,.86)}
@@ -2810,9 +2818,19 @@ function renderPage() {
         document.getElementById('searchInput').focus();
         document.getElementById('searchInput').select();
       }
-      // Escape: close modal
+      // Ctrl/Cmd + A: select all files
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        e.preventDefault();
+        document.querySelectorAll('.file-check').forEach(function(el) { el.checked = true; });
+        updateBatchBar();
+      }
+      // Escape: close modal, or clear selection if no modal open
       if (e.key === 'Escape') {
         forceCloseModal();
+        // If modal closed and something was selected, clear selection
+        clearSelection();
       }
     });
 
@@ -2848,10 +2866,12 @@ function renderPage() {
         ['↑↓←→ / Tab', '导航文件'],
         ['Enter', '打开预览'],
         ['Space', '选中/取消选中'],
-        ['a', '全选'],
+        ['Ctrl+A', '全选'],
+        ['Ctrl+F', '聚焦搜索'],
+        ['Ctrl+Enter', '上传文件'],
         ['r', '刷新'],
         ['?', '显示此帮助'],
-        ['Esc', '关闭弹窗/菜单']
+        ['Esc', '关闭弹窗/清空选择']
       ];
       div.innerHTML = '<div style="font-weight:600;margin-bottom:12px;font-size:15px;color:var(--text-primary)">⌨️ 快捷键</div>' +
         shortcuts.map(function(s) { return '<div style="display:flex;justify-content:space-between;margin:6px 0"><kbd style="background:var(--bg-secondary);padding:2px 7px;border-radius:4px;font-size:12px;min-width:60px;text-align:center;border:1px solid var(--line);color:var(--text-primary)">' + escapeHtmlClient(s[0]) + '</kbd><span style="color:var(--text-secondary)">' + escapeHtmlClient(s[1]) + '</span></div>'; }).join('') +
