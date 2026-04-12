@@ -1944,6 +1944,19 @@ function renderPage() {
           }
           break;
         }
+        case ' ': {
+          // Space: toggle selection of current file (without opening)
+          e.preventDefault();
+          if (keyboardNavIndex < 0) return;
+          var item = getFileAtIndex(keyboardNavIndex);
+          if (!item) return;
+          var checkbox = item.querySelector('.file-check');
+          if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            updateBatchBar();
+          }
+          break;
+        }
         case 'a': {
           if (e.ctrlKey || e.metaKey) return; // let browser select-all pass through
           // 'a' alone → select all (or at least start nav)
@@ -3135,7 +3148,7 @@ function renderPage() {
       div.id = 'shortcutsHelp';
       div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;z-index:10001;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-size:13px';
       var shortcuts = [
-        ['↑↓←→ / Tab', '导航文件'],
+        ['↑↓←→', '导航文件'],
         ['Enter', '打开预览'],
         ['Space', '选中/取消选中'],
         ['Ctrl+A', '全选'],
