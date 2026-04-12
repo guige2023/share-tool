@@ -439,8 +439,16 @@ function renderPage() {
       .search-input-wrap input{font-size:16px!important}
       .meta .chip{font-size:11px;padding:7px 10px}
       .hero h1{font-size:24px}
+      .hero{padding:16px}
+      .wrap{padding:12px}
       .panel{padding:14px}
-      .toolbar button{width:100%}
+      /* Let toolbar buttons wrap naturally - remove 100% width that broke toolbar layout */
+      .toolbar{flex-wrap:wrap}
+      .toolbar button{min-width:44px;width:auto;padding:9px 12px;font-size:13px}
+      .toolbar input{flex:1 1 100%!important;min-width:0!important}
+      #tagFilterSelect{flex:1 1 100%;max-width:100%}
+      #shareSearchInput{flex:1 1 100%!important}
+      #shareStatusFilter{width:100%}
       /* Touch targets: min 44px height for buttons */
       button,.btn{min-height:44px;font-size:15px}
       /* Card-mode table: readable labels */
@@ -449,6 +457,8 @@ function renderPage() {
       td.actions-cell a,td.actions-cell button{padding:8px 10px;font-size:13px}
       /* Prevent horizontal overflow */
       body{overflow-x:hidden}
+      /* Grid view: smaller cards on narrow screens */
+      #fileTableGrid tbody{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
     }
     /* Toast notification */
     #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:#111827;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:transform .3s,opacity .3s;pointer-events:none;z-index:9999;max-width:90vw;text-align:center;word-break:break-all}
