@@ -2359,10 +2359,11 @@ function renderPage() {
             html += '<div style="display:flex;align-items:center;padding:8px 4px;border-bottom:1px solid var(--border);gap:8px">';
             html += '<input type="checkbox" id="mtag_' + escapeHtmlClient(t.tag) + '" onchange="toggleTagMergeSelect(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);flex-shrink:0">';
             html += '<div style="flex:1;min-width:0">';
-            html += '<span style="font-size:14px">' + escapeHtmlClient(t.tag) + '</span>';
+            html += '<span style="font-size:14px" id="tagname_' + escapeHtmlClient(t.tag) + '">' + escapeHtmlClient(t.tag) + '</span>';
             html += '<span style="font-size:11px;color:var(--muted);margin-left:6px">' + t.count + ' 个文件</span>';
             html += '</div>';
             html += '<div style="display:flex;gap:2px;align-items:center;flex-shrink:0">' + colorDot + '</div>';
+            html += '<button onclick="renameTag(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px" title="重命名">✎</button>';
             html += '<button onclick="deleteTag(\'' + escapeHtmlClient(t.tag) + '\')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px">✕</button>';
             html += '</div>';
           });
@@ -2417,6 +2418,25 @@ function renderPage() {
         openTagManager();
       } else {
         showToast('删除失败: ' + (data.error || '未知错误'), 'error');
+      }
+    }
+
+    async function renameTag(oldTag) {
+      var newTag = prompt('将标签「' + oldTag + '」重命名为：', oldTag);
+      if (!newTag || newTag === oldTag) return;
+      newTag = newTag.trim();
+      if (!newTag) { showToast('标签名称不能为空', 'error'); return; }
+      var res = await fetch('/api/tags/rename', {
+        method: 'POST',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ oldTag: oldTag, newTag: newTag })
+      });
+      var data = await res.json();
+      if (data.success) {
+        showToast('已重命名（更新了 ' + data.updated + ' 个文件）', 'success');
+        openTagManager();
+      } else {
+        showToast('重命名失败: ' + (data.error || '未知错误'), 'error');
       }
     }
 
