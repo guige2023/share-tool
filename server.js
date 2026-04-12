@@ -4179,9 +4179,12 @@ async function requestHandler(req, res) {
       sendJson(res, { success: false, error: 'Not found' }, 404);
       return;
     }
-    const stream = fs.createReadStream(filePath);
+    // Inject dynamic cache version from package.json so SW always uses latest
+    const pkg = require('./package.json');
+    let content = fs.readFileSync(filePath, 'utf8');
+    content = content.replace(/const CACHE_NAME = '[^']+';/, `const CACHE_NAME = 'sharetool-v${pkg.version}';`);
     res.writeHead(200, { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' });
-    stream.pipe(res);
+    res.end(content);
     return;
   }
 

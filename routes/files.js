@@ -106,7 +106,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         createdAt: file.created_at * 1000,
         updatedAt: file.updated_at * 1000,
         tags: file.tags || '',
-        score: file.score || 0,
+        // FTS5: use fts_rank (bm25, lower is better); LIKE: use computed score
+        score: file.fts_rank !== undefined ? -file.fts_rank : (file.score || 0),
         content_type: file.content_type || null
       }))
     });

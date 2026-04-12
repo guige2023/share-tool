@@ -642,14 +642,14 @@ function searchFilesFTS(query, tags = null, opts = {}) {
   // 构建 FTS5 MATCH 表达式
   let ftsResults = [];
   if (tokens.length > 0) {
-    const ftsQuery = tokens.map(t => `"${t.replace(/"/g, '""')}"*`).join(' OR ');
+    const ftsQuery = tokens.map(t => `"${t.replace(/"/g, '""')}*`).join(' OR ');
     try {
       ftsResults = db.prepare(`
-        SELECT f.*, files_fts.rank
+        SELECT f.*, bm25(files_fts) as fts_rank
         FROM files_fts
         JOIN files f ON f.id = files_fts.rowid
         WHERE files_fts MATCH ?
-        ORDER BY rank
+        ORDER BY fts_rank
         LIMIT ?
       `).all(ftsQuery, limit * 2);
     } catch (e) {
