@@ -808,7 +808,7 @@ function setFilePositions(positions) {
 function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null, starred = false, tags = null, typeFilter = null) {
   const db = getDb();
   const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-  const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type', 'tags', 'position'].includes(sort) ? sort : 'created_at';
+  const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type', 'tags', 'position', 'starred'].includes(sort) ? sort : 'created_at';
 
   // Build WHERE clause
   const conditions = [];

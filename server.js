@@ -692,12 +692,12 @@ function renderPage() {
 
       <section class="panel" id="uploadSection">
         <h2>上传文件</h2>
-        <p class="muted">支持同时选择多个文件上传，也可拖拽文件到此处。</p>
+        <p class="muted">支持同时选择多个文件、整个文件夹（保留结构），也可拖拽文件到此处。</p>
         <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
-          <input id="fileInput" type="file" multiple style="display:none" onchange="handleFileSelect(this.files)">
+          <input id="fileInput" type="file" multiple webkitdirectory style="display:none" onchange="handleFileSelect(this.files)" title="支持选择文件夹">
           <div class="drop-zone-inner">
             <div class="drop-icon">📁</div>
-            <div>拖拽文件到此处，或点击选择文件</div>
+            <div>拖拽文件到此处，或点击选择文件/文件夹</div>
           </div>
         </div>
         <div id="fileList" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
@@ -3872,7 +3872,7 @@ function renderPage() {
     var currentTypeFilter = localStorage.getItem('typeFilter') || '';
 
     // Initialize sort arrows on page load
-    ['filename', 'size', 'updated_at', 'position'].forEach(function(c) {
+    ['filename', 'size', 'updated_at', 'position', 'starred'].forEach(function(c) {
       var arrow = document.getElementById('arrow-' + c);
       if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
     });
