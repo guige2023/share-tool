@@ -167,7 +167,6 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
-  return false;
 };
 
 function readJsonBody(req) {

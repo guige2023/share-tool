@@ -210,6 +210,47 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // PATCH /api/files/:filename - 更新文件标签/星标等元数据
+  if (pathname.startsWith('/api/files/') && method === 'PATCH') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    const filename = decodeURIComponent(pathname.slice('/api/files/'.length));
+    try {
+      const body = await readJsonBody(req);
+      if (!body || typeof body !== 'object') {
+        sendJson(res, { success: false, error: 'Request body required' }, 400);
+        return true;
+      }
+
+      const updates = {};
+      if (body.tags !== undefined) {
+        // 解析逗号分隔的标签字符串
+        updates.tags = typeof body.tags === 'string'
+          ? body.tags.split(',').map(t => t.trim()).filter(Boolean).join(',')
+          : body.tags;
+      }
+      if (body.starred !== undefined) updates.starred = body.starred ? 1 : 0;
+
+      if (Object.keys(updates).length === 0) {
+        sendJson(res, { success: false, error: 'No valid fields to update' }, 400);
+        return true;
+      }
+
+      const updated = db.updateFileByName(filename, updates);
+      if (!updated) {
+        sendJson(res, { success: false, error: 'File not found' }, 404);
+        return true;
+      }
+
+      db.addAuditLog('file_update', `${filename} tags=${updates.tags || '(unchanged)'}`, getClientIp(req), auth.token);
+      sendJson(res, { success: true, file: { name: updated.filename, tags: updated.tags, starred: updated.starred } });
+    } catch (error) {
+      sendJson(res, { success: false, error: error.message }, 400);
+    }
+    return true;
+  }
+
   if (pathname.startsWith('/api/files/') && method === 'DELETE') {
     const auth = authRequired(req, res);
     if (!auth) return true;

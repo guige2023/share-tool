@@ -391,6 +391,10 @@ function renderPage() {
     #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
     #toast.success{background:#059669}
     #toast.error{background:#dc2626}
+    .file-tags{display:flex;flex-wrap:wrap;gap:3px;max-width:110px}
+    .tag-badge{background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500}
+    .tag-edit-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;padding:2px 4px;border-radius:4px;transition:color .2s,background .2s}
+    .tag-edit-btn:hover{color:var(--primary);background:rgba(99,102,241,.1)}
   </style>
 </head>
 <body>
@@ -460,7 +464,8 @@ function renderPage() {
             <tr>
               <th style="width:42px"><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"></th>
               <th style="cursor:pointer;user-select:none" onclick="setSort('filename')">文件 <span class="sort-arrow" id="arrow-filename"></span></th>
-              <th style="width:110px;cursor:pointer;user-select:none" onclick="setSort('size')">大小 <span class="sort-arrow" id="arrow-size"></span></th>
+              <th style="width:140px">标签</th>
+              <th style="width:100px;cursor:pointer;user-select:none" onclick="setSort('size')">大小 <span class="sort-arrow" id="arrow-size"></span></th>
               <th style="width:170px;cursor:pointer;user-select:none" onclick="setSort('updated_at')">更新时间 <span class="sort-arrow" id="arrow-updated_at"></span></th>
               <th style="width:320px">操作</th>
             </tr>
@@ -759,9 +764,16 @@ function renderPage() {
       }
       empty.style.display = 'none';
       body.innerHTML = currentFiles.map(function (file) {
+        var tags = file.tags || '';
+        var tagHtml = tags
+          ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
+              return '<span class="tag-badge">' + escapeHtmlClient(t.trim()) + '</span>';
+            }).join('') + '</div>'
+          : '<span class="muted" style="font-size:11px">—</span>';
         return '<tr>' +
           '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '"></td>' +
           '<td data-label="文件"><strong>' + escapeHtmlClient(file.name) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
+          '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
           '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
           '<td data-label="更新时间">' + formatTime(file.updatedAt || file.createdAt) + '</td>' +
           '<td class="actions-cell" data-label="操作">' +
@@ -918,6 +930,49 @@ function renderPage() {
       await request('/api/delete-all', { method: 'DELETE' });
       await loadFiles();
       await loadShares();
+    }
+
+    async function editFileTags(filename, currentTags) {
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
+      title.textContent = '编辑标签';
+      body.innerHTML = '<div style="padding:8px 0">' +
+        '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">文件名: ' + escapeHtmlClient(filename) + '</div>' +
+        '<input id="tagInput" type="text" placeholder="标签（逗号分隔，如：工作,重要）" value="' + escapeHtmlClient(currentTags || '') + '" ' +
+        'style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:14px;box-sizing:border-box"' +
+        ' onkeydown="if(event.key===\'Enter\'){saveFileTags(\'' + filename.replace(/'/g, "\\'") + '\')}">' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:6px">多个标签用逗号分隔，如：工作,项目A,重要</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;margin-top:16px;justify-content:flex-end">' +
+        '<button onclick="closeModal()">取消</button>' +
+        '<button class="primary" onclick="saveFileTags(\'' + filename.replace(/'/g, "\\'") + '\')">保存</button>' +
+        '</div>';
+      modal.classList.add('show');
+      setTimeout(function() { document.getElementById('tagInput').focus(); }, 50);
+    }
+
+    async function saveFileTags(filename) {
+      const input = document.getElementById('tagInput');
+      const tags = (input.value || '').trim();
+      closeModal();
+      showToast('保存中…');
+      try {
+        const res = await fetch('/api/files/' + encodeURIComponent(filename), {
+          method: 'PATCH',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ tags: tags })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('标签已保存', 'success');
+          await loadFiles();
+        } else {
+          showToast('保存失败: ' + data.error, 'error');
+        }
+      } catch (e) {
+        showToast('保存失败: ' + e.message, 'error');
+      }
     }
 
     async function downloadSelected() {
