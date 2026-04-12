@@ -323,6 +323,7 @@ function renderPage() {
     .toolbar input{flex:1 1 260px}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px 8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:14px}
+    .sort-arrow{font-size:10px;color:var(--muted);margin-left:2px}
     th{color:var(--muted);font-weight:600}
     td.actions{display:flex;gap:8px;flex-wrap:wrap}
     td.actions button{padding:8px 10px;border-radius:10px;font-size:13px}
@@ -413,9 +414,9 @@ function renderPage() {
           <thead>
             <tr>
               <th style="width:42px"><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"></th>
-              <th>文件</th>
-              <th style="width:110px">大小</th>
-              <th style="width:170px">更新时间</th>
+              <th style="cursor:pointer;user-select:none" onclick="setSort('filename')">文件 <span class="sort-arrow" id="arrow-filename"></span></th>
+              <th style="width:110px;cursor:pointer;user-select:none" onclick="setSort('size')">大小 <span class="sort-arrow" id="arrow-size"></span></th>
+              <th style="width:170px;cursor:pointer;user-select:none" onclick="setSort('updated_at')">更新时间 <span class="sort-arrow" id="arrow-updated_at"></span></th>
               <th style="width:320px">操作</th>
             </tr>
           </thead>
@@ -801,6 +802,25 @@ function renderPage() {
     document.getElementById('searchInput').addEventListener('keydown', function (event) {
       if (event.key === 'Enter') searchFiles();
     });
+
+    // Sort state
+    var currentSort = 'updated_at';
+    var currentOrder = 'desc';
+
+    function setSort(col) {
+      if (currentSort === col) {
+        currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentSort = col;
+        currentOrder = col === 'updated_at' ? 'desc' : 'asc';
+      }
+      // Update arrow indicators
+      ['filename', 'size', 'updated_at'].forEach(function (c) {
+        var arrow = document.getElementById('arrow-' + c);
+        if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
+      });
+      loadFiles();
+    }
 
     Promise.all([loadFiles(), loadShares()]).catch(function (error) {
       status(error.message);

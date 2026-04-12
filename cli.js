@@ -29,6 +29,158 @@ const CLI_I18N = (() => {
   };
 })();
 
+// WebSocket sync client for multi-device real-time sync
+let wsClient = null;
+let lastSyncTs = 0;
+let deviceId = null;
+
+function getDeviceId() {
+  if (!deviceId) {
+    const config = getConfig();
+    deviceId = config.deviceId || crypto.randomUUID();
+    saveConfig({ deviceId });
+  }
+  return deviceId;
+}
+
+function createWsUrl() {
+  const serverUrl = getServerUrl();
+  const u = new URL(serverUrl);
+  const wsProtocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${u.host}/ws`;
+}
+
+function connectSyncWs() {
+  return new Promise((resolve, reject) => {
+    const { WebSocket } = require('ws');
+    const wsUrl = createWsUrl();
+    const token = getToken();
+    
+    wsClient = new WebSocket(`${wsUrl}?token=${encodeURIComponent(token)}`);
+    
+    wsClient.on('open', () => {
+      // Register this device
+      const devId = getDeviceId();
+      const hostname = require('os').hostname();
+      wsClient.send(JSON.stringify({
+        type: 'register',
+        payload: { deviceId: devId, deviceName: hostname }
+      }));
+    });
+
+    wsClient.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        handleWsMessage(msg);
+      } catch (e) {
+        // ignore
+      }
+    });
+
+    wsClient.on('close', () => {
+      wsClient = null;
+      // Reconnect after 5s
+      setTimeout(() => { connectSyncWs(); }, 5000);
+    });
+
+    wsClient.on('error', (err) => {
+      wsClient = null;
+    });
+
+    // Resolve after registration ack
+    wsClient.once('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'register_ack' && msg.success) {
+          resolve(msg);
+        } else {
+          reject(new Error('WS registration failed'));
+        }
+      } catch (e) {
+        reject(e);
+      }
+    });
+
+    setTimeout(() => reject(new Error('WS connect timeout')), 10000);
+  });
+}
+
+function handleWsMessage(msg) {
+  const { type, payload } = msg;
+  switch (type) {
+    case 'file_create':
+    case 'file_update':
+    case 'file_delete':
+    case 'file_rename':
+      // Update local DB state
+      // For CLI, just update lastSyncTs
+      lastSyncTs = Math.floor(Date.now() / 1000);
+      break;
+    case 'device_list':
+      // Could display online devices
+      break;
+    case 'sync_response':
+      if (payload && payload.logs) {
+        lastSyncTs = Math.floor(Date.now() / 1000);
+      }
+      break;
+  }
+}
+
+async function syncPush(changes) {
+  if (!wsClient || wsClient.readyState !== 1) {
+    await connectSyncWs();
+  }
+  return new Promise((resolve, reject) => {
+    const id = Date.now();
+    const replyHandler = (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'sync_ack') {
+          wsClient.removeListener('message', replyHandler);
+          resolve(msg);
+        }
+      } catch (e) {}
+    };
+    wsClient.on('message', replyHandler);
+    wsClient.send(JSON.stringify({ type: 'sync_push', payload: { changes } }));
+    setTimeout(() => {
+      wsClient.removeListener('message', replyHandler);
+      reject(new Error('sync_push timeout'));
+    }, 10000);
+  });
+}
+
+async function syncPull() {
+  if (!wsClient || wsClient.readyState !== 1) {
+    await connectSyncWs();
+  }
+  return new Promise((resolve, reject) => {
+    const replyHandler = (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'sync_response') {
+          wsClient.removeListener('message', replyHandler);
+          resolve(msg);
+        }
+      } catch (e) {}
+    };
+    wsClient.on('message', replyHandler);
+    wsClient.send(JSON.stringify({ type: 'sync_request', payload: { since: lastSyncTs } }));
+    setTimeout(() => {
+      wsClient.removeListener('message', replyHandler);
+      reject(new Error('sync_request timeout'));
+    }, 10000);
+  });
+}
+
+function disconnectSyncWs() {
+  if (wsClient) {
+    wsClient.terminate();
+    wsClient = null;
+  }
+}
+
 function formatSize(bytes) {
   if (!bytes || bytes === 0) return '0 B';
   const k = 1024;
@@ -370,7 +522,8 @@ async function main() {
     console.log('  find <query> [--tag=x] [--type=x] [--limit=n]  Advanced search');
     console.log('  share <text>   Share text snippet');
     console.log('  share-link <file> [--expires=7d] [--max-downloads=n] [--password=x]  Create share link');
-    console.log('  sync           Trigger sync push');
+    console.log('  sync           Pull changes from server via WebSocket');
+    console.log('  sync-watch     Watch for real-time changes (long-lived)');
     console.log('  status         Check if server is online');
     console.log('  open           Open server URL in browser');
     console.log('  serve          Start server in foreground (Ctrl+C to stop)');
@@ -912,14 +1065,38 @@ async function main() {
       }
 
       case 'sync': {
-        console.log('Triggering sync...');
-        const res = await request('POST', '/api/sync/push', { body: '{}', contentType: 'application/json' });
-        if (res.status >= 400) {
-          printError(`Sync failed: ${res.status}`);
-          printJson(res.data);
+        console.log('Connecting to sync server...');
+        try {
+          const ws = await connectSyncWs();
+          console.log('Connected. Syncing...');
+          const pullResult = await syncPull();
+          if (pullResult.payload && pullResult.payload.logs && pullResult.payload.logs.length > 0) {
+            console.log(`Pulled ${pullResult.payload.logs.length} change(s) from server.`);
+            for (const log of pullResult.payload.logs) {
+              console.log(`  [${log.action}] ${log.filename || '(no name)'} (id=${log.id})`);
+            }
+          } else {
+            console.log('No new changes from server.');
+          }
+          console.log('Sync complete.');
+        } catch (err) {
+          printError(`Sync failed: ${err.message}`);
           process.exit(1);
         }
-        printJson(res.data);
+        break;
+      }
+
+      case 'sync-watch': {
+        console.log('Starting sync watch mode (Ctrl+C to stop)...');
+        try {
+          const ws = await connectSyncWs();
+          console.log('Connected to sync server. Waiting for changes...');
+          // Keep alive
+          await new Promise(() => {});
+        } catch (err) {
+          printError(`Failed: ${err.message}`);
+          process.exit(1);
+        }
         break;
       }
 
