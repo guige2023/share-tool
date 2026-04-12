@@ -334,6 +334,8 @@ function renderPage() {
     .drop-icon{font-size:32px;margin-bottom:8px}
     .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
     .toolbar input{flex:1 1 260px}
+    .batch-bar{display:flex;gap:8px;align-items:center;padding:10px 14px;background:var(--bg-secondary);border-radius:12px;margin-bottom:12px;font-size:13px}
+    .batch-bar button{min-height:36px;padding:6px 12px;font-size:13px;border-radius:8px;flex-shrink:0}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px 8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:14px}
     .sort-arrow{font-size:10px;color:var(--muted);margin-left:2px}
@@ -458,6 +460,13 @@ function renderPage() {
         <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
         <button class="secondary" onclick="openTagManager()">标签管理</button>
         <button class="danger" onclick="deleteAllFiles()">删除全部</button>
+      </div>
+      <div id="batchBar" class="batch-bar" style="display:none">
+        <span id="batchCount" style="font-size:13px;color:var(--muted)"></span>
+        <button class="ghost" onclick="openBatchTagModal()">添加标签</button>
+        <button class="ghost" onclick="openBatchRemoveTagModal()">移除标签</button>
+        <button class="ghost" onclick="batchDeleteSelected()">删除</button>
+        <button class="ghost" onclick="clearSelection()">取消选择</button>
       </div>
       <div class="list-scroll">
         <table>
@@ -638,6 +647,122 @@ function renderPage() {
       document.querySelectorAll('.file-check').forEach(function (el) {
         el.checked = checked;
       });
+      updateBatchBar();
+    }
+
+    function updateBatchBar() {
+      const names = checkedNames();
+      const bar = document.getElementById('batchBar');
+      const count = document.getElementById('batchCount');
+      if (!bar || !count) return;
+      if (names.length > 0) {
+        bar.style.display = 'flex';
+        count.textContent = '已选择 ' + names.length + ' 个文件';
+      } else {
+        bar.style.display = 'none';
+      }
+    }
+
+    function clearSelection() {
+      document.querySelectorAll('.file-check').forEach(function (el) { el.checked = false; });
+      document.getElementById('selectAll').checked = false;
+      updateBatchBar();
+    }
+
+    function batchDeleteSelected() {
+      const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      if (!confirm('确定删除 ' + names.length + ' 个文件？此操作不可恢复。')) return;
+      Promise.all(names.map(function (name) {
+        return fetch('/api/files/' + encodeURIComponent(name), { method: 'DELETE', headers: headers() });
+      })).then(function () {
+        showToast('已删除 ' + names.length + ' 个文件', 'success');
+        clearSelection();
+        loadFiles();
+      }).catch(function () { showToast('删除失败', 'error'); });
+    }
+
+    function openBatchTagModal() {
+      const names = checkedNames();
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      openTagInputModal('add', names.length);
+    }
+
+    function openBatchRemoveTagModal() {
+      const names = checkedNames();
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      openTagInputModal('remove', names.length);
+    }
+
+    function openTagInputModal(action, fileCount) {
+      const existingModal = document.getElementById('tagInputModal');
+      if (existingModal) existingModal.remove();
+      const modal = document.createElement('div');
+      modal.id = 'tagInputModal';
+      modal.className = 'modal';
+      modal.innerHTML = '\
+        <div class="modal-content" style="max-width:400px">\
+          <h3 id="tagInputTitle">' + (action === 'add' ? '添加标签' : '移除标签') + '</h3>\
+          <p style="color:var(--muted);font-size:13px;margin-bottom:12px">为 ' + fileCount + ' 个文件' + (action === 'add' ? '添加' : '移除') + '标签</p>\
+          <div id="tagChipInput" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px;border:1px solid var(--line);border-radius:8px;min-height:44px;cursor:text" onclick="document.getElementById(\'tagInputField\').focus()"></div>\
+          <input id="tagInputField" type="text" placeholder="输入标签后按 Enter 添加" \
+            style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;font-size:14px" \
+            onkeydown="handleTagInputKeydown(event, \'' + action + '\')">\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'tagInputModal\').remove()">取消</button>\
+            <button onclick="confirmBatchTagInput(\'' + action + '\')">确定</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      document.getElementById('tagInputField').focus();
+    }
+
+    var _batchTagChips = [];
+
+    function handleTagInputKeydown(e, action) {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        const val = e.target.value.trim().replace(/,$/, '');
+        if (val && !_batchTagChips.includes(val)) {
+          _batchTagChips.push(val);
+          renderBatchTagChips();
+        }
+        e.target.value = '';
+      } else if (e.key === 'Backspace' && !e.target.value && _batchTagChips.length) {
+        _batchTagChips.pop();
+        renderBatchTagChips();
+      }
+    }
+
+    function renderBatchTagChips() {
+      const container = document.getElementById('tagChipInput');
+      if (!container) return;
+      container.innerHTML = _batchTagChips.map(function (t) {
+        return '<span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent-weak);color:var(--accent);padding:3px 10px;border-radius:999px;font-size:13px">' + escapeHtmlClient(t) + '<span onclick="removeBatchChip(\'' + escapeHtmlClient(t) + '\');event.stopPropagation()" style="cursor:pointer;font-size:12px">✕</span></span>';
+      }).join('');
+    }
+
+    function removeBatchChip(tag) {
+      _batchTagChips = _batchTagChips.filter(function (t) { return t !== tag; });
+      renderBatchTagChips();
+    }
+
+    function confirmBatchTagInput(action) {
+      const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      if (!_batchTagChips.length) { showToast('请至少输入一个标签', 'error'); return; }
+      const tagStr = _batchTagChips.join(',');
+      fetch('/api/file-tags/batch', {
+        method: 'PUT',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ files: names, action: action, tags: tagStr })
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        document.getElementById('tagInputModal').remove();
+        _batchTagChips = [];
+        showToast(action === 'add' ? '已添加标签' : '已移除标签', 'success');
+        clearSelection();
+        loadFiles();
+      }).catch(function () { showToast('操作失败', 'error'); });
     }
 
     function defaultTextFilename() {
@@ -775,7 +900,7 @@ function renderPage() {
             }).join('') + '</div>'
           : '<span class="muted" style="font-size:11px">—</span>';
         return '<tr>' +
-          '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '"></td>' +
+          '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()"></td>' +
           '<td data-label="文件"><strong>' + escapeHtmlClient(file.name) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
           '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
           '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
