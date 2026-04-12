@@ -2268,8 +2268,8 @@ function listRateLimits(limit = 100) {
 
 function deleteRateLimit(key) {
   const db = getDb();
-  db.prepare('DELETE FROM rate_limit WHERE key = ?').run(key);
-  return { success: true };
+  const info = db.prepare('DELETE FROM rate_limit WHERE key = ?').run(key);
+  return info.changes > 0;
 }
 
 // ============================================================
