@@ -456,6 +456,7 @@ function renderPage() {
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
+        <button class="secondary" onclick="openTagManager()">标签管理</button>
         <button class="danger" onclick="deleteAllFiles()">删除全部</button>
       </div>
       <div class="list-scroll">
@@ -753,8 +754,10 @@ function renderPage() {
       const q = document.getElementById('searchInput').value.trim();
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam : '/api/list?' + sortParam;
-      const data = await request(url);
+      const [data, tagData] = await Promise.all([request(url), request('/api/tags')]);
       currentFiles = data.files || [];
+      const tagColorMap = {};
+      (tagData.tags || []).forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
       const body = document.getElementById('fileTable');
       const empty = document.getElementById('fileEmpty');
       if (!currentFiles.length) {
@@ -767,7 +770,8 @@ function renderPage() {
         var tags = file.tags || '';
         var tagHtml = tags
           ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
-              return '<span class="tag-badge">' + escapeHtmlClient(t.trim()) + '</span>';
+              var tc = tagColorMap[t.trim()] || '#e0e7ff';
+              return '<span class="tag-badge" style="background:' + tc + ';color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block">' + escapeHtmlClient(t.trim()) + '</span>';
             }).join('') + '</div>'
           : '<span class="muted" style="font-size:11px">—</span>';
         return '<tr>' +
@@ -972,6 +976,101 @@ function renderPage() {
         }
       } catch (e) {
         showToast('保存失败: ' + e.message, 'error');
+      }
+    }
+
+    async function openTagManager() {
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
+      title.textContent = '标签管理';
+      body.innerHTML = '<div id="tagManagerContent" style="padding:8px 0"><div style="text-align:center;color:var(--muted);padding:20px">加载中…</div></div>';
+      modal.classList.add('show');
+
+      try {
+        const res = await fetch('/api/tags', { headers: headers() });
+        const data = await res.json();
+        if (!data.success) { throw new Error(data.error); }
+
+        const tags = data.tags || [];
+        const colorPresets = ['#e0e7ff','#fce7f3','#dcfce7','#fef9c3','#ffedd5','#f3e8ff','#ecfeff','#ffe4e6','#f0fdf4'];
+
+        let html = '<div style="margin-bottom:12px">';
+        html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
+        html += '<input id="newTagInput" type="text" placeholder="新标签名称" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:14px">';
+        html += '<button class="primary" onclick="createNewTag()" style="padding:8px 16px">添加</button>';
+        html += '</div>';
+        html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">点击颜色圆点切换，点击 ✕ 删除</div>';
+        html += '</div>';
+
+        if (tags.length === 0) {
+          html += '<div style="text-align:center;color:var(--muted);padding:20px">暂无标签，添加文件标签后会自动创建</div>';
+        } else {
+          html += '<div style="max-height:400px;overflow-y:auto">';
+          tags.forEach(function(t) {
+            const colorDot = colorPresets.map(function(c) {
+              return '<span onclick="setTagColor(\'' + escapeHtmlClient(t.tag) + '\',\'' + c + '\')" style="display:inline-block;width:20px;height:20px;border-radius:50%;background:' + c + ';cursor:pointer;margin-right:4px;border:' + (t.color === c ? '2px solid var(--primary)' : '2px solid transparent') + ';box-sizing:border-box"></span>';
+            }).join('');
+            html += '<div style="display:flex;align-items:center;padding:8px 4px;border-bottom:1px solid var(--border);gap:8px">';
+            html += '<div style="flex:1;min-width:0">';
+            html += '<span style="font-size:14px">' + escapeHtmlClient(t.tag) + '</span>';
+            html += '<span style="font-size:11px;color:var(--muted);margin-left:6px">' + t.count + ' 个文件</span>';
+            html += '</div>';
+            html += '<div style="display:flex;gap:2px;align-items:center;flex-shrink:0">' + colorDot + '</div>';
+            html += '<button onclick="deleteTag(\'' + escapeHtmlClient(t.tag) + '\')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px">✕</button>';
+            html += '</div>';
+          });
+          html += '</div>';
+        }
+
+        document.getElementById('tagManagerContent').innerHTML = html;
+      } catch (e) {
+        document.getElementById('tagManagerContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
+    }
+
+    async function createNewTag() {
+      const input = document.getElementById('newTagInput');
+      const tag = (input.value || '').trim();
+      if (!tag) { showToast('请输入标签名称', 'error'); return; }
+      const res = await fetch('/api/tags/colors', {
+        method: 'PUT',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ tag: tag, color: '#e0e7ff' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('标签已添加', 'success');
+        openTagManager();
+      } else {
+        showToast('添加失败: ' + (data.error || '未知错误'), 'error');
+      }
+    }
+
+    async function setTagColor(tag, color) {
+      const res = await fetch('/api/tags/colors', {
+        method: 'PUT',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ tag: tag, color: color })
+      });
+      const data = await res.json();
+      if (data.success) {
+        openTagManager();
+      }
+    }
+
+    async function deleteTag(tag) {
+      if (!confirm('确定删除标签「' + tag + '」？该标签将从所有文件中移除。')) return;
+      const res = await fetch('/api/tags/' + encodeURIComponent(tag) + '/delete', {
+        method: 'DELETE',
+        headers: headers()
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('标签已删除（移除自 ' + data.removed + ' 个文件）', 'success');
+        openTagManager();
+      } else {
+        showToast('删除失败: ' + (data.error || '未知错误'), 'error');
       }
     }
 
