@@ -1537,23 +1537,73 @@ function renderPage() {
       let completed = 0;
       status('开始上传 ' + files.length + ' 个文件...');
       showProgress(0, files.length);
+
       for (const file of files) {
-        const name = file.name;
-        const content = await readFileAsBase64(file);
-        await request('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: name, content: content, type: 'file' })
-        });
+        await uploadSingleFile(file);
         completed += 1;
         status('已上传 ' + completed + ' / ' + files.length);
         showProgress(completed, files.length);
       }
+
       input.value = '';
       clearFileInput();
       clearProgress();
       await loadFiles();
       status('上传完成');
+    }
+
+    function uploadSingleFile(file) {
+      return new Promise(function(resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        var reader = new FileReader();
+
+        reader.onload = function(e) {
+          var content = e.target.result;
+          // If it's base64, extract the data part
+          if (content.startsWith('data:')) {
+            content = content.split(',')[1] || '';
+          }
+
+          var payload = JSON.stringify({ filename: file.name, content: content, type: 'file' });
+          var blob = new Blob([payload], { type: 'application/json' });
+
+          xhr.open('POST', '/api/upload', true);
+          xhr.setRequestHeader('Authorization', 'Bearer ' + (localStorage.getItem('st_auth_token') || STATIC_TOKEN));
+          xhr.setRequestHeader('Content-Type', 'application/json');
+
+          // Upload progress - update file-level progress
+          xhr.upload.onprogress = function(ev) {
+            if (ev.lengthComputable) {
+              var pct = Math.round((ev.loaded / ev.total) * 100);
+              document.getElementById('progressBar').style.width = pct + '%';
+              status('上传中 ' + file.name + ' ' + pct + '%');
+            }
+          };
+
+          xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                var data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                  resolve(data);
+                } else {
+                  reject(new Error(data.error || '上传失败'));
+                }
+              } catch (e) {
+                reject(new Error('上传失败'));
+              }
+            } else {
+              reject(new Error('HTTP ' + xhr.status));
+            }
+          };
+
+          xhr.onerror = function() { reject(new Error('网络错误')); };
+          xhr.send(blob);
+        };
+
+        reader.onerror = function() { reject(new Error('读取文件失败')); };
+        reader.readAsDataURL(file);
+      });
     }
 
     async function loadFiles() {
