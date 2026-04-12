@@ -442,10 +442,12 @@ function renderPage() {
     .batch-bar button{min-height:36px;padding:6px 12px;font-size:13px;border-radius:8px;flex-shrink:0}
     .recent-search-tag{display:inline-block;padding:4px 12px;background:var(--accent-weak);color:var(--accent);border-radius:999px;font-size:12px;margin-right:6px;cursor:pointer}
     .recent-search-tag:hover{opacity:.8}
-    .suggestion-item{padding:9px 14px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;transition:background .1s}
-    .suggestion-item:hover{background:var(--bg-secondary)}
+    .suggestion-item{padding:9px 12px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;white-space:nowrap;overflow:hidden}
+    .suggestion-item:hover,.suggestion-item.selected{background:var(--bg-tertiary)}
     .suggestion-item mark{background:#fef08a;color:inherit;padding:0 2px;border-radius:2px}
     [data-theme="dark"] .suggestion-item mark{background:#854d0e;color:#fef08a}
+    mark.search-highlight{background:#fef08a;color:inherit;padding:0 2px;border-radius:2px}
+    [data-theme="dark"] mark.search-highlight{background:#854d0e;color:#fef08a}
     .suggestion-type{font-size:11px;color:var(--muted);flex-shrink:0;margin-left:10px}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px 8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:14px}
@@ -2673,14 +2675,39 @@ function renderPage() {
       if (event.key === 'Enter') {
         document.getElementById('searchSuggestions').style.display = 'none';
         searchFiles();
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        // Navigate search suggestions with arrow keys
+        var container = document.getElementById('searchSuggestions');
+        var items = container.querySelectorAll('.suggestion-item');
+        if (!items.length) return;
+        event.preventDefault();
+        var current = container.querySelector('.suggestion-item.selected');
+        if (!current) {
+          // Select first (ArrowDown) or last (ArrowUp)
+          var idx = event.key === 'ArrowDown' ? 0 : items.length - 1;
+          items[idx].classList.add('selected');
+        } else {
+          current.classList.remove('selected');
+          var idx = Array.from(items).indexOf(current);
+          if (event.key === 'ArrowDown' && idx < items.length - 1) idx++;
+          else if (event.key === 'ArrowUp' && idx > 0) idx--;
+          items[idx].classList.add('selected');
+          items[idx].scrollIntoView({ block: 'nearest' });
+        }
+      } else if (event.key === 'Escape') {
+        document.getElementById('searchSuggestions').style.display = 'none';
       }
     });
 
     // Search autocomplete - debounced suggestions as user types
     var _searchSuggestTimer = null;
+    var _searchLiveTimer = null;
     document.getElementById('searchInput').addEventListener('input', function () {
       clearTimeout(_searchSuggestTimer);
+      clearTimeout(_searchLiveTimer);
       const q = this.value.trim();
+      // Show/hide clear button
+      document.getElementById('searchClear').style.display = q ? 'block' : 'none';
       if (!q || q.length < 1) {
         document.getElementById('searchSuggestions').style.display = 'none';
         return;
@@ -2688,6 +2715,10 @@ function renderPage() {
       _searchSuggestTimer = setTimeout(async function () {
         await loadSearchSuggestions(q);
       }, 200);
+      // Real-time search: debounced 300ms
+      _searchLiveTimer = setTimeout(function () {
+        loadFiles();
+      }, 300);
     });
 
     async function loadSearchSuggestions(q) {
