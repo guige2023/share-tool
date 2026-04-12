@@ -27,7 +27,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const order = query.get('order') || 'desc';
     const folder = query.get('folder') || null;
     const tags = query.get('tags') || null;
-    const { files, total } = db.listFiles(limit, offset, sort, order, folder, false, tags);
+    const typeFilter = query.get('type') || null;
+    const { files, total } = db.listFiles(limit, offset, sort, order, folder, false, tags, { typeFilter });
 
     sendJson(res, {
       success: true,

@@ -686,10 +686,9 @@ function searchFilesFTS(query, tags = null, opts = {}) {
     if (date_from != null && f.created_at < date_from) return false;
     if (date_to != null && f.created_at > date_to) return false;
 
-    // 类型过滤
+    // 类型过滤（按数据库 type 字段：text/image/file）
     if (type) {
-      const ext = '.' + type.toLowerCase();
-      if (!f.filename.toLowerCase().endsWith(ext)) return false;
+      if (f.type !== type) return false;
     }
 
     return true;
@@ -806,7 +805,7 @@ function setFilePositions(positions) {
   return true;
 }
 
-function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null, starred = false, tags = null) {
+function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null, starred = false, tags = null, typeFilter = null) {
   const db = getDb();
   const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type', 'tags', 'position'].includes(sort) ? sort : 'created_at';
@@ -816,6 +815,11 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
   const params = [];
   if (folder) { conditions.push('filename LIKE ? ESCAPE ?'); params.push(folder + '/%', '\\'); }
   if (starred) { conditions.push('starred = 1'); }
+  if (typeFilter) {
+    // typeFilter: 'text' | 'image' | 'audio' | 'video' | 'file'
+    conditions.push('type = ?');
+    params.push(typeFilter);
+  }
   if (tags) {
     // tags is comma-separated string; each tag must be present in the tags column
     const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
@@ -826,6 +830,7 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
       });
     }
   }
+  if (typeFilter) { conditions.push('type = ?'); params.push(typeFilter); }
 
   const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
   const files = db.prepare(`

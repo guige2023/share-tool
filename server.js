@@ -1733,7 +1733,10 @@ function renderPage() {
       if (append) {
         loading.style.display = 'block';
       }
-      const [data, tagData] = await Promise.all([request(url), request('/api/tags')]);
+      // Only fetch tags on first load, not on append/pagination
+      const [data, tagData] = append
+        ? [await request(url), null]
+        : await Promise.all([request(url), request('/api/tags')]);
       const incoming = (data.files || []).map(function(f, i) { f._index = currentOffset + i; return f; });
       currentTotal = data.total || 0;
       if (append) {
@@ -1760,7 +1763,8 @@ function renderPage() {
       const selectedTag = (document.getElementById('tagFilterSelect') || {}).value || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
-      const baseUrl = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam : '/api/list?' + sortParam + tagParam;
+      const typeParam = currentTypeFilter ? '&type=' + encodeURIComponent(currentTypeFilter) : '';
+      const baseUrl = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam + typeParam : '/api/list?' + sortParam + tagParam + typeParam;
       const url = baseUrl + '&offset=' + currentOffset + '&limit=' + currentPageLimit;
       await loadFilesFromUrl(url, true);
       isAppending = false;
