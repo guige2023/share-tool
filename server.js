@@ -370,6 +370,7 @@ function renderPage() {
       td:first-child{padding-left:0}
       td:first-child:before{content:none}
       .actions-cell{display:flex;gap:6px;flex-wrap:wrap}
+      .file-tags{max-width:none}
     }
     @media (max-width: 480px){
       /* iOS auto-zoom fix: all inputs must be >=16px */
