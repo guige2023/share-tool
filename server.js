@@ -711,6 +711,12 @@ function renderPage() {
         </div>
         <div class="status" id="uploadStatus"></div>
       </section>
+
+      <!-- Upload Queue Panel -->
+      <div id="uploadQueuePanel" style="display:none;background:var(--bg-secondary);border:1px solid var(--line);border-radius:10px;margin-top:8px;overflow:hidden">
+        <div class="uq-title" style="padding:8px 14px;font-size:12px;font-weight:600;border-bottom:1px solid var(--line);background:var(--bg-tertiary)">上传队列</div>
+        <div class="uq-list" style="max-height:200px;overflow-y:auto;padding:0 14px"></div>
+      </div>
     </div>
 
     <section class="panel" style="margin-top:18px">
@@ -1642,6 +1648,198 @@ function renderPage() {
       });
     }
 
+    // ============================================================
+    // Upload Queue Manager
+    // ============================================================
+    var uploadQueue = [];
+    var uploadActive = 0;
+    var uploadPaused = false;
+    var MAX_CONCURRENT = 2;
+    var uploadingFiles = new Map(); // fileName -> { xhr, status }
+
+    function getAuthHeader() {
+      return 'Bearer ' + (localStorage.getItem('st_auth_token') || STATIC_TOKEN);
+    }
+
+    function renderUploadQueuePanel() {
+      var panel = document.getElementById('uploadQueuePanel');
+      if (!panel) return;
+      if (uploadQueue.length === 0) {
+        panel.style.display = 'none';
+        return;
+      }
+      panel.style.display = 'block';
+      var done = uploadQueue.filter(function(f) { return f.status === 'done' || f.status === 'failed'; }).length;
+      var total = uploadQueue.length;
+      panel.querySelector('.uq-title').textContent = '上传队列 ' + done + '/' + total;
+
+      var list = panel.querySelector('.uq-list');
+      list.innerHTML = uploadQueue.map(function(item, i) {
+        var color = item.status === 'done' ? '#22c55e' : item.status === 'failed' ? '#ef4444' : item.status === 'paused' ? '#f59e0b' : '#3b82f6';
+        var icon = item.status === 'done' ? '✓' : item.status === 'failed' ? '✗' : item.status === 'paused' ? '⏸' : '↑';
+        var canRetry = item.status === 'failed';
+        var canPause = item.status === 'uploading';
+        var canResume = item.status === 'paused';
+        var canCancel = item.status === 'pending' || item.status === 'uploading' || item.status === 'paused';
+        var actions = '';
+        if (canRetry) actions += '<button class="uq-btn uq-retry" data-i="' + i + '" title="重试">↻</button>';
+        if (canPause) actions += '<button class="uq-btn uq-pause" data-i="' + i + '" title="暂停">⏸</button>';
+        if (canResume) actions += '<button class="uq-btn uq-resume" data-i="' + i + '" title="继续">▶</button>';
+        if (canCancel) actions += '<button class="uq-btn uq-cancel" data-i="' + i + '" title="取消">✕</button>';
+        return '<div class="uq-item" data-i="' + i + '" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">' +
+          '<span style="color:' + color + ';font-size:14px;width:18px;text-align:center">' + icon + '</span>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtmlClient(item.name) + '">' + escapeHtmlClient(item.name) + '</div>' +
+            '<div class="uq-bar" style="height:3px;background:var(--line);border-radius:2px;margin-top:3px;overflow:hidden">' +
+              '<div class="uq-fill" style="height:100%;width:' + (item.pct || 0) + '%;background:' + color + ';transition:width .2s"></div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted);min-width:32px;text-align:right">' + (item.pct || 0) + '%</div>' +
+          '<div style="display:flex;gap:4px">' + actions + '</div>' +
+        '</div>';
+      }).join('');
+
+      // Bind action buttons
+      list.querySelectorAll('.uq-retry').forEach(function(btn) {
+        btn.addEventListener('click', function() { retryUploadItem(parseInt(btn.dataset.i, 10)); });
+      });
+      list.querySelectorAll('.uq-pause').forEach(function(btn) {
+        btn.addEventListener('click', function() { pauseUploadItem(parseInt(btn.dataset.i, 10)); });
+      });
+      list.querySelectorAll('.uq-resume').forEach(function(btn) {
+        btn.addEventListener('click', function() { resumeUploadItem(parseInt(btn.dataset.i, 10)); });
+      });
+      list.querySelectorAll('.uq-cancel').forEach(function(btn) {
+        btn.addEventListener('click', function() { cancelUploadItem(parseInt(btn.dataset.i, 10)); });
+      });
+    }
+
+    function updateQueueItem(i, updates) {
+      Object.assign(uploadQueue[i], updates);
+      renderUploadQueuePanel();
+    }
+
+    function retryUploadItem(i) {
+      var item = uploadQueue[i];
+      if (item.status !== 'failed') return;
+      item.status = 'pending';
+      item.pct = 0;
+      item.retries = (item.retries || 0) + 1;
+      renderUploadQueuePanel();
+      processUploadQueue();
+    }
+
+    function pauseUploadItem(i) {
+      var item = uploadQueue[i];
+      if (item.status !== 'uploading') return;
+      item.status = 'paused';
+      if (item.xhr) { item.xhr.abort(); item.xhr = null; }
+      uploadActive--;
+      renderUploadQueuePanel();
+      processUploadQueue();
+    }
+
+    function resumeUploadItem(i) {
+      var item = uploadQueue[i];
+      if (item.status !== 'paused') return;
+      item.status = 'pending';
+      renderUploadQueuePanel();
+      processUploadQueue();
+    }
+
+    function cancelUploadItem(i) {
+      var item = uploadQueue[i];
+      if (item.xhr) { item.xhr.abort(); item.xhr = null; }
+      uploadQueue.splice(i, 1);
+      if (item.status === 'uploading') uploadActive--;
+      renderUploadQueuePanel();
+      processUploadQueue();
+    }
+
+    function uploadItem(item) {
+      return new Promise(function(resolve, reject) {
+        item.status = 'uploading';
+        updateQueueItem(uploadQueue.indexOf(item), { status: 'uploading' });
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var content = e.target.result;
+          if (content.startsWith('data:')) content = content.split(',')[1] || '';
+          var payload = JSON.stringify({ filename: item.name, content: content, type: 'file' });
+          var blob = new Blob([payload], { type: 'application/json' });
+
+          var xhr = new XMLHttpRequest();
+          item.xhr = xhr;
+          xhr.open('POST', '/api/upload', true);
+          xhr.setRequestHeader('Authorization', getAuthHeader());
+          xhr.setRequestHeader('Content-Type', 'application/json');
+
+          xhr.upload.onprogress = function(ev) {
+            if (ev.lengthComputable) {
+              var pct = Math.round((ev.loaded / ev.total) * 100);
+              updateQueueItem(uploadQueue.indexOf(item), { pct: pct });
+              status('上传中 ' + item.name + ' ' + pct + '%');
+            }
+          };
+
+          xhr.onload = function() {
+            item.xhr = null;
+            uploadActive--;
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                var data = JSON.parse(xhr.responseText);
+                if (data.success) {
+                  updateQueueItem(uploadQueue.indexOf(item), { status: 'done', pct: 100 });
+                  resolve(data);
+                } else {
+                  updateQueueItem(uploadQueue.indexOf(item), { status: 'failed' });
+                  reject(new Error(data.error || '上传失败'));
+                }
+              } catch (e) {
+                updateQueueItem(uploadQueue.indexOf(item), { status: 'failed' });
+                reject(new Error('上传失败'));
+              }
+            } else {
+              updateQueueItem(uploadQueue.indexOf(item), { status: 'failed' });
+              reject(new Error('HTTP ' + xhr.status));
+            }
+            processUploadQueue();
+          };
+
+          xhr.onerror = function() {
+            item.xhr = null;
+            uploadActive--;
+            updateQueueItem(uploadQueue.indexOf(item), { status: 'failed' });
+            reject(new Error('网络错误'));
+            processUploadQueue();
+          };
+
+          xhr.onabort = function() {
+            item.xhr = null;
+          };
+
+          xhr.send(blob);
+        };
+        reader.readAsDataURL(item.file);
+      });
+    }
+
+    function processUploadQueue() {
+      if (uploadPaused) return;
+      while (uploadActive < MAX_CONCURRENT) {
+        var next = uploadQueue.findIndex(function(f) { return f.status === 'pending'; });
+        if (next === -1) break;
+        uploadActive++;
+        var item = uploadQueue[next];
+        uploadItem(item).then(function() {
+          updateQueueItem(next, { status: 'done', pct: 100 });
+        }).catch(function() {
+          // already handled in uploadItem
+        });
+      }
+      renderUploadQueuePanel();
+    }
+
     async function uploadFiles() {
       const input = document.getElementById('fileInput');
       const files = Array.from(input.files || []);
@@ -1649,26 +1847,34 @@ function renderPage() {
         showToast('请先选择文件', 'error');
         return;
       }
-      let completed = 0;
-      status('开始上传 ' + files.length + ' 个文件...');
-      showProgress(0, files.length);
 
-      for (const file of files) {
-        // reset file-level bar before next file
-        var fp = document.getElementById('fileProgressBar');
-        if (fp) fp.style.width = '0%';
-        await uploadSingleFile(file);
-        completed += 1;
-        status('已上传 ' + completed + ' / ' + files.length);
-        showProgress(completed, files.length);
-      }
-
+      // Add to queue
+      files.forEach(function(file) {
+        uploadQueue.push({ name: file.name, file: file, status: 'pending', pct: 0 });
+      });
+      renderUploadQueuePanel();
       input.value = '';
       clearFileInput();
-      clearProgress();
-      await loadFiles();
-      loadStorageStats();
-      status('上传完成');
+      status('上传队列已添加 ' + files.length + ' 个文件');
+      processUploadQueue();
+
+      // Watch for completion
+      var checkDone = setInterval(function() {
+        var allDone = uploadQueue.every(function(f) { return f.status === 'done' || f.status === 'failed'; });
+        if (allDone) {
+          clearInterval(checkDone);
+          var failed = uploadQueue.filter(function(f) { return f.status === 'failed'; }).length;
+          if (failed === 0) {
+            status('上传完成');
+          } else {
+            status(failed + ' 个文件上传失败，可重试', 'error');
+          }
+          uploadQueue = [];
+          renderUploadQueuePanel();
+          loadFiles();
+          loadStorageStats();
+        }
+      }, 500);
     }
 
     function uploadSingleFile(file) {
