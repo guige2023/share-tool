@@ -507,7 +507,7 @@ function initSchemaV6(db) {
   }
   // 从现有数据初始化 tag_stats
   try {
-    const rows = db.prepare('SELECT tags FROM files WHERE tags IS NOT NULL AND tags != ""').all();
+    const rows = db.prepare("SELECT tags FROM files WHERE tags IS NOT NULL AND tags != ''").all();
     const counts = {};
     for (const row of rows) {
       for (const t of row.tags.split(',').map(s => s.trim()).filter(Boolean)) {
@@ -2602,7 +2602,7 @@ function deleteTagColor(tag) {
 // 从所有文件提取所有不重复的标签
 function getAllTags() {
   const db = getDb();
-  const rows = db.prepare('SELECT tags FROM files WHERE tags IS NOT NULL AND tags != ""').all();
+  const rows = db.prepare("SELECT tags FROM files WHERE tags IS NOT NULL AND tags != ''").all();
   const tagSet = new Set();
   for (const row of rows) {
     const tags = row.tags.split(',').map(t => t.trim()).filter(Boolean);
@@ -2614,7 +2614,7 @@ function getAllTags() {
 // 重建标签统计（全量扫描 files 表，用于初始化或修复）
 function rebuildTagStats() {
   const db = getDb();
-  const rows = db.prepare('SELECT tags FROM files WHERE tags IS NOT NULL AND tags != ""').all();
+  const rows = db.prepare("SELECT tags FROM files WHERE tags IS NOT NULL AND tags != ''").all();
   const counts = {};
   for (const row of rows) {
     for (const t of row.tags.split(',').map(s => s.trim()).filter(Boolean)) {
