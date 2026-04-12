@@ -617,6 +617,7 @@ function renderPage() {
       /* On mobile grid: hide inline actions, use context menu instead */
       @media (max-width: 600px){
         #fileTableGrid .file-actions{display:none}
+        .mobile-more-btn{display:flex!important;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:var(--btn-bg,#e5e7eb);border:none;font-size:18px;cursor:pointer;flex-shrink:0}
       }
       /* Batch bar: horizontal scroll on small screens */
       #batchBar{overflow-x:auto;justify-content:flex-start!important;padding:8px 12px!important;gap:6px;flex-wrap:nowrap;white-space:nowrap}
@@ -792,7 +793,7 @@ function renderPage() {
 
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
-        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off" style="padding-right:32px">
+        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" style="padding-right:32px">
         <span id="searchClear" onclick="clearSearchInput()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:16px;line-height:1;display:none;user-select:none" title="清除搜索">✕</span>
         <select id="tagFilterSelect" onchange="filterByTag()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:140px">
           <option value="">全部标签</option>
@@ -2601,7 +2602,7 @@ function renderPage() {
         '</div>' +
         '<div class="file-actions">' +
           // Mobile: compact ⋮ menu (shown in grid mode on mobile via CSS)
-          '<button class="mobile-more-btn" onclick=' + "'" + 'showFileActions(' + JSON.stringify(file.name) + ', event)' + "'" + ' title="更多操作" style="display:none">⋮</button>' +
+          '<button class="mobile-more-btn" onclick=' + "'" + 'showMobileMenu(' + JSON.stringify(file.name) + ', event)' + "'" + ' title="更多操作" style="display:none">⋮</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
