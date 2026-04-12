@@ -380,6 +380,8 @@ function renderPage() {
     [data-theme="dark"] .hero{border-color:var(--line);background:rgba(30,41,59,.86)}
     [data-theme="dark"] .modal-card pre{background:#0f172a!important;color:#e2e8f0!important}
     [data-theme="dark"] button.secondary{background:#334155;color:#f1f5f9}
+    [data-theme="dark"] .modal-card button:not(.secondary):not(.danger):not(.ghost){background:#334155;color:#f1f5f9}
+    [data-theme="dark"] .modal-card button.ghost{background:transparent;border-color:#475569;color:#f1f5f9}
     [data-theme="dark"] .tag-badge{color:#c7d2fe}
     [data-theme="dark"] .progress-bar-wrap{background:#1e293b}
     [data-theme="dark"] .shares img{background:#0f172a}
@@ -389,7 +391,7 @@ function renderPage() {
     [data-theme="dark"] .empty{color:#475569}
     [data-theme="dark"] #ctxMenu{background:#1e293b;border-color:#334155;color:#f1f5f9}
     [data-theme="dark"] .ctx-item:hover{background:#334155}
-    [data-theme="dark"] .view-toggle button.active{background:var(--primary);color:#fff}
+    [data-theme="dark"] .view-toggle button.active{background:var(--primary);color:var(--text-inverse, #fff)}
     [data-theme="dark"] .view-toggle button{background:#334155;color:#f1f5f9}
     [data-theme="dark"] input[type="text"], [data-theme="dark"] input[type="password"], [data-theme="dark"] input[type="number"], [data-theme="dark"] textarea{background:#0f172a;color:#f1f5f9;border-color:#334155}
     [data-theme="dark"] button{background:#334155;color:#f1f5f9}
