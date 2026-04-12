@@ -1855,6 +1855,58 @@ function getTotalStorageSize() {
   return row.total;
 }
 
+// 文件类型分布统计
+function getStorageStats() {
+  const db = getDb();
+  // 按 MIME 类型主类分组
+  const byType = db.prepare(`
+    SELECT
+      CASE
+        WHEN mime LIKE 'image/%' THEN 'image'
+        WHEN mime LIKE 'video/%' THEN 'video'
+        WHEN mime LIKE 'audio/%' THEN 'audio'
+        WHEN mime LIKE 'application/pdf' THEN 'pdf'
+        WHEN mime LIKE 'application/vnd%' THEN 'document'
+        WHEN mime LIKE 'text/%' THEN 'text'
+        WHEN mime IS NULL OR mime = '' THEN 'other'
+        ELSE 'other'
+      END as category,
+      COUNT(*) as count,
+      COALESCE(SUM(size), 0) as size
+    FROM files
+    GROUP BY category
+    ORDER BY size DESC
+  `).all();
+
+  // 存储使用趋势（最近7天，每天新增文件数和大小）
+  const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
+  const byDay = db.prepare(`
+    SELECT
+      date(timestamp, 'unixepoch') as day,
+      COUNT(*) as file_count,
+      COALESCE(SUM(size), 0) as total_size
+    FROM files
+    WHERE timestamp >= ?
+    GROUP BY day
+    ORDER BY day ASC
+  `).all(sevenDaysAgo);
+
+  // 文件大小分布
+  const sizeRanges = [
+    { label: '< 1MB',   cond: 'size < 1048576',              count: 0, size: 0 },
+    { label: '1-10MB',  cond: 'size >= 1048576 AND size < 10485760',      count: 0, size: 0 },
+    { label: '10-100MB', cond: 'size >= 10485760 AND size < 104857600',    count: 0, size: 0 },
+    { label: '>= 100MB', cond: 'size >= 104857600',                     count: 0, size: 0 }
+  ];
+  for (const r of sizeRanges) {
+    const row = db.prepare(`SELECT COUNT(*) as c, COALESCE(SUM(size),0) as s FROM files WHERE ${r.cond}`).get();
+    r.count = row.c;
+    r.size = row.s;
+  }
+
+  return { byType, byDay, sizeRanges };
+}
+
 // 获取虚拟文件夹大小（所有前缀匹配的文件累计大小）
 function getFolderSize(folderPrefix) {
   const db = getDb();
@@ -3347,7 +3399,7 @@ module.exports = {
   deleteFile, deleteFileByName, deleteFiles, renameFile, batchRenameFiles, parseRenamePattern, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
   setFilePositions,
-  searchFiles, searchFilesFTS, getFilesByHashSince, getFileCount, getTotalStorageSize, getFolderSize, getAllFolderSizes, findDuplicates,
+  searchFiles, searchFilesFTS, getFilesByHashSince, getFileCount, getTotalStorageSize, getStorageStats, getFolderSize, getAllFolderSizes, findDuplicates,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
   touchDevice, getOnlineDevices, cleanupStaleDevices,

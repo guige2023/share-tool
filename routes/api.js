@@ -37,7 +37,8 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
 
     const count = db.getFileCount();
     const totalSize = db.getTotalStorageSize();
-    sendJson(res, { count, totalSize, maxSize: 10 * 1024 * 1024 * 1024 });
+    const stats = db.getStorageStats();
+    sendJson(res, { count, totalSize, maxSize: 10 * 1024 * 1024 * 1024, ...stats });
     return true;
   }
 
@@ -732,6 +733,15 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const since = query.get('since');
     const rows = db.getMostAccessedFiles(limit, since ? parseInt(since, 10) : null);
     sendJson(res, { success: true, files: rows });
+    return true;
+  }
+
+  // GET /api/dashboard - 存储分析 Dashboard 数据
+  if (pathname === '/api/dashboard' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const stats = db.getDashboardStats();
+    sendJson(res, { success: true, ...stats });
     return true;
   }
 
