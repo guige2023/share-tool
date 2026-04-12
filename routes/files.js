@@ -133,6 +133,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       const result = db.addFile(filename, content, type);
       db.addAuditLog('upload', filename, getClientIp(req), auth.token);
       sendJson(res, { success: true, file: result });
+      global.broadcastSSE({ type: 'files_changed' });
     } catch (error) {
       sendJson(res, { success: false, error: error.message }, 400);
     }
@@ -227,6 +228,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
 
       db.addAuditLog('text_update', filename, getClientIp(req), auth.token);
       sendJson(res, { success: true, file: updated });
+      global.broadcastSSE({ type: 'files_changed' });
     } catch (error) {
       sendJson(res, { success: false, error: error.message }, 400);
     }
@@ -254,6 +256,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
 
       db.addAuditLog('rename', `${oldFilename} -> ${newFilename}`, getClientIp(req), auth.token);
       sendJson(res, { success: true, oldFilename, newFilename });
+      global.broadcastSSE({ type: 'files_changed' });
     } catch (error) {
       sendJson(res, { success: false, error: error.message }, 400);
     }
@@ -295,6 +298,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
 
       db.addAuditLog('file_update', `${filename} tags=${updates.tags || '(unchanged)'}`, getClientIp(req), auth.token);
       sendJson(res, { success: true, file: { name: updated.filename, tags: updated.tags, starred: updated.starred } });
+      global.broadcastSSE({ type: 'files_changed' });
     } catch (error) {
       sendJson(res, { success: false, error: error.message }, 400);
     }
@@ -313,6 +317,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
 
     db.addAuditLog('delete', filename, getClientIp(req), auth.token);
     sendJson(res, { success: true });
+    global.broadcastSSE({ type: 'files_changed' });
     return true;
   }
 
@@ -323,6 +328,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const result = db.deleteAllFiles();
     db.addAuditLog('delete_all', String(result.deleted), getClientIp(req), auth.token);
     sendJson(res, { success: true, deleted: result.deleted });
+    global.broadcastSSE({ type: 'files_changed' });
     return true;
   }
 

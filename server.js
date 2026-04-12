@@ -128,6 +128,15 @@ async function readJsonBody(req) {
   }
 }
 
+// Broadcast event to all SSE clients
+global.broadcastSSE = function (event) {
+  if (!global._sseClients || global._sseClients.size === 0) return;
+  const data = 'data: ' + JSON.stringify(event) + '\n\n';
+  for (const res of global._sseClients) {
+    try { res.write(data); } catch (_) {}
+  }
+};
+
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) return String(forwarded).split(',')[0].trim();
@@ -1499,6 +1508,7 @@ function renderPage() {
     async function loadFiles() {
       clearNavHighlight();
       const q = document.getElementById('searchInput').value.trim();
+      currentSearchQuery = q;  // expose for highlight in render
       const selectedTag = (document.getElementById('tagFilterSelect') || {}).value || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
@@ -1534,6 +1544,11 @@ function renderPage() {
       if (!currentFiles.length) {
         listBody.innerHTML = '';
         gridBody.innerHTML = '';
+        if (currentSearchQuery) {
+          empty.innerHTML = '未找到匹配「' + escapeHtmlClient(currentSearchQuery) + '」的文件';
+        } else {
+          empty.innerHTML = '还没有内容';
+        }
         empty.style.display = 'block';
         return;
       }
@@ -1564,7 +1579,7 @@ function renderPage() {
         : '<span class="muted" style="font-size:11px">—</span>';
       return '<tr data-index="' + file._index + '">' +
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()"></td>' +
-        '<td data-label="文件"><strong>' + escapeHtmlClient(file.name) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
+        '<td data-label="文件"><strong>' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
         '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
         '<td data-label="更新时间">' + formatTime(file.updatedAt || file.createdAt) + '</td>' +
@@ -1618,7 +1633,7 @@ function renderPage() {
         '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()">' +
         '<div class="file-content">' +
           gridIcon +
-          '<div class="file-name">' + escapeHtmlClient(file.name) + '</div>' +
+          '<div class="file-name">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</div>' +
           '<div class="file-meta">' + formatBytes(file.size) + ' · ' + formatTime(file.updatedAt || file.createdAt) + '</div>' +
           tagHtml +
         '</div>' +
@@ -1632,6 +1647,7 @@ function renderPage() {
     }
 
     var currentView = localStorage.getItem('viewMode') || 'list';
+    var currentSearchQuery = '';  // current search query for filename highlight
 
     function setView(view) {
       currentView = view;
@@ -2770,6 +2786,7 @@ function renderPage() {
       document.getElementById('searchInput').value = '';
       document.getElementById('searchClear').style.display = 'none';
       document.getElementById('searchSuggestions').style.display = 'none';
+      currentSearchQuery = '';
       loadFiles();
       document.getElementById('searchInput').focus();
     }
@@ -2922,6 +2939,18 @@ function renderPage() {
     Promise.all([loadFiles(), loadShares()]).catch(function (error) {
       status(error.message);
     });
+
+    // Real-time file change notifications via SSE
+    (function initSSE() {
+      var es = new EventSource('/api/events');
+      es.addEventListener('files_changed', function (e) {
+        loadFiles();
+        showToast('文件已更新', 'info', 3000);
+      });
+      es.onerror = function () {
+        // Silently reconnect; EventSource auto reconnects
+      };
+    })();
 
     // Reload when tab becomes visible again
     document.addEventListener('visibilitychange', function () {
