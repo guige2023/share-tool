@@ -393,6 +393,7 @@ function renderPage() {
     }
     /* Toast notification */
     #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:#111827;color:#fff;padding:12px 20px;border-radius:10px;font-size:14px;opacity:0;transition:transform .3s,opacity .3s;pointer-events:none;z-index:9999;max-width:90vw;text-align:center;word-break:break-all}
+    @keyframes spin{to{transform:rotate(360deg)}}
     #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
     #toast.success{background:#059669}
     #toast.error{background:#dc2626}
@@ -1021,18 +1022,31 @@ function renderPage() {
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
 
-      // File type icon for grid view
+      // File type icon / thumbnail for grid view
       var gridIcon = '';
       if (mode === 'grid') {
         var mime = file.content_type || file.mime || '';
         var iconSvg;
-        if (mime.startsWith('image/')) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
-        else if (mime === 'application/pdf') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg>';
-        else if (mime.startsWith('video/')) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.5"><polygon points="23,7 16,12 23,17"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>';
-        else if (mime.startsWith('audio/')) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
-        else if (mime.startsWith('text/')) iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
-        else iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>';
-        gridIcon = '<div style="display:flex;align-items:center;justify-content:center;height:64px;margin-bottom:8px">' + iconSvg + '</div>';
+        var thumbWrapper = '';
+        if (mime.startsWith('image/')) {
+          // Lazy thumbnail: show placeholder icon initially, load image when in viewport
+          thumbWrapper = '<div class="img-thumb-wrap" style="display:flex;align-items:center;justify-content:center;height:64px;margin-bottom:8px;position:relative" data-filename="' + encodeURIComponent(file.name) + '">' +
+            '<svg class="img-placeholder" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>' +
+            '<div class="img-overlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.3);border-radius:4px;align-items:center;justify-content:center">' +
+            '<div style="width:28px;height:28px;border:3px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div></div></div>';
+          iconSvg = thumbWrapper;
+        } else if (mime === 'application/pdf') {
+          iconSvg = '<div style="display:flex;align-items:center;justify-content:center;height:64px;margin-bottom:8px;position:relative"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10,9 9,9 8,9"/></svg><div style="position:absolute;bottom:6px;right:4px;font-size:9px;background:#ef4444;color:#fff;padding:1px 4px;border-radius:3px;font-weight:600">PDF</div></div>';
+        } else if (mime.startsWith('video/')) {
+          iconSvg = '<div style="display:flex;align-items:center;justify-content:center;height:64px;margin-bottom:8px;position:relative"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="1.5"><polygon points="23,7 16,12 23,17"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><div style="width:28px;height:28px;background:rgba(139,92,246,0.85);border-radius:50%;display:flex;align-items:center;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="#fff"><polygon points="5,3 19,12 5,21"/></svg></div></div></div>';
+        } else if (mime.startsWith('audio/')) {
+          iconSvg = '<div style="display:flex;align-items:center;justify-content:center;height:64px;margin-bottom:8px;position:relative"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center"><div style="width:28px;height:28px;background:rgba(245,158,11,0.85);border-radius:50%;display:flex;align-items:center;justify-content:center"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#fff"><polygon points="5,3 19,12 5,21"/></svg></div></div></div>';
+        } else if (mime.startsWith('text/')) {
+          iconSvg = '<div style="display:flex;align-items:center;justify-content:center;height:64px;margin-bottom:8px"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>';
+        } else {
+          iconSvg = '<div style="display:flex;align-items:center;justify-content:center;height:64px;margin-bottom:8px"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg></div>';
+        }
+        gridIcon = iconSvg;
       }
 
       return '<div class="file-item">' +
@@ -1750,6 +1764,67 @@ function renderPage() {
     setupDragDrop();
     loadFiles();
     loadRecentSearches();
+
+    // Lazy-load image thumbnails via IntersectionObserver
+    (function initThumbnails() {
+      if (!('IntersectionObserver' in window)) return;
+      var loaded = new Set();
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var wrap = entry.target;
+          var filename = wrap.dataset.filename;
+          if (loaded.has(filename)) { observer.unobserve(wrap); return; }
+          loaded.add(filename);
+          var overlay = wrap.querySelector('.img-overlay');
+          if (overlay) overlay.style.display = 'flex';
+          fetch('/api/content/' + encodeURIComponent(filename), { headers: headers() })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+              var file = d.file;
+              if (!file || !file.content) throw new Error('no content');
+              var isImg = (file.mime || '').startsWith('image/');
+              if (!isImg) throw new Error('not image');
+              var img = document.createElement('img');
+              img.src = 'data:' + file.mime + ';base64,' + file.content;
+              img.alt = file.name;
+              img.style = 'width:100%;height:64px;object-fit:cover;border-radius:4px;display:block';
+              img.onload = function () {
+                wrap.innerHTML = '';
+                wrap.appendChild(img);
+                observer.unobserve(wrap);
+              };
+              img.onerror = function () { wrap.innerHTML = wrap.dataset.origIcon || ''; observer.unobserve(wrap); };
+              wrap.dataset.origIcon = wrap.querySelector('.img-placeholder').outerHTML;
+              wrap.innerHTML = '';
+              wrap.appendChild(img);
+            })
+            .catch(function () {
+              if (overlay) overlay.style.display = 'none';
+            });
+        });
+      }, { rootMargin: '200px' });
+      document.querySelectorAll('.img-thumb-wrap').forEach(function (el) { observer.observe(el); });
+      // Re-observe after view toggle
+      window._thumbObserver = observer;
+      window._thumbLoaded = loaded;
+    })();
+    // Re-init thumbnails after DOM update (setView → loadFiles)
+    (function patchSetView() {
+      var orig = window.setView;
+      if (!orig) return;
+      window.setView = function (view) {
+        orig.apply(null, arguments);
+        setTimeout(function () {
+          var io = window._thumbObserver;
+          var ld = window._thumbLoaded;
+          if (!io) return;
+          document.querySelectorAll('.img-thumb-wrap').forEach(function (el) {
+            if (!ld.has(el.dataset.filename)) io.observe(el);
+          });
+        }, 100);
+      };
+    })();
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function (e) {
