@@ -3889,7 +3889,7 @@ function renderPage() {
       localStorage.setItem('sortBy', currentSort);
       localStorage.setItem('sortOrder', currentOrder);
       // Update arrow indicators
-      ['filename', 'size', 'updated_at'].forEach(function (c) {
+      ['filename', 'size', 'updated_at', 'position'].forEach(function (c) {
         var arrow = document.getElementById('arrow-' + c);
         if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
       });
