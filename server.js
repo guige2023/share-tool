@@ -562,6 +562,9 @@ function renderPage() {
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
         <input id="searchInput" type="text" placeholder="按文件名搜索">
+        <select id="tagFilterSelect" onchange="filterByTag()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:140px">
+          <option value="">全部标签</option>
+        </select>
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
@@ -1199,12 +1202,35 @@ function renderPage() {
 
     async function loadFiles() {
       const q = document.getElementById('searchInput').value.trim();
+      const selectedTag = (document.getElementById('tagFilterSelect') || {}).value || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
-      const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam : '/api/list?' + sortParam;
+      const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
+      const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam : '/api/list?' + sortParam + tagParam;
       const [data, tagData] = await Promise.all([request(url), request('/api/tags')]);
       currentFiles = data.files || [];
       const tagColorMap = {};
       (tagData.tags || []).forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
+      updateTagFilterOptions(tagData.tags || []);
+      renderFiles(tagColorMap);
+    }
+
+    function updateTagFilterOptions(tags) {
+      const sel = document.getElementById('tagFilterSelect');
+      if (!sel) return;
+      const current = sel.value;
+      sel.innerHTML = '<option value="">全部标签</option>' +
+        tags.map(function(t) {
+          return '<option value="' + escapeHtmlClient(t.tag) + '"' + (t.tag === current ? ' selected' : '') + '>' +
+            escapeHtmlClient(t.tag) + ' (' + t.count + ')</option>';
+        }).join('');
+      sel.value = current;
+    }
+
+    function filterByTag() {
+      loadFiles();
+    }
+
+    function renderFiles(tagColorMap) {
       const empty = document.getElementById('fileEmpty');
       const listBody = document.getElementById('fileTableBody');
       const gridBody = document.getElementById('fileTableGrid');
@@ -1219,13 +1245,13 @@ function renderPage() {
       if (currentView === 'grid') {
         document.getElementById('fileTable').style.display = 'none';
         gridBody.style.display = 'block';
-        gridBody.innerHTML = currentFiles.map(function (file) {
+        gridBody.innerHTML = currentFiles.map(function(file) {
           return renderFileItem(file, tagColorMap, 'grid');
         }).join('');
       } else {
         document.getElementById('fileTable').style.display = 'table';
         gridBody.style.display = 'none';
-        listBody.innerHTML = currentFiles.map(function (file) {
+        listBody.innerHTML = currentFiles.map(function(file) {
           return renderFileRow(file, tagColorMap);
         }).join('');
       }
