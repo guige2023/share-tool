@@ -14,6 +14,7 @@ const db = require('./db');
 const handleApiRoutes = require('./routes/api');
 const handleFileRoutes = require('./routes/files');
 const handleShareRoutes = require('./routes/share');
+const { initWebSocketServer } = require('./routes/sync');
 
 const VERSION = require('./package.json').version;
 const PORT = parseInt(process.env.SHARE_TOOL_PORT || '18790', 10);
@@ -337,6 +338,23 @@ function renderPage() {
     .shares img{width:84px;height:84px;border:1px solid var(--line);border-radius:12px;background:#fff}
     @media (max-width: 960px){
       .grid{grid-template-columns:1fr}
+      .toolbar{flex-wrap:wrap}
+      .toolbar input,.toolbar button{min-width:0}
+      .toolbar button{padding:9px 12px;font-size:13px}
+      table,thead,tbody,tr,th,td{display:block;width:100%;box-sizing:border-box}
+      thead tr{position:absolute;top:-9999px;left:-9999px}
+      tbody tr{border-bottom:1px solid var(--line);padding:10px 0}
+      td{padding:4px 0 4px 38%;position:relative;border:none!important}
+      td:before{position:absolute;left:0;width:35%;padding-right:8px;white-space:nowrap;font-weight:600;color:var(--muted);content:attr(data-label)}
+      td:first-child{padding-left:0}
+      td:first-child:before{content:none}
+      .actions-cell{display:flex;gap:6px;flex-wrap:wrap}
+    }
+    @media (max-width: 480px){
+      .meta .chip{font-size:11px;padding:7px 10px}
+      .hero h1{font-size:24px}
+      .panel{padding:14px}
+      .toolbar button{width:100%}
     }
   </style>
 </head>
@@ -584,11 +602,11 @@ function renderPage() {
       empty.style.display = 'none';
       body.innerHTML = currentFiles.map(function (file) {
         return '<tr>' +
-          '<td><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '"></td>' +
-          '<td><strong>' + escapeHtmlClient(file.name) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
-          '<td>' + formatBytes(file.size) + '</td>' +
-          '<td>' + formatTime(file.updatedAt || file.createdAt) + '</td>' +
-          '<td class="actions">' +
+          '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '"></td>' +
+          '<td data-label="文件"><strong>' + escapeHtmlClient(file.name) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
+          '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
+          '<td data-label="更新时间">' + formatTime(file.updatedAt || file.createdAt) + '</td>' +
+          '<td class="actions-cell" data-label="操作">' +
             '<button onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
             '<button class="secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
             '<button class="secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
@@ -875,6 +893,10 @@ async function start() {
     console.log('[ShareTool] LAN address: https://' + LOCAL_IP + ':' + HTTPS_PORT);
     console.log('[ShareTool] Token: ' + SHARE_TOKEN);
   });
+
+  // Initialize WebSocket server on the HTTPS server
+  const wss = initWebSocketServer(httpsServer);
+  console.log('[ShareTool] WebSocket server ready on wss://0.0.0.0:' + HTTPS_PORT + '/ws');
 
   const redirectServer = http.createServer((req, res) => {
     const host = req.headers.host || `${LOCAL_IP}:${PORT}`;
