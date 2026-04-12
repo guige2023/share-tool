@@ -119,6 +119,11 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		}
 	})
 
+	// Upload endpoint (multipart form, used by the web UI)
+	mux.HandleFunc("/api/upload", func(w http.ResponseWriter, r *http.Request) {
+		handleFileUpload(sharedDir, 100*1024*1024)(w, r)
+	})
+
 	// File API
 	mux.HandleFunc("/api/files", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {

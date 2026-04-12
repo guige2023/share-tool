@@ -571,7 +571,8 @@ const API = {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', this.base + '/api/files/' + encodeURIComponent(name));
       if (offset !== undefined) {
-        xhr.setRequestHeader('Content-Range', `bytes ${offset}-${offset + blob.size - 1}/${total}`);
+        const end = offset + blob.size - 1;
+        xhr.setRequestHeader('Content-Range', `bytes ${offset}-${end}/${total}`);
       }
       xhr.onload = () => {
         try { resolve(JSON.parse(xhr.responseText)); }
@@ -759,8 +760,9 @@ async function uploadFile(file, name, total) {
   let offset = 0;
 
   while (offset < total) {
-    const chunk = file.slice(offset, offset + CHUNK);
-    const pct = Math.round((offset + chunk.size) / total * 100);
+    const chunkEnd = Math.min(offset + CHUNK, total);
+    const chunk = file.slice(offset, chunkEnd);
+    const pct = Math.round(chunkEnd / total * 100);
     fill.style.width = pct + '%';
     text.textContent = name + ' ' + pct + '%';
     await API.putFile(name, chunk, offset, total);
