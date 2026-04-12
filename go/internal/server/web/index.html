@@ -439,9 +439,51 @@ header .ip {
   .file-table { display: block; overflow-x: auto; white-space: nowrap; }
   .drop-zone { padding: 30px 16px; }
 }
+
+/* Toast notifications */
+#toast-container {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.toast {
+  background: rgba(29, 29, 31, 0.92);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  max-width: 300px;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  animation: toastIn .2s ease, toastOut .2s ease 2.3s forwards;
+  pointer-events: none;
+}
+
+.toast.ok { background: rgba(52, 199, 89, 0.92); }
+.toast.err { background: rgba(255, 59, 48, 0.92); }
+.toast.info { background: rgba(0, 113, 227, 0.92); }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
 </style>
 </head>
 <body>
+<div id="toast-container"></div>
 
 <header>
   <h1>ShareTool</h1>
@@ -615,6 +657,15 @@ function escHtml(str) {
     .replace(/"/g,'&quot;');
 }
 
+function showToast(msg, type='default') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type !== 'default' ? ' ' + type : '');
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
 function timeAgo(ts) {
   const diff = Date.now() - ts;
   if (diff < 60000) return Math.floor(diff/1000) + '秒前';
@@ -640,7 +691,7 @@ async function sendText() {
     input.value = '';
     loadTextHistory();
   } catch(e) {
-    alert('发送失败: ' + e.message);
+    showToast('发送失败: ' + e.message, 'err');
   }
 }
 
@@ -679,7 +730,7 @@ async function deleteText(id) {
     await API.deleteText(id);
     loadTextHistory();
   } catch(e) {
-    alert('删除失败: ' + e.message);
+    showToast('删除失败: ' + e.message, 'err');
   }
 }
 
@@ -707,7 +758,7 @@ async function clearTextHistory() {
     await API.clearText();
     loadTextHistory();
   } catch(e) {
-    alert('清空失败: ' + e.message);
+    showToast('清空失败: ' + e.message, 'err');
   }
 }
 
@@ -852,7 +903,7 @@ async function batchDeleteFiles() {
     selectedFiles.clear();
     loadFiles();
   } catch(e) {
-    alert('批量删除失败: ' + e.message);
+    showToast('批量删除失败: ' + e.message, 'err');
   }
 }
 
@@ -879,18 +930,17 @@ function batchDownloadFiles() {
         document.body.removeChild(a);
       }, i * 300); // 每隔 300ms 触发一个，避免浏览器拦截
     });
-    const last = (names.length - 1) * 300 + 500;
-    setTimeout(() => alert('已向浏览器下载管理器添加 ' + names.length + ' 个文件'), last);
+    showToast('已向浏览器下载管理器添加 ' + names.length + ' 个文件', 'ok');
   }
 }
 
 async function doDelete(name) {
-  if (!confirm('确认删除 ' + name + '？')) return;
+  if (!confirm('确认删除 ' + escHtml(name) + '？')) return;
   try {
     await API.deleteFile(name);
     loadFiles();
   } catch(e) {
-    alert('删除失败: ' + e.message);
+    showToast('删除失败: ' + e.message, 'err');
   }
 }
 
