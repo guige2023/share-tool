@@ -822,11 +822,16 @@ function renderPage() {
         </div>
       </div>
       <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
+      <div id="searchResultsBar" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px"></div>
       <div id="typeFilterBar" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
         <button class="type-chip active" data-type="" onclick="setTypeFilter('')">全部</button>
-        <button class="type-chip" data-type="text" onclick="setTypeFilter('text')">📄 文本</button>
         <button class="type-chip" data-type="image" onclick="setTypeFilter('image')">🖼️ 图片</button>
-        <button class="type-chip" data-type="file" onclick="setTypeFilter('file')">📦 文件</button>
+        <button class="type-chip" data-type="video" onclick="setTypeFilter('video')">🎬 视频</button>
+        <button class="type-chip" data-type="audio" onclick="setTypeFilter('audio')">🎵 音频</button>
+        <button class="type-chip" data-type="pdf" onclick="setTypeFilter('pdf')">📕 PDF</button>
+        <button class="type-chip" data-type="document" onclick="setTypeFilter('document')">📄 文档</button>
+        <button class="type-chip" data-type="archive" onclick="setTypeFilter('archive')">📦 压缩</button>
+        <button class="type-chip" data-type="text" onclick="setTypeFilter('text')">📝 文本</button>
       </div>
       <div id="fileStatsBar" style="display:flex;gap:16px;align-items:center;padding:0 0 8px 0;font-size:12px;color:var(--muted);font-family:monospace;flex-wrap:wrap">
         <span id="fileCountDisplay">共 <strong>0</strong> 个文件</span>
@@ -2425,6 +2430,17 @@ function renderPage() {
         const totalLabel = (currentSearchQuery && currentTotal > 0) ? currentTotal : total;
         const searchLabel = currentSearchQuery ? ' <span style="color:var(--accent);font-size:11px">搜索结果</span>' : '';
         countEl.innerHTML = '共 <strong>' + totalLabel + '</strong> 个文件' + searchLabel;
+        // Update search results bar
+        const resultsBar = document.getElementById('searchResultsBar');
+        if (currentSearchQuery) {
+          resultsBar.innerHTML = '<div>' +
+            '找到 <strong>' + totalLabel + '</strong> 个匹配「<span style="color:var(--accent)">' + escapeHtmlClient(currentSearchQuery) + '</span>」的文件' +
+            '</div>' +
+            '<button onclick="clearSearchInput()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:4px 8px;border-radius:4px">✕ 清除搜索</button>';
+          resultsBar.style.display = 'flex';
+        } else {
+          resultsBar.style.display = 'none';
+        }
         const selEl = document.getElementById('selectedCountDisplay');
         if (selEl) {
           if (selected > 0) {
@@ -3630,6 +3646,7 @@ function renderPage() {
         // Tag statistics
         const totalTags = tags.length;
         const totalTaggedFiles = tags.reduce(function (s, t) { return s + (t.count || 0); }, 0);
+        const orphanTags = tags.filter(function(t) { return (t.count || 0) === 0; });
         const topTag = tags.length > 0 ? tags[0] : null;
         const maxCount = tags.length > 0 ? tags[0].count : 0;
 
@@ -3645,9 +3662,30 @@ function renderPage() {
         statsHtml += '<div style="font-size:11px;color:var(--muted);margin-top:2px">最常用标签</div></div>';
         statsHtml += '</div>';
 
+        // Sort controls + orphan tag cleanup
+        statsHtml += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">';
+        statsHtml += '<select id="tagSortSelect" onchange="sortTagList(this.value)" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:13px">';
+        statsHtml += '<option value="count-desc">按使用次数 ↓</option>';
+        statsHtml += '<option value="count-asc">按使用次数 ↑</option>';
+        statsHtml += '<option value="alpha-asc">按名称 A→Z</option>';
+        statsHtml += '<option value="alpha-desc">按名称 Z→A</option>';
+        statsHtml += '</select>';
+        if (orphanTags.length > 0) {
+          statsHtml += '<button onclick="cleanupOrphanTags()" style="padding:6px 12px;background:#fef9c3;border:1px solid #f59e0b;border-radius:8px;color:#92400e;font-size:12px;cursor:pointer;white-space:nowrap">清理孤立 (' + orphanTags.length + ')</button>';
+        }
+        statsHtml += '</div>';
+        if (orphanTags.length > 0) {
+          statsHtml += '<div id="orphanTagSection" style="display:none;margin-bottom:12px;padding:10px;background:#fef9c3;border-radius:8px">';
+          statsHtml += '<div style="font-size:12px;color:#92400e;margin-bottom:8px">孤立标签（未使用，将被清理）：</div>';
+          orphanTags.forEach(function(t) {
+            statsHtml += '<span style="display:inline-block;padding:2px 8px;background:#fde68a;color:#78350f;border-radius:12px;font-size:12px;margin:2px">' + escapeHtmlClient(t.tag) + '</span> ';
+          });
+          statsHtml += '</div>';
+        }
+
         // Tag distribution bars (top 8)
         if (tags.length > 0) {
-          statsHtml += '<div style="margin-bottom:16px">';
+          statsHtml += '<div style="margin-bottom:16px" id="tagDistSection">';
           statsHtml += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">标签分布</div>';
           tags.slice(0, 8).forEach(function (t) {
             const pct = maxCount > 0 ? Math.round((t.count / maxCount) * 100) : 0;
@@ -3724,6 +3762,36 @@ function renderPage() {
       items.forEach(function(el) {
         el.style.display = q ? (el.dataset.tag.toLowerCase().includes(q) ? '' : 'none') : '';
       });
+    }
+
+    function sortTagList(sortType) {
+      const container = document.getElementById('tagManagerContent');
+      const items = Array.prototype.slice.call(container.querySelectorAll('[data-tag-item]'));
+      const searchInput = document.getElementById('tagSearchInput');
+      const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+      // Restore full tags for sorting (unhide all first)
+      items.forEach(function(el) { el.style.display = ''; });
+      items.sort(function(a, b) {
+        const aTag = a.dataset.tag || '';
+        const bTag = b.dataset.tag || '';
+        const aCount = parseInt(a.querySelector('[style*="font-size:11px"]') ? a.querySelector('[style*="font-size:11px"]').textContent : '0', 10);
+        const bCount = parseInt(b.querySelector('[style*="font-size:11px"]') ? b.querySelector('[style*="font-size:11px"]').textContent : '0', 10);
+        if (sortType === 'count-desc') return bCount - aCount;
+        if (sortType === 'count-asc') return aCount - bCount;
+        if (sortType === 'alpha-asc') return aTag.localeCompare(bTag, 'zh-CN');
+        if (sortType === 'alpha-desc') return bTag.localeCompare(aTag, 'zh-CN');
+        return 0;
+      });
+      const listContainer = container.querySelector('[style*="max-height:400px"]') || container.lastElementChild;
+      items.forEach(function(el) { listContainer.appendChild(el); });
+      // Re-apply search filter
+      if (q) filterTagList(q);
+    }
+
+    function cleanupOrphanTags() {
+      const section = document.getElementById('orphanTagSection');
+      if (!section) return;
+      section.style.display = section.style.display === 'none' ? 'block' : 'none';
     }
 
     async function createNewTag() {
