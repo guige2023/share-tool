@@ -319,6 +319,11 @@ function renderPage() {
     button.secondary{background:#e2e8f0;color:#0f172a}
     button.danger{background:var(--danger)}
     button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+    .drop-zone{border:2px dashed var(--line);border-radius:16px;padding:28px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:rgba(255,255,255,.4)}
+    .drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);background:rgba(16,185,129,.06)}
+    .drop-zone.dragover{border-style:solid}
+    .drop-zone-inner{pointer-events:none}
+    .drop-icon{font-size:32px;margin-bottom:8px}
     .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
     .toolbar input{flex:1 1 260px}
     table{width:100%;border-collapse:collapse}
@@ -378,6 +383,7 @@ function renderPage() {
   </style>
 </head>
 <body>
+  <div id="toast"></div>
   <div class="wrap">
     <section class="hero">
       <div>
@@ -407,13 +413,20 @@ function renderPage() {
         </div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="uploadSection">
         <h2>上传文件</h2>
-        <p class="muted">支持同时选择多个文件上传。</p>
-        <input id="fileInput" type="file" multiple>
+        <p class="muted">支持同时选择多个文件上传，也可拖拽文件到此处。</p>
+        <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
+          <input id="fileInput" type="file" multiple style="display:none" onchange="handleFileSelect(this.files)">
+          <div class="drop-zone-inner">
+            <div class="drop-icon">📁</div>
+            <div>拖拽文件到此处，或点击选择文件</div>
+          </div>
+        </div>
+        <div id="fileList" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
         <div class="row" style="margin-top:12px">
           <button onclick="uploadFiles()">上传文件</button>
-          <button class="secondary" onclick="document.getElementById('fileInput').value=''">清空选择</button>
+          <button class="secondary" onclick="clearFileInput()">清空选择</button>
         </div>
         <div class="status" id="uploadStatus"></div>
       </section>
@@ -508,6 +521,14 @@ function renderPage() {
       document.getElementById('uploadStatus').textContent = text || '';
     }
 
+    function showToast(message, type = '') {
+      const el = document.getElementById('toast');
+      el.textContent = message;
+      el.className = 'show' + (type ? ' ' + type : '');
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => { el.className = ''; }, 3000);
+    }
+
     function formatBytes(bytes) {
       if (!bytes) return '0 B';
       const units = ['B', 'KB', 'MB', 'GB'];
@@ -555,7 +576,7 @@ function renderPage() {
       const content = document.getElementById('textContent').value;
       const filename = document.getElementById('textFilename').value.trim() || defaultTextFilename();
       if (!content.trim()) {
-        alert('请输入内容');
+        showToast('请输入内容', 'error');
         return;
       }
       status('正在保存文字...');
@@ -586,11 +607,53 @@ function renderPage() {
       });
     }
 
+    // Drag and drop handlers
+    var dropZone = document.getElementById('dropZone');
+    var uploadSection = document.getElementById('uploadSection');
+
+    function handleFileSelect(files) {
+      var list = document.getElementById('fileList');
+      if (!files.length) {
+        list.innerHTML = '';
+        return;
+      }
+      list.innerHTML = '已选 ' + files.length + ' 个文件: ' +
+        Array.from(files).map(function (f) { return escapeHtmlClient(f.name); }).join(', ');
+    }
+
+    function clearFileInput() {
+      document.getElementById('fileInput').value = '';
+      document.getElementById('fileList').innerHTML = '';
+    }
+
+    function setupDragDrop() {
+      if (!dropZone) return;
+      ['dragenter', 'dragover'].forEach(function (evt) {
+        dropZone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          dropZone.classList.add('dragover');
+        });
+      });
+      ['dragleave', 'drop'].forEach(function (evt) {
+        dropZone.addEventListener(evt, function (e) {
+          e.preventDefault();
+          dropZone.classList.remove('dragover');
+        });
+      });
+      dropZone.addEventListener('drop', function (e) {
+        var files = e.dataTransfer.files;
+        if (files.length) {
+          document.getElementById('fileInput').files = files;
+          handleFileSelect(files);
+        }
+      });
+    }
+
     async function uploadFiles() {
       const input = document.getElementById('fileInput');
       const files = Array.from(input.files || []);
       if (!files.length) {
-        alert('请先选择文件');
+        showToast('请先选择文件', 'error');
         return;
       }
       let completed = 0;
@@ -689,7 +752,7 @@ function renderPage() {
         a.remove();
         URL.revokeObjectURL(url);
       } catch (e) {
-        alert('下载失败: ' + e.message);
+        showToast('下载失败: ' + e.message, 'error');
       }
     }
 
@@ -740,7 +803,7 @@ function renderPage() {
     async function downloadSelected() {
       const names = checkedNames().map(function (name) { return decodeURIComponent(name); });
       if (!names.length) {
-        alert('请先选择文件');
+        showToast('请先选择文件', 'error');
         return;
       }
       const response = await fetch('/api/batch-download', {
@@ -750,7 +813,7 @@ function renderPage() {
       });
       if (!response.ok) {
         const data = await response.json();
-        alert(data.error || '下载失败');
+        showToast(data.error || '下载失败', 'error');
         return;
       }
       const blob = await response.blob();
@@ -778,7 +841,7 @@ function renderPage() {
         })
       });
       await copyToClipboard(data.share.url);
-      alert('分享链接已复制\\n' + data.share.url);
+      showToast('分享链接已复制', 'success');
       await loadShares();
     }
 
@@ -851,12 +914,12 @@ function renderPage() {
       if (!currentShares.length) return;
       var urls = currentShares.map(function (s) { return s.url; }).join('\n');
       await copyToClipboard(urls);
-      alert('已复制 ' + currentShares.length + ' 个链接');
+      showToast('已复制 ' + currentShares.length + ' 个链接', 'success');
     }
 
     async function copyShare(url) {
       await copyToClipboard(url);
-      alert('已复制');
+      showToast('已复制', 'success');
     }
 
     async function deleteShare(code) {
