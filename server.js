@@ -4507,9 +4507,10 @@ function renderPage() {
         showToast('排序: ' + (newOrder === 'desc' ? '最新优先' : '最旧优先'), 'info', 1500);
         return;
       }
-      // Escape: close modal, or clear selection if no modal open
+      // Escape: close modal or lightbox, clear selection
       if (e.key === 'Escape') {
-        forceCloseModal();
+        var lb = document.getElementById('lightboxOverlay');
+        if (lb) { lb.remove(); } else { forceCloseModal(); }
         clearSelection();
       }
     });
