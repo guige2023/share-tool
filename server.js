@@ -527,6 +527,10 @@ function renderPage() {
       #fileTable tbody tr,#fileTableGrid tbody tr{display:contents}
       #fileTableGrid tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
     }
+    /* Keyboard navigation highlight */
+    .file-item.keyboard-nav,
+    #fileTableBody tr.keyboard-nav { outline: 2px solid var(--accent, #6366f1); outline-offset: -2px; border-radius: 4px; }
+    #fileTableBody tr.keyboard-nav td:first-child { border-left: 2px solid var(--accent, #6366f1); }
   </style>
 </head>
 <body>
@@ -1241,13 +1245,14 @@ function renderPage() {
     }
 
     async function loadFiles() {
+      clearNavHighlight();
       const q = document.getElementById('searchInput').value.trim();
       const selectedTag = (document.getElementById('tagFilterSelect') || {}).value || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
       const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam : '/api/list?' + sortParam + tagParam;
       const [data, tagData] = await Promise.all([request(url), request('/api/tags')]);
-      currentFiles = data.files || [];
+      currentFiles = (data.files || []).map(function(f, i) { f._index = i; return f; });
       const tagColorMap = {};
       (tagData.tags || []).forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
       updateTagFilterOptions(tagData.tags || []);
@@ -1305,7 +1310,7 @@ function renderPage() {
             return '<span class="tag-badge" style="background:' + tc + ';color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block">' + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
-      return '<tr>' +
+      return '<tr data-index="' + file._index + '">' +
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()"></td>' +
         '<td data-label="文件"><strong>' + escapeHtmlClient(file.name) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
@@ -1357,7 +1362,7 @@ function renderPage() {
         gridIcon = iconSvg;
       }
 
-      return '<div class="file-item">' +
+      return '<div class="file-item" data-index="' + file._index + '" tabindex="0">' +
         '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()">' +
         '<div class="file-content">' +
           gridIcon +
@@ -1425,8 +1430,108 @@ function renderPage() {
       if (!menu.contains(e.target)) menu.style.display = 'none';
     });
 
+    // --- Keyboard Navigation ---
+    var keyboardNavIndex = -1;
+    var gridColumns = 1;
+
+    function getAllFileItems() {
+      if (currentView === 'grid') {
+        return document.querySelectorAll('#fileTableGrid .file-item');
+      }
+      return document.querySelectorAll('#fileTableBody tr[data-index]');
+    }
+
+    function updateGridColumns() {
+      if (currentView !== 'grid') return;
+      var grid = document.getElementById('fileTableGrid');
+      if (!grid) return;
+      var item = grid.querySelector('.file-item');
+      if (!item) { gridColumns = 1; return; }
+      var itemWidth = item.offsetWidth || 180;
+      gridColumns = Math.max(1, Math.floor(grid.offsetWidth / itemWidth));
+    }
+
+    function clearNavHighlight() {
+      getAllFileItems().forEach(function(el) { el.classList.remove('keyboard-nav'); });
+      keyboardNavIndex = -1;
+    }
+
+    function applyNavHighlight(index) {
+      var items = getAllFileItems();
+      if (!items.length) return;
+      keyboardNavIndex = Math.max(0, Math.min(index, items.length - 1));
+      clearNavHighlight();
+      var target = items[keyboardNavIndex];
+      target.classList.add('keyboard-nav');
+      target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    function getFileAtIndex(index) {
+      var items = getAllFileItems();
+      if (!items.length || index < 0 || index >= items.length) return null;
+      return items[index];
+    }
+
+    function getIndexFromItem(item) {
+      return parseInt(item.getAttribute('data-index'), 10);
+    }
+
+    function handleKeyboardNav(e) {
+      var tagInFocus = document.activeElement && document.activeElement.tagName;
+      if (tagInFocus === 'INPUT' || tagInFocus === 'TEXTAREA') return;
+
+      var items = getAllFileItems();
+      if (!items.length) return;
+
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          updateGridColumns();
+          applyNavHighlight(keyboardNavIndex + 1);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          updateGridColumns();
+          applyNavHighlight(keyboardNavIndex - 1);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          updateGridColumns();
+          if (gridColumns > 1) applyNavHighlight(keyboardNavIndex + gridColumns);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          updateGridColumns();
+          if (gridColumns > 1) applyNavHighlight(keyboardNavIndex - gridColumns);
+          break;
+        case 'Enter': {
+          e.preventDefault();
+          if (keyboardNavIndex < 0) return;
+          var item = getFileAtIndex(keyboardNavIndex);
+          if (!item) return;
+          var checkbox = item.querySelector('.file-check');
+          if (checkbox) {
+            var filename = decodeURIComponent(checkbox.value);
+            previewFile(filename);
+          }
+          break;
+        }
+        case 'a': {
+          if (e.ctrlKey || e.metaKey) return; // let browser select-all pass through
+          // 'a' alone → select all (or at least start nav)
+          e.preventDefault();
+          applyNavHighlight(0);
+          break;
+        }
+        case 'Escape':
+          document.getElementById('ctxMenu').style.display = 'none';
+          clearNavHighlight();
+          break;
+      }
+    }
+
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') document.getElementById('ctxMenu').style.display = 'none';
+      handleKeyboardNav(e);
     });
 
     async function ctxAction(action) {
