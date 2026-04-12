@@ -501,6 +501,7 @@ function renderPage() {
         <button class="secondary" onclick="openTagManager()">标签管理</button>
         <button class="danger" onclick="deleteAllFiles()">删除全部</button>
         <div class="view-toggle">
+          <input type="checkbox" id="gridSelectAll" onchange="toggleAll(this.checked)" style="display:none;margin-right:6px;cursor:pointer" title="全选">
           <button id="viewListBtn" class="active" onclick="setView('list')" title="列表视图">☰</button>
           <button id="viewGridBtn" onclick="setView('grid')" title="网格视图">⊞</button>
         </div>
@@ -508,6 +509,7 @@ function renderPage() {
       <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
       <div id="batchBar" class="batch-bar" style="display:none">
         <span id="batchCount" style="font-size:13px;color:var(--muted)"></span>
+        <button class="ghost" onclick="toggleInvertSelection()">反选</button>
         <button class="ghost" onclick="openBatchTagModal()">添加标签</button>
         <button class="ghost" onclick="openBatchRemoveTagModal()">移除标签</button>
         <button class="ghost" onclick="batchDeleteSelected()">删除</button>
@@ -534,10 +536,17 @@ function renderPage() {
 
     <section class="panel shares" style="margin-top:18px">
       <h2>分享链接</h2>
-      <div class="toolbar" style="margin-bottom:12px">
-        <input id="shareSearchInput" type="text" placeholder="搜索分享链接" style="flex:1 1 200px">
+      <div class="toolbar" style="margin-bottom:12px;flex-wrap:wrap;gap:6px">
+        <input id="shareSearchInput" type="text" placeholder="搜索分享链接" style="flex:1 1 180px">
+        <select id="shareStatusFilter" onchange="filterShares()" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+          <option value="">全部状态</option>
+          <option value="active">有效</option>
+          <option value="expired">已过期</option>
+          <option value="password">有密码</option>
+        </select>
         <button class="secondary" onclick="filterShares()">过滤</button>
-        <button class="ghost" onclick="copyAllShares()">复制全部链接</button>
+        <button class="ghost" onclick="copyAllShares()">复制全部</button>
+        <button class="danger" onclick="batchDeleteExpiredShares()">删除过期</button>
       </div>
       <div class="list-scroll">
         <table>
@@ -693,25 +702,40 @@ function renderPage() {
       document.querySelectorAll('.file-check').forEach(function (el) {
         el.checked = checked;
       });
+      if (currentView === 'grid') document.getElementById('gridSelectAll').checked = checked;
+      if (currentView === 'list') document.getElementById('selectAll').checked = checked;
+      updateBatchBar();
+    }
+
+    function toggleInvertSelection() {
+      var allChecks = document.querySelectorAll('.file-check');
+      allChecks.forEach(function (el) {
+        el.checked = !el.checked;
+      });
       updateBatchBar();
     }
 
     function updateBatchBar() {
-      const names = checkedNames();
-      const bar = document.getElementById('batchBar');
-      const count = document.getElementById('batchCount');
+      var names = checkedNames();
+      var bar = document.getElementById('batchBar');
+      var count = document.getElementById('batchCount');
+      var selectAll = document.getElementById('selectAll');
       if (!bar || !count) return;
       if (names.length > 0) {
         bar.style.display = 'flex';
         count.textContent = '已选择 ' + names.length + ' 个文件';
+        var total = document.querySelectorAll('.file-check').length;
+        if (selectAll) selectAll.checked = names.length === total;
       } else {
         bar.style.display = 'none';
+        if (selectAll) selectAll.checked = false;
       }
     }
 
     function clearSelection() {
       document.querySelectorAll('.file-check').forEach(function (el) { el.checked = false; });
       document.getElementById('selectAll').checked = false;
+      document.getElementById('gridSelectAll').checked = false;
       updateBatchBar();
     }
 
@@ -1012,12 +1036,16 @@ function renderPage() {
       localStorage.setItem('viewMode', view);
       document.getElementById('viewListBtn').classList.toggle('active', view === 'list');
       document.getElementById('viewGridBtn').classList.toggle('active', view === 'grid');
+      document.getElementById('gridSelectAll').style.display = (view === 'grid') ? 'inline-block' : 'none';
+      document.getElementById('selectAll').style.display = (view === 'list') ? '' : 'none';
       loadFiles();
     }
 
     // Init view toggle button state on page load
     document.getElementById('viewListBtn').classList.toggle('active', currentView === 'list');
     document.getElementById('viewGridBtn').classList.toggle('active', currentView === 'grid');
+    document.getElementById('gridSelectAll').style.display = currentView === 'grid' ? 'inline-block' : 'none';
+    document.getElementById('selectAll').style.display = currentView === 'list' ? '' : 'none';
 
     async function searchFiles() {
       const q = document.getElementById('searchInput').value.trim();
@@ -1538,11 +1566,17 @@ function renderPage() {
 
     function filterShares() {
       var q = document.getElementById('shareSearchInput').value.trim().toLowerCase();
+      var status = document.getElementById('shareStatusFilter').value;
       var body = document.getElementById('shareTable');
       var empty = document.getElementById('shareEmpty');
-      var filtered = q ? currentShares.filter(function (s) {
-        return s.filename.toLowerCase().includes(q) || (s.url || '').toLowerCase().includes(q);
-      }) : currentShares;
+      var now = Date.now();
+      var filtered = currentShares.filter(function (s) {
+        if (q && !s.filename.toLowerCase().includes(q) && !(s.url || '').toLowerCase().includes(q)) return false;
+        if (status === 'expired') return s.expiresAt && new Date(s.expiresAt).getTime() < now;
+        if (status === 'active') return !s.expiresAt || new Date(s.expiresAt).getTime() >= now;
+        if (status === 'password') return s.hasPassword;
+        return true;
+      });
       if (!filtered.length) {
         body.innerHTML = '';
         empty.style.display = 'block';
@@ -1583,6 +1617,24 @@ function renderPage() {
     async function deleteShare(code) {
       if (!confirm('删除这个分享链接?')) return;
       await request('/api/share/delete/' + encodeURIComponent(code), { method: 'DELETE' });
+      await loadShares();
+    }
+
+    async function batchDeleteExpiredShares() {
+      var now = Date.now();
+      var expired = currentShares.filter(function (s) {
+        return s.expiresAt && new Date(s.expiresAt).getTime() < now;
+      });
+      if (!expired.length) { showToast('没有已过期的分享链接', 'info'); return; }
+      if (!confirm('删除 ' + expired.length + ' 个已过期分享链接?')) return;
+      var count = 0;
+      for (var i = 0; i < expired.length; i++) {
+        try {
+          await request('/api/share/delete/' + encodeURIComponent(expired[i].code), { method: 'DELETE' });
+          count++;
+        } catch (e) {}
+      }
+      showToast('已删除 ' + count + ' 个过期链接', 'success');
       await loadShares();
     }
 
@@ -1657,6 +1709,11 @@ function renderPage() {
       status(error.message);
     });
   </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(function() {});
+    }
+  </script>
 </body>
 </html>`;
 }
@@ -1680,13 +1737,38 @@ async function requestHandler(req, res) {
   }
 
   if (pathname === '/icon-192.png' || pathname === '/icon-512.png') {
-    const filePath = path.join(__dirname, pathname.slice(1));
+    const filePath = path.join(__dirname, 'public', pathname.slice(1));
     if (!fs.existsSync(filePath)) {
       sendJson(res, { success: false, error: 'Not found' }, 404);
       return;
     }
     const stream = fs.createReadStream(filePath);
     res.writeHead(200, { 'Content-Type': 'image/png' });
+    stream.pipe(res);
+    return;
+  }
+
+  // Service Worker for offline caching
+  if (pathname === '/sw.js') {
+    const filePath = path.join(__dirname, 'public', 'sw.js');
+    if (!fs.existsSync(filePath)) {
+      sendJson(res, { success: false, error: 'Not found' }, 404);
+      return;
+    }
+    const stream = fs.createReadStream(filePath);
+    res.writeHead(200, { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-cache' });
+    stream.pipe(res);
+    return;
+  }
+
+  if (pathname === '/manifest.json') {
+    const filePath = path.join(__dirname, 'public', 'manifest.json');
+    if (!fs.existsSync(filePath)) {
+      sendJson(res, { success: false, error: 'Not found' }, 404);
+      return;
+    }
+    const stream = fs.createReadStream(filePath);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
     stream.pipe(res);
     return;
   }
