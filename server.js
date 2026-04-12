@@ -1676,6 +1676,28 @@ function renderPage() {
       if (!menu.contains(e.target)) menu.style.display = 'none';
     });
 
+    // Mobile: long-press (500ms) on file row shows context menu
+    var longPressTimer = null;
+    document.addEventListener('touchstart', function(e) {
+      var row = e.target.closest('tr');
+      if (!row) return;
+      var checkbox = row.querySelector('.file-check');
+      if (!checkbox) return;
+      longPressTimer = setTimeout(function() {
+        e.preventDefault();
+        ctxTarget = checkbox.value;
+        var menu = document.getElementById('ctxMenu');
+        var touch = e.touches[0];
+        var x = Math.min(touch.clientX, window.innerWidth - 170);
+        var y = Math.min(touch.clientY, window.innerHeight - 220);
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+        menu.style.display = 'block';
+      }, 500);
+    }, { passive: false });
+    document.addEventListener('touchend', function() { clearTimeout(longPressTimer); });
+    document.addEventListener('touchmove', function() { clearTimeout(longPressTimer); });
+
     // --- Drag-to-Reorder ---
     var draggedItem = null;
     var draggedIndex = -1;
