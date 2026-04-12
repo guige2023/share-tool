@@ -3,7 +3,7 @@
  */
 
 module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) {
-  const { db, sendJson, authRequired, VERSION, getClientIp, SHARE_TOKEN } = ctx;
+  const { db, sendJson, authRequired, VERSION, getClientIp, SHARE_TOKEN, addAuditLog } = ctx;
   const { method } = req;
 
   if (pathname === '/api/health' && method === 'GET') {
