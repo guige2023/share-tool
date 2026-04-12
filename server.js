@@ -624,11 +624,128 @@ function renderPage() {
   </div>
 
   <script>
-    const AUTH_TOKEN = ${JSON.stringify(pageInfo.token)};
+    // Dynamic token state
+    let _authToken = null;
+    let _refreshToken = null;
+    let _tokenExpiresAt = null;
+    let _refreshTimer = null;
+    let _refreshing = false;
+
+    // STATIC_TOKEN is the server-side SHARE_TOKEN, used only for initial login
+    const STATIC_TOKEN = ${JSON.stringify(SHARE_TOKEN)};
+
+    function getToken() {
+      return _authToken || localStorage.getItem('st_auth_token') || STATIC_TOKEN;
+    }
+
+    function saveToken(token, refreshToken, expiresAt) {
+      _authToken = token;
+      _refreshToken = refreshToken;
+      _tokenExpiresAt = expiresAt;
+      localStorage.setItem('st_auth_token', token);
+      localStorage.setItem('st_refresh_token', refreshToken);
+      localStorage.setItem('st_token_expires_at', String(expiresAt));
+      scheduleRefresh(expiresAt);
+    }
+
+    function clearToken() {
+      _authToken = null;
+      _refreshToken = null;
+      _tokenExpiresAt = null;
+      localStorage.removeItem('st_auth_token');
+      localStorage.removeItem('st_refresh_token');
+      localStorage.removeItem('st_token_expires_at');
+      if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
+    }
+
+    function scheduleRefresh(expiresAt) {
+      if (_refreshTimer) { clearTimeout(_refreshTimer); _refreshTimer = null; }
+      const now = Math.floor(Date.now() / 1000);
+      const ttl = expiresAt - now;
+      // Refresh 5 minutes before expiry, min 10s
+      const delay = Math.max((ttl - 300) * 1000, 10000);
+      _refreshTimer = setTimeout(() => doRefresh(true), delay);
+    }
+
+    async function doRefresh(silent) {
+      if (_refreshing) return;
+      _refreshing = true;
+      try {
+        const rt = _refreshToken || localStorage.getItem('st_refresh_token');
+        if (!rt) {
+          if (!silent) console.warn('[Auth] No refresh token, re-logging in');
+          return await doLogin();
+        }
+        const res = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: rt })
+        });
+        const data = await res.json();
+        if (data.success) {
+          saveToken(data.token, data.refreshToken, data.expiresAt);
+          if (!silent) console.log('[Auth] Token refreshed');
+        } else {
+          if (!silent) console.warn('[Auth] Refresh failed:', data.error);
+          clearToken();
+          await doLogin();
+        }
+      } catch (e) {
+        if (!silent) console.warn('[Auth] Refresh error:', e.message);
+        clearToken();
+        await doLogin();
+      } finally {
+        _refreshing = false;
+      }
+    }
+
+    async function doLogin() {
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: STATIC_TOKEN })
+        });
+        const data = await res.json();
+        if (data.success) {
+          saveToken(data.token, data.refreshToken, data.expiresAt);
+          console.log('[Auth] Logged in, token expires in', Math.floor((data.expiresAt - Math.floor(Date.now() / 1000)) / 86400), 'days');
+        } else {
+          console.error('[Auth] Login failed:', data.error);
+        }
+      } catch (e) {
+        console.error('[Auth] Login error:', e.message);
+      }
+    }
+
+    async function initAuth() {
+      // Restore token from localStorage
+      const storedToken = localStorage.getItem('st_auth_token');
+      const storedRefresh = localStorage.getItem('st_refresh_token');
+      const storedExpiry = parseInt(localStorage.getItem('st_token_expires_at') || '0', 10);
+      const now = Math.floor(Date.now() / 1000);
+
+      if (storedToken && storedExpiry > now) {
+        // Token still valid, restore and schedule refresh
+        _authToken = storedToken;
+        _refreshToken = storedRefresh;
+        _tokenExpiresAt = storedExpiry;
+        scheduleRefresh(storedExpiry);
+        console.log('[Auth] Token restored, expires in', Math.floor((storedExpiry - now) / 86400), 'days');
+      } else if (storedRefresh) {
+        // Try to refresh
+        _refreshToken = storedRefresh;
+        await doRefresh(true);
+      } else {
+        // No stored tokens, do full login
+        await doLogin();
+      }
+    }
+
     let currentFiles = [];
 
     function headers(extra) {
-      return Object.assign({ 'x-auth-token': AUTH_TOKEN }, extra || {});
+      return Object.assign({ 'x-auth-token': getToken() }, extra || {});
     }
 
     async function request(url, options) {
@@ -636,6 +753,13 @@ function renderPage() {
         headers: headers((options && options.headers) || {})
       }));
       if (!response.ok) {
+        // 401: try refreshing token once, then retry
+        if (response.status === 401 && !options._authRetried) {
+          await doRefresh(true);
+          const retryOpts = Object.assign({}, options || {}, { _authRetried: true });
+          retryOpts.headers = headers((options && options.headers) || {});
+          return request(url, retryOpts);
+        }
         let message = 'Request failed';
         try {
           const data = await response.json();
@@ -647,6 +771,9 @@ function renderPage() {
       if (type.includes('application/json')) return response.json();
       return response;
     }
+
+    // Init auth on page load
+    initAuth();
 
     function status(text) {
       document.getElementById('uploadStatus').textContent = text || '';
