@@ -413,5 +413,26 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // POST /api/file-positions - 批量更新文件位置（拖拽排序）
+  if (pathname === '/api/file-positions' && method === 'POST') {
+    try {
+      const body = await readJsonBody(req);
+      const { positions } = body; // [{id: fileId, position: newPosition}, ...]
+      if (!Array.isArray(positions) || positions.length === 0) {
+        sendJson(res, { success: false, error: 'positions 必须是数组且不能为空' }, 400);
+        return true;
+      }
+      if (positions.length > 1000) {
+        sendJson(res, { success: false, error: '一次最多更新 1000 个文件位置' }, 400);
+        return true;
+      }
+      db.setFilePositions(positions);
+      sendJson(res, { success: true, updated: positions.length });
+    } catch (error) {
+      sendJson(res, { success: false, error: error.message }, 400);
+    }
+    return true;
+  }
+
   return false;
 };

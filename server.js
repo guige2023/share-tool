@@ -531,6 +531,11 @@ function renderPage() {
     .file-item.keyboard-nav,
     #fileTableBody tr.keyboard-nav { outline: 2px solid var(--accent, #6366f1); outline-offset: -2px; border-radius: 4px; }
     #fileTableBody tr.keyboard-nav td:first-child { border-left: 2px solid var(--accent, #6366f1); }
+    /* Drag-to-reorder */
+    #fileTableGrid .file-item,#fileTable .file-item{cursor:grab}
+    #fileTableGrid .file-item:active,#fileTable .file-item:active{cursor:grabbing}
+    .file-item.dragging{opacity:.4;transform:scale(.97)}
+    .file-item.drag-over:not(.dragging){border-color:var(--accent)!important;box-shadow:0 0 0 2px var(--accent);transform:scale(1.02);border-style:dashed}
   </style>
 </head>
 <body>
@@ -1520,7 +1525,7 @@ function renderPage() {
         gridIcon = iconSvg;
       }
 
-      return '<div class="file-item" data-index="' + file._index + '" tabindex="0">' +
+      return '<div class="file-item" data-index="' + file._index + '" tabindex="0" draggable="true">' +
         '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()">' +
         '<div class="file-content">' +
           gridIcon +
@@ -1587,6 +1592,92 @@ function renderPage() {
       var menu = document.getElementById('ctxMenu');
       if (!menu.contains(e.target)) menu.style.display = 'none';
     });
+
+    // --- Drag-to-Reorder ---
+    var draggedItem = null;
+    var draggedIndex = -1;
+
+    function getAllFileItems() {
+      if (currentView === 'grid') {
+        return Array.from(document.querySelectorAll('#fileTableGrid .file-item'));
+      }
+      return Array.from(document.querySelectorAll('#fileTableBody tr[data-index]'));
+    }
+
+    function getContainer() {
+      return currentView === 'grid'
+        ? document.getElementById('fileTableGrid')
+        : document.getElementById('fileTableBody');
+    }
+
+    document.addEventListener('dragstart', function(e) {
+      var item = e.target.closest('.file-item');
+      if (!item) return;
+      draggedItem = item;
+      draggedIndex = parseInt(item.dataset.index);
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', draggedIndex);
+    });
+
+    document.addEventListener('dragend', function(e) {
+      var item = e.target.closest('.file-item');
+      if (item) item.classList.remove('dragging');
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      draggedItem = null;
+      draggedIndex = -1;
+    });
+
+    document.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      var item = e.target.closest('.file-item');
+      if (!item || item === draggedItem) return;
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      item.classList.add('drag-over');
+    });
+
+    document.addEventListener('dragleave', function(e) {
+      var item = e.target.closest('.file-item');
+      if (item && !item.contains(e.relatedTarget)) {
+        item.classList.remove('drag-over');
+      }
+    });
+
+    document.addEventListener('drop', function(e) {
+      e.preventDefault();
+      var targetItem = e.target.closest('.file-item');
+      if (!targetItem || targetItem === draggedItem) return;
+      targetItem.classList.remove('drag-over');
+
+      var targetIndex = parseInt(targetItem.dataset.index);
+      if (draggedIndex === targetIndex) return;
+
+      // Reorder currentFiles array
+      var moved = currentFiles.splice(draggedIndex, 1)[0];
+      currentFiles.splice(targetIndex, 0, moved);
+
+      // Re-render immediately for smooth UX
+      renderFiles(tagColorMap);
+
+      // Persist new positions to server
+      var positions = currentFiles.map(function(file, idx) {
+        return { id: file.id, position: idx };
+      });
+      saveFilePositions(positions);
+    });
+
+    async function saveFilePositions(positions) {
+      try {
+        await fetch('/api/file-positions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers() },
+          body: JSON.stringify({ positions })
+        });
+      } catch (err) {
+        console.error('saveFilePositions failed:', err);
+      }
+    }
 
     // --- Keyboard Navigation ---
     var keyboardNavIndex = -1;
