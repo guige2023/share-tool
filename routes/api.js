@@ -129,12 +129,22 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
 
   // ── Auth: Login (exchange static token for dynamic db tokens) ──────
   if (pathname === '/api/auth/login' && method === 'POST') {
+    const clientIp = getClientIp(req);
+    const rateKey = `login:${clientIp}`;
+    const rate = db.checkRateLimit(rateKey);
+    if (!rate.allowed) {
+      res.setHeader('Retry-After', rate.retryAfter);
+      sendJson(res, { success: false, error: `登录尝试次数过多，请 ${Math.ceil(rate.retryAfter / 60)} 分钟后重试`, retryAfter: rate.retryAfter }, 429);
+      return true;
+    }
     const body = await readJsonBody(req);
     const { password } = body || {};
     if (password !== SHARE_TOKEN) {
+      db.recordRateLimitAttempt(rateKey);
       sendJson(res, { success: false, error: 'Invalid credentials' }, 401);
       return true;
     }
+    db.recordRateLimitAttempt(rateKey, true);
     const result = db.generateToken(null, 86400 * 7);
     sendJson(res, {
       success: true,
