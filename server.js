@@ -1934,7 +1934,9 @@ function renderPage() {
       if (countEl) {
         const total = currentFiles.length;
         const selected = document.querySelectorAll('.file-check:checked').length;
-        countEl.innerHTML = '共 <strong>' + total + '</strong> 个文件';
+        const totalLabel = (currentSearchQuery && currentTotal > 0) ? currentTotal : total;
+        const searchLabel = currentSearchQuery ? ' <span style="color:var(--accent);font-size:11px">搜索结果</span>' : '';
+        countEl.innerHTML = '共 <strong>' + totalLabel + '</strong> 个文件' + searchLabel;
         const selEl = document.getElementById('selectedCountDisplay');
         if (selEl) {
           if (selected > 0) {
