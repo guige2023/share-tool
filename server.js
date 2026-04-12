@@ -729,6 +729,7 @@ function renderPage() {
         <button id="vfBackBtn" class="ghost" style="display:none" onclick="exitVirtualFolder()">← 全部文件</button>
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
+        <button class="ghost" onclick="openKeyboardHelp()" title="键盘快捷键 (?)">?</button>
         <button id="advancedSearchBtn" class="ghost" onclick="toggleAdvancedSearch()">高级 ⌄</button>
         <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
         <button class="secondary" onclick="openTagManager()">标签管理</button>
@@ -2544,6 +2545,11 @@ function renderPage() {
           loadFiles();
           break;
         }
+        case '?': {
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          openKeyboardHelp();
+          break;
+        }
         case 'Escape':
           document.getElementById('ctxMenu').style.display = 'none';
           clearNavHighlight();
@@ -3120,6 +3126,28 @@ function renderPage() {
       } catch (e) {
         showToast('保存失败: ' + e.message, 'error');
       }
+    }
+
+    function openKeyboardHelp() {
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
+      title.textContent = '键盘快捷键';
+      const shortcuts = [
+        ['↑ ↓ ← →', '导航文件'],
+        ['Enter', '打开选中文件'],
+        ['Space', '选中/取消选中'],
+        ['a', '全选文件'],
+        ['r', '刷新文件列表'],
+        ['?', '显示此帮助'],
+        ['Esc', '关闭弹窗/菜单'],
+      ];
+      body.innerHTML = '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 20px;padding:8px 0;font-size:13px">' +
+        shortcuts.map(([k, d]) =>
+          '<kbd style="background:var(--bg-tertiary);border:1px solid var(--line);border-radius:5px;padding:2px 8px;font-family:monospace;font-size:12px;text-align:center;min-width:40px">' + escapeHtmlClient(k) + '</kbd>' +
+          '<span style="color:var(--text-secondary);padding-top:2px">' + escapeHtmlClient(d) + '</span>'
+        ).join('') + '</div>';
+      modal.classList.add('open');
     }
 
     async function openTagManager() {
