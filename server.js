@@ -3380,6 +3380,27 @@ async function requestHandler(req, res) {
   }
 }
 
+function startCleanupScheduler() {
+  // Run cleanup every hour
+  const RUN_INTERVAL = 60 * 60 * 1000; // 1 hour
+  function runCleanup() {
+    try {
+      const removedTokens = db.cleanupExpiredTokens();
+      const removedSync = db.cleanupSyncLog();
+      const removedTrash = db.cleanupExpiredTrash();
+      if (removedTokens > 0 || removedSync > 0 || removedTrash > 0) {
+        console.log(`[Cleanup] tokens=${removedTokens} sync_log=${removedSync} trash=${removedTrash}`);
+      }
+    } catch (e) {
+      console.error('[Cleanup] Error:', e.message);
+    }
+  }
+  // Run immediately on startup, then every hour
+  runCleanup();
+  setInterval(runCleanup, RUN_INTERVAL);
+  console.log('[ShareTool] Cleanup scheduler started (every hour)');
+}
+
 function createApp() {
   return http.createServer(requestHandler);
 }
@@ -3404,6 +3425,9 @@ async function start() {
   // Initialize WebSocket server on the HTTPS server
   const wss = initWebSocketServer(httpsServer);
   console.log('[ShareTool] WebSocket server ready on wss://0.0.0.0:' + HTTPS_PORT + '/ws');
+
+  // Hourly cleanup scheduler: expired tokens, sync logs, audit logs, trash
+  startCleanupScheduler();
 
   const redirectServer = http.createServer((req, res) => {
     const host = req.headers.host || `${LOCAL_IP}:${PORT}`;
