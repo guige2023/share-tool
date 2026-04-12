@@ -167,8 +167,110 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
-};
+  // ── Tags ─────────────────────────────────────────────────────────────────
+  if (pathname === '/api/tags' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    db.ensureTagStats();
+    const tags = db.getAllTagsWithStats();
+    sendJson(res, { success: true, tags });
+    return true;
+  }
 
+  if (pathname === '/api/tags/list' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    db.ensureTagStats();
+    const tags = db.getAllTagsWithStats();
+    sendJson(res, { success: true, tags });
+    return true;
+  }
+
+  if (pathname === '/api/file-tags/batch' && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { files = [], action, tags: tagStr } = body;
+    if (!Array.isArray(files) || !action || !tagStr) {
+      sendJson(res, { success: false, error: 'files, action, tags required' }, 400);
+      return true;
+    }
+    const tagList = tagStr.split(',').map(t => t.trim()).filter(Boolean);
+    let updated = 0, failed = 0;
+    for (const filename of files) {
+      try {
+        const file = db.getFileByName(filename);
+        if (!file) { failed++; continue; }
+        const current = file.tags ? file.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+        let next;
+        if (action === 'add') {
+          const merged = new Set([...current, ...tagList]);
+          next = Array.from(merged).join(',');
+        } else if (action === 'remove') {
+          const removeSet = new Set(tagList);
+          next = current.filter(t => !removeSet.has(t)).join(',');
+        } else {
+          failed++; continue;
+        }
+        db.updateFileByName(filename, { tags: next });
+        tagList.forEach(t => db.touchTag(t));
+        updated++;
+      } catch (e) {
+        failed++;
+      }
+    }
+    sendJson(res, { success: true, updated, failed, total: files.length });
+    return true;
+  }
+
+  if (pathname === '/api/tags/colors' && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { tag, color } = body || {};
+    if (!tag || !color) {
+      sendJson(res, { success: false, error: 'tag and color required' }, 400);
+      return true;
+    }
+    db.setTagColor(tag, color);
+    sendJson(res, { success: true, tag, color });
+    return true;
+  }
+
+  if (pathname.startsWith('/api/tags/') && pathname.endsWith('/delete') && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const tag = decodeURIComponent(pathname.slice('/api/tags/'.length, -'/delete'.length));
+    if (!tag) {
+      sendJson(res, { success: false, error: 'tag name required' }, 400);
+      return true;
+    }
+    const count = db.deleteTagFromAllFiles(tag);
+    db.deleteTagColor(tag);
+    sendJson(res, { success: true, tag, removed: count });
+    return true;
+  }
+
+  if (pathname === '/api/tags/rename' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { oldTag, newTag } = body || {};
+    if (!oldTag || !newTag) {
+      sendJson(res, { success: false, error: 'oldTag and newTag required' }, 400);
+      return true;
+    }
+    const result2 = db.renameTagGlobally(oldTag, newTag);
+    if (result2.error) {
+      sendJson(res, { success: false, error: result2.error }, 400);
+      return true;
+    }
+    sendJson(res, { success: true, oldTag, newTag, updated: result2.updated });
+    return true;
+  }
+
+  return false;
+};
 function readJsonBody(req) {
   return new Promise((resolve) => {
     let body = '';
