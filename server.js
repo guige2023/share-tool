@@ -436,7 +436,7 @@ function renderPage() {
     .drop-zone.dragover{border-style:solid}
     .drop-zone-inner{pointer-events:none}
     .drop-icon{font-size:32px;margin-bottom:8px}
-    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;position:relative}
     .toolbar input{flex:1 1 260px}
     .batch-bar{display:flex;gap:8px;align-items:center;padding:10px 14px;background:var(--bg-secondary);border-radius:12px;margin-bottom:12px;font-size:13px}
     .batch-bar button{min-height:36px;padding:6px 12px;font-size:13px;border-radius:8px;flex-shrink:0}
@@ -486,13 +486,16 @@ function renderPage() {
       .ctx-item{padding:14px 16px;font-size:15px}
       /* iOS auto-zoom fix: all inputs must be >=16px */
       input,select,textarea{font-size:16px!important}
+      /* Mobile: drop zone is the primary upload affordance - make it prominent */
+      .drop-zone{padding:24px 16px;font-size:14px}
+      .drop-zone-inner p{margin:4px 0}
       /* Prevent iOS from auto-zooming on inputs inside toolbar/search */
       .toolbar input{font-size:16px!important}
       .search-input-wrap input{font-size:16px!important}
       .meta .chip{font-size:11px;padding:7px 10px}
       .hero h1{font-size:24px}
-      .hero{padding:16px}
-      .wrap{padding:12px}
+      .hero{padding:16px;padding-top:max(16px,env(safe-area-inset-top));padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+      .wrap{padding:12px;padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));padding-bottom:max(12px,env(safe-area-inset-bottom))}
       .panel{padding:14px}
       /* Let toolbar buttons wrap naturally - remove 100% width that broke toolbar layout */
       .toolbar{flex-wrap:wrap;gap:8px}
@@ -522,7 +525,7 @@ function renderPage() {
       #batchBar button{min-height:36px;padding:7px 12px;font-size:12px;white-space:nowrap;flex-shrink:0}
       #batchCount{white-space:nowrap;font-size:12px;flex-shrink:0}
       /* Mobile modal: full-screen preview */
-      .modal-card{width:100%;max-height:100vh;height:100vh;border-radius:0;padding:12px}
+      .modal-card{width:100%;max-height:100vh;height:100vh;border-radius:0;padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
       .modal{padding:0}
     }
     /* Toast notification */
@@ -665,7 +668,8 @@ function renderPage() {
 
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
-        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off">
+        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off" style="padding-right:32px">
+        <span id="searchClear" onclick="clearSearchInput()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:16px;line-height:1;display:none;user-select:none" title="清除搜索">✕</span>
         <select id="tagFilterSelect" onchange="filterByTag()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:140px">
           <option value="">全部标签</option>
         </select>
@@ -2711,6 +2715,14 @@ function renderPage() {
       searchFiles();
     }
 
+    function clearSearchInput() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('searchClear').style.display = 'none';
+      document.getElementById('searchSuggestions').style.display = 'none';
+      loadFiles();
+      document.getElementById('searchInput').focus();
+    }
+
     function escapeRegex(s) {
       return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
     }
@@ -2719,7 +2731,7 @@ function renderPage() {
       if (!query || !text) return escapeHtmlClient(text);
       const escaped = escapeHtmlClient(text);
       const q = escapeHtmlClient(query);
-      return escaped.replace(new RegExp(escapeRegex(q), 'gi'), '<mark style="background:#fef08a;padding:0 2px;border-radius:2px">$&</mark>');
+      return escaped.replace(new RegExp(escapeRegex(q), 'gi'), '<mark class="search-highlight">$&</mark>');
     }
 
     document.getElementById('shareSearchInput').addEventListener('keydown', function (event) {
