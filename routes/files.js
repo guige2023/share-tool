@@ -26,7 +26,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const sort = query.get('sort') || 'updated_at';
     const order = query.get('order') || 'desc';
     const folder = query.get('folder') || null;
-    const { files, total } = db.listFiles(limit, offset, sort, order, folder, false);
+    const tags = query.get('tags') || null;
+    const { files, total } = db.listFiles(limit, offset, sort, order, folder, false, tags);
 
     sendJson(res, {
       success: true,
@@ -49,12 +50,13 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     if (!auth) return true;
 
     const q = (query.get('q') || '').trim();
-    if (!q) {
+    const tags = query.get('tags') || null;
+    if (!q && !tags) {
       sendJson(res, { success: true, files: [] });
       return true;
     }
 
-    const results = db.searchFiles(q, null, { fuzzy: true, limit: 100 });
+    const results = db.searchFiles(q, tags, { fuzzy: true, limit: 100 });
     const sort = query.get('sort') || 'updated_at';
     const order = (query.get('order') || 'desc').toLowerCase();
     const dir = order === 'asc' ? 1 : -1;
@@ -75,6 +77,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         hash: file.hash,
         createdAt: file.created_at * 1000,
         updatedAt: file.updated_at * 1000,
+        tags: file.tags || '',
         score: file.score || 0
       }))
     });

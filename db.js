@@ -640,7 +640,7 @@ function setFilePositions(positions) {
   return true;
 }
 
-function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null, starred = false) {
+function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null, starred = false, tags = null) {
   const db = getDb();
   const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type', 'tags', 'position'].includes(sort) ? sort : 'created_at';
@@ -650,6 +650,16 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
   const params = [];
   if (folder) { conditions.push('filename LIKE ? ESCAPE ?'); params.push(folder + '/%', '\\'); }
   if (starred) { conditions.push('starred = 1'); }
+  if (tags) {
+    // tags is comma-separated string; each tag must be present in the tags column
+    const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
+    if (tagList.length > 0) {
+      tagList.forEach(tag => {
+        conditions.push('LOWER(tags) LIKE ?');
+        params.push('%' + tag.toLowerCase() + '%');
+      });
+    }
+  }
 
   const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
   const files = db.prepare(`
