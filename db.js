@@ -1348,7 +1348,7 @@ function searchFiles(query, tags = null, opts = {}) {
     // 仅在需要评分时按 id 单独获取 content
     candidateFiles = db.prepare(
       `SELECT ${FILE_LIST_FIELDS} FROM files WHERE ${conditions.join(' OR ')}${extraWhere} ORDER BY created_at DESC LIMIT ?`
-    ).all(...params, ...extraParams, candidateLimit);
+    ).all(...params, candidateLimit);
   } else {
     candidateFiles = db.prepare(
       `SELECT ${FILE_LIST_FIELDS} FROM files${extraWhere} LIMIT ?`
