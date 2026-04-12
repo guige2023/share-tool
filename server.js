@@ -1827,6 +1827,13 @@ function renderPage() {
           applyNavHighlight(0);
           break;
         }
+        case 'r': {
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          loadFiles();
+          break;
+        }
         case 'Escape':
           document.getElementById('ctxMenu').style.display = 'none';
           clearNavHighlight();
@@ -2792,6 +2799,46 @@ function renderPage() {
     Promise.all([loadFiles(), loadShares()]).catch(function (error) {
       status(error.message);
     });
+
+    // Reload when tab becomes visible again
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        loadFiles();
+      }
+    });
+
+    // Keyboard shortcut: ? shows help
+    var shortcutsVisible = false;
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey &&
+          document.activeElement.tagName !== 'INPUT' &&
+          document.activeElement.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        toggleShortcutsHelp();
+      }
+    });
+
+    function toggleShortcutsHelp() {
+      var existing = document.getElementById('shortcutsHelp');
+      if (existing) { existing.remove(); return; }
+      var div = document.createElement('div');
+      div.id = 'shortcutsHelp';
+      div.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;padding:24px;z-index:10001;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,0.2);font-size:13px';
+      var shortcuts = [
+        ['↑↓←→ / Tab', '导航文件'],
+        ['Enter', '打开预览'],
+        ['Space', '选中/取消选中'],
+        ['a', '全选'],
+        ['r', '刷新'],
+        ['?', '显示此帮助'],
+        ['Esc', '关闭弹窗/菜单']
+      ];
+      div.innerHTML = '<div style="font-weight:600;margin-bottom:12px;font-size:15px">⌨️ 快捷键</div>' +
+        shortcuts.map(function(s) { return '<div style="display:flex;justify-content:space-between;margin:6px 0"><kbd style="background:var(--bg-tertiary);padding:2px 7px;border-radius:4px;font-size:12px;min-width:60px;text-align:center">' + escapeHtmlClient(s[0]) + '</kbd><span style="color:var(--text-secondary)">' + escapeHtmlClient(s[1]) + '</span></div>'; }).join('') +
+        '<div style="margin-top:16px;text-align:center"><button class="btn secondary" onclick="toggleShortcutsHelp()" style="font-size:12px;padding:5px 14px">关闭</button></div>';
+      document.body.appendChild(div);
+      div.addEventListener('click', function(e) { if (e.target === div) div.remove(); });
+    }
   </script>
   <script>
     if ('serviceWorker' in navigator) {
