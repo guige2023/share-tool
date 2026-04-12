@@ -88,6 +88,23 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  if (pathname === '/api/sync/mark' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { ids = [] } = JSON.parse(body);
+        db.markLogsSynced(ids);
+        sendJson(res, { success: true, marked: ids.length });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
   // ── Audit Logs ──────────────────────────────────────────────────────
   if (pathname === '/api/audit/logs' && method === 'GET') {
     const auth = authRequired(req, res);
