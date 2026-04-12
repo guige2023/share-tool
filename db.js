@@ -1511,8 +1511,9 @@ function searchFiles(query, tags = null, opts = {}) {
     extraParams.push(parseInt(date_to));
   }
   if (type) {
-    extraConditions.push(`LOWER(filename) LIKE ?`);
-    extraParams.push(`%.${type.toLowerCase()}`);
+    // 按数据库 type 字段精确匹配（与 FTS5 searchFilesFTS 行为一致）
+    extraConditions.push(`type = ?`);
+    extraParams.push(type);
   }
   const extraWhere = extraConditions.length > 0 ? ' AND ' + extraConditions.join(' AND ') : '';
 
