@@ -564,7 +564,7 @@ function renderPage() {
     /* Grid view */
     #fileTable,#fileTableGrid{display:table;width:100%;table-layout:fixed}
     #fileTableGrid tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-    #fileTable .file-item,#fileTableGrid .file-item{display:flex;flex-direction:column;padding:14px;background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;transition:box-shadow .2s,border-color .2s;min-height:140px}
+    #fileTable .file-item,#fileTableGrid .file-item{display:flex;flex-direction:column;padding:14px;background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;transition:box-shadow .2s,border-color .2s;min-height:140px;content-visibility:auto;contain-intrinsic-size:0 160px}
     #fileTable .file-item:hover,#fileTableGrid .file-item:hover{box-shadow:var(--shadow);border-color:var(--primary)}
     #fileTable .file-content,#fileTableGrid .file-content{flex:1}
     #fileTable .file-name,#fileTableGrid .file-name{font-size:13px;font-weight:500;word-break:break-all;margin-bottom:4px}
@@ -779,6 +779,8 @@ function renderPage() {
         </table>
         <div id="fileTableGrid" style="display:none"></div>
         <div id="fileEmpty" class="empty" style="display:none">还没有内容</div>
+        <div id="scrollSentinel" style="height:1px;margin-top:-1px"></div>
+        <div id="scrollLoading" style="display:none;text-align:center;padding:16px;color:var(--muted);font-size:13px">加载更多...</div>
       </div>
     </section>
 
@@ -1068,7 +1070,10 @@ function renderPage() {
     }
 
     // Init auth on page load
-    initAuth();
+    initAuth().then(function() {
+      loadFiles();
+      setupInfiniteScroll();
+    });
 
     function status(text) {
       document.getElementById('uploadStatus').textContent = text || '';
@@ -1621,24 +1626,75 @@ function renderPage() {
       });
     }
 
+    var currentOffset = 0;
+    var currentTotal = 0;
+    var currentPageLimit = 500;
+    var isAppending = false;
+
     async function loadFiles() {
       clearNavHighlight();
+      currentOffset = 0;
       const q = document.getElementById('searchInput').value.trim();
       currentSearchQuery = q;  // expose for highlight in render
       const selectedTag = (document.getElementById('tagFilterSelect') || {}).value || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
       const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam : '/api/list?' + sortParam + tagParam;
-      await loadFilesFromUrl(url);
+      await loadFilesFromUrl(url, false);
     }
 
-    async function loadFilesFromUrl(url) {
+    async function loadFilesFromUrl(url, append) {
+      const sentinel = document.getElementById('scrollSentinel');
+      const loading = document.getElementById('scrollLoading');
+      if (append) {
+        loading.style.display = 'block';
+      }
       const [data, tagData] = await Promise.all([request(url), request('/api/tags')]);
-      currentFiles = (data.files || []).map(function(f, i) { f._index = i; return f; });
+      const incoming = (data.files || []).map(function(f, i) { f._index = currentOffset + i; return f; });
+      currentTotal = data.total || 0;
+      if (append) {
+        currentFiles = currentFiles.concat(incoming);
+      } else {
+        currentFiles = incoming;
+      }
+      currentOffset = currentFiles.length;
       const tagColorMap = {};
       (tagData.tags || []).forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
       updateTagFilterOptions(tagData.tags || []);
       renderFiles(tagColorMap);
+      loading.style.display = 'none';
+      // Hide sentinel if no more files
+      if (sentinel) sentinel.style.display = currentOffset >= currentTotal ? 'none' : 'block';
+    }
+
+    async function loadMoreFiles() {
+      if (isAppending) return;
+      if (currentOffset >= currentTotal) return;
+      isAppending = true;
+      const q = document.getElementById('searchInput').value.trim();
+      const selectedTag = (document.getElementById('tagFilterSelect') || {}).value || '';
+      const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
+      const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
+      const baseUrl = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam : '/api/list?' + sortParam + tagParam;
+      const url = baseUrl + '&offset=' + currentOffset + '&limit=' + currentPageLimit;
+      await loadFilesFromUrl(url, true);
+      isAppending = false;
+    }
+
+    // Infinite scroll via IntersectionObserver
+    function setupInfiniteScroll() {
+      var sentinel = document.getElementById('scrollSentinel');
+      if (!sentinel) return;
+      if (!('IntersectionObserver' in window)) {
+        sentinel.style.display = 'none';
+        return;
+      }
+      var observer = new IntersectionObserver(function(entries) {
+        if (entries[0].isIntersecting) {
+          loadMoreFiles();
+        }
+      }, { rootMargin: '200px' });
+      observer.observe(sentinel);
     }
 
     function updateTagFilterOptions(tags) {
