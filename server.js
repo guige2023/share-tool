@@ -397,6 +397,10 @@ function renderPage() {
     .batch-bar button{min-height:36px;padding:6px 12px;font-size:13px;border-radius:8px;flex-shrink:0}
     .recent-search-tag{display:inline-block;padding:4px 12px;background:var(--accent-weak);color:var(--accent);border-radius:999px;font-size:12px;margin-right:6px;cursor:pointer}
     .recent-search-tag:hover{opacity:.8}
+    .suggestion-item{padding:9px 14px;cursor:pointer;font-size:13px;display:flex;justify-content:space-between;align-items:center;transition:background .1s}
+    .suggestion-item:hover{background:var(--bg-secondary)}
+    .suggestion-item mark{background:#fef08a;color:inherit;padding:0 2px;border-radius:2px}
+    .suggestion-type{font-size:11px;color:var(--muted);flex-shrink:0;margin-left:10px}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px 8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:14px}
     .sort-arrow{font-size:10px;color:var(--muted);margin-left:2px}
@@ -571,7 +575,7 @@ function renderPage() {
 
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
-        <input id="searchInput" type="text" placeholder="按文件名搜索">
+        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off">
         <select id="tagFilterSelect" onchange="filterByTag()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:140px">
           <option value="">全部标签</option>
         </select>
@@ -587,6 +591,7 @@ function renderPage() {
         </div>
       </div>
       <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
+      <div id="searchSuggestions" style="position:relative;z-index:100;display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)"></div>
       <div id="batchBar" class="batch-bar" style="display:none">
         <span id="batchCount" style="font-size:13px;color:var(--muted)"></span>
         <button class="ghost" onclick="toggleInvertSelection()">反选</button>
@@ -2011,8 +2016,61 @@ function renderPage() {
     }
 
     document.getElementById('searchInput').addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') searchFiles();
+      if (event.key === 'Enter') {
+        document.getElementById('searchSuggestions').style.display = 'none';
+        searchFiles();
+      }
     });
+
+    // Search autocomplete - debounced suggestions as user types
+    var _searchSuggestTimer = null;
+    document.getElementById('searchInput').addEventListener('input', function () {
+      clearTimeout(_searchSuggestTimer);
+      const q = this.value.trim();
+      if (!q || q.length < 1) {
+        document.getElementById('searchSuggestions').style.display = 'none';
+        return;
+      }
+      _searchSuggestTimer = setTimeout(async function () {
+        await loadSearchSuggestions(q);
+      }, 200);
+    });
+
+    async function loadSearchSuggestions(q) {
+      try {
+        const res = await fetch('/api/search/suggest?q=' + encodeURIComponent(q), { headers: headers() });
+        const data = await res.json();
+        if (!data.success) return;
+        const suggestions = data.suggestions || [];
+        const container = document.getElementById('searchSuggestions');
+        if (!suggestions.length) {
+          container.style.display = 'none';
+          return;
+        }
+        container.innerHTML = suggestions.map(function (s) {
+          const highlighted = highlightMatch(escapeHtmlClient(s.text), q);
+          return '<div class="suggestion-item" onclick="applySearchSuggestion(\'' + escapeHtmlClient(s.text).replace(/'/g, "\\'") + '\')">' + highlighted + '<span class="suggestion-type">' + (s.type || '') + '</span></div>';
+        }).join('');
+        container.style.display = 'block';
+      } catch (_) {}
+    }
+
+    function applySearchSuggestion(text) {
+      document.getElementById('searchInput').value = text;
+      document.getElementById('searchSuggestions').style.display = 'none';
+      searchFiles();
+    }
+
+    function escapeRegex(s) {
+      return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    }
+
+    function highlightMatch(text, query) {
+      if (!query || !text) return escapeHtmlClient(text);
+      const escaped = escapeHtmlClient(text);
+      const q = escapeHtmlClient(query);
+      return escaped.replace(new RegExp(escapeRegex(q), 'gi'), '<mark style="background:#fef08a;padding:0 2px;border-radius:2px">$&</mark>');
+    }
 
     document.getElementById('shareSearchInput').addEventListener('keydown', function (event) {
       if (event.key === 'Enter') filterShares();

@@ -87,6 +87,28 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // GET /api/search/suggest - search autocomplete suggestions
+  if (pathname === '/api/search/suggest' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    const q = (query.get('q') || '').trim().toLowerCase();
+    if (!q || q.length < 1) {
+      sendJson(res, { success: true, suggestions: [] });
+      return true;
+    }
+
+    // Get top 8 matching filenames for suggestions
+    const results = db.searchFiles(q, null, { fuzzy: true, limit: 8 });
+    const suggestions = results.map(file => ({
+      text: file.filename,
+      type: '文件'
+    }));
+
+    sendJson(res, { success: true, suggestions });
+    return true;
+  }
+
   if (pathname === '/api/upload' && method === 'POST') {
     const auth = authRequired(req, res);
     if (!auth) return true;

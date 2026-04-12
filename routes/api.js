@@ -318,6 +318,41 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/search/suggest - 搜索自动补全建议
+  if (pathname === '/api/search/suggest' && method === 'GET') {
+    const q = (query.get('q') || '').trim().toLowerCase();
+    if (!q || q.length < 1) {
+      sendJson(res, { success: true, suggestions: [] });
+      return true;
+    }
+    const limit = 8;
+    const suggestions = [];
+
+    // 1. 匹配文件名
+    const files = db.listFiles({ limit: 200 });
+    const matchedFiles = files.filter(f => f.name.toLowerCase().includes(q)).slice(0, 5);
+    for (const f of matchedFiles) {
+      suggestions.push({ text: f.name, type: 'file' });
+    }
+
+    // 2. 匹配标签
+    const allTags = db.getAllTagColors ? db.getAllTagColors() : [];
+    const matchedTags = allTags.filter(t => t.tag.toLowerCase().includes(q)).slice(0, 3);
+    for (const t of matchedTags) {
+      suggestions.push({ text: t.tag, type: 'tag' });
+    }
+
+    // 3. 匹配搜索历史
+    const history = db.getSearchHistory(null, 20);
+    const matchedHistory = history.filter(h => h.query.toLowerCase().includes(q)).slice(0, 3);
+    for (const h of matchedHistory) {
+      suggestions.push({ text: h.query, type: 'history' });
+    }
+
+    sendJson(res, { success: true, suggestions: suggestions.slice(0, limit) });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {
