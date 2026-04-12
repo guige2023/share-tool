@@ -158,10 +158,20 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
         });
         const form = new URLSearchParams(body);
         const password = form.get('password') || '';
+        const clientIp = getClientIp(req);
+        const rateKey = `share_verify:${clientIp}:${code}`;
+        const rate = db.checkRateLimit(rateKey);
+        if (!rate.allowed) {
+          sendHtml(res, `<!doctype html><html><body style="font-family:sans-serif;padding:40px;"><h2>密码错误次数过多</h2><p>请 ${Math.ceil((rate.retryAfter || 300) / 60)} 分钟后重试</p><p><a href="javascript:history.back()">返回</a></p></body></html>`, 429);
+          return true;
+        }
         if (!db.verifyPassword(password, share._passwordHash)) {
+          db.recordRateLimitAttempt(rateKey);
           sendHtml(res, '<!doctype html><html><body style="font-family:sans-serif;padding:40px;"><h2>密码错误</h2><p><a href="javascript:history.back()">返回重试</a></p></body></html>', 403);
           return true;
         }
+        // Password correct — clear rate limit
+        db.recordRateLimitAttempt(rateKey, true);
       }
     } else if (method !== 'GET') {
       sendJson(res, { success: false, error: 'Method not allowed' }, 405);
