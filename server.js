@@ -508,7 +508,11 @@ function renderPage() {
           <h1>ShareTool</h1>
           <p>精简后的局域网分享工具，只保留局域网传文件、传文字、分享链接、搜索和下载能力。</p>
         </div>
-        <button id="themeToggle" onclick="toggleTheme()" title="切换深色/浅色模式" style="background:none;border:1px solid var(--line);border-radius:12px;padding:8px 12px;cursor:pointer;font-size:18px;line-height:1">☾</button>
+        <select id="themeSelect" onchange="setThemeMode(this.value)" title="主题" style="background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;padding:6px 10px;cursor:pointer;font-size:13px;color:var(--text)">
+          <option value="system">◐ 跟随系统</option>
+          <option value="light">☀ 浅色</option>
+          <option value="dark">☾ 深色</option>
+        </select>
       </div>
       <div class="meta">
         <div class="chip">局域网地址 https://${escapeHtml(pageInfo.localIp)}:${pageInfo.port}</div>
@@ -697,26 +701,52 @@ function renderPage() {
     const STATIC_TOKEN=${JSON.stringify(pageInfo.staticToken || '')};
 
     // Theme management
-    const STORAGE_KEY_THEME = 'st_theme';
-    function getPreferredTheme() {
-      const saved = localStorage.getItem(STORAGE_KEY_THEME);
-      if (saved) return saved;
+    const STORAGE_KEY_THEME = 'st_theme_mode'; // 'light' | 'dark' | 'system'
+    const STORAGE_KEY_THEME_RESOLVED = 'st_theme'; // 'light' | 'dark' (resolved value)
+
+    function getSystemTheme() {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
+
+    function resolveTheme(mode) {
+      return mode === 'system' ? getSystemTheme() : mode;
+    }
+
     function applyTheme(theme) {
+      // theme is already resolved: 'dark' or 'light'
       if (theme === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
       } else {
         document.documentElement.removeAttribute('data-theme');
       }
-      localStorage.setItem(STORAGE_KEY_THEME, theme);
+      localStorage.setItem(STORAGE_KEY_THEME_RESOLVED, theme);
     }
-    function toggleTheme() {
-      const current = document.documentElement.getAttribute('data-theme');
-      applyTheme(current === 'dark' ? 'light' : 'dark');
+
+    function setThemeMode(mode) {
+      // mode: 'light' | 'dark' | 'system'
+      localStorage.setItem(STORAGE_KEY_THEME_MODE, mode);
+      const resolved = resolveTheme(mode);
+      applyTheme(resolved);
     }
+
+    function initTheme() {
+      // Restore saved mode, default to 'system'
+      const savedMode = localStorage.getItem(STORAGE_KEY_THEME_MODE) || 'system';
+      const themeSelect = document.getElementById('themeSelect');
+      if (themeSelect) themeSelect.value = savedMode;
+      applyTheme(resolveTheme(savedMode));
+
+      // Listen for system preference changes
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        const currentMode = localStorage.getItem(STORAGE_KEY_THEME_MODE) || 'system';
+        if (currentMode === 'system') {
+          applyTheme(getSystemTheme());
+        }
+      });
+    }
+
     // Apply saved theme on load
-    applyTheme(getPreferredTheme());
+    initTheme();
 
     function getToken() {
       return _authToken || localStorage.getItem('st_auth_token') || STATIC_TOKEN;
