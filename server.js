@@ -715,6 +715,7 @@ function renderPage() {
         <span id="fileCountDisplay">共 <strong>0</strong> 个文件</span>
         <span id="selectedCountDisplay" style="display:none">，已选 <strong>0</strong> 个</span>
       </div>
+      <div id="tagQuickBar" style="display:none;margin-bottom:4px"></div>
       <div id="advancedSearchPanel" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px;gap:12px">
         <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
           <div style="display:flex;flex-direction:column;gap:4px">
@@ -1674,6 +1675,7 @@ function renderPage() {
       const tagColorMap = {};
       (tagData.tags || []).forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
       updateTagFilterOptions(tagData.tags || []);
+      renderTagQuickBar(tagData);
       renderFiles(tagColorMap);
       loading.style.display = 'none';
       // Hide sentinel if no more files
@@ -1724,6 +1726,50 @@ function renderPage() {
 
     function filterByTag() {
       loadFiles();
+    }
+
+    function clearTagFilter() {
+      const sel = document.getElementById('tagFilterSelect');
+      if (sel) sel.value = '';
+      loadFiles();
+    }
+
+    // 点击文件列表中的标签 chip 进行筛选
+    function filterBySingleTag(tag) {
+      const sel = document.getElementById('tagFilterSelect');
+      if (sel) {
+        sel.value = tag;
+        loadFiles();
+      }
+    }
+
+    // 标签快速访问栏：显示所有标签，点击直接筛选
+    function renderTagQuickBar(tagData) {
+      const bar = document.getElementById('tagQuickBar');
+      if (!bar) return;
+      const tags = tagData.tags || [];
+      const activeTag = (document.getElementById('tagFilterSelect') || {}).value || '';
+      if (!tags.length) { bar.style.display = 'none'; return; }
+      // 显示最多8个，按使用频率排序
+      const top = tags.slice(0, 8);
+      var inner = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;align-items:center">';
+      if (activeTag) {
+        var activeColor = '#e0e7ff';
+        for (var i = 0; i < tags.length; i++) { if (tags[i].tag === activeTag) { activeColor = tags[i].color || '#e0e7ff'; break; } }
+        inner += '<span style="font-size:11px;color:var(--muted);margin-right:4px">标签筛选:</span>';
+        inner += '<span class="tag-badge" style="background:' + activeColor + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit">' + escapeHtmlClient(activeTag) + ' <span style="opacity:.7">×</span></span>';
+        inner += '<button onclick="clearTagFilter()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px" title="清除筛选">✕清除</button>';
+        inner += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px"></div>';
+      }
+      inner += top.map(function(t) {
+        if (t.tag === activeTag) return ''; // skip active tag
+        var tc = t.color || '#e0e7ff';
+        var escaped = escapeHtmlClient(t.tag);
+        return '<span class="tag-badge" style="background:' + tc + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;cursor:pointer;color:inherit" onclick="filterBySingleTag(\'' + escaped.replace(/'/g, "\\'") + '\')" title="筛选: ' + escaped + '">' + escaped + ' <span style="opacity:.7">' + t.count + '</span></span>';
+      }).join('');
+      inner += '</div>';
+      bar.innerHTML = inner;
+      bar.style.display = 'block';
     }
 
     var currentVirtualFolderId = null;
@@ -1956,7 +2002,8 @@ function renderPage() {
       var tagHtml = tags
         ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
             var tc = tagColorMap[t.trim()] || '#e0e7ff';
-            return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + escapeHtmlClient(t.trim()) + '</span>';
+            var tagVal = escapeHtmlClient(t.trim());
+            return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit;cursor:pointer" onclick="filterBySingleTag(\'' + tagVal.replace(/'/g, "\\'") + '\')" title="点击筛选此标签">' + tagVal + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
 
@@ -2868,7 +2915,7 @@ function renderPage() {
           tags.slice(0, 8).forEach(function (t) {
             const pct = maxCount > 0 ? Math.round((t.count / maxCount) * 100) : 0;
             const barColor = t.color || '#e0e7ff';
-            statsHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+            statsHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;cursor:pointer" onclick="filterBySingleTag(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\');document.getElementById(\'modal\').classList.remove(\'show\')" title="点击筛选此标签">';
             statsHtml += '<span style="font-size:12px;min-width:60px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(t.tag) + '</span>';
             statsHtml += '<div style="flex:1;height:8px;background:var(--bg-secondary);border-radius:999px;overflow:hidden">';
             statsHtml += '<div style="height:100%;width:' + pct + '%;background:' + barColor + ';border-radius:999px"></div>';
