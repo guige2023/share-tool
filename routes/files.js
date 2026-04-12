@@ -53,12 +53,19 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
 
     const q = (query.get('q') || '').trim();
     const tags = query.get('tags') || null;
+    const tagMatch = query.get('tagMatch') || 'all';
     if (!q && !tags) {
       sendJson(res, { success: true, files: [] });
       return true;
     }
 
-    const results = db.searchFiles(q, tags, { fuzzy: true, limit: 100 });
+    // 优先使用 FTS5 搜索（更快），fallback 到 LIKE
+    let results = db.searchFilesFTS(q, tags, { fuzzy: true, limit: 100, tagMatch });
+    if (!results) {
+      // FTS5 不可用，fallback 到 LIKE 搜索
+      results = db.searchFiles(q, tags, { fuzzy: true, limit: 100, tagMatch });
+    }
+
     const sort = query.get('sort') || 'updated_at';
     const order = (query.get('order') || 'desc').toLowerCase();
     const dir = order === 'asc' ? 1 : -1;

@@ -547,6 +547,53 @@ function initSchemaV8(db) {
   }
 }
 
+function initSchemaV9(db) {
+  // v9 新增：FTS5 全文搜索索引
+  try {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
+        filename,
+        tags,
+        content='files',
+        content_rowid='id',
+        tokenize='unicode61 remove_diacritics 2'
+      )
+    `);
+    console.log('[DB] Migrated: files_fts FTS5 virtual table');
+
+    // 重建索引：填充现有数据
+    db.exec(`
+      INSERT INTO files_fts(rowid, filename, tags)
+      SELECT id, filename, COALESCE(tags, '') FROM files
+    `);
+    console.log('[DB] FTS5 index seeded with existing files');
+
+    // 创建触发器：insert
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS files_fts_insert AFTER INSERT ON files BEGIN
+        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, NEW.filename, COALESCE(NEW.tags, ''));
+      END
+    `);
+    // 创建触发器：delete
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS files_fts_delete AFTER DELETE ON files BEGIN
+        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, OLD.filename, COALESCE(OLD.tags, ''));
+      END
+    `);
+    // 创建触发器：update
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS files_fts_update AFTER UPDATE ON files BEGIN
+        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, OLD.filename, COALESCE(OLD.tags, ''));
+        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, NEW.filename, COALESCE(NEW.tags, ''));
+      END
+    `);
+    console.log('[DB] FTS5 triggers created');
+  } catch (e) {
+    console.error('[DB] FTS5 migration failed:', e.message);
+    throw e;
+  }
+}
+
 function runMigrations(db, fromVersion) {
   console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
   for (let v = fromVersion + 1; v <= SCHEMA_VERSION; v++) {
@@ -564,9 +611,76 @@ function runMigrations(db, fromVersion) {
       initSchemaV7(db);
     } else if (v === 8) {
       initSchemaV8(db);
+    } else if (v === 9) {
+      initSchemaV9(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
+}
+
+// ============================================================
+// FTS5 全文搜索
+// ============================================================
+function searchFilesFTS(query, tags = null, opts = {}) {
+  const db = getDb();
+  const { limit = 100, tagMatch = 'all' } = opts;
+
+  // 检查 FTS5 表是否存在
+  let ftsExists = false;
+  try {
+    db.prepare("SELECT COUNT(*) FROM files_fts").get();
+    ftsExists = true;
+  } catch (e) {
+    return null; // FTS5 不可用，返回 null 让调用方 fallback
+  }
+
+  if (!query && !tags) {
+    return db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
+  }
+
+  const tokens = tokenizeQuery(query);
+  if (tokens.length === 0 && !tags) {
+    return [];
+  }
+
+  // 构建 FTS5 MATCH 表达式
+  let ftsResults = [];
+  if (tokens.length > 0) {
+    // 将 token 转为 FTS5 前缀查询：token* 匹配所有以前缀开头的词
+    const ftsQuery = tokens.map(t => `"${t.replace(/"/g, '""')}"*`).join(' OR ');
+    try {
+      ftsResults = db.prepare(`
+        SELECT f.*, files_fts.rank
+        FROM files_fts
+        JOIN files f ON f.id = files_fts.rowid
+        WHERE files_fts MATCH ?
+        ORDER BY rank
+        LIMIT ?
+      `).all(ftsQuery, limit * 2);
+    } catch (e) {
+      // FTS5 查询失败，返回空
+      ftsResults = [];
+    }
+  } else {
+    ftsResults = db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
+  }
+
+  // 如果没有标签过滤，直接返回 FTS 结果
+  if (!tags) {
+    return ftsResults.slice(0, limit);
+  }
+
+  // 标签后过滤
+  const tagList = tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+  const filtered = ftsResults.filter(f => {
+    const fileTags = (f.tags || '').toLowerCase();
+    if (tagMatch === 'any') {
+      return tagList.some(t => fileTags.includes(t));
+    }
+    return tagList.every(t => fileTags.includes(t));
+  });
+
+  return filtered.slice(0, limit);
 }
 
 // ============================================================
@@ -3049,7 +3163,7 @@ module.exports = {
   deleteFile, deleteFileByName, renameFile, batchRenameFiles, parseRenamePattern, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
   setFilePositions,
-  searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize, getFolderSize, getAllFolderSizes, findDuplicates,
+  searchFiles, searchFilesFTS, getFilesByHashSince, getFileCount, getTotalStorageSize, getFolderSize, getAllFolderSizes, findDuplicates,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
   touchDevice, getOnlineDevices, cleanupStaleDevices,
