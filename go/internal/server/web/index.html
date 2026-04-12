@@ -5,6 +5,86 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ShareTool</title>
 <style>
+:root {
+  --bg: #f5f5f7;
+  --panel-bg: #fff;
+  --text: #1d1d1f;
+  --muted: #86868b;
+  --border: #d2d2d7;
+  --accent: #0071e3;
+  --accent-dark: #005bb5;
+  --header-bg: #1d1d1f;
+  --header-text: #fff;
+  --input-bg: #fff;
+  --card-bg: #fff;
+  --shadow: rgba(0,0,0,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000;
+    --panel-bg: #1c1c1e;
+    --text: #f5f5f7;
+    --muted: #98989d;
+    --border: #38383a;
+    --accent: #0a84ff;
+    --accent-dark: #0055b3;
+    --header-bg: #1c1c1e;
+    --header-text: #f5f5f7;
+    --input-bg: #2c2c2e;
+    --card-bg: #1c1c1e;
+    --shadow: rgba(0,0,0,.3);
+  }
+  body { background: var(--bg); color: var(--text); }
+  header { background: var(--header-bg); color: var(--header-text); }
+  .text-section, .upload-section, .file-section { background: var(--panel-bg); }
+  .text-row input { background: var(--input-bg); border-color: var(--border); color: var(--text); }
+  .text-latest { background: #2c2c2e; color: var(--muted); }
+  .text-section h2, .file-section h2 { color: var(--muted); }
+  .tab { color: var(--muted); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tabs { background: var(--panel-bg); border-color: var(--border); }
+  .file-item { background: var(--panel-bg); border-color: var(--border); }
+  .file-item .name { color: var(--text); }
+  .file-item .meta { color: var(--muted); }
+  .share-code { background: #2c2c2e; color: var(--muted); }
+  #qrModal > div { background: var(--panel-bg); }
+  #qrModal p { color: var(--text); }
+  .modal-actions button { background: var(--accent); }
+  .tag { background: #2c2c2e; color: #0a84ff; }
+  pre { background: #2c2c2e; color: #e5e5ea; }
+}
+[data-theme="dark"] {
+  --bg: #000;
+  --panel-bg: #1c1c1e;
+  --text: #f5f5f7;
+  --muted: #98989d;
+  --border: #38383a;
+  --accent: #0a84ff;
+  --accent-dark: #0055b3;
+  --header-bg: #1c1c1e;
+  --header-text: #f5f5f7;
+  --input-bg: #2c2c2e;
+  --card-bg: #1c1c1e;
+  --shadow: rgba(0,0,0,.3);
+}
+[data-theme="dark"] body { background: var(--bg); color: var(--text); }
+[data-theme="dark"] header { background: var(--header-bg); color: var(--header-text); }
+[data-theme="dark"] .text-section, [data-theme="dark"] .upload-section, [data-theme="dark"] .file-section { background: var(--panel-bg); }
+[data-theme="dark"] .text-row input { background: var(--input-bg); border-color: var(--border); color: var(--text); }
+[data-theme="dark"] .text-latest { background: #2c2c2e; color: var(--muted); }
+[data-theme="dark"] .text-section h2, [data-theme="dark"] .file-section h2 { color: var(--muted); }
+[data-theme="dark"] .tab { color: var(--muted); }
+[data-theme="dark"] .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+[data-theme="dark"] .tabs { background: var(--panel-bg); border-color: var(--border); }
+[data-theme="dark"] .file-item { background: var(--panel-bg); border-color: var(--border); }
+[data-theme="dark"] .file-item .name { color: var(--text); }
+[data-theme="dark"] .file-item .meta { color: var(--muted); }
+[data-theme="dark"] .share-code { background: #2c2c2e; color: var(--muted); }
+[data-theme="dark"] #qrModal > div { background: var(--panel-bg); }
+[data-theme="dark"] #qrModal p { color: var(--text); }
+[data-theme="dark"] .modal-actions button { background: var(--accent); }
+[data-theme="dark"] .tag { background: #2c2c2e; color: #0a84ff; }
+[data-theme="dark"] pre { background: #2c2c2e; color: #e5e5ea; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -489,6 +569,7 @@ header .ip {
   <h1>ShareTool</h1>
   <div class="header-right">
     <span class="ip" id="serverInfo">--</span>
+    <button id="themeToggle" onclick="toggleTheme()" title="切换深色模式" style="background:none;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:16px;line-height:1;color:#fff;">☾</button>
     <img id="headerQR" width="32" height="32" style="border-radius:4px;cursor:pointer;display:none;" title="点击查看大二维码" onclick="showQRModal()" />
   </div>
 </header>
@@ -580,6 +661,29 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
+// Theme management
+const STORAGE_KEY_THEME = 'st_theme';
+function getPreferredTheme() {
+  const saved = localStorage.getItem(STORAGE_KEY_THEME);
+  if (saved) return saved;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  localStorage.setItem(STORAGE_KEY_THEME, theme);
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+// Apply saved theme on load
+applyTheme(getPreferredTheme());
+
+// API object
 const API = {
   base: '',
   async request(url, opts) {
