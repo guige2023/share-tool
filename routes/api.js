@@ -145,6 +145,26 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Rate Limit Admin: List all rate limits ──────────────────────────
+  if (pathname === '/api/rate-limits' && method === 'GET') {
+    const limits = db.listRateLimits(200);
+    sendJson(res, { success: true, limits });
+    return true;
+  }
+
+  // ── Rate Limit Admin: Delete specific rate limit ─────────────────────
+  if (pathname.startsWith('/api/rate-limits/') && method === 'DELETE') {
+    const key = pathname.replace('/api/rate-limits/', '');
+    const deleted = db.deleteRateLimit(key);
+    if (deleted) {
+      db.addAuditLog('rate_limit_unblock', `key=${key}`, getClientIp(req));
+      sendJson(res, { success: true, message: 'Rate limit removed' });
+    } else {
+      sendJson(res, { success: false, error: 'Not found' }, 404);
+    }
+    return true;
+  }
+
   // ── Auth: Login (exchange static token for dynamic db tokens) ──────
   if (pathname === '/api/auth/login' && method === 'POST') {
     const clientIp = getClientIp(req);
