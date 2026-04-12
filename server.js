@@ -1868,7 +1868,7 @@ function renderPage() {
               '<div class="uq-fill" style="height:100%;width:' + (item.pct || 0) + '%;background:' + color + ';transition:width .2s"></div>' +
             '</div>' +
           '</div>' +
-          '<div style="font-size:11px;color:var(--muted);min-width:32px;text-align:right">' + (item.pct || 0) + '%</div>' +
+          '<div style="font-size:11px;color:var(--muted);min-width:60px;text-align:right;white-space:nowrap">' + (item.pct || 0) + '%' + (item.speed ? ' <span style="color:var(--text-muted)">' + item.speed + '</span>' : '') + '</div>' +
           '<div style="display:flex;gap:4px">' + actions + '</div>' +
         '</div>';
       }).join('');
@@ -1951,8 +1951,19 @@ function renderPage() {
           xhr.upload.onprogress = function(ev) {
             if (ev.lengthComputable) {
               var pct = Math.round((ev.loaded / ev.total) * 100);
-              updateQueueItem(uploadQueue.indexOf(item), { pct: pct });
-              status('上传中 ' + item.name + ' ' + pct + '%');
+              var now = Date.now();
+              if (!item._lastLoaded || !item._lastTime) {
+                item._lastLoaded = ev.loaded;
+                item._lastTime = now;
+              }
+              var elapsed = (now - item._lastTime) / 1000;
+              var bytesDelta = ev.loaded - item._lastLoaded;
+              var speed = elapsed > 0 ? Math.round(bytesDelta / elapsed) : 0;
+              item._lastLoaded = ev.loaded;
+              item._lastTime = now;
+              var speedStr = speed > 0 ? formatSpeed(speed) : '';
+              updateQueueItem(uploadQueue.indexOf(item), { pct: pct, speed: speedStr });
+              status('上传中 ' + item.name + ' ' + pct + '%' + (speedStr ? ' ' + speedStr : ''));
             }
           };
 
@@ -3381,6 +3392,12 @@ function renderPage() {
       if (bytes < 1024) return bytes + ' B';
       if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
       return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function formatSpeed(bytesPerSec) {
+      if (bytesPerSec < 1024) return bytesPerSec + ' B/s';
+      if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+      return (bytesPerSec / 1024 / 1024).toFixed(1) + ' MB/s';
     }
 
     function forceCloseModal() {
