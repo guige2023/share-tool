@@ -3125,6 +3125,17 @@ function renderPage() {
       }
     }
 
+    function openLightbox(imgSrc, mime) {
+      var lb = document.getElementById('lightboxOverlay');
+      if (lb) { lb.remove(); }
+      lb = document.createElement('div');
+      lb.id = 'lightboxOverlay';
+      lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+      lb.onclick = function() { lb.remove(); };
+      lb.innerHTML = '<img src="' + imgSrc + '" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,.5)" alt="">';
+      document.body.appendChild(lb);
+    }
+
     function renderTextPreview(filename, content, origSize, isTruncated, lang, ext) {
       const modalBody = document.getElementById('modalBody');
       const truncatedNote = isTruncated && origSize
@@ -3679,6 +3690,38 @@ function renderPage() {
         body.innerHTML = html;
       } catch (e) {
         body.innerHTML = '<p class="muted">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
+
+    function selectAllDupes() {
+      document.querySelectorAll('.dupe-check').forEach(function(cb) { cb.checked = true; });
+    }
+
+    async function deleteDupe(filename) {
+      if (!confirm('删除 ' + filename + '？')) return;
+      const res = await fetch('/api/files/' + encodeURIComponent(filename), { method: 'DELETE', headers: headers() });
+      if (res.ok) {
+        showToast('已删除', 'success');
+        openDuplicates(); // refresh
+      } else {
+        showToast('删除失败', 'error');
+      }
+    }
+
+    async function deleteSelectedDupes() {
+      var names = Array.from(document.querySelectorAll('.dupe-check:checked')).map(function(cb) { return cb.value; });
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      if (!confirm('删除 ' + names.length + ' 个重复文件？')) return;
+      const res = await fetch('/api/files/batch-delete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...headers() },
+        body: JSON.stringify({ filenames: names })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('已删除 ' + data.deleted + ' 个文件', 'success');
+        openDuplicates(); // refresh
+      } else {
+        showToast(data.error || '删除失败', 'error');
       }
     }
 
