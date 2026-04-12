@@ -1,5 +1,5 @@
 // ShareTool Service Worker - PWA Offline Support
-const CACHE_NAME = 'sharetool-v5.94.0';
+const CACHE_NAME = 'sharetool-v6.06.0';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
