@@ -619,6 +619,7 @@ function renderPage() {
     <div class="ctx-item" onclick="ctxAction('share')">🔗 分享</div>
     <div class="ctx-item" onclick="ctxAction('copyLink')">📋 复制链接</div>
     <div class="ctx-item" onclick="ctxAction('history')">📜 版本历史</div>
+    <div class="ctx-item" onclick="ctxAction('addToVF')">⭐ 添加到收藏夹</div>
     <div class="ctx-sep"></div>
     <div class="ctx-item" onclick="ctxAction('rename')">✎ 重命名</div>
     <div class="ctx-item" onclick="ctxAction('delete')" style="color:var(--danger)">🗑 删除</div>
@@ -689,6 +690,13 @@ function renderPage() {
         <select id="tagFilterSelect" onchange="filterByTag()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:140px">
           <option value="">全部标签</option>
         </select>
+        <button id="vfBtn" class="ghost" onclick="toggleVirtualFolderMenu()" title="收藏夹">⭐</button>
+        <div id="vfMenu" style="display:none;position:absolute;z-index:1000;background:var(--bg-secondary);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:180px;padding:6px 0;font-size:13px;margin-top:4px">
+          <div id="vfMenuList"></div>
+          <div style="border-top:1px solid var(--line);margin:4px 0"></div>
+          <div class="ctx-item" onclick="openVirtualFolderManager()" style="color:var(--accent)">⚙ 管理收藏夹</div>
+        </div>
+        <button id="vfBackBtn" class="ghost" style="display:none" onclick="exitVirtualFolder()">← 全部文件</button>
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button id="advancedSearchBtn" class="ghost" onclick="toggleAdvancedSearch()">高级 ⌄</button>
@@ -1633,6 +1641,10 @@ function renderPage() {
     var isAppending = false;
 
     async function loadFiles() {
+      if (currentVirtualFolderId !== null) {
+        currentVirtualFolderId = null;
+        document.getElementById('vfBackBtn').style.display = 'none';
+      }
       clearNavHighlight();
       currentOffset = 0;
       const q = document.getElementById('searchInput').value.trim();
@@ -1714,6 +1726,159 @@ function renderPage() {
       loadFiles();
     }
 
+    var currentVirtualFolderId = null;
+
+    async function toggleVirtualFolderMenu() {
+      const menu = document.getElementById('vfMenu');
+      if (menu.style.display === 'none') {
+        await loadVirtualFolderMenu();
+        menu.style.display = 'block';
+        document.addEventListener('click', closeVfMenuOnClickOutside, { once: true });
+      } else {
+        menu.style.display = 'none';
+      }
+    }
+
+    function closeVfMenuOnClickOutside(e) {
+      const menu = document.getElementById('vfMenu');
+      const btn = document.getElementById('vfBtn');
+      if (!menu.contains(e.target) && !btn.contains(e.target)) {
+        menu.style.display = 'none';
+      }
+    }
+
+    async function loadVirtualFolderMenu() {
+      const res = await fetch('/api/virtual-folders', { headers: headers() });
+      const data = await res.json();
+      const list = document.getElementById('vfMenuList');
+      if (!data.folders || data.folders.length === 0) {
+        list.innerHTML = '<div style="padding:8px 14px;color:var(--muted);font-size:12px">暂无收藏夹</div>';
+        return;
+      }
+      list.innerHTML = data.folders.map(f =>
+        '<div class="ctx-item" onclick="navigateVirtualFolder(' + f.id + ')" style="cursor:pointer">' +
+          '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + '">●</span> ' +
+          escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span>' +
+        '</div>'
+      ).join('');
+    }
+
+    async function navigateVirtualFolder(folderId) {
+      currentVirtualFolderId = folderId;
+      document.getElementById('vfMenu').style.display = 'none';
+      document.getElementById('vfBackBtn').style.display = 'inline-block';
+      clearNavHighlight();
+      const res = await fetch('/api/virtual-folders/' + folderId + '/files', { headers: headers() });
+      const data = await res.json();
+      const files = data.files || [];
+      currentFiles = files.map(function(f, i) { f._index = i; return f; });
+      currentOffset = files.length;
+      currentTotal = files.length;
+      const tagColorMap = {};
+      updateTagFilterOptions([]);
+      const gridBody = document.getElementById('fileTableGrid');
+      const listBody = document.getElementById('fileTableBody');
+      if (gridBody) gridBody.innerHTML = '';
+      if (listBody) listBody.innerHTML = '';
+      const countEl = document.getElementById('fileCountDisplay');
+      if (countEl) countEl.innerHTML = '共 <strong>' + files.length + '</strong> 个文件（收藏夹）';
+      const selEl = document.getElementById('selectedCountDisplay');
+      if (selEl) selEl.style.display = 'none';
+      renderFiles(tagColorMap);
+      showToast('已切换到收藏夹视图', 'info');
+    }
+
+    async function openVirtualFolderManager() {
+      document.getElementById('vfMenu').style.display = 'none';
+      const res = await fetch('/api/virtual-folders', { headers: headers() });
+      const data = await res.json();
+      const folders = data.folders || [];
+      const body = '<div style="display:flex;flex-direction:column;gap:12px">' +
+        '<div id="vfList" style="max-height:300px;overflow-y:auto">' +
+        (folders.length === 0 ? '<div style="color:var(--muted);text-align:center;padding:20px">暂无收藏夹</div>' :
+          folders.map(f => '<div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:var(--bg-tertiary);margin-bottom:6px">' +
+            '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + ';font-size:16px">●</span>' +
+            '<span style="flex:1;font-size:13px">' + escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span></span>' +
+            '<button class="ghost" style="font-size:11px;padding:3px 8px" onclick="deleteVirtualFolder(' + f.id + ')">删除</button>' +
+          '</div>'
+        ).join('')) +
+        '</div>' +
+        '<div style="display:flex;gap:8px;align-items:center">' +
+          '<input id="vfNameInput" type="text" placeholder="新收藏夹名称" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text)">' +
+          '<input id="vfColorInput" type="color" value="#667eea" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:6px">' +
+          '<button class="secondary" onclick="createVirtualFolder()">创建</button>' +
+        '</div>' +
+      '</div>';
+      openModal('收藏夹管理', body, '');
+    }
+
+    async function createVirtualFolder() {
+      const name = document.getElementById('vfNameInput').value.trim();
+      const color = document.getElementById('vfColorInput').value;
+      if (!name) return;
+      await fetch('/api/virtual-folders', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color })
+      });
+      openVirtualFolderManager();
+    }
+
+    async function deleteVirtualFolder(id) {
+      if (!confirm('确定删除此收藏夹？')) return;
+      await fetch('/api/virtual-folders/' + id, { method: 'DELETE', headers: headers() });
+      openVirtualFolderManager();
+    }
+
+    async function openAddToVirtualFolder(filename) {
+      const file = currentFiles.find(f => f.name === filename || f.filename === filename);
+      if (!file || !file.id) { showToast('文件不存在', 'error'); return; }
+      const res = await fetch('/api/virtual-folders', { headers: headers() });
+      const data = await res.json();
+      const folders = data.folders || [];
+      if (folders.length === 0) {
+        showToast('请先创建收藏夹', 'error');
+        return;
+      }
+      const body = '<div style="padding:8px 0">' +
+        '<div style="margin-bottom:12px;color:var(--text-muted);font-size:12px">选择收藏夹添加到「' + escapeHtmlClient(filename) + '」：</div>' +
+        folders.map(f => '<div class="ctx-item" onclick="addFileToVirtualFolder(' + f.id + ',' + file.id + ')" style="cursor:pointer;padding:10px 14px">' +
+          '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + '">●</span> ' + escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span>' +
+        '</div>'
+        ).join('') +
+      '</div>';
+      openModal('添加到收藏夹', body, '');
+    }
+
+    async function addFileToVirtualFolder(folderId, fileId) {
+      closeModal();
+      await fetch('/api/virtual-folders/' + folderId + '/files', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId })
+      });
+      showToast('已添加', 'info');
+    }
+
+    // Add selected files to virtual folder via context menu
+    async function addSelectedToVirtualFolder(folderId) {
+      const checked = Array.from(document.querySelectorAll('.file-check:checked'));
+      for (const cb of checked) {
+        const fileId = parseInt(cb.dataset.fileId, 10);
+        if (fileId) {
+          await fetch('/api/virtual-folders/' + folderId + '/files', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileId })
+          });
+        }
+      }
+      showToast('已添加到收藏夹', 'info');
+    }
+
+    function exitVirtualFolder() {
+      currentVirtualFolderId = null;
+      document.getElementById('vfBackBtn').style.display = 'none';
+      loadFiles();
+    }
+
     function renderFiles(tagColorMap) {
       const empty = document.getElementById('fileEmpty');
       const listBody = document.getElementById('fileTableBody');
@@ -1771,7 +1936,7 @@ function renderPage() {
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
       return '<tr data-index="' + file._index + '">' +
-        '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()"></td>' +
+        '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()"></td>' +
         '<td data-label="文件"><strong>' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
         '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
@@ -1823,7 +1988,7 @@ function renderPage() {
       }
 
       return '<div class="file-item" data-index="' + file._index + '" tabindex="0" draggable="true">' +
-        '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" onchange="updateBatchBar()">' +
+        '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()">' +
         '<div class="file-content">' +
           gridIcon +
           '<div class="file-name">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</div>' +
@@ -2139,6 +2304,7 @@ function renderPage() {
         case 'rename': renameFile(filename); break;
         case 'delete': if (confirm('确认删除 ' + filename + '？')) deleteFile(filename); break;
         case 'history': openVersionHistory(filename); break;
+        case 'addToVF': openAddToVirtualFolder(filename); break;
       }
     }
 
@@ -2423,11 +2589,20 @@ function renderPage() {
           mdDiv.innerHTML = '<pre style="white-space:pre-wrap">' + escapeHtmlClient(content) + '</pre>';
         }
       } else if (lang) {
-        // Syntax highlighted code view
-        bodyContent = '<div id="codeWrapper" style="position:relative"><pre id="codeBlock" style="margin:0;max-height:65vh;overflow:auto;border-radius:8px"><code id="codeContent" class="language-' + lang + '"></code></pre></div>';
+        // Syntax highlighted code view with line numbers
+        const lines = content.split('\n');
+        const lineNumbers = lines.map((_, i) => '<span class="ln">' + (i + 1) + '</span>').join('');
+        bodyContent = '<div id="codeWrapper" style="position:relative;display:flex;max-height:65vh;border-radius:8px;overflow:hidden;background:var(--bg-tertiary)">' +
+          '<div id="lineNumbers" style="padding:16px 12px 16px 16px;text-align:right;user-select:none;min-width:48px;background:var(--bg-secondary);color:var(--text-muted);font-family:monospace;font-size:13px;line-height:1.5;overflow:hidden;flex-shrink:0;border-right:1px solid var(--line)">' + lineNumbers + '</div>' +
+          '<div id="codeScroll" style="flex:1;overflow:auto"><pre id="codeBlock" style="margin:0;padding:16px"><code id="codeContent" class="language-' + lang + '" style="font-family:monospace;font-size:13px;line-height:1.5"></code></pre></div>' +
+          '</div>';
         modalBody.innerHTML = truncatedNote + bodyContent;
         const codeEl = document.getElementById('codeContent');
         codeEl.textContent = content;
+        // Sync scroll between line numbers and code
+        const codeScroll = document.getElementById('codeScroll');
+        const lineNumbersEl = document.getElementById('lineNumbers');
+        codeScroll.addEventListener('scroll', () => { lineNumbersEl.scrollTop = codeScroll.scrollTop; });
         if (typeof hljs !== 'undefined') {
           hljs.highlightElement(codeEl);
         }
@@ -2436,7 +2611,7 @@ function renderPage() {
         const btn = document.createElement('button');
         btn.textContent = '📋 复制';
         btn.className = 'btn-sm secondary';
-        btn.style.cssText = 'position:absolute;top:8px;right:8px;font-size:11px';
+        btn.style.cssText = 'position:absolute;top:8px;right:8px;font-size:11px;z-index:10';
         btn.onclick = () => { navigator.clipboard.writeText(content); btn.textContent = '✅ 已复制'; setTimeout(() => btn.textContent = '📋 复制', 2000); };
         wrapper.style.position = 'relative';
         wrapper.appendChild(btn);

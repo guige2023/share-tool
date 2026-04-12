@@ -552,6 +552,79 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // Virtual folder routes
+  if (pathname === '/api/virtual-folders' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folders = db.listVirtualFolders();
+    sendJson(res, { success: true, folders });
+    return true;
+  }
+
+  if (pathname === '/api/virtual-folders' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { name, description, color } = body;
+    if (!name) { sendJson(res, { success: false, error: 'name required' }, 400); return true; }
+    const folder = db.createVirtualFolder(name, description, color);
+    sendJson(res, { success: true, folder });
+    return true;
+  }
+
+  if (pathname.startsWith('/api/virtual-folders/') && pathname.endsWith('/files') && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    const files = db.getVirtualFolderFiles(folderId);
+    sendJson(res, { success: true, files });
+    return true;
+  }
+
+  if (pathname.startsWith('/api/virtual-folders/') && !pathname.includes('/files') && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    const body = await readJsonBody(req);
+    const updated = db.updateVirtualFolder(folderId, body);
+    sendJson(res, { success: true, folder: updated });
+    return true;
+  }
+
+  if (pathname.startsWith('/api/virtual-folders/') && !pathname.includes('/files') && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    db.deleteVirtualFolder(folderId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // Add/remove file from virtual folder
+  if (pathname.startsWith('/api/virtual-folders/') && pathname.endsWith('/files') && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    const body = await readJsonBody(req);
+    const { fileId } = body;
+    if (!fileId) { sendJson(res, { success: false, error: 'fileId required' }, 400); return true; }
+    db.addFileToVirtualFolder(folderId, fileId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  if (pathname.startsWith('/api/virtual-folders/') && pathname.endsWith('/files') && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const parts = pathname.split('/');
+    const folderId = parseInt(parts[3], 10);
+    const fileId = parseInt(query.get('fileId'), 10);
+    if (!fileId) { sendJson(res, { success: false, error: 'fileId required' }, 400); return true; }
+    db.removeFileFromVirtualFolder(folderId, fileId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {
