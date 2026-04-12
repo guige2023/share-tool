@@ -17,6 +17,14 @@ const DEFAULT_URL = 'http://localhost:18790';
 const CHUNK_SIZE = 512 * 1024; // 512KB per chunk
 const MAX_HISTORY = 500;
 
+// Global error handlers — prevent silent crashes
+process.on('uncaughtException', (err) => {
+  console.error('[ShareTool CLI] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[ShareTool CLI] Unhandled Rejection:', reason);
+});
+
 // CLI internationalization (English by default, zh-CN if LANG matches)
 const CLI_I18N = (() => {
   const lang = (process.env.LANG || '').toLowerCase();

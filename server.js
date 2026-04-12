@@ -4298,6 +4298,16 @@ async function start() {
   return { httpsServer, redirectServer };
 }
 
+// Global error handlers — prevent silent crashes
+process.on('uncaughtException', (err) => {
+  console.error('[ShareTool] Uncaught Exception:', err);
+  // Don't exit immediately — let cleanup run
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[ShareTool] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 if (require.main === module) {
   start().catch((e) => {
     console.error('[ShareTool] Failed to start:', e);
