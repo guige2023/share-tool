@@ -269,6 +269,32 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/search/history - 获取搜索历史
+  if (pathname === '/api/search/history' && method === 'GET') {
+    const limit = parseInt(query.get('limit') || '20', 10);
+    const history = db.getSearchHistory(null, limit);
+    sendJson(res, { success: true, history });
+    return true;
+  }
+
+  // POST /api/search/history - 保存搜索记录
+  if (pathname === '/api/search/history' && method === 'POST') {
+    const body = await readJsonBody(req);
+    const { query: searchQuery } = body || {};
+    if (searchQuery && searchQuery.trim().length >= 1) {
+      db.addSearchHistory(searchQuery.trim());
+    }
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // DELETE /api/search/history - 清除搜索历史
+  if (pathname === '/api/search/history' && method === 'DELETE') {
+    db.clearSearchHistory();
+    sendJson(res, { success: true });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {

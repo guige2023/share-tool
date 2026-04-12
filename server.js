@@ -928,22 +928,32 @@ function renderPage() {
       await loadFiles();
     }
 
-    var RECENT_SEARCHES_KEY = 'sharetool_recent_searches';
+    var recentSearchesCache = [];
     var MAX_RECENT_SEARCHES = 8;
 
-    function getRecentSearches() {
+    async function loadRecentSearches() {
       try {
-        return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
-      } catch (e) { return []; }
+        const res = await fetch('/api/search/history?limit=' + MAX_RECENT_SEARCHES);
+        const data = await res.json();
+        recentSearchesCache = (data.history || []).map(function (h) { return h.query; });
+        renderRecentSearches();
+      } catch (e) { recentSearchesCache = []; }
     }
 
-    function saveRecentSearch(query) {
+    function getRecentSearches() {
+      return recentSearchesCache;
+    }
+
+    async function saveRecentSearch(query) {
       var q = query.trim();
       if (!q) return;
-      var searches = getRecentSearches().filter(function (s) { return s !== q; });
-      searches.unshift(q);
-      if (searches.length > MAX_RECENT_SEARCHES) searches = searches.slice(0, MAX_RECENT_SEARCHES);
-      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(searches));
+      recentSearchesCache = recentSearchesCache.filter(function (s) { return s !== q; });
+      recentSearchesCache.unshift(q);
+      if (recentSearchesCache.length > MAX_RECENT_SEARCHES) recentSearchesCache = recentSearchesCache.slice(0, MAX_RECENT_SEARCHES);
+      try {
+        await fetch('/api/search/history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q }) });
+      } catch (e) { /* non-critical */ }
+      renderRecentSearches();
     }
 
     function renderRecentSearches() {
@@ -965,8 +975,11 @@ function renderPage() {
       searchFiles();
     }
 
-    function clearRecentSearches() {
-      localStorage.removeItem(RECENT_SEARCHES_KEY);
+    async function clearRecentSearches() {
+      recentSearchesCache = [];
+      try {
+        await fetch('/api/search/history', { method: 'DELETE' });
+      } catch (e) { /* non-critical */ }
       renderRecentSearches();
     }
 
@@ -1450,7 +1463,7 @@ function renderPage() {
 
     setupDragDrop();
     loadFiles();
-    renderRecentSearches();
+    loadRecentSearches();
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function (e) {
