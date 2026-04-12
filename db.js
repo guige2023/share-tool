@@ -1741,6 +1741,8 @@ function saveFileVersion(fileId, filename, content, size, hash) {
     INSERT INTO file_versions (file_id, filename, content, size, hash, created_at)
     VALUES (?, ?, ?, ?, ?, unixepoch())
   `).run(fileId, filename, content, size, hash);
+  // 自动保留最近10个版本，删除更旧的
+  pruneFileVersions(fileId, 10);
 }
 
 function listFileVersions(fileId, limit = 20) {
@@ -1782,6 +1784,17 @@ function pruneFileVersions(fileId, keepCount = 10) {
     db.prepare('DELETE FROM file_versions WHERE id = ?').run(v.id);
   }
   return oldVersions.length;
+}
+
+function pruneAllFileVersions(keepCount = 10) {
+  // 清理所有文件的旧版本（每个文件保留最近 keepCount 个）
+  const db = getDb();
+  const fileIds = db.prepare('SELECT DISTINCT file_id FROM file_versions').all().map(r => r.file_id);
+  let totalPruned = 0;
+  for (const { file_id } of fileIds) {
+    totalPruned += pruneFileVersions(file_id, keepCount);
+  }
+  return totalPruned;
 }
 
 // ============================================================
@@ -3322,7 +3335,7 @@ module.exports = {
   // 垃圾桶
   moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, emptyTrash, cleanupExpiredTrash,
   // 文件版本历史
-  saveFileVersion, listFileVersions, getFileVersion, getFileVersionCount, deleteFileVersion, pruneFileVersions,
+  saveFileVersion, listFileVersions, getFileVersion, getFileVersionCount, deleteFileVersion, pruneFileVersions, pruneAllFileVersions,
   // 分片上传
   initChunkUpload, getChunkUpload, addChunkReceived, getChunkUploadStatus, deleteChunkUpload, getIncompleteUpload,
   // 导入导出

@@ -4661,6 +4661,12 @@ function startCleanupScheduler() {
     } catch (e) {
       console.error('[Cleanup] Error:', e.message);
     }
+    // Prune old file versions across all files (call without fileId to prune all)
+    try {
+      db.pruneAllFileVersions(10);
+    } catch (e) {
+      console.error('[Cleanup] pruneFileVersions error:', e.message);
+    }
   }
   // Run immediately on startup, then every hour
   runCleanup();

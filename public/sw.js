@@ -1,18 +1,29 @@
 // ShareTool Service Worker - PWA Offline Support
-const CACHE_NAME = 'sharetool-v6.06.0';
+// Version must be updated when static assets change
+const CACHE_VERSION = 'v6.12.0';
+const CACHE_NAME = 'sharetool-' + CACHE_VERSION;
+// Static assets to cache on install (cache-first strategy)
 const STATIC_ASSETS = [
   '/',
   '/index.html',
+  '/manifest.json',
+  '/favicon.ico'
+];
+// App shell resources to prefetch after install (low priority)
+const PREFETCH_ASSETS = [
   '/manifest.json'
 ];
 
 // Install: cache static assets
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(STATIC_ASSETS).catch(() => {
+    caches.open(CACHE_NAME).then(async cache => {
+      await cache.addAll(STATIC_ASSETS).catch(() => {
         // Ignore cache.addAll failure (e.g. network unavailable at install time)
       });
+      // Prefetch additional assets without blocking activation
+      fetch('/manifest.json').then(r => r.ok && cache.put('/manifest.json', r)).catch(() => {});
+      return;
     }).then(() => self.skipWaiting())
   );
 });
@@ -29,9 +40,8 @@ self.addEventListener('activate', event => {
 });
 
 // Fetch strategy:
-// - GET /api/* (files list): Network First, fallback to cache
+// - GET /api/*: Network Only (never cache — contains file metadata + auth)
 // - GET /* (static assets): Cache First, fallback to network
-// - Other: Network only
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   const isApi = url.pathname.startsWith('/api/');
@@ -39,19 +49,8 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   if (isApi) {
-    // API requests: Network First
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          // Cache successful API responses (except stream/blob)
-          if (response.ok && response.headers.get('content-type')?.includes('application/json')) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => caches.match(event.request))
-    );
+    // API requests: always network (never cache file list or metadata)
+    return; // let request pass through normally
   } else {
     // Static assets: Cache First
     event.respondWith(
@@ -72,4 +71,5 @@ self.addEventListener('fetch', event => {
 // Handle messages from the main thread
 self.addEventListener('message', event => {
   if (event.data === 'skipWaiting') self.skipWaiting();
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
