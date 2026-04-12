@@ -466,7 +466,7 @@ function renderPage() {
     td.actions button{padding:8px 10px;border-radius:10px;font-size:13px}
     .muted{color:var(--muted)}
     .status{margin-top:12px;min-height:22px;color:var(--muted)}
-    .progress-bar-wrap{display:none;margin-top:10px;background:#edf2f7;border-radius:999px;height:10px;overflow:hidden}
+    .progress-bar-wrap{display:none;margin-top:10px;background:#edf2f7;border-radius:999px;height:10px;overflow:hidden;position:relative}
     .progress-bar-wrap.active{display:block}
     .progress-bar{height:100%;background:var(--accent);border-radius:999px;transition:width .15s;min-width:2px}
     .list-scroll{max-height:620px;overflow:auto}
@@ -674,7 +674,8 @@ function renderPage() {
           <button class="secondary" onclick="clearFileInput()">清空选择</button>
         </div>
         <div class="progress-bar-wrap" id="progressBarWrap">
-          <div class="progress-bar" id="progressBar" style="width:0%"></div>
+          <div class="progress-bar" id="progressBar" style="width:0%;background:var(--accent)"></div>
+          <div class="progress-bar" id="fileProgressBar" style="position:absolute;top:0;left:0;height:100%;background:var(--text-muted);opacity:0.5;width:0%;border-radius:999px;transition:width .1s"></div>
         </div>
         <div class="status" id="uploadStatus"></div>
       </section>
@@ -1081,8 +1082,10 @@ function renderPage() {
     function clearProgress() {
       var wrap = document.getElementById('progressBarWrap');
       var bar = document.getElementById('progressBar');
+      var fileBar = document.getElementById('fileProgressBar');
       if (wrap) wrap.classList.remove('active');
       if (bar) bar.style.width = '0%';
+      if (fileBar) fileBar.style.width = '0%';
     }
 
     function showToast(message, type = '') {
@@ -1539,6 +1542,9 @@ function renderPage() {
       showProgress(0, files.length);
 
       for (const file of files) {
+        // reset file-level bar before next file
+        var fp = document.getElementById('fileProgressBar');
+        if (fp) fp.style.width = '0%';
         await uploadSingleFile(file);
         completed += 1;
         status('已上传 ' + completed + ' / ' + files.length);
@@ -1575,7 +1581,8 @@ function renderPage() {
           xhr.upload.onprogress = function(ev) {
             if (ev.lengthComputable) {
               var pct = Math.round((ev.loaded / ev.total) * 100);
-              document.getElementById('progressBar').style.width = pct + '%';
+              var fp = document.getElementById('fileProgressBar');
+              if (fp) fp.style.width = pct + '%';
               status('上传中 ' + file.name + ' ' + pct + '%');
             }
           };
