@@ -548,10 +548,17 @@ function renderPage() {
         <button class="ghost" onclick="copyAllShares()">复制全部</button>
         <button class="danger" onclick="batchDeleteExpiredShares()">删除过期</button>
       </div>
+      <div id="shareBatchBar" class="batch-bar" style="display:none">
+        <input type="checkbox" id="shareSelectAll" onchange="toggleShareSelectAll(this.checked)" style="margin-right:4px">
+        <span id="shareBatchCount" style="font-size:13px;color:var(--muted)"></span>
+        <button class="ghost" onclick="batchDeleteSelectedShares()">删除选中</button>
+        <button class="ghost" onclick="clearShareSelection()">取消选择</button>
+      </div>
       <div class="list-scroll">
         <table>
           <thead>
             <tr>
+              <th style="width:36px"><input type="checkbox" id="shareListSelectAll" onchange="toggleShareSelectAll(this.checked)"></th>
               <th>文件</th>
               <th>链接</th>
               <th style="width:110px">二维码</th>
@@ -1586,6 +1593,7 @@ function renderPage() {
       body.innerHTML = filtered.map(function (share) {
         var expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
         return '<tr>' +
+          '<td><input type="checkbox" class="share-check" value="' + encodeURIComponent(share.code) + '" onchange="updateShareBatchBar()"></td>' +
           '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
           '<td data-label="链接"><a href="' + share.url + '" target="_blank">' + share.url + '</a></td>' +
           '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '"></td>' +
@@ -1617,6 +1625,50 @@ function renderPage() {
     async function deleteShare(code) {
       if (!confirm('删除这个分享链接?')) return;
       await request('/api/share/delete/' + encodeURIComponent(code), { method: 'DELETE' });
+      await loadShares();
+    }
+
+    function toggleShareSelectAll(checked) {
+      document.querySelectorAll('.share-check').forEach(function(el) { el.checked = checked; });
+      updateShareBatchBar();
+    }
+
+    function updateShareBatchBar() {
+      var checked = document.querySelectorAll('.share-check:checked');
+      var bar = document.getElementById('shareBatchBar');
+      var count = document.getElementById('shareBatchCount');
+      var listAll = document.getElementById('shareListSelectAll');
+      if (!bar || !count) return;
+      if (checked.length > 0) {
+        bar.style.display = 'flex';
+        count.textContent = '已选择 ' + checked.length + ' 个链接';
+        listAll.checked = checked.length === document.querySelectorAll('.share-check').length;
+      } else {
+        bar.style.display = 'none';
+        listAll.checked = false;
+      }
+    }
+
+    function clearShareSelection() {
+      document.querySelectorAll('.share-check').forEach(function(el) { el.checked = false; });
+      document.getElementById('shareListSelectAll').checked = false;
+      updateShareBatchBar();
+    }
+
+    async function batchDeleteSelectedShares() {
+      var checked = document.querySelectorAll('.share-check:checked');
+      var codes = Array.from(checked).map(function(el) { return decodeURIComponent(el.value); });
+      if (!codes.length) { showToast('请先选择链接', 'error'); return; }
+      if (!confirm('删除 ' + codes.length + ' 个分享链接?')) return;
+      var count = 0;
+      for (var i = 0; i < codes.length; i++) {
+        try {
+          await request('/api/share/delete/' + encodeURIComponent(codes[i]), { method: 'DELETE' });
+          count++;
+        } catch (e) {}
+      }
+      showToast('已删除 ' + count + ' 个链接', 'success');
+      clearShareSelection();
       await loadShares();
     }
 
