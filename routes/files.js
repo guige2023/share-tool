@@ -160,6 +160,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // Preview/read file content - supports streaming for large text files
   if (pathname.startsWith('/api/content/') && method === 'GET') {
     const auth = authRequired(req, res);
     if (!auth) return true;
@@ -168,6 +169,24 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const file = db.getFileByName(filename);
     if (!file) {
       sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+
+    const MAX_PREVIEW_BYTES = 500 * 1024; // 500KB limit for inline preview
+    const isTextFile = (file.content_type || '').startsWith('text/') ||
+                       ['text', 'js', 'py', 'json', 'md', 'html', 'css', 'xml', 'yaml', 'yml', 'sh', 'sql', 'go', 'rs', 'c', 'cpp', 'h', 'java', 'toml', 'ini', 'cfg', 'conf'].some(ext => file.filename.endsWith('.' + ext));
+
+    // For large text files, serve as plain text stream (no base64, no JSON overhead)
+    if (isTextFile && file.size > MAX_PREVIEW_BYTES) {
+      const content = file.content || '';
+      const truncated = content.slice(0, MAX_PREVIEW_BYTES);
+      res.writeHead(200, {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Content-Length': Buffer.byteLength(truncated),
+        'X-Preview-Truncated': 'true',
+        'X-Preview-Original-Size': file.size
+      });
+      res.end(truncated);
       return true;
     }
 
@@ -180,7 +199,9 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         updatedAt: file.updated_at * 1000,
         mime: file.content_type || guessMimeType(file.filename),
         content_type: file.content_type || guessMimeType(file.filename),
-        content: file.content || ''
+        content: file.content || '',
+        previewTruncated: isTextFile && file.size > MAX_PREVIEW_BYTES ? true : undefined,
+        previewOriginalSize: isTextFile && file.size > MAX_PREVIEW_BYTES ? file.size : undefined
       }
     });
     return true;

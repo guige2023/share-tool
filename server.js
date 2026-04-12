@@ -545,7 +545,24 @@ function renderPage() {
     #fileTableGrid .file-item:active,#fileTable .file-item:active{cursor:grabbing}
     .file-item.dragging{opacity:.4;transform:scale(.97)}
     .file-item.drag-over:not(.dragging){border-color:var(--accent)!important;box-shadow:0 0 0 2px var(--accent);transform:scale(1.02);border-style:dashed}
+    /* Code block styling */
+    #codeBlock,#codeBlock code,#plainTextPre{background:var(--bg-secondary)!important}
+    #codeBlock code.hljs{background:transparent!important;padding:.5em!important;border-radius:8px}
+    #plainTextPre{white-space:pre-wrap;word-break:break-all}
+    /* Markdown preview */
+    #mdPreview h1,#mdPreview h2,#mdPreview h3{color:var(--text-primary);border-bottom:1px solid var(--line);padding-bottom:4px;margin-top:1.2em}
+    #mdPreview pre{background:var(--bg-secondary);padding:12px;border-radius:8px;overflow-x:auto}
+    #mdPreview code{background:var(--bg-secondary);padding:2px 5px;border-radius:4px;font-size:.9em}
+    #mdPreview pre code{background:transparent;padding:0}
+    #mdPreview table{border-collapse:collapse;width:100%}
+    #mdPreview td,#mdPreview th{border:1px solid var(--line);padding:6px 10px}
+    #mdPreview blockquote{border-left:3px solid var(--accent);margin:0;padding:4px 12px;color:var(--text-muted)}
   </style>
+  <!-- Syntax highlighting + Markdown -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme:light)">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme:dark)">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
 </head>
 <body>
   <div id="toast"></div>
@@ -1876,12 +1893,44 @@ function renderPage() {
     }
 
     async function previewFile(filename) {
-      const data = await request('/api/content/' + encodeURIComponent(filename));
-      const file = data.file;
       const modalBody = document.getElementById('modalBody');
-      document.getElementById('modalTitle').textContent = file.name;
-      if (file.type === 'text') {
-        modalBody.innerHTML = '<pre>' + escapeHtmlClient(file.content || '') + '</pre>';
+      document.getElementById('modalTitle').textContent = filename;
+      modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
+      document.getElementById('modal').classList.add('open');
+
+      let data;
+      try {
+        const resp = await fetch('/api/content/' + encodeURIComponent(filename), { headers: headers() });
+        // Large text files return plain text directly (not JSON)
+        const contentType = resp.headers.get('content-type') || '';
+        if (contentType.startsWith('text/plain')) {
+          const text = await resp.text();
+          const origSize = parseInt(resp.headers.get('x-preview-original-size') || '0', 10);
+          renderTextPreview(filename, text, origSize, true);
+          return;
+        }
+        data = await resp.json();
+      } catch (e) {
+        modalBody.innerHTML = '<p class="muted">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+        return;
+      }
+
+      const file = data.file;
+      if (!file) {
+        modalBody.innerHTML = '<p class="muted">文件不存在</p>';
+        return;
+      }
+
+      // Detect language for syntax highlighting
+      const ext = filename.split('.').pop().toLowerCase();
+      const langMap = { js:'javascript', ts:'typescript', py:'python', rb:'ruby', go:'go', rs:'rust', java:'java', c:'c', cpp:'cpp', h:'c', cs:'csharp', php:'php', swift:'swift', kt:'kotlin', tsx:'typescript', jsx:'javascript', sh:'bash', bash:'bash', zsh:'bash', yaml:'yaml', yml:'yaml', xml:'xml', sql:'sql', md:'markdown', json:'json', css:'css', html:'html', htm:'html' };
+      const lang = langMap[ext] || '';
+
+      if (file.type === 'text' || (file.mime || '').startsWith('text/') || ['js','ts','py','rb','go','rs','java','c','cpp','h','cs','php','swift','kt','tsx','jsx','sh','bash','yaml','yml','xml','sql','md','json','css','html','htm'].includes(ext)) {
+        const content = file.content || '';
+        const isTruncated = file.previewTruncated;
+        const origSize = file.previewOriginalSize;
+        renderTextPreview(filename, content, origSize, isTruncated, lang, ext);
       } else if ((file.mime || '').startsWith('image/')) {
         modalBody.innerHTML = '<img alt="" src="data:' + file.mime + ';base64,' + file.content + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px">';
       } else if (file.mime === 'application/pdf') {
@@ -1891,9 +1940,68 @@ function renderPage() {
       } else if ((file.mime || '').startsWith('audio/')) {
         modalBody.innerHTML = '<audio controls style="width:100%;margin-top:20px"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持音频预览</audio>';
       } else {
-        modalBody.innerHTML = '<p class="muted">此文件类型不做内嵌预览，请直接下载。</p><button onclick=' + "'" + 'downloadFile(' + JSON.stringify(filename) + ')' + "'" + '>下载文件</button>';
+        modalBody.innerHTML = '<p class="muted">此文件类型不做内嵌预览，请直接下载。</p><button class="btn secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(filename) + ')' + "'" + '>下载文件</button>';
       }
-      document.getElementById('modal').classList.add('open');
+    }
+
+    function renderTextPreview(filename, content, origSize, isTruncated, lang, ext) {
+      const modalBody = document.getElementById('modalBody');
+      const truncatedNote = isTruncated && origSize
+        ? '<div style="background:#fffbea;border:1px solid #f59e0b;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px;color:#92400e">⚠️ 文件过大（' + formatSize(origSize) + '），仅显示前 500KB。<button class="btn-sm secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(filename) + ')' + "'" + '>下载查看完整内容</button></div>'
+        : '';
+      const isMd = ext === 'md';
+      let bodyContent;
+
+      if (isMd) {
+        // Markdown rendering using marked (already in package.json)
+        bodyContent = '<div id="mdPreview" style="max-height:65vh;overflow:auto;line-height:1.6"></div>';
+        modalBody.innerHTML = truncatedNote + bodyContent;
+        const mdDiv = document.getElementById('mdPreview');
+        if (typeof marked !== 'undefined') {
+          mdDiv.innerHTML = marked.parse(content);
+          // Add copy buttons to code blocks
+          mdDiv.querySelectorAll('pre code').forEach(block => {
+            const pre = block.parentElement;
+            const btn = document.createElement('button');
+            btn.textContent = '📋 复制';
+            btn.className = 'btn-sm secondary';
+            btn.style.cssText = 'position:absolute;top:8px;right:8px;font-size:11px';
+            btn.onclick = () => { navigator.clipboard.writeText(block.textContent); btn.textContent = '✅ 已复制'; setTimeout(() => btn.textContent = '📋 复制', 2000); };
+            pre.style.position = 'relative';
+            pre.appendChild(btn);
+          });
+        } else {
+          // Fallback: show plain text with escaping
+          mdDiv.innerHTML = '<pre style="white-space:pre-wrap">' + escapeHtmlClient(content) + '</pre>';
+        }
+      } else if (lang) {
+        // Syntax highlighted code view
+        bodyContent = '<div id="codeWrapper" style="position:relative"><pre id="codeBlock" style="margin:0;max-height:65vh;overflow:auto;border-radius:8px"><code id="codeContent" class="language-' + lang + '"></code></pre></div>';
+        modalBody.innerHTML = truncatedNote + bodyContent;
+        const codeEl = document.getElementById('codeContent');
+        codeEl.textContent = content;
+        if (typeof hljs !== 'undefined') {
+          hljs.highlightElement(codeEl);
+        }
+        // Add copy button
+        const wrapper = document.getElementById('codeWrapper');
+        const btn = document.createElement('button');
+        btn.textContent = '📋 复制';
+        btn.className = 'btn-sm secondary';
+        btn.style.cssText = 'position:absolute;top:8px;right:8px;font-size:11px';
+        btn.onclick = () => { navigator.clipboard.writeText(content); btn.textContent = '✅ 已复制'; setTimeout(() => btn.textContent = '📋 复制', 2000); };
+        wrapper.style.position = 'relative';
+        wrapper.appendChild(btn);
+      } else {
+        // Plain text
+        modalBody.innerHTML = truncatedNote + '<pre id="plainTextPre" style="white-space:pre-wrap;max-height:65vh;overflow:auto;background:var(--bg-secondary);padding:12px;border-radius:8px;font-size:13px;line-height:1.5">' + escapeHtmlClient(content) + '</pre>';
+      }
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
     }
 
     function forceCloseModal() {
