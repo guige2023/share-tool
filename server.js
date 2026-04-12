@@ -2558,7 +2558,7 @@ function renderPage() {
           }
           if (names.length === 0) { showToast('请先选择一个文件', 'error'); return; }
           Promise.all(names.map(function(name) {
-            return fetch('/api/files/' + encodeURIComponent(name) + '/star', { method: 'POST', headers: headers() });
+            return fetch('/api/files/' + encodeURIComponent(name), { method: 'PATCH', headers: { 'Content-Type': 'application/json', ...headers() }, body: JSON.stringify({ starred: true }) });
           })).then(function(results) {
             var successCount = results.filter(function(r) { return r.ok; }).length;
             showToast((successCount > 0 ? '已' : '') + '标记' + successCount + '个文件' + (names.length > successCount ? '（部分失败）' : ''), 'success');
@@ -3167,6 +3167,8 @@ function renderPage() {
         ['Enter', '打开选中文件'],
         ['Space', '选中/取消选中'],
         ['a', '全选文件'],
+        ['s', '星标选中文件'],
+        ['c', '清空选择'],
         ['r', '刷新文件列表'],
         ['?', '显示此帮助'],
         ['Esc', '关闭弹窗/菜单'],
