@@ -514,7 +514,7 @@ function renderPage() {
       /* Touch-friendly: increase tap targets */
       button,.ctx-item{padding:10px 14px}
       /* Hide less-used toolbar buttons on small screens, show via FAB+menu */
-      #advancedSearchBtn,#downloadSelected,#openTagManager,#deleteAllFiles,#trashBtn{display:none}
+      #advancedSearchBtn,#downloadSelected,#openTagManager,#deleteAllFiles,#trashBtn,#installPwaBtn{display:none}
       /* iOS auto-zoom fix: all inputs must be >=16px */
       input,select,textarea{font-size:16px!important}
       /* Mobile: drop zone is the primary upload affordance - make it prominent */
