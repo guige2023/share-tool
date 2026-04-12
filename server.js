@@ -516,7 +516,7 @@ function renderPage() {
     .view-toggle{display:flex;gap:2px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:8px;padding:2px;margin-left:auto}
     .view-toggle button{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;font-size:13px;line-height:1;transition:all .15s}
     .view-toggle button:hover{color:var(--text-primary)}
-    .view-toggle button.active{background:var(--primary);color:#fff}
+    .view-toggle button.active{background:var(--primary);color:var(--text-inverse, #fff)}
     /* Grid view */
     #fileTable,#fileTableGrid{display:table;width:100%;table-layout:fixed}
     #fileTableGrid tbody{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
@@ -658,6 +658,7 @@ function renderPage() {
         <button class="ghost" onclick="openBatchTagModal()">添加标签</button>
         <button class="ghost" onclick="openBatchRemoveTagModal()">移除标签</button>
         <button class="ghost" onclick="openBatchRenameModal()">批量重命名</button>
+        <button class="ghost" onclick="batchDownloadSelected()">📦 下载 ZIP</button>
         <button class="ghost" onclick="batchDeleteSelected()">删除</button>
         <button class="ghost" onclick="clearSelection()">取消选择</button>
       </div>
@@ -1081,6 +1082,32 @@ function renderPage() {
         document.getElementById('viewListBtn').classList.toggle('active', currentView === 'list');
         document.getElementById('viewGridBtn').classList.toggle('active', currentView === 'grid');
       }).catch(function () { showToast('删除失败', 'error'); });
+    }
+
+    async function batchDownloadSelected() {
+      const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      try {
+        showToast('正在打包 ' + names.length + ' 个文件...', '');
+        const resp = await fetch('/api/batch-download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers() },
+          body: JSON.stringify({ filenames: names })
+        });
+        if (!resp.ok) throw new Error('Server error: ' + resp.status);
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'sharetool_batch_' + Date.now() + '.zip';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast('已下载 ' + names.length + ' 个文件', 'success');
+      } catch (e) {
+        showToast('下载失败: ' + e.message, 'error');
+      }
     }
 
     function openBatchTagModal() {
@@ -1801,6 +1828,10 @@ function renderPage() {
         case 'Escape':
           document.getElementById('ctxMenu').style.display = 'none';
           clearNavHighlight();
+          // Close modal if open
+          if (document.getElementById('modal').classList.contains('open')) {
+            forceCloseModal();
+          }
           break;
       }
     }
