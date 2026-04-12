@@ -378,5 +378,40 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // POST /api/file-rename-batch - 批量重命名
+  if (pathname === '/api/file-rename-batch' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    try {
+      const body = await readJsonBody(req);
+      if (!body || !Array.isArray(body.operations)) {
+        sendJson(res, { success: false, error: 'operations array required' }, 400);
+        return true;
+      }
+      if (body.operations.length > 500) {
+        sendJson(res, { success: false, error: '最多支持 500 个文件批量重命名' }, 400);
+        return true;
+      }
+
+      const result = db.batchRenameFiles(body.operations);
+      if (result.errors.length > 0 && result.renamed === 0) {
+        sendJson(res, { success: false, error: '所有重命名均失败', errors: result.errors }, 400);
+        return true;
+      }
+
+      // 记录审计日志
+      db.addAuditLog('batch_rename', `${result.renamed} 个文件重命名`, getClientIp(req), auth.token);
+      sendJson(res, {
+        success: true,
+        renamed: result.renamed,
+        errors: result.errors.length > 0 ? result.errors : undefined
+      });
+    } catch (error) {
+      sendJson(res, { success: false, error: error.message }, 400);
+    }
+    return true;
+  }
+
   return false;
 };

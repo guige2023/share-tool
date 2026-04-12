@@ -971,6 +971,72 @@ function renameFile(oldFilename, newFilename) {
   return { success: true, oldFilename, newFilename, hash: updated ? updated.hash : null };
 }
 
+// 批量重命名
+// pattern 支持: {name} {ext} {n} {n2} {n3} {date}
+function batchRenameFiles(operations) {
+  if (!Array.isArray(operations) || operations.length === 0) {
+    return { renamed: 0, errors: [] };
+  }
+  const results = [];
+  const errors = [];
+  const usedNames = new Set();
+
+  for (let i = 0; i < operations.length; i++) {
+    const { oldFilename, newFilename } = operations[i];
+    if (!validateFilename(oldFilename) || !validateFilename(newFilename)) {
+      errors.push({ oldFilename, error: '无效的文件名' });
+      continue;
+    }
+    // 检查目标名是否已存在（排除自己）
+    if (oldFilename !== newFilename) {
+      const conflict = getFileByName(newFilename);
+      if (conflict) {
+        errors.push({ oldFilename, newFilename, error: '文件名已存在' });
+        continue;
+      }
+      if (usedNames.has(newFilename)) {
+        errors.push({ oldFilename, newFilename, error: '批量内重名冲突' });
+        continue;
+      }
+    }
+    // 执行重命名
+    const existing = getFileByName(oldFilename);
+    if (!existing) {
+      errors.push({ oldFilename, error: '文件不存在' });
+      continue;
+    }
+    const db = getDb();
+    const oldId = existing.id;
+    db.prepare('UPDATE files SET filename = ?, updated_at = unixepoch() WHERE id = ?').run(newFilename, oldId);
+    const updated = getFileByName(newFilename);
+    if (updated) {
+      addSyncLog(updated.id, newFilename, 'rename', updated.hash, null, updated.size);
+    }
+    usedNames.add(newFilename);
+    results.push({ oldFilename, newFilename });
+  }
+
+  return { renamed: results.length, errors };
+}
+
+// 解析重命名 pattern，返回 {base, ext} 给前端预览用
+function parseRenamePattern(pattern, filename, index) {
+  const lastDot = filename.lastIndexOf('.');
+  const base = lastDot > 0 ? filename.slice(0, lastDot) : filename;
+  const ext = lastDot > 0 ? filename.slice(lastDot) : '';
+  const now = new Date();
+  const pad = (n, len) => String(index + 1).padStart(len, '0');
+  const dateStr = now.getFullYear() + String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0');
+
+  return pattern
+    .replace(/\{name\}/g, base)
+    .replace(/\{ext\}/g, ext)
+    .replace(/\{n\}/g, String(index + 1))
+    .replace(/\{n2\}/g, pad(1, 2))
+    .replace(/\{n3\}/g, pad(1, 3))
+    .replace(/\{date\}/g, dateStr);
+}
+
 // 前缀删除（用于虚拟文件夹删除）
 function deleteFilesByPrefix(prefix) {
   const db = getDb();
@@ -2980,7 +3046,7 @@ module.exports = {
   hashPassword, verifyPassword,
   // 文件
   addFile, getFile, getFileByName, toggleStar, listFiles, updateFile, updateFileByName,
-  deleteFile, deleteFileByName, renameFile, deleteOldFiles, deleteAllFiles,
+  deleteFile, deleteFileByName, renameFile, batchRenameFiles, parseRenamePattern, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
   setFilePositions,
   searchFiles, getFilesByHashSince, getFileCount, getTotalStorageSize, getFolderSize, getAllFolderSizes, findDuplicates,

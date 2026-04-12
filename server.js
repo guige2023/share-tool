@@ -626,6 +626,7 @@ function renderPage() {
         <button class="ghost" onclick="toggleInvertSelection()">反选</button>
         <button class="ghost" onclick="openBatchTagModal()">添加标签</button>
         <button class="ghost" onclick="openBatchRemoveTagModal()">移除标签</button>
+        <button class="ghost" onclick="openBatchRenameModal()">批量重命名</button>
         <button class="ghost" onclick="batchDeleteSelected()">删除</button>
         <button class="ghost" onclick="clearSelection()">取消选择</button>
       </div>
@@ -1061,6 +1062,163 @@ function renderPage() {
       const names = checkedNames();
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
       openTagInputModal('remove', names.length);
+    }
+
+    // 批量重命名 modal
+    function openBatchRenameModal() {
+      const names = checkedNames().map(function(n) { return decodeURIComponent(n); });
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+
+      const existingModal = document.getElementById('batchRenameModal');
+      if (existingModal) existingModal.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'batchRenameModal';
+      modal.className = 'modal open';
+      modal.innerHTML = '\
+        <div class="modal-content" style="max-width:600px">\
+          <h3>批量重命名</h3>\
+          <p style="color:var(--muted);font-size:13px;margin-bottom:12px">为 ' + names.length + ' 个文件重命名</p>\
+          <div style="margin-bottom:10px">\
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">重命名规则</label>\
+            <select id="batchRenameType" onchange="updateBatchRenamePreview()" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg)">\
+              <option value="prefix">添加前缀</option>\
+              <option value="suffix">添加后缀</option>\
+              <option value="replace">替换文本</option>\
+              <option value="pattern">使用模式 {name}_{n}</option>\
+            </select>\
+          </div>\
+          <div id="batchRenameFields"></div>\
+          <div style="margin-bottom:12px">\
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">预览</label>\
+            <div id="batchRenamePreview" style="max-height:200px;overflow:auto;background:var(--bg-secondary);border-radius:8px;padding:8px;font-size:12px;font-family:monospace"></div>\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'batchRenameModal\').remove()">取消</button>\
+            <button onclick="confirmBatchRename()">确定重命名</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      window._batchRenameFiles = names;
+      updateBatchRenamePreview();
+    }
+
+    function updateBatchRenamePreview() {
+      const type = document.getElementById('batchRenameType').value;
+      const fields = document.getElementById('batchRenameFields');
+      const preview = document.getElementById('batchRenamePreview');
+      const names = window._batchRenameFiles || [];
+
+      let html = '';
+      if (type === 'prefix') {
+        fields.innerHTML = '<input id="batchRenamePrefix" type="text" placeholder="输入前缀" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()">';
+        const prefix = document.getElementById('batchRenamePrefix').value;
+        names.forEach(function(n) { html += '<div>' + escapeHtmlClient(prefix + n) + '</div>'; });
+      } else if (type === 'suffix') {
+        fields.innerHTML = '<input id="batchRenameSuffix" type="text" placeholder="输入后缀（不含扩展名）" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()">';
+        const suffix = document.getElementById('batchRenameSuffix').value;
+        names.forEach(function(n) {
+          const lastDot = n.lastIndexOf('.');
+          const base = lastDot > 0 ? n.slice(0, lastDot) : n;
+          const ext = lastDot > 0 ? n.slice(lastDot) : '';
+          html += '<div>' + escapeHtmlClient(base + suffix + ext) + '</div>';
+        });
+      } else if (type === 'replace') {
+        fields.innerHTML = '<input id="batchRenameFrom" type="text" placeholder="要替换的文本" style="width:48%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-right:4px" oninput="updateBatchRenamePreview()"><input id="batchRenameTo" type="text" placeholder="替换为" style="width:48%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()">';
+        const from = (document.getElementById('batchRenameFrom') || {value:''}).value;
+        const to = (document.getElementById('batchRenameTo') || {value:''}).value;
+        names.forEach(function(n) { html += '<div>' + escapeHtmlClient(from ? n.replace(from, to) : n) + '</div>'; });
+      } else if (type === 'pattern') {
+        fields.innerHTML = '<input id="batchRenamePattern" type="text" placeholder="{name}_{n}，支持 {name} {ext} {n} {n2} {n3} {date}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()">';
+        const pattern = (document.getElementById('batchRenamePattern') || {value:'{name}_{n}'}).value || '{name}_{n}';
+        names.forEach(function(n, i) {
+          const lastDot = n.lastIndexOf('.');
+          const base = lastDot > 0 ? n.slice(0, lastDot) : n;
+          const ext = lastDot > 0 ? n.slice(lastDot) : '';
+          const pad = function(v, l) { return String(v).padStart(l, '0'); };
+          const now = new Date();
+          const dateStr = now.getFullYear() + pad(now.getMonth()+1,2) + pad(now.getDate(),2);
+          let newName = pattern
+            .replace(/\{name\}/g, base)
+            .replace(/\{ext\}/g, ext)
+            .replace(/\{n\}/g, String(i+1))
+            .replace(/\{n2\}/g, pad(i+1, 2))
+            .replace(/\{n3\}/g, pad(i+1, 3))
+            .replace(/\{date\}/g, dateStr);
+          html += '<div>' + escapeHtmlClient(newName) + '</div>';
+        });
+      }
+
+      preview.innerHTML = html;
+    }
+
+    async function confirmBatchRename() {
+      const type = document.getElementById('batchRenameType').value;
+      const names = window._batchRenameFiles || [];
+      const operations = [];
+
+      if (type === 'prefix') {
+        const prefix = document.getElementById('batchRenamePrefix').value;
+        names.forEach(function(n) { operations.push({ oldFilename: n, newFilename: prefix + n }); });
+      } else if (type === 'suffix') {
+        names.forEach(function(n) {
+          const lastDot = n.lastIndexOf('.');
+          const base = lastDot > 0 ? n.slice(0, lastDot) : n;
+          const ext = lastDot > 0 ? n.slice(lastDot) : '';
+          operations.push({ oldFilename: n, newFilename: base + document.getElementById('batchRenameSuffix').value + ext });
+        });
+      } else if (type === 'replace') {
+        const from = document.getElementById('batchRenameFrom').value;
+        const to = document.getElementById('batchRenameTo').value;
+        names.forEach(function(n) { operations.push({ oldFilename: n, newFilename: n.replace(from, to) }); });
+      } else if (type === 'pattern') {
+        const pattern = document.getElementById('batchRenamePattern').value || '{name}_{n}';
+        names.forEach(function(n, i) {
+          const lastDot = n.lastIndexOf('.');
+          const base = lastDot > 0 ? n.slice(0, lastDot) : n;
+          const ext = lastDot > 0 ? n.slice(lastDot) : '';
+          const pad = function(v, l) { return String(v).padStart(l, '0'); };
+          const now = new Date();
+          const dateStr = now.getFullYear() + pad(now.getMonth()+1,2) + pad(now.getDate(),2);
+          const newName = pattern
+            .replace(/\{name\}/g, base)
+            .replace(/\{ext\}/g, ext)
+            .replace(/\{n\}/g, String(i+1))
+            .replace(/\{n2\}/g, pad(i+1, 2))
+            .replace(/\{n3\}/g, pad(i+1, 3))
+            .replace(/\{date\}/g, dateStr);
+          operations.push({ oldFilename: n, newFilename: newName });
+        });
+      }
+
+      // 过滤无变化的
+      const toRename = operations.filter(function(op) { return op.oldFilename !== op.newFilename; });
+      if (toRename.length === 0) {
+        showToast('没有需要重命名的文件', 'info');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/file-rename-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...Object.fromEntries(Object.entries(headers())) },
+          body: JSON.stringify({ operations: toRename })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('已重命名 ' + data.renamed + ' 个文件', 'success');
+          if (data.errors && data.errors.length) {
+            showToast(data.errors.length + ' 个文件重命名失败', 'error');
+          }
+          document.getElementById('batchRenameModal').remove();
+          clearSelection();
+          loadFiles();
+        } else {
+          showToast(data.error || '重命名失败', 'error');
+        }
+      } catch(e) {
+        showToast('重命名失败: ' + e.message, 'error');
+      }
     }
 
     function openTagInputModal(action, fileCount) {
