@@ -2545,6 +2545,35 @@ function renderPage() {
           loadFiles();
           break;
         }
+        case 's':
+        case 'S': {
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          // Toggle star on currently navigated or last-selected file
+          var names = checkedNames();
+          if (names.length === 0 && keyboardNavIndex >= 0) {
+            var item = getFileAtIndex(keyboardNavIndex);
+            if (item) names = [item.getAttribute('data-name')];
+          }
+          if (names.length === 0) { showToast('请先选择一个文件', 'error'); return; }
+          Promise.all(names.map(function(name) {
+            return fetch('/api/files/' + encodeURIComponent(name) + '/star', { method: 'POST', headers: headers() });
+          })).then(function(results) {
+            var successCount = results.filter(function(r) { return r.ok; }).length;
+            showToast((successCount > 0 ? '已' : '') + '标记' + successCount + '个文件' + (names.length > successCount ? '（部分失败）' : ''), 'success');
+            loadFiles();
+          }).catch(function() { showToast('操作失败', 'error'); });
+          break;
+        }
+        case 'c':
+        case 'C': {
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          clearSelection();
+          break;
+        }
         case '?': {
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           openKeyboardHelp();
