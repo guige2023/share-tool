@@ -3682,7 +3682,7 @@ function renderPage() {
                 '<div style="color:var(--text-muted)">MIME</div><div style="font-family:monospace;font-size:12px;word-break:break-all">' + escapeHtmlClient(f.contentType || '--') + '</div>' +
                 '<div style="color:var(--text-muted)">MD5</div><div style="font-family:monospace;font-size:12px;word-break:break-all;color:var(--text-muted)">' + escapeHtmlClient(f.hash || '--') + '</div>' +
                 '<div style="color:var(--text-muted)">加密</div><div>' + (f.encrypted ? '🔒 是' : '否') + '</div>' +
-                '<div style="color:var(--text-muted)">收藏</div><div>' + (f.starred ? '⭐ 是' : '否') + '</div>' +
+                '<div style="color:var(--text-muted)">收藏</div><div><button id="infoStarBtn" onclick="toggleFileStarred(\'' + escapeHtmlClient(f.name).replace(/'/g, "\\'") + '\', ' + !f.starred + ')" style="background:' + (f.starred ? 'var(--accent)' : 'var(--bg-tertiary)') + ';border:none;border-radius:6px;padding:2px 10px;font-size:12px;cursor:pointer;color:' + (f.starred ? '#fff' : 'var(--text)') + '">' + (f.starred ? '⭐ 已收藏' : '☆ 收藏') + '</button></div>' +
               '</div>' +
             '</div>' +
             // 时间信息
@@ -3694,10 +3694,24 @@ function renderPage() {
                 '<div style="color:var(--text-muted)">最近访问</div><div style="font-size:12px">' + (s.lastAccess ? fmtTs(s.lastAccess) : '<span style="color:var(--text-muted)">从未</span>') + '</div>' +
               '</div>' +
             '</div>' +
-            // 标签
+            // 标签（可编辑）
             '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
-              '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">标签</div>' +
-              '<div>' + tagsHtml + '</div>' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+                '<div style="font-size:12px;color:var(--text-muted)">标签</div>' +
+                '<button onclick="editInfoPanelTags()" style="background:var(--accent);border:none;border-radius:6px;padding:2px 10px;font-size:11px;cursor:pointer;color:#fff">✏️ 编辑</button>' +
+              '</div>' +
+              '<div id="infoTagsDisplay">' + tagsHtml + '</div>' +
+              '<div id="infoTagsEdit" style="display:none">' +
+                '<input id="infoTagsInput" type="text" value="' + escapeHtmlClient(f.tags || '') + '" ' +
+                  'placeholder="输入标签，用逗号分隔" ' +
+                  'style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;margin-bottom:6px"> ' +
+                '<div style="display:flex;gap:6px">' +
+                  '<button onclick="saveInfoPanelTags(\'' + escapeHtmlClient(f.name).replace(/'/g, "\\'") + '\')" ' +
+                    'style="background:var(--accent);border:none;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;color:#fff">保存</button>' +
+                  '<button onclick="cancelInfoPanelTags()" ' +
+                    'style="background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer">取消</button>' +
+                '</div>' +
+              '</div>' +
             '</div>' +
             // 访问统计
             '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
@@ -3716,6 +3730,59 @@ function renderPage() {
           '</div>';
       } catch (e) {
         modalBody.innerHTML = '<p style="color:var(--danger);padding:20px;text-align:center">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
+
+    function editInfoPanelTags() {
+      document.getElementById('infoTagsDisplay').style.display = 'none';
+      document.getElementById('infoTagsEdit').style.display = 'block';
+      const input = document.getElementById('infoTagsInput');
+      input.focus();
+      input.select();
+    }
+
+    async function saveInfoPanelTags(filename) {
+      const newTags = document.getElementById('infoTagsInput').value.trim();
+      try {
+        const res = await fetch('/api/files/' + encodeURIComponent(filename), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...headers() },
+          body: JSON.stringify({ tags: newTags })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('标签已保存', 'success');
+          // Refresh the panel
+          showFileInfo(filename);
+          if (typeof refreshTags === 'function') refreshTags();
+        } else {
+          showToast('保存失败: ' + (data.error || ''), 'error');
+        }
+      } catch (e) {
+        showToast('保存失败: ' + e.message, 'error');
+      }
+    }
+
+    function cancelInfoPanelTags() {
+      document.getElementById('infoTagsDisplay').style.display = 'block';
+      document.getElementById('infoTagsEdit').style.display = 'none';
+    }
+
+    async function toggleFileStarred(filename, willStar) {
+      try {
+        const res = await fetch('/api/files/' + encodeURIComponent(filename), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...headers() },
+          body: JSON.stringify({ starred: willStar ? 1 : 0 })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(willStar ? '已添加收藏' : '已取消收藏', 'success');
+          showFileInfo(filename);
+          if (typeof loadFiles === 'function') loadFiles();
+        }
+      } catch (e) {
+        showToast('操作失败', 'error');
       }
     }
 
