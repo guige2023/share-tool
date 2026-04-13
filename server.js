@@ -95,11 +95,14 @@ const BASE_URL = `https://${LOCAL_IP}:${HTTPS_PORT}`;
 
 let config = loadConfig();
 let SHARE_TOKEN=process.env.SHARE_TOKEN || config.shareToken || DEFAULT_TOKEN;
+function getShareToken() { return SHARE_TOKEN; }
 
 db.initDatabase();
 db.cleanupExpiredShareLinks();
 
-// Token rotation
+// Token rotation - generates 48-char random token, persists to config
+let RUNTIME_TOKEN = null; // set at runtime when rotating
+function getEffectiveToken() { return RUNTIME_TOKEN || SHARE_TOKEN; }
 function rotateShareToken() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let newTok = '';
@@ -107,10 +110,10 @@ function rotateShareToken() {
   RUNTIME_TOKEN = newTok;
   config.shareToken = newTok;
   saveConfig();
-  global.rotateShareToken = rotateShareToken; // expose for api.js router
-  global.getEffectiveToken = getEffectiveToken;
   return newTok;
 }
+global.rotateShareToken = rotateShareToken;
+global.getEffectiveToken = getEffectiveToken;
 
 function getLocalIp() {
   const nets = os.networkInterfaces();
@@ -5663,6 +5666,7 @@ function renderPage() {
           '<div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">定期更换 Token 可提升安全性。当前 Token: <code id="settingsCurrentToken" style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-size:11px;word-break:break-all"></code></div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
             '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="rotateToken()">🔄 更换 Token</button>' +
+            '<button class="ghost" style="font-size:13px;padding:6px 14px" onclick="openAuditLog()">📋 审计日志</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -5813,6 +5817,70 @@ function renderPage() {
       } catch (e) {
         showToast('更换 Token 失败: ' + e.message, 'error');
       }
+    }
+
+    function openAuditLog() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '审计日志';
+      body.innerHTML = '<div id="auditStats" style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);margin-bottom:12px"><span>总: <b id="auditTotal">-</b></span><span>今日: <b id="auditToday">-</b></span><span>操作类型: <b id="auditTypes">-</b></span></div><div id="auditFilters" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><select id="auditActionFilter" onchange="loadAuditLogs()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px"><option value="">全部操作</option><option value="upload">上传</option><option value="delete">删除</option><option value="share_create">创建分享</option><option value="share_access">访问分享</option><option value="share_delete">删除分享</option><option value="share_update">更新分享</option><option value="token_rotate">更换Token</option><option value="text_update">文本更新</option><option value="rename">重命名</option><option value="batch_delete">批量删除</option></select><button onclick="exportAuditCSV()" style="font-size:12px;padding:5px 12px" class="secondary">导出 CSV</button></div><div id="auditLogs" style="max-height:400px;overflow-y:auto;font-size:12px"></div>';
+      modal.classList.add('open');
+      loadAuditStats();
+      loadAuditLogs();
+    }
+
+    async function loadAuditStats() {
+      try {
+        var data = await request('/api/audit/logs?limit=1&offset=0');
+        if (data.stats) {
+          var totalEl = document.getElementById('auditTotal');
+          var todayEl = document.getElementById('auditToday');
+          var typesEl = document.getElementById('auditTypes');
+          if (totalEl) totalEl.textContent = data.stats.total || 0;
+          if (todayEl) todayEl.textContent = data.stats.todayCount || 0;
+          if (typesEl) {
+            var byAction = data.stats.byAction || [];
+            typesEl.textContent = byAction.slice(0, 5).map(function(a) { return a.action + '(' + a.count + ')'; }).join(', ');
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function loadAuditLogs() {
+      var action = document.getElementById('auditActionFilter') && document.getElementById('auditActionFilter').value;
+      var url = '/api/audit/logs?limit=200&offset=0' + (action ? '&action=' + encodeURIComponent(action) : '');
+      try {
+        var data = await request(url);
+        var logs = data.logs || [];
+        var container = document.getElementById('auditLogs');
+        if (!container) return;
+        if (logs.length === 0) {
+          container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">暂无日志</div>';
+          return;
+        }
+        var html = '<table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr style="border-bottom:1px solid var(--line);color:var(--muted)"><th style="text-align:left;padding:4px 6px">时间</th><th style="text-align:left;padding:4px 6px">操作</th><th style="text-align:left;padding:4px 6px">详情</th><th style="text-align:left;padding:4px 6px">IP</th></tr></thead><tbody>';
+        logs.forEach(function(log) {
+          var time = new Date(log.timestamp).toLocaleString('zh-CN', { hour12: false });
+          var action = escapeHtmlClient(log.action || '');
+          var details = escapeHtmlClient(log.details || '-');
+          var ip = escapeHtmlClient(log.ip || '-');
+          var actionColors = { upload: '#10b981', delete: '#ef4444', share_create: '#3b82f6', share_access: '#8b5cf6', token_rotate: '#f59e0b' };
+          var actionColor = actionColors[action] || 'var(--text-secondary)';
+          html += '<tr style="border-bottom:1px solid var(--line)"><td style="padding:4px 6px;color:var(--muted);white-space:nowrap">' + time + '</td><td style="padding:4px 6px;font-weight:500;color:' + actionColor + '">' + action + '</td><td style="padding:4px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + details + '">' + details + '</td><td style="padding:4px 6px;color:var(--muted)">' + ip + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch (e) {
+        var c = document.getElementById('auditLogs');
+        if (c) c.innerHTML = '<div style="color:#ef4444;padding:10px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
+    }
+
+    function exportAuditCSV() {
+      var action = document.getElementById('auditActionFilter') && document.getElementById('auditActionFilter').value;
+      var url = '/api/audit/export' + (action ? '?action=' + encodeURIComponent(action) : '');
+      window.open(url, '_blank');
     }
 
     function openKeyboardHelp() {
@@ -8613,6 +8681,7 @@ async function requestHandler(req, res) {
     VERSION,
     BASE_URL,
     SHARE_TOKEN,
+    getShareToken,
     config,
     db,
     archiver,
@@ -8631,7 +8700,8 @@ async function requestHandler(req, res) {
     validateShareCode,
     maxUploadBytes,
     saveConfig,
-    rotateShareToken
+    rotateShareToken,
+    getEffectiveToken
   };
 
   try {

@@ -19,11 +19,10 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
   if (pathname === '/api/health' && method === 'GET') {
     const uptime = Math.floor(process.uptime());
     const mem = process.memoryUsage();
-    const effective = typeof getEffectiveToken === 'function' ? getEffectiveToken() : SHARE_TOKEN;
     sendJson(res, {
       status: 'ok',
       version: VERSION,
-      token: effective,
+      token: getShareToken(),
       uptime,
       memory: {
         rss: Math.round(mem.rss / 1024 / 1024),
@@ -40,6 +39,17 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const newToken = rotateShareToken();
     addAuditLog('token_rotate', null, getClientIp(req));
     sendJson(res, { success: true, token: newToken });
+    return true;
+  }
+
+  // ── WebSocket Token ──────────────────────────────────────────────
+  // GET /api/ws-token - get a short-lived WebSocket connection token
+  if (pathname === '/api/ws-token' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    // Use getShareToken() to always get the current (possibly rotated) token
+    const wsToken = getShareToken();
+    sendJson(res, { success: true, token: wsToken });
     return true;
   }
 
