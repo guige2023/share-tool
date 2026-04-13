@@ -5021,6 +5021,25 @@ function renderPage() {
       modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
       document.getElementById('modal').classList.add('open');
 
+      function setPreviewActions(filename) {
+        var previewModal = document.getElementById('modal');
+        if (!previewModal) return;
+        var actions = previewModal.querySelector('.modal-actions');
+        if (!actions) return;
+        var i18n = typeof langDict !== 'undefined' ? langDict : {};
+        var closeL = i18n['close'] || '关闭';
+        var dlL = i18n['download'] || '下载';
+        var shareL = i18n['share'] || '分享';
+        var renameL = '重命名';
+        var copyPathL = '复制路径';
+        actions.innerHTML =
+          '<button class="secondary" onclick="forceCloseModal()">' + closeL + '</button>' +
+          '<button class="secondary" onclick="startInlineRename(\'' + filename.replace(/'/g, "\\'") + '\');forceCloseModal()">' + renameL + '</button>' +
+          '<button class="secondary" onclick="createShare(' + JSON.stringify(filename) + ');forceCloseModal()">' + shareL + '</button>' +
+          '<button class="secondary" onclick="copyFilePath(\'' + filename.replace(/'/g, "\\'") + '\')">' + copyPathL + '</button>' +
+          '<button class="primary" onclick="downloadFile(' + JSON.stringify(filename) + ')">' + dlL + '</button>';
+      }
+
       // Track gallery position when opening preview
       openGalleryAt(filename);
 
@@ -5072,8 +5091,10 @@ function renderPage() {
         var nextBtn = galTotal > 1 ? '<button onclick="navigateGallery(1)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);border:none;color:#fff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)" title="下一张 (→)">›</button>' : '';
         var counter = galTotal > 1 ? '<div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;backdrop-filter:blur(4px)">' + galIdx + ' / ' + galTotal + '</div>' : '';
         modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in;position:relative" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\', ' + JSON.stringify(filename) + ')">' + prevBtn + nextBtn + counter + '<img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大 · ' + formatBytes(file.size || 0) + '</div>';
+        setPreviewActions(filename);
       } else if (file.mime === 'application/pdf') {
         modalBody.innerHTML = '<iframe src="data:application/pdf;base64,' + file.content + '" style="width:100%;height:70vh;border:none;border-radius:8px" title="PDF预览"></iframe>';
+        setPreviewActions(filename);
       } else if (file.mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         modalBody.innerHTML = '<div id="docxPreview" style="max-height:70vh;overflow:auto;padding:16px;background:#fff;color:#222;border-radius:8px"><div style="text-align:center;color:var(--text-muted);padding:40px">正在加载文档...</div></div>';
         try {
