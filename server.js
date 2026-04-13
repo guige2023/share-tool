@@ -1701,6 +1701,8 @@ function renderPage() {
       openTagInputModal('remove', names.length);
     }
 
+    function getCurrentFolder() { return ''; } // ShareTool uses flat structure, no real folders
+
     // 新建文件夹 modal
     function openNewFolderModal() {
       var current = getCurrentFolder();
