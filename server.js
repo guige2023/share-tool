@@ -3170,18 +3170,22 @@ function renderPage() {
           if (e.ctrlKey || e.metaKey || e.altKey) return;
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
-          // Toggle star on currently navigated or last-selected file
+          // Toggle star on selected files (or navigated file if none selected)
           var names = checkedNames();
           if (names.length === 0 && keyboardNavIndex >= 0) {
             var item = getFileAtIndex(keyboardNavIndex);
             if (item) names = [item.getAttribute('data-name')];
           }
           if (names.length === 0) { showToast('请先选择一个文件', 'error'); return; }
+          // Check current star state to decide toggle direction
+          var file = currentFiles.find(function(f) { return f.name === names[0]; });
+          var newStarred = !file || !file.starred; // toggle: unstar if starred, star if not
           Promise.all(names.map(function(name) {
-            return fetch('/api/files/' + encodeURIComponent(name), { method: 'PATCH', headers: { 'Content-Type': 'application/json', ...headers() }, body: JSON.stringify({ starred: true }) });
+            return fetch('/api/files/' + encodeURIComponent(name), { method: 'PATCH', headers: { 'Content-Type': 'application/json', ...headers() }, body: JSON.stringify({ starred: newStarred }) });
           })).then(function(results) {
             var successCount = results.filter(function(r) { return r.ok; }).length;
-            showToast((successCount > 0 ? '已' : '') + '标记' + successCount + '个文件' + (names.length > successCount ? '（部分失败）' : ''), 'success');
+            var action = newStarred ? '标记' : '取消标记';
+            showToast((successCount > 0 ? '已' : '') + action + successCount + '个文件', 'success');
             loadFiles();
           }).catch(function() { showToast('操作失败', 'error'); });
           break;
@@ -3249,6 +3253,25 @@ function renderPage() {
           e.preventDefault();
           applyNavHighlight(0);
           window.scrollTo({ top: 0, behavior: 'smooth' });
+          break;
+        }
+        case 'G': {
+          // G (shift+g): go to bottom
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          var totalFiles = currentFiles.length;
+          if (totalFiles > 0) {
+            applyNavHighlight(totalFiles - 1);
+            var lastItem = getFileAtIndex(totalFiles - 1);
+            if (lastItem) lastItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          break;
+        }
+        case '?': {
+          // ?: show keyboard shortcuts help
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          openKeyboardHelp();
           break;
         }
         case 'd': {
@@ -4039,6 +4062,7 @@ function renderPage() {
         ['↑ ↓ ← →', '导航文件'],
         ['j / k', 'vim 风格下/上导航'],
         ['g', '跳转至顶部'],
+        ['Shift+G', '跳转至底部'],
         ['/', '聚焦搜索框'],
         ['Enter', '打开选中文件'],
         ['Space', '选中/取消选中'],
