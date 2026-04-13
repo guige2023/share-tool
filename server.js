@@ -3914,15 +3914,26 @@ function renderPage() {
               nameSpan.textContent = newName;
               nameSpan.style.display = '';
               if (renameBtn) renameBtn.style.display = '';
-              // Update data-filename on row/item
+              // Update filename in the specific row/item (no full reload = preserves scroll)
               var row = document.querySelector('[data-filename="' + encodeURIComponent(original) + '"]');
-              if (row) row.setAttribute('data-filename', encodeURIComponent(newName));
-              // Update checkbox value
-              var cb = row ? row.querySelector('input[type="checkbox"]') : null;
-              if (cb) cb.value = encodeURIComponent(newName);
+              if (row) {
+                row.setAttribute('data-filename', encodeURIComponent(newName));
+                var cb = row.querySelector('input[type="checkbox"]');
+                if (cb) cb.value = encodeURIComponent(newName);
+                var nameCell = row.querySelector('.filename-cell');
+                if (nameCell) {
+                  nameCell.setAttribute('data-filename', encodeURIComponent(newName));
+                  var textSpan = nameCell.querySelector('.filename-text');
+                  if (textSpan) textSpan.textContent = newName;
+                } else {
+                  var nameDiv = row.querySelector('.file-name');
+                  if (nameDiv) {
+                    var textSpan = nameDiv.querySelector('span') || nameDiv;
+                    textSpan.textContent = newName;
+                  }
+                }
+              }
               showToast('已重命名为: ' + newName, 'success');
-              // Reload to refresh list
-              loadFiles();
             } else {
               showToast(data.error || '重命名失败', 'error');
               nameSpan.style.display = '';
