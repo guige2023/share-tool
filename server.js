@@ -1025,6 +1025,7 @@ function renderPage() {
             <option value="upload">上传</option>
             <option value="delete">删除</option>
             <option value="share_create">分享创建</option>
+            <option value="share_update">分享更新</option>
             <option value="share_access">分享访问</option>
             <option value="share_delete">分享删除</option>
             <option value="rename">重命名</option>
@@ -5887,24 +5888,6 @@ function renderPage() {
         '</tr>';
       }).join('');
     }
-        return '<tr>' +
-          '<td><input type="checkbox" class="share-check" value="' + encodeURIComponent(share.code) + '" onchange="updateShareBatchBar()"></td>' +
-          '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
-          '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank">' + escapeHtmlClient(share.url) + '</a></td>' +
-          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
-          '<td data-label="信息">' +
-            '<div>到期: ' + expireText + '</div>' +
-            '<div>访问: ' + (share.viewCount || 0) + '</div>' +
-            '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
-            '<div>' + (share.hasPassword ? '有密码' : '无密码') + '</div>' +
-          '</td>' +
-          '<td class="actions-cell" data-label="操作">' +
-            '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
-            '<button class="danger" onclick=' + "'" + 'deleteShare(' + JSON.stringify(share.code) + ')' + "'" + '>删除</button>' +
-          '</td>' +
-        '</tr>';
-      }).join('');
-    }
 
     async function copyAllShares() {
       if (!currentShares.length) return;
@@ -5922,6 +5905,75 @@ function renderPage() {
       if (!confirm('删除这个分享链接?')) return;
       await request('/api/share/delete/' + encodeURIComponent(code), { method: 'DELETE' });
       await loadShares();
+    }
+
+    async function openShareEditModal(code) {
+      var share = currentShares.find(function(s) { return s.code === code; });
+      if (!share) return;
+      var modal = document.createElement('div');
+      modal.id = 'shareEditModal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+      var currentExpiry = share.expiresAt ? new Date(share.expiresAt).toISOString().slice(0, 16) : '';
+      var maxDl = share.maxDownloads || '';
+      modal.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:420px;font-size:14px;max-height:90vh;overflow-y:auto">\
+          <h3 style="margin:0 0 20px">编辑分享链接</h3>\
+          <p style="margin:0 0 6px;font-size:12px;color:var(--muted);word-break:break-all"><strong>文件:</strong> ' + escapeHtmlClient(share.filename) + '</p>\
+          <p style="margin:0 0 16px;font-size:12px;color:var(--muted)"><strong>链接:</strong> ' + escapeHtmlClient(share.url || '') + '</p>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">到期时间</label>\
+            <input id="editShareExpiry" type="datetime-local" value="' + currentExpiry + '" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">留空表示永不过期</div>\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">下载次数限制</label>\
+            <input id="editShareMaxDl" type="number" min="0" placeholder="不限制" value="' + maxDl + '" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:16px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">密码保护</label>\
+            <input id="editSharePwd" type="text" placeholder="留空则不设置密码" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+            ' + (share.hasPassword ? '<div style="font-size:11px;color:var(--muted);margin-top:3px">当前已设置密码，如需修改请填写新密码</div>' : '') + '\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'shareEditModal\').remove()">取消</button>\
+            <button onclick="confirmShareEdit(\'' + code + '\')" id="shareEditBtn">保存</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+    }
+
+    async function confirmShareEdit(code) {
+      var btn = document.getElementById('shareEditBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+      try {
+        var expiryInput = document.getElementById('editShareExpiry').value;
+        var maxDlInput = document.getElementById('editShareMaxDl').value;
+        var pwdInput = document.getElementById('editSharePwd').value.trim();
+        var updates = {};
+        if (expiryInput) {
+          updates.expiresAt = new Date(expiryInput).getTime();
+        } else {
+          // Check if field was cleared (empty string means "never expire")
+          var share = currentShares.find(function(s) { return s.code === code; });
+          updates.expiresAt = expiryInput === '' ? (share.expiresAt ? 0 : null) : null;
+        }
+        updates.maxDownloads = maxDlInput ? parseInt(maxDlInput, 10) : 0;
+        updates.password = pwdInput || null;
+        var result = await request('/api/share/update/' + encodeURIComponent(code), {
+          method: 'PUT',
+          body: JSON.stringify(updates)
+        });
+        if (result && result.success) {
+          showToast('分享链接已更新', 'success');
+          document.getElementById('shareEditModal').remove();
+          await loadShares();
+        } else {
+          showToast((result && result.error) || '更新失败', 'error');
+        }
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '保存'; }
+      }
     }
 
     function toggleShareSelectAll(checked) {
