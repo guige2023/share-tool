@@ -3147,6 +3147,7 @@ function renderPage() {
           '<button class="mobile-more-btn" onclick=' + "'" + 'showMobileMenu(' + JSON.stringify(file.name) + ', event)' + "'" + ' title="更多操作" style="display:none">⋮</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
+          '<button class="btn secondary" onclick=' + "'" + 'copyShareLink(' + JSON.stringify(file.name) + ')' + "'" + '>复制链接</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
           '<button class="btn danger" onclick=' + "'" + 'deleteFile(' + JSON.stringify(file.name) + ')' + "'" + '>删除</button>' +
         '</div>' +
@@ -4682,8 +4683,11 @@ function renderPage() {
       if (previewModal) {
         var actions = previewModal.querySelector('.modal-actions');
         if (actions) {
-          actions.innerHTML = '<button class="secondary" onclick="forceCloseModal()">' + (i18n.cancel || '关闭') + '</button>' +
-            '<button class="primary" onclick="downloadFile(' + JSON.stringify(filename) + ')">' + (i18n.download || '下载') + '</button>';
+          // Use langDict (client-side i18n) — consistent with setLanguage/i18n API
+          var closeLabel = (typeof langDict !== 'undefined' && langDict['close']) ? langDict['close'] : '关闭';
+          var dlLabel = (typeof langDict !== 'undefined' && langDict['download']) ? langDict['download'] : '下载';
+          actions.innerHTML = '<button class="secondary" onclick="forceCloseModal()">' + closeLabel + '</button>' +
+            '<button class="primary" onclick="downloadFile(' + JSON.stringify(filename) + ')">' + dlLabel + '</button>';
         }
       }
     }
