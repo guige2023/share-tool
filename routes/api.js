@@ -867,6 +867,98 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Request Links (文件收集链接) ───────────────────────────────────────────
+  // POST /api/request-links - create a new request link
+  if (pathname === '/api/request-links' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    if (!body.name) {
+      sendJson(res, { success: false, error: 'name is required' }, 400);
+      return true;
+    }
+    const opts = {
+      name: body.name,
+      targetFolder: body.target_folder || '',
+      password: body.password || null,
+      maxUploads: body.max_uploads || null,
+      expiresInDays: body.expires_in_days || null,
+      createdBy: body.created_by || null,
+    };
+    const row = db.createRequestLink(opts);
+    sendJson(res, { success: true, request_link: row }, 201);
+    return true;
+  }
+
+  // GET /api/request-links - list request links
+  if (pathname === '/api/request-links' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const createdBy = query.get('created_by') || null;
+    const rows = db.listRequestLinks(createdBy);
+    sendJson(res, { success: true, request_links: rows });
+    return true;
+  }
+
+  // GET /api/request-links/:code - get a request link by code (public, no auth)
+  if (pathname.startsWith('/api/request-links/') && method === 'GET' && pathname.split('/').length === 4) {
+    const code = pathname.split('/')[3];
+    // No auth required for public request links
+    const row = db.getRequestLink(code);
+    if (!row) {
+      sendJson(res, { success: false, error: 'Not found' }, 404);
+      return true;
+    }
+    sendJson(res, { success: true, request_link: row });
+    return true;
+  }
+
+  // POST /api/request-links/:code/verify - verify password (public)
+  if (pathname.match(/^\/api\/request-links\/[^/]+\/verify$/) && method === 'POST') {
+    const code = pathname.split('/')[3];
+    const body = await readJsonBody(req);
+    const valid = db.verifyRequestLinkPassword(code, body.password || '');
+    if (!valid) {
+      sendJson(res, { success: false, error: 'Invalid password' }, 401);
+      return true;
+    }
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // POST /api/request-links/:code/upload - record an upload (public)
+  if (pathname.match(/^\/api\/request-links\/[^/]+\/upload$/) && method === 'POST') {
+    const code = pathname.split('/')[3];
+    const row = db.incrementRequestLinkUpload(code);
+    sendJson(res, { success: true, upload_count: row.upload_count });
+    return true;
+  }
+
+  // PUT /api/request-links/:code/active - toggle active status
+  if (pathname.match(/^\/api\/request-links\/[^/]+\/active$/) && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const code = pathname.split('/')[3];
+    const body = await readJsonBody(req);
+    if (typeof body.active !== 'boolean') {
+      sendJson(res, { success: false, error: 'active (boolean) is required' }, 400);
+      return true;
+    }
+    db.toggleRequestLinkActive(code, body.active);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // DELETE /api/request-links/:code - delete a request link
+  if (pathname.match(/^\/api\/request-links\/[^/]+$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const code = pathname.split('/')[3];
+    db.deleteRequestLink(code);
+    sendJson(res, { success: true });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {
