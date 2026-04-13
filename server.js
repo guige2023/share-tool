@@ -3459,6 +3459,19 @@ function renderPage() {
           }
           break;
         }
+        case 'Y': {
+          // Shift+Y: copy full file path
+          if (!e.shiftKey) break;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          var names = getSelectedFiles();
+          if (names.length === 1) {
+            e.preventDefault();
+            navigator.clipboard.writeText('/' + names[0]).then(function() {
+              showToast('已复制文件路径: /' + names[0], 'success');
+            }).catch(function() { showToast('复制失败', 'error'); });
+          }
+          break;
+        }
         case 'j': {
           // j: vim-style down
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
@@ -4739,6 +4752,7 @@ function renderPage() {
         ['l', '复制链接'],
         ['t', '回收站'],
         ['y', '复制文件名'],
+        ['Shift+Y', '复制文件路径'],
         ['Del', '删除选中'],
         ['Shift+N', '新建文件夹'],
         ['d', '删除选中'],
@@ -6060,14 +6074,18 @@ function renderPage() {
           ['n', '新建文本文件'],
           ['Ctrl+V', '粘贴图片/文件上传'],
           ['Enter', '打开/预览文件'],
+          ['j/k', 'vim导航'],
           ['d', '删除选中文件'],
           ['i', '显示文件属性'],
           ['c', '复制分享链接'],
+          ['y', '复制文件名'],
           ['s', '切换排序方向'],
           ['Ctrl+A', '全选文件'],
           ['Ctrl+K', '聚焦搜索框'],
           ['Ctrl+,', '打开设置'],
           ['Ctrl+Enter', '上传/保存'],
+          ['Space', '选择/取消'],
+          ['v', '切换视图'],
           ['Esc', '关闭弹窗/取消选择'],
         ];
         div.innerHTML = '<div style="font-weight:600;margin-bottom:10px;font-size:13px">⌨ 快捷键</div>' +
