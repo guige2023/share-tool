@@ -310,6 +310,58 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // GET /api/file-info/:filename - 获取文件完整属性和访问统计
+  if (pathname.startsWith('/api/file-info/') && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    const filename = decodeURIComponent(pathname.slice('/api/file-info/'.length));
+    const file = db.getFileByName(filename);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+
+    // 获取访问统计
+    const stats = db.getMostAccessedFiles(5, Math.floor(Date.now() / 1000) - 7 * 24 * 60 * 60);
+    const fileStats = stats.find(s => s.filename === filename) || { access_count: 0, view_count: 0, download_count: 0, last_access: null };
+    const recentAccess = db.getFileAccessLog(file.id, 10);
+
+    // 获取版本历史数量
+    const versionCount = db.prepare('SELECT COUNT(*) as count FROM file_versions WHERE file_id = ?').get(file.id).count;
+
+    sendJson(res, {
+      success: true,
+      file: {
+        id: file.id,
+        name: file.filename,
+        type: file.type,
+        size: file.size,
+        hash: file.hash,
+        tags: file.tags,
+        encrypted: !!file.encrypted,
+        starred: !!file.starred,
+        contentType: file.content_type || guessMimeType(file.filename),
+        createdAt: file.created_at * 1000,
+        updatedAt: file.updated_at * 1000,
+        position: file.position
+      },
+      stats: {
+        accessCount: fileStats.access_count || 0,
+        viewCount: fileStats.view_count || 0,
+        downloadCount: fileStats.download_count || 0,
+        lastAccess: fileStats.last_access ? fileStats.last_access * 1000 : null,
+        recentAccess: recentAccess.map(r => ({
+          action: r.action,
+          ip: r.ip,
+          timestamp: r.timestamp * 1000
+        })),
+        versionCount
+      }
+    });
+    return true;
+  }
+
   // PATCH /api/files/:filename - 更新文件标签/星标等元数据
   if (pathname.startsWith('/api/files/') && method === 'PATCH') {
     const auth = authRequired(req, res);

@@ -745,6 +745,7 @@ function renderPage() {
     <div class="ctx-item" onclick="ctxAction('copyName')">📝 复制文件名</div>
     <div class="ctx-item" onclick="ctxAction('copyPath')">📂 复制文件路径</div>
     <div class="ctx-item" onclick="ctxAction('history')">📜 版本历史</div>
+    <div class="ctx-item" onclick="ctxAction('info')">ℹ️ 文件属性</div>
     <div class="ctx-item" onclick="ctxAction('addToVF')">⭐ 添加到收藏夹</div>
     <div class="ctx-sep"></div>
     <div class="ctx-item" onclick="ctxAction('rename')">✎ 重命名</div>
@@ -1637,7 +1638,7 @@ function renderPage() {
     function openBatchMoveModal() {
       var names = checkedNames();
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
-      var folder = prompt('输入目标文件夹路径（如 backups），为空则移至根目录：', '');
+      var folder = prompt('输入目标文件夹前缀（如 backups），文件将重命名为「前缀_原名」：', '');
       if (folder === null) return;
       folder = folder.trim();
       // Strip leading slash to satisfy validateFilename (no absolute paths)
@@ -1649,7 +1650,7 @@ function renderPage() {
       var moved = 0, failed = 0;
       for (var i = 0; i < names.length; i++) {
         var oldPath = names[i];
-        var newPath = (folder ? folder + '/' : '') + oldPath.split('/').pop();
+        var newPath = (folder ? folder + '_' : '') + oldPath.split('/').pop();
         if (oldPath === newPath) continue;
         try {
           var resp = await fetch('/api/file-rename/' + encodeURIComponent(oldPath), {
@@ -3547,6 +3548,7 @@ function renderPage() {
         case 'rename': startInlineRename(filename); break;
         case 'delete': if (confirm('确认删除 ' + filename + '？')) deleteFile(filename); break;
         case 'history': openVersionHistory(filename); break;
+        case 'info': showFileInfo(filename); break;
         case 'addToVF': openAddToVirtualFolder(filename); break;
       }
     }
@@ -3629,6 +3631,91 @@ function renderPage() {
         }
       } catch (e) {
         showToast('恢复失败: ' + e.message, 'error');
+      }
+    }
+
+    async function showFileInfo(filename) {
+      const modalBody = document.getElementById('modalBody');
+      document.getElementById('modalTitle').textContent = '文件属性: ' + escapeHtmlClient(filename);
+      modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
+      document.getElementById('modal').classList.add('open');
+
+      try {
+        const encoded = encodeURIComponent(filename);
+        const res = await fetch('/api/file-info/' + encoded, { headers: headers() });
+        const data = await res.json();
+        if (!data.success || !data.file) {
+          modalBody.innerHTML = '<p style="text-align:center;padding:40px;color:var(--text-muted)">加载失败</p>';
+          return;
+        }
+
+        const f = data.file;
+        const s = data.stats;
+        const fmtSize = formatSize ? formatSize(f.size) : (f.size || 0) + ' B';
+        const fmtDate = ts => ts ? new Date(ts).toLocaleString('zh-CN') : '--';
+        const fmtTs = ts => ts ? new Date(ts).toLocaleString('zh-CN') : '--';
+
+        const tagsHtml = f.tags
+          ? f.tags.split(',').filter(Boolean).map(t => '<span style="background:var(--bg-tertiary);padding:2px 8px;border-radius:6px;font-size:11px;margin:2px;display:inline-block">' + escapeHtmlClient(t) + '</span>').join('')
+          : '<span style="color:var(--text-muted);font-size:12px">无</span>';
+
+        const accessRows = s.recentAccess && s.recentAccess.length
+          ? s.recentAccess.map(a => {
+              const actionLabels = { view: '👁 预览', download: '⬇ 下载' };
+              return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">' +
+                '<span>' + (actionLabels[a.action] || a.action) + '</span>' +
+                '<span style="color:var(--text-muted);font-family:monospace;font-size:10px">' + escapeHtmlClient(a.ip || '--') + '</span>' +
+                '<span style="color:var(--text-muted);font-size:11px">' + fmtDate(a.timestamp) + '</span>' +
+              '</div>';
+            }).join('')
+          : '<div style="color:var(--text-muted);font-size:12px;text-align:center;padding:10px">暂无访问记录</div>';
+
+        modalBody.innerHTML =
+          '<div style="display:grid;gap:16px;font-size:13px">' +
+            // 基本信息
+            '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
+              '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">基本信息</div>' +
+              '<div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center">' +
+                '<div style="color:var(--text-muted)">文件名</div><div style="word-break:break-all;font-weight:500">' + escapeHtmlClient(f.name) + '</div>' +
+                '<div style="color:var(--text-muted)">类型</div><div>' + escapeHtmlClient(f.type || 'file') + '</div>' +
+                '<div style="color:var(--text-muted)">大小</div><div>' + fmtSize + '</div>' +
+                '<div style="color:var(--text-muted)">MIME</div><div style="font-family:monospace;font-size:12px;word-break:break-all">' + escapeHtmlClient(f.contentType || '--') + '</div>' +
+                '<div style="color:var(--text-muted)">MD5</div><div style="font-family:monospace;font-size:12px;word-break:break-all;color:var(--text-muted)">' + escapeHtmlClient(f.hash || '--') + '</div>' +
+                '<div style="color:var(--text-muted)">加密</div><div>' + (f.encrypted ? '🔒 是' : '否') + '</div>' +
+                '<div style="color:var(--text-muted)">收藏</div><div>' + (f.starred ? '⭐ 是' : '否') + '</div>' +
+              '</div>' +
+            '</div>' +
+            // 时间信息
+            '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
+              '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">时间</div>' +
+              '<div style="display:grid;grid-template-columns:80px 1fr;gap:8px">' +
+                '<div style="color:var(--text-muted)">创建</div><div style="font-size:12px">' + fmtTs(f.createdAt) + '</div>' +
+                '<div style="color:var(--text-muted)">修改</div><div style="font-size:12px">' + fmtTs(f.updatedAt) + '</div>' +
+                '<div style="color:var(--text-muted)">最近访问</div><div style="font-size:12px">' + (s.lastAccess ? fmtTs(s.lastAccess) : '<span style="color:var(--text-muted)">从未</span>') + '</div>' +
+              '</div>' +
+            '</div>' +
+            // 标签
+            '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
+              '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">标签</div>' +
+              '<div>' + tagsHtml + '</div>' +
+            '</div>' +
+            // 访问统计
+            '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
+              '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">统计（近7天）</div>' +
+              '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;margin-bottom:12px">' +
+                '<div><div style="font-size:20px;font-weight:600">' + (s.accessCount || 0) + '</div><div style="font-size:11px;color:var(--text-muted)">总访问</div></div>' +
+                '<div><div style="font-size:20px;font-weight:600">' + (s.viewCount || 0) + '</div><div style="font-size:11px;color:var(--text-muted)">预览</div></div>' +
+                '<div><div style="font-size:20px;font-weight:600">' + (s.downloadCount || 0) + '</div><div style="font-size:11px;color:var(--text-muted)">下载</div></div>' +
+              '</div>' +
+              '<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">版本历史: ' + (s.versionCount || 0) + ' 个版本</div>' +
+              '<div style="margin-top:8px">' +
+                '<div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">最近访问</div>' +
+                accessRows +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      } catch (e) {
+        modalBody.innerHTML = '<p style="color:var(--danger);padding:20px;text-align:center">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
       }
     }
 
