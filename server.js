@@ -6269,6 +6269,83 @@ function renderPage() {
       }
     }
 
+    function openRequestLinkEditModal(code) {
+      var rl = currentRequestLinks.find(function(r) { return r.code === code; });
+      if (!rl) return;
+      var modal = document.createElement('div');
+      modal.id = 'requestLinkEditModal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+      var expiresDays = rl.expires_at ? Math.max(1, Math.round((rl.expires_at * 1000 - Date.now()) / 86400000)) : '';
+      modal.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:420px;font-size:14px;max-height:90vh;overflow-y:auto">\
+          <h3 style="margin:0 0 20px">编辑收集链接</h3>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">名称</label>\
+            <input id="rlEditName" type="text" value="' + escapeHtmlClient(rl.name) + '" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">目标文件夹</label>\
+            <input id="rlEditTargetFolder" type="text" value="' + escapeHtmlClient(rl.target_folder || '') + '" placeholder="留空则存根目录" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">密码（留空保持不变）</label>\
+            <input id="rlEditPassword" type="text" placeholder="留空则无需密码" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">最大上传数（0或不填=不限）</label>\
+            <input id="rlEditMaxUploads" type="number" value="' + (rl.max_uploads || '') + '" placeholder="0" min="0" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">过期天数（0或不填=永不过期）</label>\
+            <input id="rlEditExpires" type="number" value="' + expiresDays + '" placeholder="0" min="0" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="closeEditModal()">取消</button>\
+            <button class="primary" id="rlEditSaveBtn" onclick="saveRequestLinkEdit(\'' + escapeHtmlClient(code) + '\')">保存</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeEditModal();
+      });
+    }
+
+    function closeEditModal() {
+      var m = document.getElementById('requestLinkEditModal');
+      if (m) m.remove();
+    }
+
+    async function saveRequestLinkEdit(code) {
+      var name = document.getElementById('rlEditName').value.trim();
+      var target_folder = document.getElementById('rlEditTargetFolder').value.trim();
+      var password = document.getElementById('rlEditPassword').value;
+      var max_uploads = parseInt(document.getElementById('rlEditMaxUploads').value, 10) || null;
+      var expires_days = parseInt(document.getElementById('rlEditExpires').value, 10) || null;
+      if (!name) { showToast('名称不能为空', 'error'); return; }
+      var btn = document.getElementById('rlEditSaveBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+      try {
+        var body = { name: name };
+        if (target_folder !== undefined) body.target_folder = target_folder;
+        if (password !== '') body.password = password || null;
+        if (max_uploads !== null) body.max_uploads = max_uploads;
+        if (expires_days !== null) body.expires_in_days = expires_days;
+        var data = await request('/api/request-links/' + encodeURIComponent(code), {
+          method: 'PUT',
+          body: JSON.stringify(body)
+        });
+        if (data.success) {
+          showToast('保存成功', 'success');
+          closeEditModal();
+          await loadRequestLinks();
+        } else {
+          showToast(data.error || '保存失败', 'error');
+        }
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '保存'; }
+      }
+    }
+
     async function toggleRequestLinkActive(code, active) {
       await request('/api/request-links/' + encodeURIComponent(code) + '/active', {
         method: 'PUT',
