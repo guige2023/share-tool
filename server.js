@@ -2809,10 +2809,15 @@ function renderPage() {
     var ctxTarget = null;
 
     document.addEventListener('contextmenu', function(e) {
-      // Only show for file rows
+      // Only show for file rows (list view tr or grid view .file-item)
       var row = e.target.closest('tr');
-      if (!row) return;
-      var checkbox = row.querySelector('.file-check');
+      var checkbox = null;
+      if (row) {
+        checkbox = row.querySelector('.file-check');
+      } else {
+        var gridItem = e.target.closest('.file-item');
+        if (gridItem) checkbox = gridItem.querySelector('.file-check');
+      }
       if (!checkbox) return;
       e.preventDefault();
       ctxTarget = checkbox.value;
@@ -2854,8 +2859,13 @@ function renderPage() {
     var longPressTimer = null;
     document.addEventListener('touchstart', function(e) {
       var row = e.target.closest('tr');
-      if (!row) return;
-      var checkbox = row.querySelector('.file-check');
+      var checkbox = null;
+      if (row) {
+        checkbox = row.querySelector('.file-check');
+      } else {
+        var gridItem = e.target.closest('.file-item');
+        if (gridItem) checkbox = gridItem.querySelector('.file-check');
+      }
       if (!checkbox) return;
       longPressTimer = setTimeout(function() {
         e.preventDefault();
@@ -3299,7 +3309,7 @@ function renderPage() {
         case 'download': downloadFile(filename); break;
         case 'share': createShare(filename); break;
         case 'copyLink': await copyShareLink(filename); break;
-        case 'rename': renameFile(filename); break;
+        case 'rename': startInlineRename(filename); break;
         case 'delete': if (confirm('确认删除 ' + filename + '？')) deleteFile(filename); break;
         case 'history': openVersionHistory(filename); break;
         case 'addToVF': openAddToVirtualFolder(filename); break;
