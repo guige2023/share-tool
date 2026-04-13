@@ -3433,6 +3433,20 @@ function renderPage() {
           }
           break;
         }
+        case 'i': {
+          // i: show file info panel for selected file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          var names = getSelectedFiles();
+          if (!names.length && keyboardNavIndex >= 0) {
+            var item = getFileAtIndex(keyboardNavIndex);
+            if (item) names = [item.getAttribute('data-name')];
+          }
+          if (names.length === 1) {
+            e.preventDefault();
+            showFileInfo(names[0]);
+          }
+          break;
+        }
         case 'y': {
           // y: yank (copy) filename of selected file to clipboard
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
@@ -6040,6 +6054,7 @@ function renderPage() {
           ['Ctrl+V', '粘贴图片/文件上传'],
           ['Enter', '打开/预览文件'],
           ['d', '删除选中文件'],
+          ['i', '显示文件属性'],
           ['c', '复制分享链接'],
           ['s', '切换排序方向'],
           ['Ctrl+A', '全选文件'],
