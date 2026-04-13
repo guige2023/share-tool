@@ -942,7 +942,8 @@ function renderPage() {
               <th style="width:60px;cursor:pointer;user-select:none" onclick="setSort('position')" title="手动排序，拖拽调整顺序">📌 <span class="sort-arrow" id="arrow-position"></span></th>
               <th style="width:100px;cursor:pointer;user-select:none" onclick="setSort('size')">大小 <span class="sort-arrow" id="arrow-size"></span></th>
               <th style="width:170px;cursor:pointer;user-select:none" onclick="setSort('updated_at')">更新时间 <span class="sort-arrow" id="arrow-updated_at"></span></th>
-              <th style="width:320px">操作</th>
+              <th style="width:140px;cursor:pointer;user-select:none" onclick="setSort('created_at')">创建时间 <span class="sort-arrow" id="arrow-created_at"></span></th>
+              <th style="width:280px">操作</th>
             </tr>
           </thead>
           <tbody id="fileTableBody"></tbody>
@@ -3212,6 +3213,15 @@ function renderPage() {
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
           clearSelection();
+          break;
+        }
+        case 'b':
+        case 'B': {
+          // b: batch download selected files as zip
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          batchDownloadSelected();
           break;
         }
         case 'Delete': {
