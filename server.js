@@ -689,6 +689,9 @@ function renderPage() {
     .fab:active{transform:scale(.96)}
     @media(max-width:600px){.fab{display:flex}}
     [data-theme="dark"] #toast.error{background:#991b1b}
+    .back-to-top{position:fixed;right:20px;bottom:max(88px,calc(20px + env(safe-area-inset-bottom)));width:44px;height:44px;border-radius:50%;background:var(--btn-secondary-bg,#e2e7ee);color:var(--text);border:none;cursor:pointer;font-size:18px;z-index:199;box-shadow:0 2px 8px rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+    .back-to-top.visible{opacity:1;pointer-events:auto}
+    [data-theme="dark"] .back-to-top{background:#334155;color:#f1f5f9}
     /* Pull-to-refresh indicator */
     #pull-indicator{position:fixed;top:0;left:0;right:0;height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;font-size:13px;font-weight:500;z-index:999;transition:height .2s}
     #pull-indicator .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:ptr-spin .8s linear infinite;margin-right:6px}
@@ -7817,10 +7820,11 @@ function renderPage() {
     });
   </script>
   <script>
-    // FAB auto-hide on mobile: hide when scrolling down, show when scrolling up
+    // FAB + back-to-top auto-show/hide on mobile
     (function() {
       var fab = document.querySelector('.fab');
-      if (!fab) return;
+      var btt = document.getElementById('backToTop');
+      if (!fab && !btt) return;
       var lastY = 0;
       var ticking = false;
       window.addEventListener('scroll', function() {
@@ -7828,11 +7832,12 @@ function renderPage() {
           requestAnimationFrame(function() {
             var y = document.documentElement.scrollTop || document.body.scrollTop;
             if (y > lastY && y > 100) {
-              fab.style.opacity = '0';
-              fab.style.pointerEvents = 'none';
+              if (fab) { fab.style.opacity = '0'; fab.style.pointerEvents = 'none'; }
             } else {
-              fab.style.opacity = '';
-              fab.style.pointerEvents = '';
+              if (fab) { fab.style.opacity = ''; fab.style.pointerEvents = ''; }
+            }
+            if (btt) {
+              if (y > 300) { btt.classList.add('visible'); } else { btt.classList.remove('visible'); }
             }
             lastY = y;
             ticking = false;
@@ -8031,6 +8036,8 @@ function renderPage() {
   </script>
     <!-- FAB for mobile: trigger file input -->
     <button class="fab" onclick="document.getElementById('fileInput').click()" title="上传文件">+</button>
+    <!-- Back to top button -->
+    <button id="backToTop" class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部" style="display:none">↑</button>
 
 </body>
 </html>`;
