@@ -1482,10 +1482,11 @@ function renderPage() {
     function openBatchMoveModal() {
       var names = checkedNames();
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
-      var folder = prompt('输入目标文件夹路径（如 /backups），为空则移至根目录：', '');
+      var folder = prompt('输入目标文件夹路径（如 backups），为空则移至根目录：', '');
       if (folder === null) return;
       folder = folder.trim();
-      if (!folder.startsWith('/')) folder = '/' + folder;
+      // Strip leading slash to satisfy validateFilename (no absolute paths)
+      if (folder.startsWith('/')) folder = folder.slice(1);
       batchMoveSelected(names.map(function (n) { return decodeURIComponent(n); }), folder);
     }
 
@@ -1493,18 +1494,18 @@ function renderPage() {
       var moved = 0, failed = 0;
       for (var i = 0; i < names.length; i++) {
         var oldPath = names[i];
-        var newPath = (folder === '/' ? '' : folder) + '/' + oldPath.split('/').pop();
+        var newPath = (folder ? folder + '/' : '') + oldPath.split('/').pop();
         if (oldPath === newPath) continue;
         try {
-          var resp = await fetch('/api/file/move', {
+          var resp = await fetch('/api/file-rename/' + encodeURIComponent(oldPath), {
             method: 'POST', headers: headers(),
-            body: JSON.stringify({ from: oldPath, to: newPath })
+            body: JSON.stringify({ newFilename: newPath })
           });
           if (resp.ok) moved++; else failed++;
         } catch(e) { failed++; }
       }
-      if (moved) { showToast('已移动 ' + moved + ' 个文件' + (failed ? '，' + failed + ' 个失败' : ''), moved > 0 ? 'success' : 'error'); loadFiles(); }
-      else showToast('移动失败', 'error');
+      if (moved || failed) { showToast((moved ? '已移动 ' + moved + ' 个文件' : '') + (failed ? '，' + failed + ' 个失败' : ''), moved > 0 ? 'success' : 'error'); loadFiles(); }
+      else showToast('无文件需要移动', 'info');
     }
 
     async function batchDownloadSelected() {
