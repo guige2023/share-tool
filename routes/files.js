@@ -92,6 +92,9 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const dateToRaw = query.get('date_to') || null;
     const dateFrom = dateFromRaw ? Math.floor(new Date(dateFromRaw + 'T00:00:00Z').getTime() / 1000) : null;
     const dateTo = dateToRaw ? Math.floor(new Date(dateToRaw + 'T23:59:59Z').getTime() / 1000) : null;
+    // size_min/max are in KB from the UI — convert to bytes for comparison with f.size
+    const sizeMinBytes = sizeMin ? parseInt(sizeMin) * 1024 : null;
+    const sizeMaxBytes = sizeMax ? parseInt(sizeMax) * 1024 : null;
     const typeParam = query.get('type') || null;
     // Handle 'starred' as a special type filter; split comma-separated for multi-select
     const typeFilterList = typeParam ? typeParam.split(',').map(t => t.trim()).filter(Boolean) : [];
@@ -107,10 +110,10 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     // 优先使用 FTS5 搜索（更快），fallback 到 LIKE
     let results = db.searchFilesFTS(q, tags, {
       fuzzy: true, limit, offset, tagMatch,
-      size_min: sizeMin ? parseInt(sizeMin) : null,
-      size_max: sizeMax ? parseInt(sizeMax) : null,
-      date_from: dateFrom ? parseInt(dateFrom) : null,
-      date_to: dateTo ? parseInt(dateTo) : null,
+      size_min: sizeMinBytes,
+      size_max: sizeMaxBytes,
+      date_from: dateFrom,
+      date_to: dateTo,
       type: actualTypeFilter,
       starred: starredOnly
     });
@@ -118,10 +121,10 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       // FTS5 不可用，fallback 到 LIKE 搜索
       results = db.searchFiles(q, tags, {
         fuzzy: true, limit: limit + offset, tagMatch,
-        size_min: sizeMin ? parseInt(sizeMin) : null,
-        size_max: sizeMax ? parseInt(sizeMax) : null,
-        date_from: dateFrom ? parseInt(dateFrom) : null,
-        date_to: dateTo ? parseInt(dateTo) : null,
+        size_min: sizeMinBytes,
+        size_max: sizeMaxBytes,
+        date_from: dateFrom,
+        date_to: dateTo,
         type: actualTypeFilter,
         starred: starredOnly
       });
