@@ -2694,7 +2694,7 @@ function renderPage() {
         gridIcon = iconSvg;
       }
 
-      return '<div class="file-item" data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" tabindex="0" draggable="true">' +
+      return '<div class="file-item" data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" tabindex="0" draggable="true" ondblclick="previewFile(' + JSON.stringify(file.name) + ')">' +
         '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()">' +
         '<div class="file-content">' +
           gridIcon +
