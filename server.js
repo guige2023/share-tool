@@ -756,6 +756,15 @@ function renderPage() {
     #mdPreview table{border-collapse:collapse;width:100%}
     #mdPreview td,#mdPreview th{border:1px solid var(--line);padding:6px 10px}
     #mdPreview blockquote{border-left:3px solid var(--accent);margin:0;padding:4px 12px;color:var(--text-muted)}
+    /* Mobile shares/request-links table scroll */
+    @media(max-width:768px){
+      section.shares table,section.request-links table{min-width:600px}
+      section.shares .list-scroll,section.request-links .list-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+      .share-sort-arrow,.share-sort-arrow.active{color:var(--accent)}
+      section.shares td,section.request-links td{text-align:left}
+      section.shares td[data-label]:not(:empty)::before,section.request-links td[data-label]:not(:empty)::before{
+        content:attr(data-label);display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}
+    }
   </style>
   <!-- Syntax highlighting + Markdown -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme:light)">
@@ -1061,14 +1070,14 @@ function renderPage() {
         <table>
           <thead>
             <tr>
-              <th style="width:36px"><input type="checkbox" id="shareListSelectAll" onchange="toggleShareSelectAll(this.checked)"></th>
-              <th style="cursor:pointer;user-select:none" onclick="setShareSort('filename')">文件 <span class="share-sort-arrow" id="shareArrow-filename"></span></th>
-              <th>链接</th>
-              <th style="width:110px">二维码</th>
-              <th style="cursor:pointer;user-select:none" onclick="setShareSort('expiresAt')">到期 <span class="share-sort-arrow" id="shareArrow-expiresAt"></span></th>
-              <th style="cursor:pointer;user-select:none" onclick="setShareSort('viewCount')">访问 <span class="share-sort-arrow" id="shareArrow-viewCount"></span></th>
-              <th style="cursor:pointer;user-select:none" onclick="setShareSort('downloadCount')">下载 <span class="share-sort-arrow" id="shareArrow-downloadCount"></span></th>
-              <th style="width:100px">操作</th>
+              <th style="width:36px" data-label=""><input type="checkbox" id="shareListSelectAll" onchange="toggleShareSelectAll(this.checked)"></th>
+              <th data-label="文件" style="cursor:pointer;user-select:none" onclick="setShareSort('filename')">文件 <span class="share-sort-arrow" id="shareArrow-filename"></span></th>
+              <th data-label="链接">链接</th>
+              <th data-label="二维码" style="width:110px">二维码</th>
+              <th data-label="到期" style="cursor:pointer;user-select:none" onclick="setShareSort('expiresAt')">到期 <span class="share-sort-arrow" id="shareArrow-expiresAt"></span></th>
+              <th data-label="访问" style="cursor:pointer;user-select:none" onclick="setShareSort('viewCount')">访问 <span class="share-sort-arrow" id="shareArrow-viewCount"></span></th>
+              <th data-label="下载" style="cursor:pointer;user-select:none" onclick="setShareSort('downloadCount')">下载 <span class="share-sort-arrow" id="shareArrow-downloadCount"></span></th>
+              <th data-label="操作" style="width:100px">操作</th>
             </tr>
           </thead>
           <tbody id="shareTable"></tbody>
@@ -6573,6 +6582,11 @@ function renderPage() {
       const data = await request('/api/share/list');
       const shares = data.shares || [];
       currentShares = shares;
+      updateShareSortArrows();
+      renderShareTable(applyShareSort(shares));
+    }
+
+    function renderShareTable(shares) {
       const body = document.getElementById('shareTable');
       const empty = document.getElementById('shareEmpty');
       if (!shares.length) {
@@ -6584,15 +6598,13 @@ function renderPage() {
       body.innerHTML = shares.map(function (share) {
         const expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
         return '<tr>' +
-          '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
-          '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank">' + escapeHtmlClient(share.url) + '</a></td>' +
-          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
-          '<td data-label="信息">' +
-            '<div>到期: ' + expireText + '</div>' +
-            '<div>访问: ' + (share.viewCount || 0) + '</div>' +
-            '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
-            '<div>' + (share.hasPassword ? '有密码' : '无密码') + '</div>' +
-          '</td>' +
+          '<td data-label=""><input type="checkbox" class="share-check" data-code="' + escapeHtmlClient(share.code) + '" onchange="onShareCheckChange()"></td>' +
+          '<td data-label="文件"><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
+          '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank" style="word-break:break-all;font-size:12px">' + escapeHtmlClient(share.url) + '</a></td>' +
+          '<td data-label="二维码"><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
+          '<td data-label="到期">' + expireText + '</td>' +
+          '<td data-label="访问">' + (share.viewCount || 0) + '</td>' +
+          '<td data-label="下载">' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</td>' +
           '<td class="actions-cell" data-label="操作">' +
             '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
             '<button class="secondary" onclick=' + "'" + 'downloadQrCode(' + JSON.stringify(share.code) + ')' + "'" + '>二维码</button>' +
@@ -6618,33 +6630,7 @@ function renderPage() {
         if (status === 'password') return s.hasPassword;
         return true;
       });
-      if (!filtered.length) {
-        body.innerHTML = '';
-        empty.style.display = 'block';
-        return;
-      }
-      empty.style.display = 'none';
-      body.innerHTML = filtered.map(function (share) {
-        var expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
-        return '<tr>' +
-          '<td><input type="checkbox" class="share-check" value="' + encodeURIComponent(share.code) + '" onchange="updateShareBatchBar()"></td>' +
-          '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
-          '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank">' + escapeHtmlClient(share.url) + '</a></td>' +
-          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
-          '<td data-label="信息">' +
-            '<div>到期: ' + expireText + '</div>' +
-            '<div>访问: ' + (share.viewCount || 0) + '</div>' +
-            '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
-            '<div>' + (share.hasPassword ? '有密码' : '无密码') + '</div>' +
-          '</td>' +
-          '<td class="actions-cell" data-label="操作">' +
-            '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
-            '<button class="secondary" onclick=' + "'" + 'downloadQrCode(' + JSON.stringify(share.code) + ')' + "'" + '>二维码</button>' +
-            '<button class="secondary" onclick=' + "'" + 'openShareEditModal(' + JSON.stringify(share.code) + ')' + "'" + '>编辑</button>' +
-            '<button class="danger" onclick=' + "'" + 'deleteShare(' + JSON.stringify(share.code) + ')' + "'" + '>删除</button>' +
-          '</td>' +
-        '</tr>';
-      }).join('');
+      renderShareTable(applyShareSort(filtered));
     }
 
     async function copyAllShares() {
@@ -7261,6 +7247,10 @@ function renderPage() {
 
     function toggleShareSelectAll(checked) {
       document.querySelectorAll('.share-check').forEach(function(el) { el.checked = checked; });
+      updateShareBatchBar();
+    }
+
+    function onShareCheckChange() {
       updateShareBatchBar();
     }
 
