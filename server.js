@@ -1174,7 +1174,7 @@ function renderPage() {
   <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="closeModal(event)">
     <div class="modal-card">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
-        <strong id="modalTitle">预览</strong>
+        <strong id="modalTitle" style="cursor:pointer" title="点击定位到文件列表中" onclick="jumpToFileFromModal()">预览</strong>
         <button class="secondary" onclick="forceCloseModal()">关闭</button>
       </div>
       <div id="modalBody"></div>
@@ -2319,6 +2319,23 @@ function renderPage() {
       galleryIndex = (galleryIndex + dir + galleryFiles.length) % galleryFiles.length;
       var target = galleryFiles[galleryIndex];
       if (target) previewFile(target.name);
+    }
+
+    function jumpToFileFromModal() {
+      forceCloseModal();
+      var titleEl = document.getElementById('modalTitle');
+      if (!titleEl) return;
+      var raw = titleEl.textContent.replace(/^[预览文件属性版本历史：:：]*/, '').trim();
+      if (!raw) return;
+      var encoded = encodeURIComponent(raw);
+      var el = document.querySelector('[data-filename="' + encoded + '"]');
+      if (!el) el = document.querySelector('[data-filename="' + raw + '"]');
+      if (!el) { showToast('未在当前列表找到: ' + raw, 'info', 1500); return; }
+      // Find index of this element
+      var items = getAllFileItems();
+      var idx = Array.from(items).indexOf(el);
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (idx >= 0) setTimeout(function() { applyNavHighlight(idx); }, 300);
     }
 
     function openGalleryAt(filename) {
@@ -4706,6 +4723,9 @@ function renderPage() {
       modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
       document.getElementById('modal').classList.add('open');
 
+      // Track gallery position when opening preview
+      openGalleryAt(filename);
+
       let data;
       try {
         const resp = await fetch('/api/content/' + encodeURIComponent(filename), { headers: headers() });
@@ -4748,7 +4768,12 @@ function renderPage() {
         renderTextPreview(filename, content, origSize, isTruncated, lang, ext);
       } else if ((file.mime || '').startsWith('image/')) {
         var imgSrc = 'data:' + file.mime + ';base64,' + file.content;
-        modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\', ' + JSON.stringify(filename) + ')"><img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大 · ' + formatBytes(file.size || 0) + '</div>';
+        var galTotal = galleryFiles.length;
+        var galIdx = galleryIndex + 1;
+        var prevBtn = galTotal > 1 ? '<button onclick="navigateGallery(-1)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);border:none;color:#fff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)" title="上一张 (←)">‹</button>' : '';
+        var nextBtn = galTotal > 1 ? '<button onclick="navigateGallery(1)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);border:none;color:#fff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)" title="下一张 (→)">›</button>' : '';
+        var counter = galTotal > 1 ? '<div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;backdrop-filter:blur(4px)">' + galIdx + ' / ' + galTotal + '</div>' : '';
+        modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in;position:relative" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\', ' + JSON.stringify(filename) + ')">' + prevBtn + nextBtn + counter + '<img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大 · ' + formatBytes(file.size || 0) + '</div>';
       } else if (file.mime === 'application/pdf') {
         modalBody.innerHTML = '<iframe src="data:application/pdf;base64,' + file.content + '" style="width:100%;height:70vh;border:none;border-radius:8px" title="PDF预览"></iframe>';
       } else if (file.mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
@@ -8046,6 +8071,12 @@ function renderPage() {
         var toast = document.getElementById('toast');
         if (toast) { toast.className = ''; if (toast._timer) clearTimeout(toast._timer); }
         clearSelection();
+      }
+      // Arrow keys in modal (image gallery): navigate prev/next
+      var modalOpen = document.getElementById('modal') && document.getElementById('modal').classList.contains('open');
+      if (modalOpen && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); navigateGallery(-1); return; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); navigateGallery(1); return; }
       }
     });
 
