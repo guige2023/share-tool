@@ -898,6 +898,8 @@ function renderPage() {
         <button class="ghost" onclick="openBatchTagModal()">添加标签</button>
         <button class="ghost" onclick="openBatchRemoveTagModal()">移除标签</button>
         <button class="ghost" onclick="openBatchRenameModal()">批量重命名</button>
+        <button class="ghost" onclick="batchCopyShareLinks()">🔗 复制链接</button>
+        <button class="ghost" onclick="openBatchMoveModal()">📁 移动</button>
         <button class="ghost" onclick="batchDownloadSelected()">📦 下载 ZIP</button>
         <button class="ghost" onclick="batchDeleteSelected()">删除</button>
         <button class="ghost" onclick="clearSelection()">取消选择</button>
@@ -1451,6 +1453,58 @@ function renderPage() {
           showToast(data.error || '删除失败', 'error');
         }
       }).catch(function () { showToast('删除失败', 'error'); });
+    }
+
+    async function batchCopyShareLinks() {
+      const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      var links = [];
+      for (var i = 0; i < names.length; i++) {
+        try {
+          var resp = await fetch('/api/share/create', {
+            method: 'POST', headers: headers(),
+            body: JSON.stringify({ filename: names[i], expires: 7 * 86400 })
+          });
+          if (resp.ok) {
+            var data = await resp.json();
+            links.push(location.origin + '/s/' + data.code);
+          }
+        } catch(e) {}
+      }
+      if (links.length) {
+        copyToClipboard(links.join('\n'));
+        showToast('已复制 ' + links.length + ' 个分享链接', 'success');
+      } else {
+        showToast('创建链接失败', 'error');
+      }
+    }
+
+    function openBatchMoveModal() {
+      var names = checkedNames();
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      var folder = prompt('输入目标文件夹路径（如 /backups），为空则移至根目录：', '');
+      if (folder === null) return;
+      folder = folder.trim();
+      if (!folder.startsWith('/')) folder = '/' + folder;
+      batchMoveSelected(names.map(function (n) { return decodeURIComponent(n); }), folder);
+    }
+
+    async function batchMoveSelected(names, folder) {
+      var moved = 0, failed = 0;
+      for (var i = 0; i < names.length; i++) {
+        var oldPath = names[i];
+        var newPath = (folder === '/' ? '' : folder) + '/' + oldPath.split('/').pop();
+        if (oldPath === newPath) continue;
+        try {
+          var resp = await fetch('/api/file/move', {
+            method: 'POST', headers: headers(),
+            body: JSON.stringify({ from: oldPath, to: newPath })
+          });
+          if (resp.ok) moved++; else failed++;
+        } catch(e) { failed++; }
+      }
+      if (moved) { showToast('已移动 ' + moved + ' 个文件' + (failed ? '，' + failed + ' 个失败' : ''), moved > 0 ? 'success' : 'error'); loadFiles(); }
+      else showToast('移动失败', 'error');
     }
 
     async function batchDownloadSelected() {
@@ -2996,6 +3050,30 @@ function renderPage() {
           clearSelection();
           break;
         }
+        case 'j': {
+          // j: vim-style down
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          updateGridColumns();
+          applyNavHighlight(keyboardNavIndex + 1);
+          break;
+        }
+        case 'k': {
+          // k: vim-style up
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          updateGridColumns();
+          applyNavHighlight(keyboardNavIndex - 1);
+          break;
+        }
+        case '/': {
+          // /: focus search input
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          var si = document.getElementById('searchInput');
+          if (si) { si.focus(); si.select(); }
+          break;
+        }
         case '?': {
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           openKeyboardHelp();
@@ -3611,9 +3689,11 @@ function renderPage() {
       title.textContent = '键盘快捷键';
       const shortcuts = [
         ['↑ ↓ ← →', '导航文件'],
+        ['j / k', 'vim 风格下/上导航'],
+        ['/', '聚焦搜索框'],
         ['Enter', '打开选中文件'],
         ['Space', '选中/取消选中'],
-        ['a', '全选文件'],
+        ['a', '跳转至首个文件'],
         ['s', '星标选中文件'],
         ['c', '清空选择'],
         ['r', '刷新文件列表'],
