@@ -3822,6 +3822,97 @@ function renderPage() {
       return ok;
     }
 
+    async function startInlineRename(filename) {
+      // Find the cell - try list view first, then grid
+      var cell = document.querySelector('.filename-cell[data-filename="' + encodeURIComponent(filename) + '"]');
+      var nameSpan, metaDiv;
+      if (cell) {
+        nameSpan = cell.querySelector('.filename-text');
+        metaDiv = cell.querySelector('.muted');
+      } else {
+        // Grid view: find the file-item
+        var item = document.querySelector('.file-item[data-filename="' + encodeURIComponent(filename) + '"]');
+        if (!item) return;
+        var nameDiv = item.querySelector('.file-name');
+        if (!nameDiv) return;
+        nameSpan = nameDiv.querySelector('span') || nameDiv;
+        var metaDiv = item.querySelector('.file-meta');
+      }
+      if (!nameSpan) return;
+
+      var original = filename;
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.value = original;
+      input.className = 'inline-rename-input';
+      input.style.cssText = nameSpan.style.cssText;
+      var parent = nameSpan.parentElement;
+      // Show input, hide text
+      nameSpan.style.display = 'none';
+      // Hide inline-rename button during edit
+      var renameBtn = parent.querySelector('.inline-rename-btn');
+      if (renameBtn) renameBtn.style.display = 'none';
+      parent.insertBefore(input, nameSpan);
+      input.focus();
+      input.select();
+
+      function commit() {
+        var newName = input.value.trim();
+        if (newName && newName !== original) {
+          // Call API
+          fetch('/api/file/rename', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...headers() },
+            body: JSON.stringify({ filename: original, newFilename: newName })
+          }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success) {
+              // Update UI: restore display
+              nameSpan.textContent = newName;
+              nameSpan.style.display = '';
+              if (renameBtn) renameBtn.style.display = '';
+              // Update data-filename on row/item
+              var row = document.querySelector('[data-filename="' + encodeURIComponent(original) + '"]');
+              if (row) row.setAttribute('data-filename', encodeURIComponent(newName));
+              // Update checkbox value
+              var cb = row ? row.querySelector('input[type="checkbox"]') : null;
+              if (cb) cb.value = encodeURIComponent(newName);
+              showToast('已重命名为: ' + newName, 'success');
+              // Reload to refresh list
+              loadFiles();
+            } else {
+              showToast(data.error || '重命名失败', 'error');
+              nameSpan.style.display = '';
+              if (renameBtn) renameBtn.style.display = '';
+            }
+          }).catch(function() {
+            showToast('重命名失败', 'error');
+            nameSpan.style.display = '';
+            if (renameBtn) renameBtn.style.display = '';
+          });
+        } else {
+          // No change, restore
+          nameSpan.style.display = '';
+          if (renameBtn) renameBtn.style.display = '';
+        }
+        input.remove();
+      }
+
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        if (e.key === 'Escape') {
+          nameSpan.style.display = '';
+          if (renameBtn) renameBtn.style.display = '';
+          input.remove();
+        }
+      });
+      input.addEventListener('blur', function() {
+        // Delay to allow commit to run first
+        setTimeout(function() {
+          if (document.body.contains(input)) { nameSpan.style.display = ''; if (renameBtn) renameBtn.style.display = ''; input.remove(); }
+        }, 100);
+      });
+    }
+
     async function renameFile(filename) {
       const next = prompt('新文件名', filename);
       if (!next || next === filename) return;
