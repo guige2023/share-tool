@@ -628,6 +628,9 @@ function renderPage() {
       .file-tags{max-width:none}
     }
     @media(max-width:600px){
+      /* Mobile tag chips: smaller and no max-width so they wrap nicely */
+      .file-tags{max-width:none;gap:3px}
+      .file-tags .tag-badge,.file-tags .tag-chip{font-size:10px;padding:1px 5px;border-radius:8px}
       /* Context menu: larger touch targets on mobile */
       .ctx-menu{min-width:180px}
       /* Sticky toolbar on mobile scroll */
@@ -3514,13 +3517,6 @@ function renderPage() {
         ? (cache.currentTagIds || []).filter(function(id) { return id !== tagId; })
         : [...(cache.currentTagIds || []), tagId];
       await request('/api/folders/' + encodeURIComponent(vfName) + '/tags', { method: 'PUT', body: JSON.stringify({ tagIds: tagIds }) });
-      // Refresh the tag section
-      var res = await request('/api/folders/' + encodeURIComponent(vfName) + '/tags');
-      var tags = res.tags || [];
-      cache.currentTagIds = tags.map(function(t) { return t.id; });
-      window._vfDetailCache = cache;
-      document.getElementById('vfTagSection').innerHTML = arguments.callee.caller ? '' : '';
-      // Re-render tag section by re-calling openVFFolderDetail
       openVFFolderDetail(vfId, vfName);
     }
 
