@@ -1913,6 +1913,9 @@ function getTotalStorageSize() {
 // 文件类型分布统计
 function getStorageStats() {
   const db = getDb();
+  // Overall totals
+  const totals = db.prepare('SELECT COUNT(*) as totalFiles, COALESCE(SUM(size), 0) as totalSize FROM files').get();
+
   // 按 MIME 类型主类分组
   const byType = db.prepare(`
     SELECT
@@ -1959,7 +1962,7 @@ function getStorageStats() {
     r.size = row.s;
   }
 
-  return { byType, byDay, sizeRanges };
+  return { totalSize: totals.totalSize, totalFiles: totals.totalFiles, byType, byDay, sizeRanges };
 }
 
 // 获取虚拟文件夹大小（所有前缀匹配的文件累计大小）

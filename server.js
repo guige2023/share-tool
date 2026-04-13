@@ -560,8 +560,8 @@ function renderPage() {
     .suggestion-type{font-size:11px;color:var(--muted);flex-shrink:0;margin-left:10px}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px 8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:14px}
-    .sort-arrow{font-size:10px;color:var(--muted);margin-left:2px}
-    .sort-arrow.active{color:var(--accent);font-weight:bold}
+    .sort-arrow,.share-sort-arrow{font-size:10px;color:var(--muted);margin-left:2px}
+    .sort-arrow.active,.share-sort-arrow.active{color:var(--accent);font-weight:bold}
     th{color:var(--muted);font-weight:600}
     td.actions{display:flex;gap:8px;flex-wrap:wrap}
     td.actions button{padding:8px 10px;border-radius:10px;font-size:13px}
@@ -912,6 +912,7 @@ function renderPage() {
         </nav>
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
+        <button class="ghost" onclick="openStorageStats()" title="存储统计">📊</button>
         <button class="ghost" onclick="openSettings()" title="设置 (Ctrl+,)">⚙</button>
         <button class="ghost" onclick="openKeyboardHelp()" title="键盘快捷键 (?)">?</button>
         <button id="installPwaBtn" class="secondary" style="display:none" onclick="installPWA()">安装应用</button>
@@ -1061,10 +1062,12 @@ function renderPage() {
           <thead>
             <tr>
               <th style="width:36px"><input type="checkbox" id="shareListSelectAll" onchange="toggleShareSelectAll(this.checked)"></th>
-              <th>文件</th>
+              <th style="cursor:pointer;user-select:none" onclick="setShareSort('filename')">文件 <span class="share-sort-arrow" id="shareArrow-filename"></span></th>
               <th>链接</th>
               <th style="width:110px">二维码</th>
-              <th style="width:220px">状态</th>
+              <th style="cursor:pointer;user-select:none" onclick="setShareSort('expiresAt')">到期 <span class="share-sort-arrow" id="shareArrow-expiresAt"></span></th>
+              <th style="cursor:pointer;user-select:none" onclick="setShareSort('viewCount')">访问 <span class="share-sort-arrow" id="shareArrow-viewCount"></span></th>
+              <th style="cursor:pointer;user-select:none" onclick="setShareSort('downloadCount')">下载 <span class="share-sort-arrow" id="shareArrow-downloadCount"></span></th>
               <th style="width:100px">操作</th>
             </tr>
           </thead>
@@ -5465,6 +5468,98 @@ function renderPage() {
 
       modal.classList.add('open');
       loadSettingsInfo();
+    }
+
+    async function openStorageStats() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '存储统计';
+      body.innerHTML = '<div id="storageStatsContent" style="padding:8px 0"><div style="text-align:center;color:var(--muted);padding:20px">加载中…</div></div>';
+      modal.classList.add('open');
+
+      try {
+        var res = await fetch('/api/storage', { headers: headers() });
+        var data = await res.json();
+        if (!data.success) throw new Error(data.error || '加载失败');
+
+        var stats = data.stats || {};
+        var total = stats.totalSize || 0;
+        var totalStr = total > 1024 * 1024 * 1024 ? (Math.round(total / 1024 / 1024 / 1024 * 10) / 10 + ' GB') : total > 1024 * 1024 ? (Math.round(total / 1024 / 1024) + ' MB') : (Math.round(total / 1024) + ' KB');
+        var totalFiles = stats.totalFiles || 0;
+        var byType = stats.byType || [];
+        var byDay = stats.byDay || [];
+
+        var maxCount = Math.max.apply(null, byDay.map(function(d) { return d.file_count || 0; })) || 1;
+
+        var html = '';
+
+        // Summary cards
+        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;text-align:center">';
+        html += '<div style="font-size:24px;font-weight:700;color:var(--accent)">' + totalStr + '</div>';
+        html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">总占用</div></div>';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;text-align:center">';
+        html += '<div style="font-size:24px;font-weight:700;color:var(--primary)">' + totalFiles + '</div>';
+        html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">文件总数</div></div>';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;text-align:center">';
+        html += '<div style="font-size:24px;font-weight:700;color:#8b5cf6">' + (byType.length) + '</div>';
+        html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">文件类型</div></div>';
+        html += '</div>';
+
+        // Type breakdown
+        if (byType.length) {
+          html += '<div style="margin-bottom:20px">';
+          html += '<div style="font-weight:600;margin-bottom:10px;font-size:13px">📂 文件类型分布</div>';
+          var maxSize = Math.max.apply(null, byType.map(function(t) { return t.size || 0; })) || 1;
+          byType.forEach(function(t) {
+            var pct = Math.round((t.size / maxSize) * 100);
+            var sizeStr = t.size > 1024 * 1024 * 1024 ? (Math.round(t.size / 1024 / 1024 / 1024 * 10) / 10 + ' GB') : t.size > 1024 * 1024 ? (Math.round(t.size / 1024 / 1024) + ' MB') : (Math.round(t.size / 1024) + ' KB');
+            var colors = { image: '#10b981', video: '#8b5cf6', audio: '#f59e0b', pdf: '#ef4444', document: '#3b82f6', text: '#6366f1', other: '#94a3b8', archive: '#f97316' };
+            var color = colors[t.category] || '#94a3b8';
+            html += '<div style="margin-bottom:8px">';
+            html += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">';
+            html += '<span>' + t.category + ' <span style="color:var(--muted)">(' + t.count + '个)</span></span>';
+            html += '<span style="color:var(--muted)">' + sizeStr + '</span></div>';
+            html += '<div style="height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden">';
+            html += '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:3px;transition:width .3s"></div>';
+            html += '</div></div>';
+          });
+          html += '</div>';
+        }
+
+        // 7-day trend
+        if (byDay.length) {
+          html += '<div style="margin-bottom:16px">';
+          html += '<div style="font-weight:600;margin-bottom:10px;font-size:13px">📈 近7天趋势</div>';
+          html += '<div style="display:flex;align-items:flex-end;gap:4px;height:60px">';
+          byDay.forEach(function(d) {
+            var barH = Math.max(4, Math.round((d.file_count / maxCount) * 56));
+            var dayStr = d.day; // day is already a string like '2026-04-14'
+            html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">';
+            html += '<div style="font-size:10px;color:var(--accent);font-weight:600">' + d.file_count + '</div>';
+            html += '<div style="width:100%;background:var(--accent);border-radius:3px 3px 0 0;min-height:4px;height:' + barH + 'px;opacity:.7"></div>';
+            html += '<div style="font-size:9px;color:var(--muted)">' + dayStr.slice(5) + '</div>';
+            html += '</div>';
+          });
+          html += '</div></div>';
+        }
+
+        // Size ranges
+        if (stats.sizeRanges && stats.sizeRanges.length) {
+          html += '<div style="margin-bottom:16px">';
+          html += '<div style="font-weight:600;margin-bottom:10px;font-size:13px">📐 文件大小分布</div>';
+          stats.sizeRanges.forEach(function(r) {
+            html += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--text-secondary)">';
+            html += '<span>' + r.label + '</span><span>' + r.count + '个</span></div>';
+          });
+          html += '</div>';
+        }
+
+        document.getElementById('storageStatsContent').innerHTML = html;
+      } catch (e) {
+        document.getElementById('storageStatsContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
     }
 
     function setLangAndReload(lang) {
