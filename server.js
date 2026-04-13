@@ -4225,8 +4225,11 @@ function renderPage() {
         showToast('复制链接失败', 'error');
         return;
       }
-      await copyToClipboard(data.share.url);
-      showToast('分享链接已复制', 'success');
+      const url = data.share.url;
+      await copyToClipboard(url);
+      // Show URL in toast (truncated if too long)
+      const display = url.length > 60 ? url.slice(0, 57) + '...' : url;
+      showToast('已复制: ' + display, 'success');
     }
 
     var recentSearchesCache = [];
@@ -6857,6 +6860,8 @@ function renderPage() {
           ['l', '复制分享链接'],
           ['y', '复制文件名'],
           ['s', '切换排序方向'],
+          ['t', '批量添加标签'],
+          ['v', '切换网格/列表视图'],
           ['Ctrl+A', '全选文件'],
           ['Ctrl+K', '聚焦搜索框'],
           ['Ctrl+,', '打开设置'],
