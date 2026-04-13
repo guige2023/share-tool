@@ -731,7 +731,8 @@ function searchFilesFTS(query, tags = null, opts = {}) {
 
     // 类型过滤（按数据库 type 字段：text/image/file）
     if (type) {
-      if (f.type !== type) return false;
+      const filterTypes = Array.isArray(type) ? type : [type];
+      if (!filterTypes.includes(f.type)) return false;
     }
 
     // 星标过滤
@@ -873,9 +874,11 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
       document: "content_type LIKE 'application/vnd%' OR content_type LIKE 'application/ms%' OR content_type = 'application/vnd.openxmlformats-officedocument%'",
       archive: "content_type LIKE 'application/zip' OR content_type LIKE 'application/x-rar%' OR content_type LIKE 'application/x-7z%' OR content_type LIKE 'application/x-tar%' OR content_type LIKE 'application/gzip'"
     };
-    const cond = typeMap[typeFilter];
-    if (cond) {
-      conditions.push(cond);
+    // typeFilter can be a single string or an array of strings (multi-select)
+    const filterTypes = Array.isArray(typeFilter) ? typeFilter : (typeFilter ? [typeFilter] : []);
+    const typeConditions = filterTypes.map(function(t) { return typeMap[t]; }).filter(Boolean);
+    if (typeConditions.length > 0) {
+      conditions.push('(' + typeConditions.join(' OR ') + ')');
     }
   }
   if (tags) {

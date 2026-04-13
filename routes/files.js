@@ -28,11 +28,12 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const order = query.get('order') || 'desc';
     const folder = query.get('folder') || null;
     const tags = query.get('tags') || null;
-    const typeFilter = query.get('type') || null;
-    // Handle 'starred' and 'recent' as special type filters
-    const starredOnly = typeFilter === 'starred';
-    const recentOnly = typeFilter === 'recent';
-    const actualTypeFilter = starredOnly || recentOnly ? null : typeFilter;
+    const typeParam = query.get('type') || null;
+    // Handle 'starred' and 'recent' as special type filters; split comma-separated types for multi-select
+    const typeFilterList = typeParam ? typeParam.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const starredOnly = typeFilterList.includes('starred');
+    const recentOnly = typeFilterList.includes('recent');
+    const actualTypeFilter = starredOnly || recentOnly ? null : (typeFilterList.length ? typeFilterList : null);
 
     // type=recent: return recently accessed files from file_access_log
     if (recentOnly) {
@@ -87,13 +88,14 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const sizeMax = query.get('size_max') || null;
     const dateFrom = query.get('date_from') || null;
     const dateTo = query.get('date_to') || null;
-    const typeFilter = query.get('type') || null;
-    // Handle 'starred' as a special type filter
-    const starredOnly = typeFilter === 'starred';
-    const actualTypeFilter = starredOnly ? null : typeFilter;
+    const typeParam = query.get('type') || null;
+    // Handle 'starred' as a special type filter; split comma-separated for multi-select
+    const typeFilterList = typeParam ? typeParam.split(',').map(t => t.trim()).filter(Boolean) : [];
+    const starredOnly = typeFilterList.includes('starred');
+    const actualTypeFilter = starredOnly ? null : (typeFilterList.length ? typeFilterList : null);
     const limit = Math.min(parseInt(query.get('limit') || '500', 10) || 500, 5000);
     const offset = Math.max(parseInt(query.get('offset') || '0', 10) || 0, 0);
-    if (!q && !tags && !sizeMin && !sizeMax && !dateFrom && !dateTo && !typeFilter && !starredOnly) {
+    if (!q && !tags && !sizeMin && !sizeMax && !dateFrom && !dateTo && !typeParam && !starredOnly) {
       sendJson(res, { success: true, total: 0, files: [] });
       return true;
     }

@@ -8214,59 +8214,96 @@ function renderPage() {
           // SW registration failure is non-fatal
         });
 
-        // WebSocket status manager
+        // WebSocket status manager with token auth + auto reconnect + real-time UI refresh
         (function wsStatusManager() {
           var chip = document.getElementById('wsStatusChip');
           if (!chip) return;
-          var lastSync = Date.now();
-          var connected = false;
+          var ws = null;
+          var reconnectDelay = 2000;
+          var maxReconnectDelay = 30000;
+          var reconnectTimer = null;
+          var lastSyncTs = parseInt(localStorage.getItem('ws_lastSync') || '0', 10);
+          var pendingChanges = 0;
 
           function updateChip(status, color) {
             chip.textContent = status;
             chip.style.color = color || '';
           }
 
-          // Try WebSocket connection
-          var wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-          var wsUrl = wsProtocol + '//' + location.host + '/ws';
-          var ws = new WebSocket(wsUrl);
+          function connect() {
+            // Get a short-lived WebSocket token from the server
+            fetch('/api/ws-token', { headers: headers() }).then(function(r) {
+              if (!r.ok) throw new Error('Token fetch failed');
+              return r.json();
+            }).then(function(data) {
+              if (!data.token) throw new Error('No token in response');
+              var wsProtocol = location.protocol === 'https:' ? 'wss:' : 'wss:';
+              var wsUrl = wsProtocol + '//' + location.host + '/ws?token=' + encodeURIComponent(data.token);
+              ws = new WebSocket(wsUrl);
 
-          ws.onopen = function() {
-            connected = true;
-            lastSync = Date.now();
-            updateChip('✅ 已连接', '#10b981');
-          };
+              ws.onopen = function() {
+                reconnectDelay = 2000;
+                updateChip('✅ 已连接', '#10b981');
+                // Register this browser as a device
+                ws.send(JSON.stringify({
+                  type: 'register',
+                  payload: {
+                    deviceId: 'browser-' + Math.random().toString(36).slice(2, 9),
+                    deviceName: navigator.userAgent.slice(0, 50)
+                  }
+                }));
+              };
 
-          ws.onmessage = function(ev) {
-            try {
-              var msg = JSON.parse(ev.data);
-              if (msg.type === 'sync' || msg.type === 'file_update') {
-                lastSync = Date.now();
-                updateChip('🔄 同步中', '#f59e0b');
-                setTimeout(function() { updateChip('✅ 已同步', '#10b981'); }, 2000);
-              }
-            } catch(e) {}
-          };
+              ws.onmessage = function(ev) {
+                try {
+                  var msg = JSON.parse(ev.data);
+                  if (msg.type === 'file_create' || msg.type === 'file_delete' || msg.type === 'file_update' || msg.type === 'files_changed') {
+                    lastSyncTs = Date.now();
+                    localStorage.setItem('ws_lastSync', lastSyncTs);
+                    pendingChanges++;
+                    updateChip('🔄 同步中 (' + pendingChanges + ')', '#f59e0b');
+                    (async function() {
+                      await loadFiles();
+                      pendingChanges = Math.max(0, pendingChanges - 1);
+                      if (pendingChanges === 0) updateChip('✅ 已同步', '#10b981');
+                    })();
+                  } else if (msg.type === 'device_list') {
+                    // Devices changed — no UI needed yet
+                  } else if (msg.type === 'pong') {
+                    // Keepalive response
+                  }
+                } catch(e) {}
+              };
 
-          ws.onclose = function() {
-            connected = false;
-            updateChip('⚠️ 离线模式', '#ef4444');
-          };
+              ws.onclose = function() {
+                updateChip('⚠️ 离线模式 (重连中…)', '#ef4444');
+                scheduleReconnect();
+              };
 
-          ws.onerror = function() {
-            connected = false;
-            updateChip('⚠️ 连接失败', '#ef4444');
-          };
+              ws.onerror = function() {
+                updateChip('⚠️ 连接失败', '#ef4444');
+              };
+            }).catch(function(e) {
+              updateChip('⚠️ 同步不可用', '#ef4444');
+            });
+          }
 
-          // Heartbeat every 30s
+          function scheduleReconnect() {
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(function() {
+              connect();
+              reconnectDelay = Math.min(reconnectDelay * 1.5, maxReconnectDelay);
+            }, reconnectDelay);
+          }
+
+          connect();
+
+          // Heartbeat: nudge server every 60s to detect stale connections
           setInterval(function() {
-            if (connected) {
-              var age = Math.round((Date.now() - lastSync) / 1000);
-              if (age > 10) {
-                updateChip('🔄 同步中', '#f59e0b');
-              }
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }));
             }
-          }, 30000);
+          }, 60000);
         })();
       });
     }

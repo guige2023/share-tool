@@ -1129,6 +1129,17 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/ws-token - issue a short-lived WebSocket token (auth required)
+  if (pathname === '/api/ws-token' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const { generateToken } = require('../db');
+    // WebSocket tokens are short-lived (5 minutes) and bound to the authenticated session
+    const token = generateToken('ws-session', 300);
+    sendJson(res, { success: true, token });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {
