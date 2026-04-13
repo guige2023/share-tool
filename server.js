@@ -937,7 +937,7 @@ function renderPage() {
           <button id="viewGridBtn" onclick="setView('grid')" title="网格视图">⊞</button>
         </div>
       </div>
-      <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
+      <div id="recentSearches" style="display:none;margin-bottom:10px;flex-wrap:wrap;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch"></div>
       <div id="searchResultsBar" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px"></div>
       <div id="typeFilterBar" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch">
         <button class="type-chip active" data-type="" onclick="setTypeFilter('')">全部</button>
@@ -1098,6 +1098,7 @@ function renderPage() {
         <span id="rlBatchCount" style="font-size:13px;color:var(--muted)"></span>
         <button class="ghost" onclick="batchCopySelectedRl()">复制链接</button>
         <button class="ghost" onclick="batchDownloadSelectedRlQrs()">下载二维码</button>
+        <button class="ghost danger" onclick="batchDeleteSelectedRl()">删除选中</button>
         <button class="ghost" onclick="clearRlSelection()">取消选择</button>
       </div>
       <div class="list-scroll">
@@ -2305,6 +2306,26 @@ function renderPage() {
     var MAX_CONCURRENT = 2;
     var uploadingFiles = new Map(); // fileName -> { xhr, status }
 
+    // ── Image Gallery State ────────────────────────────────────────────
+    var galleryFiles = [];       // current visible image files
+    var galleryIndex = 0;        // current index in gallery
+
+    function setGalleryFiles(files) {
+      galleryFiles = files;
+    }
+
+    function navigateGallery(dir) {
+      if (!galleryFiles.length) return;
+      galleryIndex = (galleryIndex + dir + galleryFiles.length) % galleryFiles.length;
+      var target = galleryFiles[galleryIndex];
+      if (target) previewFile(target.name);
+    }
+
+    function openGalleryAt(filename) {
+      galleryIndex = galleryFiles.findIndex(function(f) { return f.name === filename; });
+      if (galleryIndex < 0) galleryIndex = 0;
+    }
+
     function getAuthHeader() {
       return 'Bearer ' + (localStorage.getItem('st_auth_token') || STATIC_TOKEN);
     }
@@ -2657,6 +2678,8 @@ function renderPage() {
         currentFiles = incoming;
       }
       currentOffset = currentFiles.length;
+      // Update image gallery file list for prev/next navigation
+      setGalleryFiles(currentFiles.filter(function(f) { return (f.content_type || f.mime || '').startsWith('image/'); }));
       const tagColorMap = {};
       if (tagData && tagData.tags) {
         tagData.tags.forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
@@ -7142,6 +7165,20 @@ function renderPage() {
     async function deleteRequestLink(code) {
       if (!confirm('删除这个收集链接?')) return;
       await request('/api/request-links/' + encodeURIComponent(code), { method: 'DELETE' });
+      await loadRequestLinks();
+    }
+
+    async function batchDeleteSelectedRl() {
+      const codes = Array.from(document.querySelectorAll('.rl-check:checked')).map(el => el.value);
+      if (!codes.length) { showToast('请先选择收集链接', 'error'); return; }
+      if (!confirm('删除选中的 ' + codes.length + ' 个收集链接?')) return;
+      var failed = 0;
+      for (var i = 0; i < codes.length; i++) {
+        var resp = await fetch('/api/request-links/' + encodeURIComponent(codes[i]), { method: 'DELETE', headers: headers() });
+        if (!resp.ok) failed++;
+      }
+      showToast(failed ? codes.length - failed + '/' + codes.length + ' 已删除，' + failed + ' 失败' : codes.length + ' 个已删除', failed ? 'warn' : 'success');
+      clearRlSelection();
       await loadRequestLinks();
     }
 
