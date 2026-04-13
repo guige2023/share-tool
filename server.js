@@ -775,6 +775,7 @@ function renderPage() {
           <option value="zh">🇨🇳 中文</option>
           <option value="en">🇺🇸 English</option>
         </select>
+        <button id="notifBell" onclick="toggleNotificationPanel()" title="通知" style="background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;padding:6px 10px;cursor:pointer;font-size:16px;position:relative;line-height:1">🔔<span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:999px;font-size:10px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-weight:bold;line-height:1"></span></button>
       </div>
       <div class="meta">
         <div class="chip">局域网地址 https://${escapeHtml(pageInfo.localIp)}:${pageInfo.port}</div>
@@ -784,6 +785,19 @@ function renderPage() {
         <div class="chip">版本 v${escapeHtml(pageInfo.version)}</div>
         ${pageInfo.certInfo ? '<div class="chip ' + (pageInfo.certInfo.daysRemaining < 30 ? 'warn' : '') + '" id="certStatusChip" title="SSL 证书状态\n颁发者: ' + escapeHtml(pageInfo.certInfo.issuer) + '\n过期: ' + pageInfo.certInfo.validTo + '">' + (pageInfo.certInfo.daysRemaining < 30 ? '⚠️ SSL ' + pageInfo.certInfo.daysRemaining + '天' : '🔒 SSL') + '</div>' : ''}
       </div>
+    </section>
+
+    <section id="notifPanel" class="panel" style="display:none;margin-top:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">通知</h3>
+        <div style="display:flex;gap:6px">
+          <button class="ghost" onclick="markAllNotificationsRead()" style="font-size:12px;padding:4px 8px">全部已读</button>
+          <button class="ghost" onclick="clearAllNotifications()" style="font-size:12px;padding:4px 8px;color:var(--danger)">清空</button>
+          <button class="ghost" onclick="toggleNotificationPanel()" style="font-size:12px;padding:4px 8px">关闭</button>
+        </div>
+      </div>
+      <div id="notifList" style="max-height:320px;overflow-y:auto"></div>
+      <div id="notifEmpty" class="empty" style="display:none">暂无通知</div>
     </section>
 
     <div class="grid">
@@ -6113,6 +6127,101 @@ function renderPage() {
       await loadRequestLinks();
     }
 
+    // ── Notifications ───────────────────────────────────────────────────────
+
+    function toggleNotificationPanel() {
+      var panel = document.getElementById('notifPanel');
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        loadNotifications();
+      } else {
+        panel.style.display = 'none';
+      }
+    }
+
+    async function loadNotifications() {
+      var data = await request('/api/notifications');
+      var notifs = data.notifications || [];
+      var countData = await request('/api/notifications/unread-count');
+      updateNotifBadge(countData.unread_count || 0);
+      renderNotificationList(notifs);
+    }
+
+    async function loadUnreadNotifCount() {
+      var countData = await request('/api/notifications/unread-count');
+      updateNotifBadge(countData.unread_count || 0);
+    }
+
+    function updateNotifBadge(count) {
+      var badge = document.getElementById('notifBadge');
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function renderNotificationList(notifs) {
+      var list = document.getElementById('notifList');
+      var empty = document.getElementById('notifEmpty');
+      if (!notifs || notifs.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      list.innerHTML = notifs.map(function(n) {
+        var timeAgo = formatTime(n.created_at ? n.created_at * 1000 : Date.now());
+        var unread = n.read === 0 || n.read === false ? 'font-weight:bold' : 'opacity:0.6';
+        return '<div style="padding:8px 0;border-bottom:1px solid var(--line);' + unread + '" id="notif-' + n.id + '">' +
+          '<div style="display:flex;justify-content:space-between;align-items:start;gap:8px">' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-size:13px;margin-bottom:2px">' + escapeHtmlClient(n.title || n.type || '通知') + '</div>' +
+              (n.message ? '<div style="font-size:12px;color:var(--muted);word-break:break-all">' + escapeHtmlClient(n.message) + '</div>' : '') +
+            '</div>' +
+            '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">' +
+              '<span style="font-size:11px;color:var(--muted)">' + timeAgo + '</span>' +
+              '<div style="display:flex;gap:4px">' +
+                (n.read === 0 || n.read === false ? '<button class="ghost" onclick="markNotificationRead(' + n.id + ')" style="font-size:10px;padding:2px 6px">已读</button>' : '') +
+                '<button class="ghost" onclick="deleteNotification(' + n.id + ')" style="font-size:10px;padding:2px 6px;color:var(--danger)">删除</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    async function markNotificationRead(id) {
+      await request('/api/notifications/mark-read', {
+        method: 'POST',
+        body: JSON.stringify({ id: id })
+      });
+      await loadNotifications();
+    }
+
+    async function markAllNotificationsRead() {
+      await request('/api/notifications/mark-read', {
+        method: 'POST',
+        body: JSON.stringify({ all: true })
+      });
+      await loadNotifications();
+    }
+
+    async function deleteNotification(id) {
+      await request('/api/notifications', {
+        method: 'DELETE',
+        body: JSON.stringify({ id: id })
+      });
+      await loadNotifications();
+    }
+
+    async function clearAllNotifications() {
+      if (!confirm('清空所有通知?')) return;
+      await request('/api/notifications', { method: 'DELETE' });
+      await loadNotifications();
+    }
+
     function toggleShareSelectAll(checked) {
       document.querySelectorAll('.share-check').forEach(function(el) { el.checked = checked; });
       updateShareBatchBar();
@@ -6739,7 +6848,7 @@ function renderPage() {
       }
     });
 
-    Promise.all([loadFiles(), loadShares(), loadRequestLinks()]).catch(function (error) {
+    Promise.all([loadFiles(), loadShares(), loadRequestLinks(), loadUnreadNotifCount()]).catch(function (error) {
       status(error.message);
     });
 
