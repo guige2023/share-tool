@@ -400,7 +400,8 @@ function renderPage() {
     token: SHARE_TOKEN,
     localIp: LOCAL_IP,
     port: HTTPS_PORT,
-    maxUploadSizeMB: config.uploadMaxSizeMB
+    maxUploadSizeMB: config.uploadMaxSizeMB,
+    certInfo: certInfo
   };
 
   return `<!doctype html>
@@ -482,6 +483,7 @@ function renderPage() {
     [data-theme="dark"] .modal-card{background:#1e293b}
     [data-theme="dark"] .panel{background:#1e293b;border-color:#334155}
     [data-theme="dark"] .chip{color:#2dd4bf}
+    [data-theme="dark"] .chip.warn{background:#451a03;color:#fde68a}
     [data-theme="dark"] .tag-badge{color:#c7d2fe}
     [data-theme="dark"] .fab{background:#0f766e}
     *{box-sizing:border-box}
@@ -513,6 +515,7 @@ function renderPage() {
     .hero p{margin:0;color:var(--muted);line-height:1.6}
     .meta{display:flex;flex-wrap:wrap;gap:10px}
     .chip{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:var(--accent-weak);color:#0f513f;font-size:14px}
+    .chip.warn{background:#fef3c7;color:#92400e}
     .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-top:18px}
     .panel{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:var(--shadow)}
     .panel h2{margin:0 0 14px;font-size:20px}
@@ -761,6 +764,7 @@ function renderPage() {
         <div class="chip">最大上传 ${pageInfo.maxUploadSizeMB} MB</div>
         <div class="chip" id="wsStatusChip" title="WebSocket 实时同步状态">🔄 同步中</div>
         <div class="chip">版本 v${escapeHtml(pageInfo.version)}</div>
+        ${pageInfo.certInfo ? '<div class="chip ' + (pageInfo.certInfo.daysRemaining < 30 ? 'warn' : '') + '" id="certStatusChip" title="SSL 证书状态\n颁发者: ' + escapeHtml(pageInfo.certInfo.issuer) + '\n过期: ' + pageInfo.certInfo.validTo + '">' + (pageInfo.certInfo.daysRemaining < 30 ? '⚠️ SSL ' + pageInfo.certInfo.daysRemaining + '天' : '🔒 SSL') + '</div>' : ''}
       </div>
     </section>
 
