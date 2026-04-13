@@ -3676,6 +3676,11 @@ function renderPage() {
         }
         var ctx = document.getElementById('ctxMenu');
         if (ctx) ctx.style.display = 'none';
+        // Escape clears search if active
+        if (currentSearchQuery) {
+          clearSearchInput();
+          return;
+        }
         return;
       }
 
@@ -6046,23 +6051,32 @@ function renderPage() {
 
         const items = data.items || [];
         const expiredCount = items.filter(i => i.expires_at && Date.now() / 1000 > i.expires_at).length;
+        const totalSize = (data.totalSize || 0);
+        const totalSizeStr = totalSize > 1024 * 1024 * 1024 ? (Math.round(totalSize / 1024 / 1024 / 1024 * 10) / 10 + ' GB') : totalSize > 1024 * 1024 ? (Math.round(totalSize / 1024 / 1024) + ' MB') : (Math.round(totalSize / 1024) + ' KB');
 
         let html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap">';
-        html += '<div style="display:flex;align-items:center;gap:12px">';
+        html += '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">';
         html += '<div style="font-size:13px;color:var(--muted)">共 <strong id="trashCount">' + items.length + '</strong> 个文件';
+        if (totalSize > 0) html += ' <span style="color:var(--text-muted)">(' + totalSizeStr + ')</span>';
         if (expiredCount > 0) html += '（<span style="color:var(--warning)">' + expiredCount + ' 个已过期</span>）';
         html += '</div>';
         html += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;user-select:none">';
         html += '<input type="checkbox" id="trashSelectAll" onchange="toggleTrashSelectAll()" style="width:16px;height:16px;cursor:pointer">全选';
         html += '</label>';
+        html += '<select id="trashSortSelect" onchange="sortTrashItems()" style="padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px">';
+        html += '<option value="deleted_at">按删除时间</option>';
+        html += '<option value="filename">按名称</option>';
+        html += '<option value="size">按大小</option>';
+        html += '</select>';
         html += '</div>';
         html += '<div style="display:flex;gap:8px;align-items:center">';
         html += '<button id="trashBatchRestore" onclick="batchRestoreTrash()" disabled style="padding:6px 14px;font-size:12px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;opacity:0.5">恢复(<span id="trashRestoreCount">0</span>)</button>';
         html += '<button id="trashBatchDelete" onclick="batchPermanentDeleteTrash()" disabled style="padding:6px 14px;font-size:12px;background:var(--error);color:#fff;border:none;border-radius:6px;cursor:pointer;opacity:0.5">彻底删除(<span id="trashDeleteCount">0</span>)</button>';
-        html += '<button class="danger" onclick="emptyTrash()" style="padding:6px 14px;font-size:12px" ' + (items.length === 0 ? 'disabled' : '') + '>清空</button>';
+        html += '<button class="danger" onclick="confirmEmptyTrash()" style="padding:6px 14px;font-size:12px;font-weight:600" ' + (items.length === 0 ? 'disabled' : '') + '>🗑️ 清空回收站</button>';
         html += '</div>';
         html += '</div>';
 
+        html += '<div id="trashItemsContainer">';
         if (items.length === 0) {
           html += '<div style="text-align:center;color:var(--muted);padding:40px 20px">回收站为空</div>';
         } else {
@@ -6085,6 +6099,7 @@ function renderPage() {
           });
           html += '</div>';
         }
+        html += '</div>'; // close trashItemsContainer
 
         document.getElementById('trashContent').innerHTML = html;
       } catch (e) {
@@ -6227,6 +6242,49 @@ function renderPage() {
       } catch (e) {
         showToast('清空失败: ' + e.message, 'error');
       }
+    }
+
+    async function confirmEmptyTrash() {
+      const count = document.getElementById('trashCount') ? document.getElementById('trashCount').textContent : '所有';
+      if (!confirm('\u786e\u5b9a\u6e05\u7a7a\u56de\u6536\u7ad9\uff1f' + count + '\u4e2a\u6587\u4ef6\u5c06\u88ab\u6c38\u4e45\u5220\u9664\u3002')) return;
+      try {
+        const res = await fetch('/api/trash/empty', { method: 'POST', headers: headers() });
+        const data = await res.json();
+        if (data.success) {
+          showToast('\u56de\u6536\u7ad9\u5df2\u6e05\u7a7a', 'success');
+          closeModal();
+          loadFiles();
+        } else {
+          showToast('\u6e05\u7a7a\u5931\u8d25: ' + (data.error || '\u672a\u77e5\u9519\u8bef'), 'error');
+        }
+      } catch (e) {
+        showToast('\u6e05\u7a7a\u5931\u8d25: ' + e.message, 'error');
+      }
+    }
+
+    function sortTrashItems() {
+      var container = document.getElementById('trashItemsContainer');
+      var sortBy = document.getElementById('trashSortSelect') && document.getElementById('trashSortSelect').value;
+      if (!container) return;
+      var items = Array.from(container.querySelectorAll('[id^="trash-item-"]'));
+      items.sort(function(a, b) {
+        var idA = parseInt(a.id.replace('trash-item-', ''));
+        var idB = parseInt(b.id.replace('trash-item-', ''));
+        // Get data from DOM
+        var textA = a.querySelector('[style*="overflow"]') && a.querySelector('[style*="overflow"]').textContent || '';
+        var textB = b.querySelector('[style*="overflow"]') && b.querySelector('[style*="overflow"]').textContent || '';
+        var sizeA = 0, sizeB = 0;
+        var sizeMatchA = (a.textContent.match(/[\d.]+\s*(KB|MB|GB)/) || [''])[0];
+        var sizeMatchB = (b.textContent.match(/[\d.]+\s*(KB|MB|GB)/) || [''])[0];
+        if (sortBy === 'filename') return textA.localeCompare(textB);
+        if (sortBy === 'size') {
+          sizeA = parseFloat(sizeMatchA) * (sizeMatchA.includes('GB') ? 1024 * 1024 : sizeMatchA.includes('MB') ? 1024 : 1);
+          sizeB = parseFloat(sizeMatchB) * (sizeMatchB.includes('GB') ? 1024 * 1024 : sizeMatchB.includes('MB') ? 1024 : 1);
+          return sizeB - sizeA; // largest first
+        }
+        return idB - idA; // default: newest deleted first (higher id = newer)
+      });
+      items.forEach(function(item) { container.appendChild(item); });
     }
 
     async function downloadSelected() {
