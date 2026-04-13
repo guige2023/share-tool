@@ -3836,7 +3836,60 @@ function renderPage() {
         case 'info': showFileInfo(filename); break;
         case 'addToVF': openAddToVirtualFolder(filename); break;
         case 'removeFromVF': toggleFileStarred(filename, false); break;
+        case 'addTags':
+          openTagInputModalForFiles('add', [filename]);
+          break;
+        case 'removeTags':
+          openTagInputModalForFiles('remove', [filename]);
+          break;
+        case 'move':
+          // Select just this file and open the batch move modal
+          toggleFileSelect(filename, true);
+          openBatchMoveModal();
+          break;
       }
+    }
+
+    function openTagInputModalForFiles(action, files) {
+      var modal = document.getElementById('tagInputModal');
+      if (modal) modal.remove();
+      modal = document.createElement('div');
+      modal.id = 'tagInputModal';
+      modal.className = 'modal';
+      var count = files.length;
+      var nameStr = count === 1 ? escapeHtmlClient(files[0]) : count + ' 个文件';
+      modal.innerHTML = '\
+        <div class="modal-content" style="max-width:400px">\
+          <h3 id="tagInputTitle">' + (action === 'add' ? '添加标签' : '移除标签') + '</h3>\
+          <p style="color:var(--muted);font-size:13px;margin-bottom:12px;word-break:break-all">为 <strong>' + nameStr + '</strong>' + (action === 'add' ? '添加' : '移除') + '标签</p>\
+          <div id="tagChipInput" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px;border:1px solid var(--line);border-radius:8px;min-height:44px;cursor:text" onclick="document.getElementById(\'tagInputField\').focus()"></div>\
+          <input id="tagInputField" type="text" placeholder="输入标签后按 Enter 添加" \
+            style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;font-size:14px" \
+            onkeydown="handleTagInputKeydown(event, \'' + action + '\')">\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'tagInputModal\').remove()">取消</button>\
+            <button onclick="confirmTagInputForFiles(\'' + action + '\', \'' + files.map(encodeURIComponent).join(',') + '\')">确定</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      document.getElementById('tagInputField').focus();
+    }
+
+    function confirmTagInputForFiles(action, filesEncoded) {
+      var files = filesEncoded.split(',').map(decodeURIComponent);
+      if (!files.length) { showToast('文件信息无效', 'error'); return; }
+      if (!_batchTagChips.length) { showToast('请至少输入一个标签', 'error'); return; }
+      var tagStr = _batchTagChips.join(',');
+      fetch('/api/file-tags/batch', {
+        method: 'PUT',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ files: files, action: action, tags: tagStr })
+      }).then(function (r) { return r.json(); }).then(function () {
+        document.getElementById('tagInputModal').remove();
+        _batchTagChips = [];
+        showToast(action === 'add' ? '已添加标签' : '已移除标签', 'success');
+        loadFiles();
+      }).catch(function () { showToast('操作失败', 'error'); });
     }
 
     async function openVersionHistory(filename) {
