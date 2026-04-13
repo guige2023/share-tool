@@ -867,6 +867,15 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/duplicates - find duplicate files by hash
+  if (pathname === '/api/duplicates' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const duplicates = db.findDuplicates();
+    sendJson(res, { success: true, duplicates });
+    return true;
+  }
+
   // ── Request Links (文件收集链接) ───────────────────────────────────────────
   // POST /api/request-links - create a new request link
   if (pathname === '/api/request-links' && method === 'POST') {

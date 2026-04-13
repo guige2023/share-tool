@@ -1050,6 +1050,16 @@ function renderPage() {
       </div>
     </section>
 
+    <section class="panel duplicates" style="margin-top:18px">
+      <h2>重复文件</h2>
+      <div class="toolbar" style="margin-bottom:12px">
+        <button class="secondary" onclick="loadDuplicates()">刷新</button>
+        <button class="danger" id="duplicatesDeleteBtn" style="display:none" onclick="deleteSelectedDuplicates()">删除选中 (0)</button>
+      </div>
+      <div id="duplicatesList"></div>
+      <div id="duplicatesEmpty" class="empty" style="display:none">没有发现重复文件</div>
+    </section>
+
     <section class="panel" style="margin-top:18px">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h2>操作日志</h2>
@@ -6114,6 +6124,86 @@ function renderPage() {
       if (!confirm('删除这个收集链接?')) return;
       await request('/api/request-links/' + encodeURIComponent(code), { method: 'DELETE' });
       await loadRequestLinks();
+    }
+
+    // ── Duplicates (重复文件清理) ───────────────────────────────────────────
+
+    var selectedDuplicates = new Set();
+
+    async function loadDuplicates() {
+      var data = await request('/api/duplicates');
+      renderDuplicates(data.duplicates || []);
+    }
+
+    function renderDuplicates(groups) {
+      var list = document.getElementById('duplicatesList');
+      var empty = document.getElementById('duplicatesEmpty');
+      selectedDuplicates.clear();
+      updateDuplicatesDeleteBtn();
+      if (!groups || groups.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      list.innerHTML = groups.map(function(group, gi) {
+        var groupId = 'dupe-group-' + gi;
+        var shortHash = group.hash ? group.hash.substring(0, 12) : '?';
+        return '<div style="margin-bottom:16px;border:1px solid var(--line);border-radius:10px;overflow:hidden">' +
+          '<div style="background:var(--bg-secondary);padding:8px 12px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center">' +
+            '<span>' + group.count + ' 个相同文件 · ' + shortHash + '</span>' +
+            '<span style="cursor:pointer" onclick="toggleDupeGroup(\'' + groupId + '\')">[展开/折叠]</span>' +
+          '</div>' +
+          '<div id="' + groupId + '" style="padding:8px">' +
+            group.files.map(function(file) {
+              var fid = 'dupe-' + file.id;
+              return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">' +
+                '<input type="checkbox" id="' + fid + '" onchange="toggleDupeSelect(\'' + file.id + '\', this.checked)" style="flex-shrink:0">' +
+                '<label for="' + fid + '" style="flex:1;min-width:0;cursor:pointer;word-break:break-all">' + escapeHtmlClient(file.filename) + '</label>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    function toggleDupeGroup(id) {
+      var el = document.getElementById(id);
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function toggleDupeSelect(id, checked) {
+      if (checked) {
+        selectedDuplicates.add(parseInt(id, 10));
+      } else {
+        selectedDuplicates.delete(parseInt(id, 10));
+      }
+      updateDuplicatesDeleteBtn();
+    }
+
+    function updateDuplicatesDeleteBtn() {
+      var btn = document.getElementById('duplicatesDeleteBtn');
+      var count = selectedDuplicates.size;
+      if (count > 0) {
+        btn.style.display = 'inline-block';
+        btn.textContent = '删除选中 (' + count + ')';
+      } else {
+        btn.style.display = 'none';
+      }
+    }
+
+    async function deleteSelectedDuplicates() {
+      if (selectedDuplicates.size === 0) return;
+      if (!confirm('删除选中的 ' + selectedDuplicates.size + ' 个文件?')) return;
+      var ids = Array.from(selectedDuplicates);
+      var promises = ids.map(function(id) {
+        return request('/api/files/' + encodeURIComponent(id), { method: 'DELETE' });
+      });
+      await Promise.all(promises);
+      showToast('已删除 ' + ids.length + ' 个重复文件', 'success');
+      selectedDuplicates.clear();
+      await loadDuplicates();
+      await loadFiles();
     }
 
     // ── Notifications ───────────────────────────────────────────────────────
