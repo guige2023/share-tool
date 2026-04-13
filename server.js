@@ -6507,16 +6507,21 @@ function renderPage() {
         if (fn4) { copyShareLink(fn4.trim()); }
         return;
       }
-      // s: toggle safe area / toggle sidebar
+      // s: toggle sort direction
       if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
         var active = document.activeElement;
         if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
-        // Toggle sort direction
-        var currentOrder = localStorage.getItem('st_sort_order') || 'desc';
-        var newOrder = currentOrder === 'desc' ? 'asc' : 'desc';
-        localStorage.setItem('st_sort_order', newOrder);
+        currentOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+        localStorage.setItem('sortOrder', currentOrder);
         loadFiles();
-        showToast('排序: ' + (newOrder === 'desc' ? '最新优先' : '最旧优先'), 'info', 1500);
+        showToast('排序: ' + (currentOrder === 'desc' ? '最新优先' : '最旧优先'), 'info', 1500);
+        return;
+      }
+      // v: toggle view mode (list/grid)
+      if (e.key === 'v' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        setView(currentView === 'list' ? 'grid' : 'list');
         return;
       }
       // Escape: close modal or lightbox, clear toast, clear selection
