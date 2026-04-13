@@ -752,7 +752,8 @@ function renderPage() {
     <div class="ctx-item" onclick="ctxAction('copyPath')">📂 复制文件路径</div>
     <div class="ctx-item" onclick="ctxAction('history')">📜 版本历史</div>
     <div class="ctx-item" onclick="ctxAction('info')">ℹ️ 文件属性</div>
-    <div class="ctx-item" onclick="ctxAction('addToVF')">⭐ 添加到收藏夹</div>
+    <div class="ctx-item ctx-star" data-starred="0" onclick="ctxAction('addToVF')">⭐ 添加到收藏夹</div>
+    <div class="ctx-item ctx-star" data-starred="1" onclick="ctxAction('removeFromVF')" style="display:none">⭐ 从收藏移除</div>
     <div class="ctx-sep"></div>
     <div class="ctx-item" onclick="ctxAction('rename')">✎ 重命名</div>
     <div class="ctx-item" onclick="ctxAction('delete')" style="color:var(--danger)">🗑 删除</div>
@@ -3152,6 +3153,14 @@ function renderPage() {
       var y = Math.min(e.clientY, window.innerHeight - 220);
       menu.style.left = x + 'px';
       menu.style.top = y + 'px';
+      // Show/hide star item based on file's current starred state
+      var file = currentFiles.find(function(f) { return (f.name || f.filename) === decodeURIComponent(ctxTarget); });
+      var isStarred = file && file.starred;
+      var starItems = menu.querySelectorAll('.ctx-star');
+      starItems.forEach(function(item) {
+        var showStarred = item.dataset.starred === '1';
+        item.style.display = showStarred === isStarred ? '' : 'none';
+      });
       menu.style.display = 'block';
       // Init keyboard nav state for ctx menu
       ctxMenuNavIndex = -1;
@@ -3217,6 +3226,14 @@ function renderPage() {
       var y = Math.min(event.clientY, window.innerHeight - 220);
       menu.style.left = x + 'px';
       menu.style.top = y + 'px';
+      // Show/hide star item based on file's current starred state
+      var file = currentFiles.find(function(f) { return (f.name || f.filename) === decodeURIComponent(ctxTarget); });
+      var isStarred = file && file.starred;
+      var starItems = menu.querySelectorAll('.ctx-star');
+      starItems.forEach(function(item) {
+        var showStarred = item.dataset.starred === '1';
+        item.style.display = showStarred === isStarred ? '' : 'none';
+      });
       menu.style.display = 'block';
       ctxMenuNavIndex = -1;
       updateCtxMenuHighlight();
@@ -3753,6 +3770,7 @@ function renderPage() {
         case 'history': openVersionHistory(filename); break;
         case 'info': showFileInfo(filename); break;
         case 'addToVF': openAddToVirtualFolder(filename); break;
+        case 'removeFromVF': toggleFileStarred(filename, false); break;
       }
     }
 
@@ -4537,6 +4555,13 @@ function renderPage() {
 
     function closeModal(event) {
       if (event.target.id === 'modal') forceCloseModal();
+    }
+
+    // Generic modal opener — used by virtual folder manager and "add to VF" modals
+    function openModal(title, body /*, _actions (unused) */) {
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalBody').innerHTML = body;
+      document.getElementById('modal').classList.add('open');
     }
 
     async function loadLatestText() {
