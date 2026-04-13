@@ -660,6 +660,8 @@ function renderPage() {
         #mobileNav{display:flex!important}
         .wrap{padding-bottom:calc(70px + env(safe-area-inset-bottom, 0px))}
         .panel{margin-bottom:0}
+        /* Toolbar: sticky with safe-area top for notched phones */
+        .toolbar{position:sticky;top:0;z-index:100;background:var(--bg);padding-top:max(8px,env(safe-area-inset-top));padding-right:max(12px,env(safe-area-inset-right));padding-left:max(12px,env(safe-area-inset-left))}
         /* Show/hide panels based on mobile nav state */
         #filesPanel.mobile-hidden,
         #uploadSection.mobile-hidden,
@@ -2967,13 +2969,13 @@ function renderPage() {
         updateTagFilterOptions(tagData.tags);
         renderTagChips();
         renderTagQuickBar(tagData);
-        // Also fetch folder tag definitions for the quick bar (on first load only)
-        if (!append) {
-          const ftRes = await request('/api/folder-tags');
-          if (ftRes.tags) {
-            window._folderTagDefinitions = ftRes.tags;
-            renderFolderTagFilterBar();
-          }
+      }
+      // Always load folder tag definitions on first load (independent of file tags)
+      if (!append) {
+        const ftRes = await request('/api/folder-tags');
+        if (ftRes.tags) {
+          window._folderTagDefinitions = ftRes.tags;
+          renderFolderTagFilterBar();
         }
       }
       if (append && prevLen > 0) {
@@ -3432,10 +3434,112 @@ function renderPage() {
         return '<div class="ctx-item" onclick="navigateVirtualFolder(' + f.id + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">' +
           '<span><span style="color:' + escapeHtmlClient(f.color || '#667eea') + '">●</span> ' +
           escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span>' + tagChips + '</span>' +
-          '<button onclick="event.stopPropagation();downloadVirtualFolder(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 6px;border-radius:4px" title="下载为 ZIP">⬇</button>' +
+          '<span style="display:flex;gap:2px;align-items:center">' +
+            '<button onclick="event.stopPropagation();openVFFolderDetail(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px" title="详情">ℹ️</button>' +
+            '<button onclick="event.stopPropagation();downloadVirtualFolder(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px" title="下载为 ZIP">⬇</button>' +
+          '</span>' +
         '</div>';
       }).join('');
     }
+
+    async function openVFFolderDetail(vfId, vfName) {
+      document.getElementById('vfMenu').style.display = 'none';
+      // Fetch VF info, folder tags, and all tag definitions in parallel
+      const [vfRes, ftDefRes, currentTagsRes] = await Promise.all([
+        request('/api/virtual-folders/' + vfId),
+        request('/api/folder-tags'),
+        request('/api/folders/' + encodeURIComponent(vfName) + '/tags')
+      ]);
+      const vf = vfRes.folder || vfRes;
+      const allTags = ftDefRes.tags || [];
+      const currentTagIds = (currentTagsRes.tags || []).map(t => t.id);
+
+      var modal = document.getElementById('vfDetailModal');
+      if (modal) modal.remove();
+      modal = document.createElement('div');
+      modal.id = 'vfDetailModal';
+      modal.className = 'modal';
+
+      function renderVFTagSection() {
+        var html = '<div style="margin-top:10px">';
+        html += '<div style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px">';
+        if (currentTagIds.length === 0) {
+          html += '<span style="color:var(--muted);font-size:13px">暂无标签</span>';
+        } else {
+          var currentTags = allTags.filter(function(t) { return currentTagIds.includes(t.id); });
+          currentTags.forEach(function(t) {
+            html += '<span style="background:' + escapeHtmlClient(t.color || '#e0e7ff') + ';font-size:12px;padding:3px 8px;border-radius:10px;font-weight:500;color:inherit;display:inline-flex;align-items:center;gap:4px">' +
+              (t.icon ? escapeHtmlClient(t.icon) + ' ' : '') + escapeHtmlClient(t.name) +
+              '<button onclick="removeVFTag(' + vfId + ',' + JSON.stringify(vfName) + ',' + t.id + ')" style="background:none;border:none;cursor:pointer;color:inherit;opacity:.7;font-size:13px;line-height:1;padding:0">✕</button></span>';
+          });
+        }
+        html += '</div>';
+        html += '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px">';
+        allTags.forEach(function(t) {
+          var assigned = currentTagIds.includes(t.id);
+          html += '<button onclick="toggleVFTag(' + vfId + ',' + JSON.stringify(vfName) + ',' + t.id + ',' + (assigned ? 'true' : 'false') + ')" ' +
+            'style="font-size:11px;padding:3px 8px;border-radius:8px;cursor:pointer;font-weight:500;border:1px solid ' + escapeHtmlClient(t.color || '#e0e7ff') + ';background:' + (assigned ? (t.color || '#e0e7ff') : 'transparent') + ';color:' + (assigned ? 'inherit' : (t.color || '#3730a3')) + ';opacity:' + (assigned ? '1' : '0.7') + '">' +
+            (t.icon ? escapeHtmlClient(t.icon) + ' ' : '') + escapeHtmlClient(t.name) + '</button>';
+        });
+        html += '</div></div>';
+        return html;
+      }
+
+      modal.innerHTML = '\
+        <div class="modal-content" style="max-width:440px">\
+          <h3 style="margin-bottom:4px">收藏夹详情</h3>\
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">\
+            <span style="font-size:18px;color:' + escapeHtmlClient(vf.color || '#667eea') + '">●</span>\
+            <strong style="font-size:15px">' + escapeHtmlClient(vf.name) + '</strong>\
+            <span style="color:var(--muted);font-size:12px">' + (vf.file_count || vf.fileCount || 0) + ' 个文件</span>\
+          </div>\
+          <div style="border-top:1px solid var(--line);padding-top:10px">\
+            <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px">🏷️ 标签</div>\
+            <div id="vfTagSection">' + renderVFTagSection() + '</div>\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">\
+            <button onclick="openVFFolderManagerFromDetail()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);cursor:pointer;font-size:13px">管理收藏夹</button>\
+            <button onclick="closeVFFolderDetail()" style="padding:8px 16px;border-radius:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px">关闭</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      modal.style.display = 'flex';
+
+      window._vfDetailCache = { vfId: vfId, vfName: vfName, allTags: allTags, currentTagIds: currentTagIds };
+    }
+
+    async function toggleVFTag(vfId, vfName, tagId, currentlyAssigned) {
+      var cache = window._vfDetailCache || {};
+      var tagIds = currentlyAssigned
+        ? (cache.currentTagIds || []).filter(function(id) { return id !== tagId; })
+        : [...(cache.currentTagIds || []), tagId];
+      await request('/api/folders/' + encodeURIComponent(vfName) + '/tags', { method: 'PUT', body: JSON.stringify({ tagIds: tagIds }) });
+      // Refresh the tag section
+      var res = await request('/api/folders/' + encodeURIComponent(vfName) + '/tags');
+      var tags = res.tags || [];
+      cache.currentTagIds = tags.map(function(t) { return t.id; });
+      window._vfDetailCache = cache;
+      document.getElementById('vfTagSection').innerHTML = arguments.callee.caller ? '' : '';
+      // Re-render tag section by re-calling openVFFolderDetail
+      openVFFolderDetail(vfId, vfName);
+    }
+
+    window.removeVFTag = async function(vfId, vfName, tagId) {
+      var cache = window._vfDetailCache || {};
+      var tagIds = (cache.currentTagIds || []).filter(function(id) { return id !== tagId; });
+      await request('/api/folders/' + encodeURIComponent(vfName) + '/tags', { method: 'PUT', body: JSON.stringify({ tagIds: tagIds }) });
+      openVFFolderDetail(vfId, vfName);
+    };
+
+    window.openVFFolderManagerFromDetail = function() {
+      closeVFFolderDetail();
+      openVirtualFolderManager();
+    };
+
+    window.closeVFFolderDetail = function() {
+      var m = document.getElementById('vfDetailModal');
+      if (m) m.remove();
+    };
 
     async function navigateVirtualFolder(folderId) {
       currentVirtualFolderId = folderId;
@@ -3469,6 +3573,12 @@ function renderPage() {
       currentTotal = files.length;
       const tagColorMap = {};
       updateTagFilterOptions([]);
+      // Load folder tag definitions so the filter bar is visible in VF view too
+      const ftRes = await request('/api/folder-tags');
+      if (ftRes.tags) {
+        window._folderTagDefinitions = ftRes.tags;
+        renderFolderTagFilterBar();
+      }
       const gridBody = document.getElementById('fileTableGrid');
       const listBody = document.getElementById('fileTableBody');
       if (gridBody) gridBody.innerHTML = '';
@@ -9499,6 +9609,64 @@ function renderPage() {
         renderFolderTagFilterBar();
       }
       updateActiveFilterChips();
+
+      // ── Pull-to-refresh on mobile ─────────────────────────────────────────
+      // Works by detecting downward pull gesture on the files panel
+      (function initPullToRefresh() {
+        var panel = document.getElementById('filesPanel');
+        if (!panel) return;
+        var touchStartY = 0;
+        var pullEl = null;
+        var pullIndicator = null;
+
+        function createIndicator() {
+          if (pullIndicator) return;
+          pullIndicator = document.createElement('div');
+          pullIndicator.id = 'pullIndicator';
+          pullIndicator.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:var(--muted);padding:10px"><span id="pullSpinner" style="display:none;font-size:16px">↻</span><span id="pullArrow" style="font-size:16px;transition:transform .2s">↓</span> 下拉刷新</div>';
+          pullIndicator.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:var(--bg-secondary);border-bottom:1px solid var(--line);text-align:center;transform:translateY(-100%);transition:transform .3s;padding-top:max(12px,env(safe-area-inset-top))';
+          document.body.appendChild(pullIndicator);
+        }
+
+        panel.addEventListener('touchstart', function(e) {
+          if (window.scrollY > 10) return; // only when at top
+          touchStartY = e.touches[0].clientY;
+          createIndicator();
+        }, { passive: true });
+
+        panel.addEventListener('touchmove', function(e) {
+          if (!pullIndicator) return;
+          var delta = e.touches[0].clientY - touchStartY;
+          if (delta > 0 && window.scrollY <= 10) {
+            e.preventDefault();
+            pullIndicator.style.transform = 'translateY(' + Math.min(delta - 60, 0) + 'px)';
+            var arrow = document.getElementById('pullArrow');
+            if (arrow) arrow.style.transform = 'rotate(' + (Math.min(delta, 60) * 3) + 'deg)';
+          }
+        }, { passive: false });
+
+        panel.addEventListener('touchend', function() {
+          if (!pullIndicator) return;
+          var delta = parseInt(pullIndicator.style.transform.replace('translateY(', '').replace('px)', ''), 10);
+          if (delta > -30) {
+            // Not far enough — snap back
+            pullIndicator.style.transform = 'translateY(-100%)';
+            setTimeout(function() { if (pullIndicator) { pullIndicator.remove(); pullIndicator = null; } }, 300);
+          } else {
+            // Trigger refresh
+            pullIndicator.style.transform = 'translateY(0)';
+            var arrow = document.getElementById('pullArrow');
+            var spinner = document.getElementById('pullSpinner');
+            if (arrow) arrow.style.display = 'none';
+            if (spinner) spinner.style.display = 'inline';
+            loadFiles();
+            setTimeout(function() {
+              pullIndicator.style.transform = 'translateY(-100%)';
+              setTimeout(function() { if (pullIndicator) { pullIndicator.remove(); pullIndicator = null; } }, 300);
+            }, 800);
+          }
+        });
+      })();
     })();
 
     // Service Worker registration (PWA offline support)
