@@ -6397,9 +6397,15 @@ function renderPage() {
       modal.id = 'requestLinkEditModal';
       modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
       var expiresDays = rl.expires_at ? Math.max(1, Math.round((rl.expires_at * 1000 - Date.now()) / 86400000)) : '';
+      var rlUrl = '/r/' + code;
       modal.innerHTML = '\
         <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:420px;font-size:14px;max-height:90vh;overflow-y:auto">\
-          <h3 style="margin:0 0 20px">编辑收集链接</h3>\
+          <h3 style="margin:0 0 12px">编辑收集链接</h3>\
+          <div style="margin-bottom:12px;text-align:center">\
+            <img src="/api/request-link/qr/' + encodeURIComponent(code) + '" style="border-radius:12px;max-width:120px;border:1px solid var(--line)" alt="QR">\
+            <div style="margin-top:6px;font-size:11px;color:var(--muted);word-break:break-all">' + escapeHtmlClient(rlUrl) + '</div>\
+            <div style="margin-top:4px"><button class="secondary" onclick="downloadRequestLinkQr(\'' + escapeHtmlClient(code) + '\')" style="font-size:12px;padding:4px 10px">下载二维码</button></div>\
+          </div>\
           <div style="margin-bottom:12px">\
             <label style="display:block;margin-bottom:4px;font-size:13px">名称</label>\
             <input id="rlEditName" type="text" value="' + escapeHtmlClient(rl.name) + '" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
