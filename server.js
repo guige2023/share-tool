@@ -1599,7 +1599,10 @@ function renderPage() {
     function batchDeleteSelected() {
       const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
-      if (!confirm('确定删除 ' + names.length + ' 个文件？文件将移入回收站。')) return;
+      openDeleteConfirmModal(checkedNames());
+    }
+
+    async function batchDeleteConfirmed(names) {
       fetch('/api/files/batch-delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...headers() },
@@ -1632,8 +1635,8 @@ function renderPage() {
         } catch(e) {}
       }
       if (links.length) {
-        copyToClipboard(links.join('\n'));
         showToast('已复制 ' + links.length + ' 个分享链接', 'success');
+        if (navigator.clipboard) navigator.clipboard.writeText(links.join('\n'));
       } else {
         showToast('创建链接失败', 'error');
       }
@@ -3267,6 +3270,13 @@ function renderPage() {
       var tagInFocus = document.activeElement && document.activeElement.tagName;
       if (tagInFocus === 'INPUT' || tagInFocus === 'TEXTAREA') return;
 
+      // "/" focuses the search box
+      if (e.key === '/') {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
+        return;
+      }
+
       // Escape closes modal
       if (e.key === 'Escape') {
         var modal = document.getElementById('modal');
@@ -3378,16 +3388,12 @@ function renderPage() {
           break;
         }
         case 'Delete': {
-          // Delete: delete selected files
+          // Delete: delete selected files — use modal instead of confirm()
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           var selected = getSelectedFiles();
           if (!selected.length) return;
           e.preventDefault();
-          if (selected.length === 1) {
-            if (confirm(i18n.confirmDeleteMsg || '确定删除 ' + selected[0] + '？')) deleteFiles([selected[0]]);
-          } else {
-            if (confirm(i18n.confirmDeleteMulti || '确定删除选中的 ' + selected.length + ' 个文件？')) deleteFiles(selected);
-          }
+          openDeleteConfirmModal(selected);
           break;
         }
         case 'v':
@@ -4272,6 +4278,29 @@ function renderPage() {
       if (bytesPerSec < 1024) return bytesPerSec + ' B/s';
       if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
       return (bytesPerSec / 1024 / 1024).toFixed(1) + ' MB/s';
+    }
+
+    function openDeleteConfirmModal(selected) {
+      var isMulti = selected.length > 1;
+      document.getElementById('modalTitle').textContent = '确认删除';
+      document.getElementById('modalBody').innerHTML =
+        '<div style="padding:8px 0;text-align:center">' +
+          '<div style="font-size:48px;margin-bottom:16px">🗑️</div>' +
+          '<p style="font-size:15px;margin-bottom:8px">' + (isMulti ? '确定删除选中的 ' + selected.length + ' 个文件？' : '确定删除「' + escapeHtmlClient(selected[0]) + '」？') + '</p>' +
+          '<p style="color:var(--text-muted);font-size:13px">此操作不可撤销</p>' +
+        '</div>';
+      var modal = document.getElementById('modal');
+      modal.querySelector('.modal-actions').innerHTML =
+        '<button class="secondary" onclick="forceCloseModal()">取消</button>' +
+        '<button style="background:#dc2626;color:#fff" onclick="confirmDeleteFromModal(' + selected.length + ')">删除</button>';
+      modal.classList.add('open');
+    }
+
+    function confirmDeleteFromModal(count) {
+      forceCloseModal();
+      var selected = getSelectedFiles();
+      if (!selected.length) return;
+      deleteFiles(selected.slice(0, count));
     }
 
     function forceCloseModal() {
