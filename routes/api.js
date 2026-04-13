@@ -133,6 +133,43 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/sync/delta — incremental sync delta since a given timestamp
+  // Returns creates/updates/deletes with full file metadata, plus total count
+  if (pathname === '/api/sync/delta' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    const since = Math.max(0, parseInt(query.get('since') || '0', 10));
+    const limit = Math.min(Math.max(1, parseInt(query.get('limit') || '500', 10) || 500), 2000);
+    const offset = Math.max(0, parseInt(query.get('offset') || '0', 10) || 0);
+
+    const logs = db.getUnsyncedLogs(since);
+    const total = logs.length;
+    const page = logs.slice(offset, offset + limit);
+
+    const creates = [], updates = [], deletes = [];
+    for (const log of page) {
+      const entry = {
+        id: log.file_id,
+        filename: log.filename,
+        action: log.action,
+        timestamp: log.timestamp * 1000,
+        hash: log.current_hash || log.hash,
+        size: log.size_bytes || 0
+      };
+      if (log.action === 'create') {
+        creates.push(entry);
+      } else if (log.action === 'update' || log.action === 'rename') {
+        updates.push(entry);
+      } else if (log.action === 'delete') {
+        deletes.push(entry);
+      }
+    }
+
+    sendJson(res, { success: true, since, total, offset, limit, creates, updates, deletes });
+    return true;
+  }
+
   if (pathname === '/api/sync/mark' && method === 'POST') {
     const auth = authRequired(req, res);
     if (!auth) return true;

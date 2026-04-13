@@ -2919,7 +2919,11 @@ function renderPage() {
       // Clear search input
       document.getElementById('searchInput').value = '';
       currentSearchQuery = '';
-      clearActiveFilterChips();
+      updateTypeFilterChips();
+      // Highlight 'recent' chip
+      document.querySelectorAll('.type-chip').forEach(function(c) {
+        c.classList.toggle('active', c.getAttribute('data-type') === 'recent');
+      });
       // Load recent files
       try {
         var res = await fetch('/api/recent-files?limit=100', { headers: headers() });
@@ -3871,6 +3875,88 @@ function renderPage() {
             frag.appendChild(stringToDOM(renderFileRow(file, tagColorMap)));
           });
           listBody.appendChild(frag);
+        }
+      }
+    }
+
+    // ============================================================
+    // Incremental file sync — update currentFiles + DOM without
+    // fetching from server. Keeps sort order intact.
+    // ============================================================
+    var _syncRenderTimer = null;
+
+    function _buildTagColorMap() {
+      var tagDefs = window._folderTagDefinitions || [];
+      var map = {};
+      tagDefs.forEach(function(td) {
+        map[td.name] = { color: td.color || '#e0e7ff', icon: td.icon || '' };
+      });
+      return map;
+    }
+
+    function _scheduleSyncRender(delay) {
+      if (_syncRenderTimer) clearTimeout(_syncRenderTimer);
+      _syncRenderTimer = setTimeout(function() {
+        _syncRenderTimer = null;
+        renderFiles(_buildTagColorMap());
+      }, delay || 50);
+    }
+
+    function _insertFileIncremental(file) {
+      // Insert into currentFiles maintaining sort order, then re-render
+      currentFiles.unshift(file);
+      currentFiles.sort(function(a, b) {
+        var aVal = a[currentSort] || '';
+        var bVal = b[currentSort] || '';
+        var order = currentOrder === 'asc' ? 1 : -1;
+        if (aVal < bVal) return -1 * order;
+        if (aVal > bVal) return 1 * order;
+        return 0;
+      });
+      _scheduleSyncRender(30);
+    }
+
+    function _removeFileIncremental(filename) {
+      currentFiles = currentFiles.filter(function(f) { return f.name !== filename; });
+      _scheduleSyncRender(30);
+    }
+
+    function _updateFileIncremental(updatedFile) {
+      var idx = currentFiles.findIndex(function(f) { return f.name === updatedFile.name; });
+      if (idx !== -1) {
+        // Preserve _index so DOM row references stay valid
+        updatedFile._index = currentFiles[idx]._index;
+        currentFiles[idx] = updatedFile;
+        // Re-sort in case size/order changed
+        currentFiles.sort(function(a, b) {
+          var aVal = a[currentSort] || '';
+          var bVal = b[currentSort] || '';
+          var order = currentOrder === 'asc' ? 1 : -1;
+          if (aVal < bVal) return -1 * order;
+          if (aVal > bVal) return 1 * order;
+          return 0;
+        });
+        _scheduleSyncRender(30);
+      }
+    }
+
+    // Public: update the DOM row for a single file (used by inline rename, tag edit)
+    function updateFileRowDOM(filename, updates) {
+      var idx = currentFiles.findIndex(function(f) { return f.name === filename; });
+      if (idx === -1) return;
+      Object.assign(currentFiles[idx], updates);
+      if (!_syncRenderTimer) {
+        // Only update this row's DOM, don't re-render everything
+        var tagColorMap = _buildTagColorMap();
+        var listBody = document.getElementById('fileTableBody');
+        var gridBody = document.getElementById('fileTableGrid');
+        var row;
+        if (currentView === 'grid' && gridBody) {
+          row = gridBody.querySelector('[data-filename="' + encodeURIComponent(filename) + '"]');
+          if (row) row.outerHTML = renderFileItem(currentFiles[idx], tagColorMap, 'grid');
+        } else if (listBody) {
+          row = listBody.querySelector('[data-filename="' + encodeURIComponent(filename) + '"]');
+          if (row) row.outerHTML = renderFileRow(currentFiles[idx], tagColorMap);
         }
       }
     }
@@ -8915,6 +9001,12 @@ function renderPage() {
 
     // Type filter chips (multi-select)
     function setTypeFilter(type) {
+      // 'recent' triggers recent-files mode instead of type filtering
+      if (type === 'recent') {
+        isRecentFilesMode = false; // reset first so showRecentFiles can detect entering
+        showRecentFiles();
+        return;
+      }
       var idx = currentTypeFilters.indexOf(type);
       if (idx === -1) {
         currentTypeFilters.push(type);
@@ -9824,11 +9916,43 @@ function renderPage() {
                     localStorage.setItem('ws_lastSync', lastSyncTs);
                     pendingChanges++;
                     updateChip('🔄 同步中 (' + pendingChanges + ')', '#f59e0b');
-                    (async function() {
-                      await loadFiles();
+
+                    // Incremental update: skip server fetch, update currentFiles directly
+                    var p = msg.payload || msg;
+                    if (!currentSearchQuery && currentVirtualFolderId === null && !isRecentFilesMode) {
+                      // Normal browsing mode — incremental update
+                      if (msg.type === 'file_create' && p.filename) {
+                        // Fetch just the new file metadata (not full list)
+                        fetch('/api/file-info/' + encodeURIComponent(p.filename), { headers: headers() })
+                          .then(function(r) { return r.json(); })
+                          .then(function(data) {
+                            if (data.file) {
+                              data.file._index = currentFiles.length;
+                              _insertFileIncremental(data.file);
+                            }
+                          }).catch(function() {});
+                      } else if (msg.type === 'file_delete' && p.filename) {
+                        _removeFileIncremental(p.filename);
+                      } else if ((msg.type === 'file_update' || msg.type === 'files_changed') && p.filename) {
+                        fetch('/api/file-info/' + encodeURIComponent(p.filename), { headers: headers() })
+                          .then(function(r) { return r.json(); })
+                          .then(function(data) {
+                            if (data.file) {
+                              data.file._index = currentFiles.findIndex(function(f) { return f.name === data.file.name; });
+                              _updateFileIncremental(data.file);
+                            }
+                          }).catch(function() {});
+                      }
                       pendingChanges = Math.max(0, pendingChanges - 1);
                       if (pendingChanges === 0) updateChip('✅ 已同步', '#10b981');
-                    })();
+                    } else {
+                      // In search/VF/recent mode — fall back to full reload
+                      (async function() {
+                        await loadFiles();
+                        pendingChanges = Math.max(0, pendingChanges - 1);
+                        if (pendingChanges === 0) updateChip('✅ 已同步', '#10b981');
+                      })();
+                    }
                   } else if (msg.type === 'device_list') {
                     // Devices changed — no UI needed yet
                   } else if (msg.type === 'pong') {
