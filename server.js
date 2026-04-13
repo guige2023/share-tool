@@ -3836,26 +3836,56 @@ function renderPage() {
           modalBody.innerHTML = '<p style="text-align:center;padding:40px;color:var(--text-muted)">暂无版本记录。文件修改时会自动保存版本。</p>';
           return;
         }
-        const html = '<div style="max-height:60vh;overflow:auto">' +
+        const html = '<div id="versionList" style="max-height:50vh;overflow:auto">' +
           data.versions.map(v => {
             const date = new Date(v.created_at * 1000).toLocaleString('zh-CN');
             const size = formatSize ? formatSize(v.size) : v.size + ' B';
             const isCurrent = v.hash === data.currentHash;
-            return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">' +
-              '<div style="flex:1">' +
-                '<div style="color:var(--text)">' + date + (isCurrent ? ' <span style="background:var(--accent);color:#fff;font-size:10px;padding:1px 5px;border-radius:3px">当前</span>' : '') + '</div>' +
-                '<div style="color:var(--text-muted);font-size:11px;margin-top:2px">' + size + ' · ' + escapeHtmlClient(v.hash ? v.hash.slice(0, 8) : '') + '</div>' +
+            return '<div class="version-item" data-id="' + v.id + '" style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px">' +
+              '<div style="display:flex;align-items:center;gap:8px">' +
+                '<input type="checkbox" class="version-check" value="' + v.id + '" style="width:16px;height:16px;cursor:pointer" ' + (isCurrent ? 'disabled' : '') + '>' +
+                '<div style="flex:1">' +
+                  '<div style="color:var(--text)">' + date + (isCurrent ? ' <span style="background:var(--accent);color:#fff;font-size:10px;padding:1px 5px;border-radius:3px">当前</span>' : '') + '</div>' +
+                  '<div style="color:var(--text-muted);font-size:11px;margin-top:2px">' + size + ' · ' + escapeHtmlClient(v.hash ? v.hash.slice(0, 8) : '') + '</div>' +
+                '</div>' +
               '</div>' +
               '<div style="display:flex;gap:6px">' +
                 '<button class="btn-sm secondary" onclick="viewVersion(' + v.id + ')" style="padding:5px 12px;font-size:12px">预览</button>' +
                 (!isCurrent ? '<button class="btn-sm primary" onclick="restoreVersion(' + v.id + ')" style="padding:5px 12px;font-size:12px">恢复</button>' : '') +
               '</div>' +
             '</div>';
-          }).join('') + '</div>';
+          }).join('') + '</div>' +
+          '<div id="compareBar" style="display:none;padding:12px 0;border-top:2px solid var(--accent);margin-top:8px;text-align:center">' +
+            '<span id="compareText" style="color:var(--text-muted);font-size:13px"></span> ' +
+            '<button class="btn primary" id="compareBtn" onclick="compareSelectedVersions()" style="padding:8px 20px;font-size:13px;margin-left:8px">版本对比</button>' +
+          '</div>';
         modalBody.innerHTML = html;
         window._versionHistoryFilename = filename;
+        window._versionData = data;
+        // Checkbox handlers
+        document.querySelectorAll('.version-check').forEach(cb => {
+          cb.addEventListener('change', updateCompareBar);
+        });
       } catch (e) {
         modalBody.innerHTML = '<p style="color:var(--danger);padding:20px;text-align:center">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
+
+    function updateCompareBar() {
+      const checked = [...document.querySelectorAll('.version-check:checked')];
+      const bar = document.getElementById('compareBar');
+      const text = document.getElementById('compareText');
+      if (checked.length === 2) {
+        bar.style.display = 'block';
+        const ids = checked.map(cb => cb.value);
+        const v1 = window._versionData.versions.find(v => v.id == ids[0]);
+        const v2 = window._versionData.versions.find(v => v.id == ids[1]);
+        text.textContent = '已选择 2 个版本';
+      } else if (checked.length === 1) {
+        bar.style.display = 'block';
+        text.textContent = '已选择 1 个版本，还需再选 1 个';
+      } else {
+        bar.style.display = 'none';
       }
     }
 
@@ -3905,6 +3935,129 @@ function renderPage() {
           showToast('恢复失败: ' + e.message, 'error');
         }
       });
+    }
+
+    async function compareSelectedVersions() {
+      const checked = [...document.querySelectorAll('.version-check:checked')];
+      if (checked.length !== 2) return;
+      const ids = checked.map(cb => parseInt(cb.value, 10));
+      const modalBody = document.getElementById('modalBody');
+      modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
+      try {
+        const [res1, res2] = await Promise.all([
+          fetch('/api/versions/' + ids[0], { headers: headers() }),
+          fetch('/api/versions/' + ids[1], { headers: headers() })
+        ]);
+        const [data1, data2] = await Promise.all([res1.json(), res2.json()]);
+        if (!data1.success || !data2.success) {
+          modalBody.innerHTML = '<p class="muted">版本加载失败</p>';
+          return;
+        }
+        const v1 = data1.version;
+        const v2 = data2.version;
+        const ext = (v1.filename || '').split('.').pop().toLowerCase();
+        const isText = ['js','ts','py','rb','go','rs','java','md','json','css','html','htm','sh','yaml','yml','xml','sql'].includes(ext);
+        if (!isText || !v1.content || !v2.content) {
+          modalBody.innerHTML = '<p class="muted">版本对比仅支持文本文件。</p><button class="btn secondary" onclick="openVersionHistory(window._versionHistoryFilename)" style="margin-top:12px">返回版本列表</button>';
+          return;
+        }
+        const date1 = new Date(v1.created_at * 1000).toLocaleString('zh-CN');
+        const date2 = new Date(v2.created_at * 1000).toLocaleString('zh-CN');
+        const lines1 = v1.content.split('\n');
+        const lines2 = v2.content.split('\n');
+        const diff = computeLineDiff(lines1, lines2);
+        modalBody.innerHTML =
+          '<div style="margin-bottom:12px"><button class="btn secondary" onclick="openVersionHistory(window._versionHistoryFilename)" style="font-size:12px;padding:5px 12px">← 返回版本列表</button></div>' +
+          '<div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px">' +
+            '<span style="color:var(--text-muted)">旧版: ' + date1 + '</span>' +
+            '<span style="color:var(--text-muted)">|</span>' +
+            '<span style="color:var(--text-muted)">新版: ' + date2 + '</span>' +
+          '</div>' +
+          '<div style="display:flex;gap:4px;margin-bottom:8px">' +
+            '<span style="background:#dc2626;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px">- 删除</span>' +
+            '<span style="background:#16a34a;color:#fff;font-size:11px;padding:2px 6px;border-radius:3px">+ 新增</span>' +
+          '</div>' +
+          '<div style="display:flex;max-height:60vh;border:1px solid var(--border);border-radius:8px;overflow:hidden">' +
+            '<div id="diffLeft" style="flex:1;overflow:auto;background:var(--bg);font-family:monospace;font-size:13px;line-height:1.5;padding:8px;border-right:1px solid var(--border)"></div>' +
+            '<div id="diffRight" style="flex:1;overflow:auto;background:var(--bg);font-family:monospace;font-size:13px;line-height:1.5;padding:8px"></div>' +
+          '</div>';
+        renderDiffLines('diffLeft', diff.left, diff.right);
+        renderDiffLines('diffRight', diff.right, diff.left);
+      } catch (e) {
+        modalBody.innerHTML = '<p class="muted">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
+
+    function computeLineDiff(linesA, linesB) {
+      // Simple LCS-based line diff
+      const m = linesA.length, n = linesB.length;
+      const dp = Array.from({length: m+1}, () => new Array(n+1).fill(0));
+      for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+          if (linesA[i-1] === linesB[j-1]) dp[i][j] = dp[i-1][j-1] + 1;
+          else dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);
+        }
+      }
+      const result = { left: [], right: [] };
+      let i = m, j = n;
+      const tempA = [], tempB = [];
+      while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && linesA[i-1] === linesB[j-1]) {
+          tempA.unshift({ text: linesA[i-1], type: 'same' });
+          tempB.unshift({ text: linesB[j-1], type: 'same' });
+          i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+          tempA.unshift({ text: '', type: 'empty' });
+          tempB.unshift({ text: linesB[j-1], type: 'add' });
+          j--;
+        } else {
+          tempA.unshift({ text: linesA[i-1], type: 'del' });
+          tempB.unshift({ text: '', type: 'empty' });
+          i--;
+        }
+      }
+      result.left = tempA;
+      result.right = tempB;
+      return result;
+    }
+
+    function renderDiffLines(containerId, lines, otherLines) {
+      const container = document.getElementById(containerId);
+      let html = '';
+      lines.forEach((line, idx) => {
+        const lineNum = idx + 1;
+        let bg = 'transparent';
+        let content = escapeHtmlClient(line.text || '');
+        if (line.type === 'del') bg = 'rgba(220,38,38,0.15)';
+        else if (line.type === 'add') bg = 'rgba(22,163,74,0.15)';
+        else if (line.type === 'empty') bg = 'rgba(245,158,11,0.08)';
+        const lineContent = line.type === 'empty' ? '&nbsp;' : content;
+        html += '<div style="display:flex;background:' + bg + ';min-height:22px;padding:0 4px">' +
+          '<span style="color:var(--text-muted);width:40px;text-align:right;margin-right:8px;user-select:none;flex-shrink:0">' + (line.type === 'empty' ? '' : lineNum) + '</span>' +
+          '<span style="color:' + (line.type === 'del' ? '#dc2626' : line.type === 'add' ? '#16a34a' : 'inherit') + ';white-space:pre-wrap;word-break:break-all">' + lineContent + '</span>' +
+          '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    async function downloadVersion(versionId) {
+      try {
+        const res = await fetch('/api/versions/' + versionId, { headers: headers() });
+        const data = await res.json();
+        if (!data.success || !data.version) { showToast('下载失败', 'error'); return; }
+        const v = data.version;
+        const blob = new Blob([v.content || ''], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = v.filename || 'version_' + versionId;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        showToast('下载失败: ' + e.message, 'error');
+      }
     }
 
     async function showFileInfo(filename) {
