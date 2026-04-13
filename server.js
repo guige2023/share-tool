@@ -6100,6 +6100,7 @@ function renderPage() {
           '</td>' +
           '<td class="actions-cell" data-label="操作">' +
             '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
+            '<button class="secondary" onclick=' + "'" + 'downloadQrCode(' + JSON.stringify(share.code) + ')' + "'" + '>二维码</button>' +
             '<button class="secondary" onclick=' + "'" + 'openShareEditModal(' + JSON.stringify(share.code) + ')' + "'" + '>编辑</button>' +
             '<button class="danger" onclick=' + "'" + 'deleteShare(' + JSON.stringify(share.code) + ')' + "'" + '>删除</button>' +
           '</td>' +
@@ -6143,6 +6144,7 @@ function renderPage() {
           '</td>' +
           '<td class="actions-cell" data-label="操作">' +
             '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
+            '<button class="secondary" onclick=' + "'" + 'downloadQrCode(' + JSON.stringify(share.code) + ')' + "'" + '>二维码</button>' +
             '<button class="secondary" onclick=' + "'" + 'openShareEditModal(' + JSON.stringify(share.code) + ')' + "'" + '>编辑</button>' +
             '<button class="danger" onclick=' + "'" + 'deleteShare(' + JSON.stringify(share.code) + ')' + "'" + '>删除</button>' +
           '</td>' +
@@ -6297,6 +6299,10 @@ function renderPage() {
           <div style="margin-bottom:12px">\
             <label style="display:block;margin-bottom:4px;font-size:13px">名称 *</label>\
             <input id="rlName" type="text" placeholder="例如：收集作业" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">目标文件夹</label>\
+            <input id="rlTargetFolder" type="text" placeholder="留空则存根目录" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
           </div>\
           <div style="margin-bottom:12px">\
             <label style="display:block;margin-bottom:4px;font-size:13px">上传次数限制</label>\
