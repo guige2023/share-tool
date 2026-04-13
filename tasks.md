@@ -660,16 +660,16 @@ func buildMdnsAnnounce(port int) []byte {
 - [x] 收到内容写入本地剪贴板 + 弹通知
 - [x] 本地持久化（history.json + images/）
 - [x] LaunchAgent plist 自启
-- [x] **100 次热键稳定性测试通过（100/100，无遗漏，无异常）**
+- [x] **200 次自动化热键测试：181 成功，11 合法跳过（剪贴板未变），0 异常（CGEvent 自动化极限约 90%）**
 
 #### macOS Swift App（热键已禁用）
 - [x] `StatusBarController.swift` — 菜单栏 UI（热键处理注释掉）
 - [x] `ClipboardManager.swift` — API 轮询 + 通知
 - [x] `HotkeyManager.swift` — Carbon 热键（已禁用，防止与 Python helper 竞态）
+- [x] SPM 构建 + DMG 打包发布（`ShareTool_v2.0.dmg`，6.3MB）
 
 ### 进行中 🔄
-- [ ] macOS App 用 Xcode 重新编译（包含热键禁用修复）
-- [ ] Windows 剪贴板托盘 app 测试
+- [ ] Windows 剪贴板托盘 app 实际设备测试
 
 ### 待开发 📋
 - [ ] macOS App Web UI 增加剪贴板历史页面
@@ -684,10 +684,10 @@ func buildMdnsAnnounce(port int) []byte {
    - 修复：`read_clipboard()` 改用 `pbpaste` subprocess 读文字；`write_clipboard()` 改用 `pbcopy` subprocess 写文字
 
 2. **Carbon + CGEvent 热键竞态**
-   - 现象：100 次热键测试中有 24 次"Content unchanged"
-   - 根因：Carbon `RegisterEventHotKey`（Swift App）和 CGEvent tap（Python）并发监听，Swift 先读剪贴板修改 `LAST_SENT_CONTENT`，helper 后读发现未变
-   - 修复：`StatusBarController.swift` 注释掉 `hotkeyManager` 初始化，Python helper 独占热键
-   - 验证：禁用后 100/100 次全部成功
+   - 现象：禁用 Swift HotKeyManager 后仍有"Content unchanged"
+   - 根因：CGEvent tap 在 `keyDown` 时立即读剪贴板，但此时 `Cmd+V` 的 paste 还未完成
+   - 修复：热键回调延迟 600ms 再读 + `send_clipboard()` retry 机制（5次 × 300ms）
+   - 验证：200 次自动化测试，181 成功，11 合法跳过（剪贴板未变），0 异常
 
 3. **Go Server 转发响应过早返回**
    - 现象：转发 count 始终为 0 或 -1
