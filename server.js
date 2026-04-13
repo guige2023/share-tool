@@ -7212,6 +7212,9 @@ function renderPage() {
         var data = await res.json();
         if (!data.success) throw new Error(data.error);
         var files = data.files, storage = data.storage, byType = data.byType, byExt = data.byExt;
+        var byFolder = data.byFolder || [];
+        var topLargest = data.topLargest || [];
+        var monthlyTrend = data.monthlyTrend || [];
         var activity = data.activity, shares = data.shares, devices = data.devices;
         var tokens = data.tokens, audit = data.audit;
         var fmtSize = function(b) {
@@ -7220,23 +7223,38 @@ function renderPage() {
           if (b < 1073741824) return (b/1048576).toFixed(1) + ' MB';
           return (b/1073741824).toFixed(2) + ' GB';
         };
+        var fmtSizeNum = function(b) {
+          if (b < 1024) return b;
+          if (b < 1048576) return Math.round(b/1024);
+          if (b < 1073741824) return Math.round(b/1048576);
+          return Math.round(b/1073741824 * 10) / 10;
+        };
+
+        // Clickable stat cards — navigate to filtered view
+        var card = function(label, value, icon, action) {
+          var cls = action ? 'cursor:pointer;border:1px solid transparent' : '';
+          var extra = action ? ' onclick="' + action + '" title="' + action.replace(/"/g, '') + '"' : '';
+          return '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;text-align:center;' + cls + '"' + extra + '>' +
+            '<div style="font-size:22px;margin-bottom:4px">' + icon + '</div>' +
+            '<div style="font-size:20px;font-weight:700;color:var(--text)">' + escapeHtmlClient('' + value) + '</div>' +
+            '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + label + '</div></div>';
+        };
         var cards = [
-          { label: '\u6587\u4EF6\u603B\u6570', value: files.total, icon: '\uD83D\uDCC4' },
-          { label: '\u5B58\u50A8\u7528\u91CF', value: fmtSize(storage.total), icon: '\uD83D\uDCBE' },
-          { label: '\u4ECA\u65E5\u65B0\u589E', value: activity.today, icon: '\uD83D\uDCC8' },
-          { label: '\u672C\u5468\u65B0\u589E', value: activity.week, icon: '\uD83D\uDCC5' },
-          { label: '\u6D3B\u8DC3\u5206\u4EAB', value: shares.active, icon: '\uD83D\uDD17' },
-          { label: '\u5728\u7EBF\u8BBE\u5907', value: devices.online + '/' + devices.total, icon: '\uD83D\uDCF1' },
+          { label: '\u6587\u4EF6\u603B\u6570', value: files.total, icon: '\uD83D\uDCC4', action: '' },
+          { label: '\u5B58\u50A8\u7528\u91CF', value: fmtSize(storage.total), icon: '\uD83D\uDCBE', action: '' },
+          { label: '\u4ECA\u65E5\u65B0\u589E', value: activity.today, icon: '\uD83D\uDCC8', action: '' },
+          { label: '\u672C\u5468\u65B0\u589E', value: activity.week, icon: '\uD83D\uDCC5', action: '' },
+          { label: '\u6D3B\u8DC3\u5206\u4EAB', value: shares.active, icon: '\uD83D\uDD17', action: '' },
+          { label: '\u5728\u7EBF\u8BBE\u5907', value: devices.online + '/' + devices.total, icon: '\uD83D\uDCF1', action: '' },
         ];
         var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px">';
         for (var ci = 0; ci < cards.length; ci++) {
           var c = cards[ci];
-          html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;text-align:center">';
-          html += '<div style="font-size:22px;margin-bottom:4px">' + c.icon + '</div>';
-          html += '<div style="font-size:20px;font-weight:700;color:var(--text)">' + escapeHtmlClient('' + c.value) + '</div>';
-          html += '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + c.label + '</div></div>';
+          html += card(c.label, c.value, c.icon, c.action);
         }
         html += '</div>';
+
+        // Row 2: File type + extension
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">';
         html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
         html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">\uD83D\uDCC1 \u6587\u4EF6\u7C7B\u578B\u5206\u5E03</div>';
@@ -7248,7 +7266,7 @@ function renderPage() {
             var r = byType[ti];
             var pct = totalFiles > 0 ? Math.round(r.count / totalFiles * 100) : 0;
             var color = colors[ti % colors.length];
-            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="forceCloseModal();setTypeFilter(\'' + escapeHtmlClient(r.type || '').replace(/'/g, "\\'") + '\')" title="筛选此类文件">';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="forceCloseModal();setTypeFilter(\'' + escapeHtmlClient(r.type || '').replace(/'/g, "\\'") + '\')" title="\u7B5B\u9009\u6B64\u7C7B\u6587\u4EF6">';
             html += '<div style="width:12px;height:12px;border-radius:3px;background:' + color + ';flex-shrink:0"></div>';
             html += '<div style="flex:1;font-size:12px;color:var(--text-secondary)">' + escapeHtmlClient(r.type || 'unknown') + '</div>';
             html += '<div style="font-size:12px;color:var(--muted)">' + r.count + ' (' + pct + '%)</div></div>';
@@ -7266,7 +7284,7 @@ function renderPage() {
           for (var ei = 0; ei < byExt.length; ei++) {
             var er = byExt[ei];
             var epct = Math.round(er.count / maxCount * 100);
-            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer" onclick="forceCloseModal();filterByExt(\'' + escapeHtmlClient(er.ext || '').replace(/'/g, "\\'") + '\')" title="筛选 .' + escapeHtmlClient(er.ext || '') + ' 文件">';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer" onclick="forceCloseModal();filterByExt(\'' + escapeHtmlClient(er.ext || '').replace(/'/g, "\\'") + '\')" title="\u7B5B\u9009 .' + escapeHtmlClient(er.ext || '') + ' \u6587\u4EF6">';
             html += '<div style="width:40px;font-size:11px;color:var(--muted);flex-shrink:0">.' + escapeHtmlClient(er.ext || 'none') + '</div>';
             html += '<div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px">';
             html += '<div style="height:6px;width:' + epct + '%;background:var(--accent);border-radius:3px;opacity:0.7"></div></div>';
@@ -7276,25 +7294,71 @@ function renderPage() {
           html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
         }
         html += '</div></div>';
-        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:20px">';
-        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">\uD83D\uDCC8 \u8FD17\u5929\u6587\u4EF6\u6D3B\u52A8</div>';
-        if (activity.dailyNew && activity.dailyNew.length) {
-          var maxDay = Math.max.apply(null, activity.dailyNew.map(function(d) { return d.count; }).concat([1]));
-          html += '<div style="display:flex;align-items:flex-end;gap:4px;height:80px">';
-          for (var di = 0; di < activity.dailyNew.length; di++) {
-            var dd = activity.dailyNew[di];
-            var dh = Math.max(Math.round(dd.count / maxDay * 70), dd.count > 0 ? 4 : 1);
+
+        // Row 3: VF storage + Top largest files
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
+        html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">\uD83D\uDCC2 \u865A\u62DF\u6587\u4EF6\u5939\u5B58\u50A8</div>';
+        if (byFolder && byFolder.length) {
+          var maxFolderSize = byFolder[0] ? byFolder[0].size : 1;
+          byFolder.forEach(function(f) {
+            var fpct = maxFolderSize > 0 ? Math.round(f.size / maxFolderSize * 100) : 0;
+            var color = f.color || '#6366f1';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="forceCloseModal();navigateVirtualFolder(\'' + escapeHtmlClient(f.name || '').replace(/'/g, "\\'") + '\')" title="' + escapeHtmlClient(f.name) + ': ' + fmtSize(f.size) + '">';
+            html += '<div style="width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></div>';
+            html += '<div style="flex:1;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(f.name) + '</div>';
+            html += '<div style="font-size:11px;color:var(--muted)">' + f.file_count + '\u4E2A</div>';
+            html += '<div style="font-size:11px;color:var(--muted);width:60px;text-align:right">' + fmtSize(f.size) + '</div></div>';
+            html += '<div style="height:4px;background:var(--bg-tertiary);border-radius:4px;margin-bottom:8px">';
+            html += '<div style="height:4px;width:' + fpct + '%;background:' + color + ';border-radius:4px"></div></div>';
+          });
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u865A\u62DF\u6587\u4EF6\u5939</div>';
+        }
+        html += '</div>';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
+        html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">\uD83D\uDCDD \u6700\u5927\u6587\u4EF6 TOP 10</div>';
+        if (topLargest && topLargest.length) {
+          topLargest.forEach(function(f, i) {
+            var sizeLabel = fmtSize(f.size);
+            var barW = topLargest[0] && topLargest[0].size > 0 ? Math.round(f.size / topLargest[0].size * 100) : 0;
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer" onclick="forceCloseModal();previewFile(\'' + escapeHtmlClient(encodeURIComponent(f.filename || '')).replace(/'/g, "\\'") + '\')" title="' + escapeHtmlClient(f.filename) + ' - ' + sizeLabel + '">';
+            html += '<div style="font-size:10px;color:var(--muted);width:16px;flex-shrink:0;text-align:right">' + (i + 1) + '</div>';
+            html += '<div style="flex:1;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(f.filename) + '</div>';
+            html += '<div style="font-size:11px;color:var(--muted);width:56px;text-align:right;flex-shrink:0">' + sizeLabel + '</div></div>';
+            html += '<div style="height:3px;background:var(--bg-tertiary);border-radius:3px;margin-bottom:8px;padding-left:24px">';
+            html += '<div style="height:3px;width:' + barW + '%;background:#f59e0b;border-radius:3px"></div></div>';
+          });
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
+        }
+        html += '</div></div>';
+
+        // Row 4: Weekly trend + system stats
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
+        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">\uD83D\uDCC8 \u8FD1\u4E09\u5468\u6BCF\u5468\u8D8B\u52BF</div>';
+        if (monthlyTrend && monthlyTrend.length) {
+          var maxAdded = Math.max.apply(null, monthlyTrend.map(function(d) { return d.added; }).concat([1]));
+          html += '<div style="display:flex;align-items:flex-end;gap:8px;height:80px">';
+          monthlyTrend.forEach(function(w) {
+            var addedH = Math.max(Math.round(w.added / maxAdded * 60), w.added > 0 ? 4 : 1);
             html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">';
-            html += '<div style="font-size:10px;color:var(--muted)">' + dd.count + '</div>';
-            html += '<div style="width:100%;height:' + dh + 'px;background:var(--accent);border-radius:3px 3px 0 0;opacity:0.8"></div>';
-            html += '<div style="font-size:9px;color:var(--muted)">' + escapeHtmlClient(dd.date) + '</div></div>';
-          }
+            html += '<div style="font-size:10px;color:var(--muted)">' + w.added + '</div>';
+            html += '<div style="width:100%;height:' + addedH + 'px;background:#10b981;border-radius:3px 3px 0 0;opacity:0.8"></div>';
+            html += '<div style="font-size:9px;color:var(--muted)">' + escapeHtmlClient(w.label) + '</div></div>';
+          });
+          html += '</div>';
+          html += '<div style="display:flex;gap:12px;margin-top:8px;justify-content:center">';
+          html += '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><div style="width:8px;height:8px;border-radius:2px;background:#10b981"></div>\u65B0\u589E</div>';
+          html += '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><div style="width:8px;height:8px;border-radius:2px;background:#ef4444"></div>\u5220\u9664</div>';
           html += '</div>';
         } else {
           html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
         }
         html += '</div>';
-        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
+        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">\uD83D\uDCC8 \u7CFB\u7EDF\u72B6\u6001</div>';
         var sysItems = [
           { label: '\u6587\u672C\u6587\u4EF6', value: files.text },
           { label: '\u4E8C\u8FDB\u5236\u6587\u4EF6', value: files.binary },
@@ -7307,19 +7371,23 @@ function renderPage() {
           { label: '\u5BA1\u8BA1\u65E5\u5FD7', value: audit.total },
           { label: '\u4ECA\u65E5\u5BA1\u8BA1', value: audit.today },
         ];
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
         for (var si = 0; si < sysItems.length; si++) {
           var s = sysItems[si];
-          html += '<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--bg-secondary);border-radius:8px;font-size:12px">';
+          html += '<div style="display:flex;justify-content:space-between;padding:7px 10px;background:var(--bg-tertiary);border-radius:6px;font-size:12px">';
           html += '<span style="color:var(--muted)">' + s.label + '</span>';
           html += '<span style="font-weight:600;color:var(--text)">' + escapeHtmlClient('' + s.value) + '</span></div>';
         }
-        html += '</div>';
+        html += '</div></div></div>';
+
         var targetEl = document.getElementById('dashboardContent');
         if (targetEl) targetEl.innerHTML = html;
       } catch (e) {
         var errEl = document.getElementById('dashboardContent');
         if (errEl) errEl.innerHTML = '<div style="color:var(--error);padding:12px">\u52A0\u8F7D\u5931\u8D25: ' + escapeHtmlClient(e.message) + '</div>';
       }
+    }
+
     }
 
     async function openTrash() {

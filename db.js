@@ -3236,17 +3236,50 @@ function getDashboardStats() {
   // 同步状态
   const unsynced = db.prepare('SELECT COUNT(*) as c FROM sync_log WHERE synced=0').get().c;
 
+  // 按虚拟文件夹存储分布（TOP 8）
+  const byFolder = db.prepare(`
+    SELECT vf.name, vf.color, COUNT(vff.file_id) as file_count, COALESCE(SUM(f.size), 0) as size
+    FROM virtual_folders vf
+    LEFT JOIN virtual_folder_files vff ON vf.id = vff.folder_id
+    LEFT JOIN files f ON f.id = vff.file_id
+    GROUP BY vf.id
+    ORDER BY size DESC
+    LIMIT 8
+  `).all();
+
+  // Top 10 最大文件
+  const topLargest = db.prepare(`
+    SELECT filename, size, type, updated_at
+    FROM files
+    ORDER BY size DESC
+    LIMIT 10
+  `).all();
+
+  // 近30天月度趋势（每周统计）
+  const monthlyTrend = [];
+  for (let w = 3; w >= 0; w--) {
+    const weekStart = now - (w + 1) * oneWeek;
+    const weekEnd = now - w * oneWeek;
+    const count = db.prepare('SELECT COUNT(*) as c FROM files WHERE created_at >= ? AND created_at < ?').get(weekStart, weekEnd).c;
+    const delCount = db.prepare('SELECT COUNT(*) as c FROM trash WHERE deleted_at >= ? AND deleted_at < ?').get(weekStart, weekEnd).c;
+    const weekLabel = w === 0 ? '本周' : w === 1 ? '上周' : (w === 2 ? '3周前' : '4周前');
+    monthlyTrend.push({ label: weekLabel, added: count, deleted: delCount });
+  }
+
   return {
     files: { total: totalFiles, text: textFiles, binary: binaryFiles, starred: starredFiles, trash: trashCount },
     storage: { total: totalSize },
     byType,
     byExt,
+    byFolder,
+    topLargest,
     activity: { today: filesToday, week: filesThisWeek, month: filesThisMonth, dailyNew },
     shares: { active: activeShares, total: totalShares, withPassword: sharesWithPwd },
     devices: { total: totalDevices, online: onlineDevices },
     tokens: { total: totalTokens, active: activeTokens },
     audit: { total: auditTotal, today: auditToday },
-    sync: { unsynced }
+    sync: { unsynced },
+    monthlyTrend
   };
 }
 
