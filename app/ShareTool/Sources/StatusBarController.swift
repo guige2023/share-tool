@@ -1,16 +1,16 @@
 import AppKit
 
-class StatusBarController {
+class StatusBarController: NSObject {
 
     private var statusItem: NSStatusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var menu: NSMenu = NSMenu()
-    private var statusMenuItem: NSMenuItem
-    private var ipMenuItem: NSMenuItem
-    private var openWebMenuItem: NSMenuItem
-    private var openFolderMenuItem: NSMenuItem
-    private var startStopMenuItem: NSMenuItem
-    private var autoStartMenuItem: NSMenuItem
-    private var quitMenuItem: NSMenuItem
+    private var statusMenuItem: NSMenuItem!
+    private var ipMenuItem: NSMenuItem!
+    private var openWebMenuItem: NSMenuItem!
+    private var openFolderMenuItem: NSMenuItem!
+    private var startStopMenuItem: NSMenuItem!
+    private var autoStartMenuItem: NSMenuItem!
+    private var quitMenuItem: NSMenuItem!
 
     private let onStart: () -> Void
     private let onStop: () -> Void
@@ -37,7 +37,18 @@ class StatusBarController {
         self.getStatus = getStatus
         self.getIP = getIP
 
-        // Menu items - initialized before using self
+        super.init()
+
+        setupMenu()
+        setupStatusItem()
+        updateStatus()
+
+        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
+            self?.updateStatus()
+        }
+    }
+
+    private func setupMenu() {
         let sMI = NSMenuItem(title: "状态: 启动中...", action: nil, keyEquivalent: "")
         sMI.isEnabled = false
         self.statusMenuItem = sMI
@@ -64,7 +75,6 @@ class StatusBarController {
 
         let cIPMI = NSMenuItem(title: "复制 IP", action: nil, keyEquivalent: "c")
 
-        // Now self is available - build menu and assign targets
         self.menu.addItem(self.statusMenuItem)
         self.menu.addItem(NSMenuItem.separator())
         self.menu.addItem(self.ipMenuItem)
@@ -78,30 +88,36 @@ class StatusBarController {
         self.menu.addItem(NSMenuItem.separator())
         self.menu.addItem(self.quitMenuItem)
 
-        // Set targets
         self.openWebMenuItem.target = self
         self.openFolderMenuItem.target = self
         self.startStopMenuItem.target = self
         self.autoStartMenuItem.target = self
         self.quitMenuItem.target = self
         cIPMI.target = self
+    }
 
-        // Assign menu to status item
+    private func setupStatusItem() {
         self.statusItem.menu = self.menu
 
         if let button = self.statusItem.button {
-            if #available(macOS 11.0, *) {
-                button.image = NSImage(systemSymbolName: "shared.with.you", accessibilityDescription: "ShareTool")
-            } else {
-                button.title = "ST"
+            let img = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+                let bgPath = NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 3, yRadius: 3)
+                NSColor(red: 0.95, green: 0.45, blue: 0.0, alpha: 1.0).setFill()
+                bgPath.fill()
+                let para = NSMutableParagraphStyle()
+                para.alignment = .center
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.boldSystemFont(ofSize: 12),
+                    .foregroundColor: NSColor.white,
+                    .paragraphStyle: para
+                ]
+                let sRect = rect.offsetBy(dx: 0, dy: 1)
+                "S".draw(in: sRect, withAttributes: attrs)
+                return true
             }
+            img.isTemplate = false
+            button.image = img
             button.imagePosition = .imageLeft
-        }
-
-        updateStatus()
-
-        Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
-            self?.updateStatus()
         }
     }
 
@@ -116,17 +132,11 @@ class StatusBarController {
                 self.startStopMenuItem.title = "停止服务"
                 self.openWebMenuItem.isEnabled = true
                 self.ipMenuItem.title = "IP: \(ip)"
-                if let button = self.statusItem.button, #available(macOS 11.0, *) {
-                    button.contentTintColor = NSColor.systemGreen
-                }
             } else {
                 self.statusMenuItem.title = "状态: 已停止"
                 self.startStopMenuItem.title = "启动服务"
                 self.openWebMenuItem.isEnabled = false
                 self.ipMenuItem.title = "IP: ---"
-                if let button = self.statusItem.button, #available(macOS 11.0, *) {
-                    button.contentTintColor = NSColor.systemRed
-                }
             }
         }
     }
