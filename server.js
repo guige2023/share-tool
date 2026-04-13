@@ -2693,7 +2693,11 @@ function renderPage() {
       currentSearchQuery = q;  // expose for highlight in render
       const selectedTag = (document.getElementById('tagFilterInput') || {}).dataset.selectedTag || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
-      const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
+      // Merge single-tag dropdown (selectedTag) with multi-select chips (currentTagFilters); OR logic
+      const allTagFilters = selectedTag
+        ? (currentTagFilters.includes(selectedTag) ? currentTagFilters : [...currentTagFilters, selectedTag])
+        : currentTagFilters;
+      const tagParam = allTagFilters.length ? '&tags=' + allTagFilters.map(encodeURIComponent).join(',') : '';
       const typeParam = currentTypeFilters.length ? '&type=' + currentTypeFilters.map(encodeURIComponent).join(',') : '';
       const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam + typeParam : '/api/list?' + sortParam + tagParam + typeParam;
       await loadFilesFromUrl(url, false);
