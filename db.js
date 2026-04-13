@@ -1728,6 +1728,53 @@ function searchFiles(query, tags = null, opts = {}) {
 
   const queryTokens = tokenizeQuery(cleanQuery);
 
+  // Glob/regex matching helper
+  function globToRegex(glob) {
+    // Convert glob pattern (*, ?, [abc], **) to regex
+    // ** matches any path segment (including /)
+    let regex = glob
+      .replace(/[.+^$|()[\]{}\\]/g, '\\$&')  // escape regex special chars except * and ?
+      .replace(/\*\*/g, '\x00PATH\x00')       // placeholder for **
+      .replace(/\*/g, '[^/]*')                // * = any char except /
+      .replace(/\x00PATH\x00/g, '.*')          // ** = any char including /
+      .replace(/\?/g, '.');                   // ? = any single char
+    return new RegExp('^' + regex + '$', 'i');
+  }
+  function matchFilenameGlob(filename, pattern) {
+    try { return globToRegex(pattern).test(filename); } catch (e) { return false; }
+  }
+  function matchFilenameRegex(filename, pattern) {
+    try { return new RegExp(pattern, 'i').test(filename); } catch (e) { return false; }
+  }
+  function matchFilename(filename) {
+    if (!query) return true;
+    if (mode === 'glob') return matchFilenameGlob(filename, query);
+    if (mode === 'regex') return matchFilenameRegex(filename, query);
+    // normal mode: handled by token scoring
+    return true;
+  }
+  // For normal mode, keep using tokens; for glob/regex, skip token scoring
+  const useTokens = (mode === 'normal' && queryTokens.length > 0);
+  // For glob/regex with a query, force fetching all files (skip FTS5 query building)
+  if ((mode === 'glob' || mode === 'regex') && query) {
+    // Bypass FTS5 entirely — fetch candidates from DB and filter in-memory
+    const allParams = [...extraParams];
+    const whereExtra = extraConditions.length > 0 ? 'WHERE ' + extraConditions.join(' AND ') : 'WHERE 1=1';
+    const candidates = db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ${whereExtra} ORDER BY created_at DESC LIMIT ?`).all(...allParams, candidateLimit);
+    const matched = candidates.filter(function(f) {
+      if (!matchFilename(f.filename)) return false;
+      // tags filter still applies
+      if (tags) {
+        const fileTags = (f.tags || '').toLowerCase().split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+        const tagList = tags.split(',').map(function(t) { return t.trim().toLowerCase(); });
+        const matches = tagMatch === 'any' ? tagList.some(function(t) { return fileTags.includes(t); }) : tagList.every(function(t) { return fileTags.includes(t); });
+        if (!matches) return false;
+      }
+      return true;
+    });
+    return matched.slice(offset, offset + limit);
+  }
+
   // 如果没有查询词，只有标签过滤 + size/date：直接用 SQLite
   if (queryTokens.length === 0 && tags && !contentQuery) {
     const tagList = tags.split(',').map(t => t.trim().toLowerCase());
@@ -1743,7 +1790,7 @@ function searchFiles(query, tags = null, opts = {}) {
   // tags/content 仍用 LIKE 辅助过滤
   const candidateLimit = limit + offset + 100;
   let candidateFiles;
-  if (queryTokens.length > 0 || tags || contentQuery) {
+  if (useTokens || tags || contentQuery) {
     const ftsQuery = buildFtsQuery(queryTokens);
     let rawCandidates = [];
 

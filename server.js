@@ -3009,10 +3009,12 @@ function renderPage() {
       if (dateTo) dateToParam = '&date_to=' + encodeURIComponent(dateTo);
       if (tagMatch && tagMatch !== 'all') tagMatchParam = '&tagMatch=' + encodeURIComponent(tagMatch);
       const advParams = sizeMinParam + sizeMaxParam + dateFromParam + dateToParam + tagMatchParam;
+      // Append search mode param (glob/regex bypass FTS5)
+      const modeParam = (_searchMode !== 'normal') ? '&mode=' + _searchMode : '';
       // Use /api/search for any filtering (supports size/date/tagMatch); /api/list only supports sort/order/type/tags
       const hasFilters = q || advParams || allTagFilters.length || currentTypeFilters.length;
       const url = hasFilters
-        ? '/api/search?q=' + encodeURIComponent(q || '') + '&' + sortParam + tagParam + typeParam + advParams
+        ? '/api/search?q=' + encodeURIComponent(q || '') + '&' + sortParam + tagParam + typeParam + advParams + modeParam
         : '/api/list?' + sortParam + tagParam + typeParam;
       await loadFilesFromUrl(url, false);
     }
