@@ -2640,7 +2640,7 @@ function renderPage() {
             return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
-      return '<tr data-index="' + file._index + '">' +
+      return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '">' +
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()"></td>' +
         '<td data-label="文件"><strong>' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
