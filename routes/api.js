@@ -298,6 +298,9 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
       }
     }
 
+    if (updated > 0) {
+      global.broadcastSSE({ type: 'files_changed' });
+    }
     sendJson(res, { success: true, updated, failed, total: files.length });
     return true;
   }
