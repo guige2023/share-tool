@@ -3243,14 +3243,39 @@ function renderPage() {
 
     var recentSearchesCache = [];
     var MAX_RECENT_SEARCHES = 8;
+    var LS_KEY = 'sharetool_recent_searches';
+
+    // 从 localStorage 恢复搜索历史（同步，立即可用）
+    function loadFromLocal() {
+      try {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) recentSearchesCache = JSON.parse(raw);
+      } catch (e) { recentSearchesCache = []; }
+    }
+
+    // 写入 localStorage（同步）
+    function saveToLocal() {
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(recentSearchesCache));
+      } catch (e) { /* quota or private mode */ }
+    }
 
     async function loadRecentSearches() {
+      // Step 1: 先从 localStorage 恢复（同步，立刻显示）
+      loadFromLocal();
+      renderRecentSearches();
+      // Step 2: 后台从服务器拉取最新历史并合并
       try {
         const res = await fetch('/api/search/history?limit=' + MAX_RECENT_SEARCHES);
         const data = await res.json();
-        recentSearchesCache = (data.history || []).map(function (h) { return h.query; });
-        renderRecentSearches();
-      } catch (e) { recentSearchesCache = []; }
+        var serverHistory = (data.history || []).map(function (h) { return h.query; });
+        // 合并：以服务器为准，去重
+        if (serverHistory.length > 0) {
+          recentSearchesCache = serverHistory.slice(0, MAX_RECENT_SEARCHES);
+          saveToLocal();
+          renderRecentSearches();
+        }
+      } catch (e) { /* offline — localStorage data already shown */ }
     }
 
     function getRecentSearches() {
@@ -3260,13 +3285,16 @@ function renderPage() {
     async function saveRecentSearch(query) {
       var q = query.trim();
       if (!q) return;
+      // 更新本地缓存并持久化（立刻生效）
       recentSearchesCache = recentSearchesCache.filter(function (s) { return s !== q; });
       recentSearchesCache.unshift(q);
       if (recentSearchesCache.length > MAX_RECENT_SEARCHES) recentSearchesCache = recentSearchesCache.slice(0, MAX_RECENT_SEARCHES);
+      saveToLocal();
+      renderRecentSearches();
+      // 异步同步到服务器
       try {
         await fetch('/api/search/history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q }) });
-      } catch (e) { /* non-critical */ }
-      renderRecentSearches();
+      } catch (e) { /* offline — localStorage already saved */ }
     }
 
     function renderRecentSearches() {
