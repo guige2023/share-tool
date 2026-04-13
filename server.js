@@ -6202,24 +6202,28 @@ function renderPage() {
           loaded.add(filename);
           var overlay = wrap.querySelector('.img-overlay');
           if (overlay) overlay.style.display = 'flex';
-          fetch('/api/content/' + encodeURIComponent(filename), { headers: headers() })
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-              var file = d.file;
-              if (!file || !file.content) throw new Error('no content');
-              var isImg = (file.mime || '').startsWith('image/');
-              if (!isImg) throw new Error('not image');
+          fetch('/api/thumbnail/' + encodeURIComponent(filename), { headers: headers() })
+            .then(function (r) {
+              if (!r.ok) throw new Error('thumb failed');
+              return r.blob();
+            })
+            .then(function (blob) {
               var img = document.createElement('img');
-              img.src = 'data:' + file.mime + ';base64,' + file.content;
-              img.alt = file.name;
+              img.src = URL.createObjectURL(blob);
+              img.alt = filename;
               img.style = 'width:100%;height:64px;object-fit:cover;border-radius:4px;display:block';
               img.onload = function () {
+                URL.revokeObjectURL(img.src);
                 wrap.innerHTML = '';
                 wrap.appendChild(img);
                 observer.unobserve(wrap);
               };
-              img.onerror = function () { wrap.innerHTML = wrap.dataset.origIcon || ''; observer.unobserve(wrap); };
-              wrap.dataset.origIcon = wrap.querySelector('.img-placeholder').outerHTML;
+              img.onerror = function () {
+                URL.revokeObjectURL(img.src);
+                wrap.innerHTML = wrap.dataset.origIcon || '';
+                observer.unobserve(wrap);
+              };
+              wrap.dataset.origIcon = wrap.querySelector('.img-placeholder') ? wrap.querySelector('.img-placeholder').outerHTML : '';
               wrap.innerHTML = '';
               wrap.appendChild(img);
             })

@@ -1,6 +1,7 @@
 /**
  * routes/files.js - core LAN share file endpoints
  */
+const sharp = require('sharp');
 
 module.exports = async function handleFileRoutes(req, res, pathname, query, ctx) {
   const {
@@ -660,6 +661,60 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         sendJson(res, { success: false, error: err.message }, 400);
       }
     });
+    return true;
+  }
+
+  // GET /api/thumbnail/:filename - serve resized image thumbnail
+  if (pathname.startsWith('/api/thumbnail/') && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    const filename = decodeURIComponent(pathname.slice('/api/thumbnail/'.length));
+    const file = db.getFileByName(filename);
+    if (!file) {
+      res.writeHead(404, { 'Content-Type': 'image/svg+xml' });
+      res.end('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>');
+      return true;
+    }
+
+    const mime = file.content_type || guessMimeType(filename);
+    if (!mime.startsWith('image/')) {
+      res.writeHead(415, { 'Content-Type': 'text/plain' });
+      res.end('Not an image');
+      return true;
+    }
+
+    try {
+      const content = file.content || '';
+      if (!content) throw new Error('no content');
+
+      // Try sharp resize first
+      const buf = Buffer.from(content, 'base64');
+      const thumb = await sharp(buf)
+        .resize(128, 128, { fit: 'cover', position: 'centre' })
+        .jpeg({ quality: 75 })
+        .toBuffer();
+
+      res.writeHead(200, {
+        'Content-Type': 'image/jpeg',
+        'Content-Length': thumb.length,
+        'Cache-Control': 'public, max-age=86400'
+      });
+      res.end(thumb);
+    } catch (err) {
+      // Fallback: serve original as JPEG if sharp fails (e.g. corrupted, unsupported format)
+      const content = file.content || '';
+      if (content) {
+        res.writeHead(200, {
+          'Content-Type': mime,
+          'Cache-Control': 'public, max-age=3600'
+        });
+        res.end(Buffer.from(content, 'base64'));
+      } else {
+        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end('Thumbnail generation failed');
+      }
+    }
     return true;
   }
 
