@@ -4030,6 +4030,39 @@ function renderPage() {
       openLightbox(qrUrl, 'image/png');
     }
 
+    /* ===== File Hover Card ===== */
+    .hover-card {
+      position: fixed;
+      z-index: 9998;
+      background: var(--bg-secondary, #fff);
+      border: 1px solid var(--line, #e5e7eb);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.15);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity .15s;
+      max-width: 280px;
+      min-width: 180px;
+    }
+    .hover-card.show { opacity: 1; }
+    .hover-card .hc-name {
+      font-weight: 600;
+      font-size: 13px;
+      word-break: break-all;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .hover-card .hc-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--text-secondary, #6b7280);
+      padding: 2px 0;
+    }
+    .hover-card .hc-row span:first-child { color: var(--text-muted, #9ca3af); }
+
     function openLightbox(imgSrc, mime) {
       var lb = document.getElementById('lightboxOverlay');
       if (lb) { lb.remove(); }
@@ -4040,6 +4073,95 @@ function renderPage() {
       lb.innerHTML = '<img src="' + imgSrc + '" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,.5)" alt="">';
       document.body.appendChild(lb);
     }
+
+    /* ===== Hover Card ===== */
+    var hoverCardTimer = null;
+    var lastHoverCardIndex = -1;
+
+    function showHoverCard(index) {
+      if (index === lastHoverCardIndex) return;
+      lastHoverCardIndex = index;
+      clearTimeout(hoverCardTimer);
+      var el = getFileAtIndex(index);
+      if (!el) return;
+      var file = currentFiles[index];
+      if (!file) return;
+
+      var hc = document.getElementById('hoverCard');
+      if (!hc) {
+        hc = document.createElement('div');
+        hc.id = 'hoverCard';
+        hc.className = 'hover-card';
+        document.body.appendChild(hc);
+      }
+
+      var size = file.size ? formatSize(file.size) : '--';
+      var created = file.created_at ? new Date(file.created_at * 1000).toLocaleDateString('zh-CN') : '--';
+      var hash = file.hash ? '<div class="hc-row"><span>MD5</span><span style="font-family:monospace;font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis">' + escapeHtmlClient(file.hash) + '</span></div>' : '';
+
+      hc.innerHTML =
+        '<div class="hc-name">' + escapeHtmlClient(file.name) + '</div>' +
+        '<div class="hc-row"><span>大小</span><span>' + size + '</span></div>' +
+        '<div class="hc-row"><span>类型</span><span>' + escapeHtmlClient(file.type || 'file') + '</span></div>' +
+        '<div class="hc-row"><span>创建</span><span>' + created + '</span></div>' +
+        hash +
+        '<div class="hc-row"><span>标签</span><span>' + escapeHtmlClient(file.tags || '无') + '</span></div>';
+
+      // Position below the file item
+      var rect = el.getBoundingClientRect();
+      var hcRect = hc.getBoundingClientRect();
+      var top = rect.bottom + 8;
+      var left = rect.left;
+      // Keep on screen
+      if (left + 280 > window.innerWidth) left = window.innerWidth - 290;
+      if (top + 200 > window.innerHeight) top = rect.top - 200 - 8;
+      hc.style.top = top + 'px';
+      hc.style.left = left + 'px';
+      hc.classList.add('show');
+    }
+
+    function hideHoverCard() {
+      lastHoverCardIndex = -1;
+      hoverCardTimer = setTimeout(function() {
+        var hc = document.getElementById('hoverCard');
+        if (hc) hc.classList.remove('show');
+      }, 150);
+    }
+
+    function attachHoverCard() {
+      document.removeEventListener('mouseover', hoverCardMouseOver);
+      document.removeEventListener('mouseout', hoverCardMouseOut);
+      document.addEventListener('mouseover', hoverCardMouseOver, { passive: true });
+      document.addEventListener('mouseout', hoverCardMouseOut, { passive: true });
+    }
+
+    function hoverCardMouseOver(e) {
+      var el = e.target.closest('#fileTableBody tr[data-index], #fileTableGrid .file-item');
+      if (!el) { hideHoverCard(); return; }
+      var idx = parseInt(el.dataset.index, 10);
+      if (isNaN(idx)) { hideHoverCard(); return; }
+      clearTimeout(hoverCardTimer);
+      showHoverCard(idx);
+    }
+
+    function hoverCardMouseOut(e) {
+      if (e.relatedTarget && e.target.closest('#fileTableBody tr[data-index], #fileTableGrid .file-item')) {
+        // Check if moving to another file item
+        if (!e.relatedTarget.closest('#hoverCard') &&
+            !e.relatedTarget.closest('#fileTableBody tr[data-index], #fileTableGrid .file-item')) {
+          hideHoverCard();
+        }
+      } else if (!e.relatedTarget || !e.relatedTarget.closest('#hoverCard')) {
+        hideHoverCard();
+      }
+    }
+
+    // Call attachHoverCard after renderFiles
+    var _origRenderFiles = renderFiles;
+    renderFiles = function() {
+      _origRenderFiles.apply(this, arguments);
+      attachHoverCard();
+    };
 
     function renderTextPreview(filename, content, origSize, isTruncated, lang, ext) {
       const modalBody = document.getElementById('modalBody');
@@ -4676,7 +4798,7 @@ function renderPage() {
             html += '<span style="font-size:11px;color:var(--muted);margin-left:6px">' + t.count + ' 个文件</span>';
             html += '</div>';
             html += '<div style="display:flex;gap:2px;align-items:center;flex-shrink:0">' + colorDot + '</div>';
-            html += '<button onclick="renameTag(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px" title="重命名">✎</button>';
+            html += '<button onclick="openRenameTagModal(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px" title="重命名">✎</button>';
             html += '<button onclick="deleteTag(\'' + escapeHtmlClient(t.tag) + '\')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px">✕</button>';
             html += '</div>';
           });
@@ -4790,11 +4912,28 @@ function renderPage() {
       }
     }
 
-    async function renameTag(oldTag) {
-      var newTag = prompt('将标签「' + oldTag + '」重命名为：', oldTag);
-      if (!newTag || newTag === oldTag) return;
-      newTag = newTag.trim();
-      if (!newTag) { showToast('标签名称不能为空', 'error'); return; }
+    function openRenameTagModal(oldTag) {
+      document.getElementById('modalTitle').textContent = '重命名标签';
+      document.getElementById('modalBody').innerHTML =
+        '<div style="padding:8px 0">' +
+          '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">将标签「<strong>' + escapeHtmlClient(oldTag) + '</strong>」重命名为：</p>' +
+          '<input id="renameTagInput" type="text" value="' + escapeHtmlClient(oldTag) + '" ' +
+            'style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box" ' +
+            'onkeydown="if(event.key===\'Enter\')confirmRenameTag(\'' + oldTag.replace(/'/g, "\\'") + '\');if(event.key===\'Escape\')forceCloseModal()">' +
+        '</div>';
+      var modal = document.getElementById('modal');
+      modal.querySelector('.modal-actions').innerHTML =
+        '<button class="secondary" onclick="forceCloseModal()">取消</button>' +
+        '<button class="primary" onclick="confirmRenameTag(\'' + oldTag.replace(/'/g, "\\'") + '\')">确认</button>';
+      modal.classList.add('open');
+      setTimeout(function() { document.getElementById('renameTagInput').focus(); document.getElementById('renameTagInput').select(); }, 50);
+    }
+
+    async function confirmRenameTag(oldTag) {
+      var input = document.getElementById('renameTagInput');
+      var newTag = input && input.value.trim();
+      if (!newTag || newTag === oldTag) { forceCloseModal(); return; }
+      forceCloseModal();
       var res = await fetch('/api/tags/rename', {
         method: 'POST',
         headers: headers({ 'Content-Type': 'application/json' }),
