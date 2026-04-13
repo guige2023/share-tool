@@ -85,6 +85,43 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
     return true;
   }
 
+  // PUT /api/share/update/:code — update share link (expires, password, maxDownloads)
+  if (pathname.startsWith('/api/share/update/') && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    const code = pathname.slice('/api/share/update/'.length);
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    await new Promise(resolve => req.on('end', resolve));
+    let updates;
+    try {
+      updates = JSON.parse(body);
+    } catch {
+      sendJson(res, { success: false, error: 'Invalid JSON' }, 400);
+      return true;
+    }
+
+    // Validate: expiresAt must be a number (ms timestamp), null/0 for never, or existing value
+    if (updates.expiresAt !== undefined && updates.expiresAt !== null && updates.expiresAt !== 0 && typeof updates.expiresAt !== 'number') {
+      sendJson(res, { success: false, error: 'expiresAt must be a number, null, or 0' }, 400);
+      return true;
+    }
+    if (updates.maxDownloads !== undefined && updates.maxDownloads !== null && updates.maxDownloads !== 0 && typeof updates.maxDownloads !== 'number') {
+      sendJson(res, { success: false, error: 'maxDownloads must be a number, null, or 0' }, 400);
+      return true;
+    }
+
+    const result = db.updateShareLink(code, updates);
+    if (!result.success) {
+      sendJson(res, result, 404);
+      return true;
+    }
+    db.addAuditLog('share_update', code, getClientIp(req), auth.token);
+    sendJson(res, { success: true });
+    return true;
+  }
+
   if (pathname.startsWith('/api/share/qr/') && method === 'GET') {
     const code = pathname.slice('/api/share/qr/'.length);
     const share = db.getShareLink(code);

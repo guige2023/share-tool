@@ -794,6 +794,79 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Notifications ────────────────────────────────────────────────────────
+  // GET /api/notifications - list notifications
+  if (pathname === '/api/notifications' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const limit = parseInt(query.get('limit') || '50', 10);
+    const offset = parseInt(query.get('offset') || '0', 10);
+    const rows = db.getNotifications(limit, offset);
+    sendJson(res, { success: true, notifications: rows });
+    return true;
+  }
+
+  // GET /api/notifications/unread-count
+  if (pathname === '/api/notifications/unread-count' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const count = db.getUnreadNotificationCount();
+    sendJson(res, { success: true, count });
+    return true;
+  }
+
+  // POST /api/notifications/mark-read - mark notifications as read
+  if (pathname === '/api/notifications/mark-read' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    if (body.all) {
+      db.markNotificationsRead(null); // mark all as read
+    } else if (Array.isArray(body.ids) && body.ids.length > 0) {
+      db.markNotificationsRead(body.ids);
+    } else {
+      sendJson(res, { success: false, error: 'ids array or {all: true} required' }, 400);
+      return true;
+    }
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // DELETE /api/notifications - delete notifications
+  if (pathname === '/api/notifications' && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    if (body.all) {
+      db.clearNotifications(null); // clear all
+    } else if (Array.isArray(body.ids) && body.ids.length > 0) {
+      db.clearNotifications(body.ids);
+    } else {
+      sendJson(res, { success: false, error: 'ids array or {all: true} required' }, 400);
+      return true;
+    }
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // GET /api/db/stats - database statistics
+  if (pathname === '/api/db/stats' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const stats = db.getDbStats();
+    sendJson(res, { success: true, ...stats });
+    return true;
+  }
+
+  // GET /api/system/stats - system resource stats (CPU, memory, disk)
+  if (pathname === '/api/system/stats' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const stats = db.getSystemStats();
+    sendJson(res, { success: true, ...stats });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {

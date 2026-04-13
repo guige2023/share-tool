@@ -2812,7 +2812,7 @@ function renderPage() {
     }
 
     async function addFileToVirtualFolder(folderId, fileId) {
-      closeModal();
+      forceCloseModal();
       await fetch('/api/virtual-folders/' + folderId + '/files', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileId })
@@ -5838,6 +5838,7 @@ function renderPage() {
           '</td>' +
           '<td class="actions-cell" data-label="操作">' +
             '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
+            '<button class="secondary" onclick=' + "'" + 'openShareEditModal(' + JSON.stringify(share.code) + ')' + "'" + '>编辑</button>' +
             '<button class="danger" onclick=' + "'" + 'deleteShare(' + JSON.stringify(share.code) + ')' + "'" + '>删除</button>' +
           '</td>' +
         '</tr>';
@@ -5867,6 +5868,25 @@ function renderPage() {
       empty.style.display = 'none';
       body.innerHTML = filtered.map(function (share) {
         var expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
+        return '<tr>' +
+          '<td><input type="checkbox" class="share-check" value="' + encodeURIComponent(share.code) + '" onchange="updateShareBatchBar()"></td>' +
+          '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
+          '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank">' + escapeHtmlClient(share.url) + '</a></td>' +
+          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
+          '<td data-label="信息">' +
+            '<div>到期: ' + expireText + '</div>' +
+            '<div>访问: ' + (share.viewCount || 0) + '</div>' +
+            '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
+            '<div>' + (share.hasPassword ? '有密码' : '无密码') + '</div>' +
+          '</td>' +
+          '<td class="actions-cell" data-label="操作">' +
+            '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
+            '<button class="secondary" onclick=' + "'" + 'openShareEditModal(' + JSON.stringify(share.code) + ')' + "'" + '>编辑</button>' +
+            '<button class="danger" onclick=' + "'" + 'deleteShare(' + JSON.stringify(share.code) + ')' + "'" + '>删除</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
         return '<tr>' +
           '<td><input type="checkbox" class="share-check" value="' + encodeURIComponent(share.code) + '" onchange="updateShareBatchBar()"></td>' +
           '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
