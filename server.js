@@ -6644,6 +6644,56 @@ function renderPage() {
         if (fn4) { copyShareLink(fn4.trim()); }
         return;
       }
+      // y: copy filename of selected/navigated file
+      if (e.key === 'y' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        var checked = document.querySelectorAll('.file-check:checked');
+        var fnY = null;
+        if (checked.length === 1) {
+          var item = checked[0].closest('tr') || checked[0].closest('.file-item');
+          fnY = item && (item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent);
+        } else if (keyboardNavIndex >= 0) {
+          var items = getAllFileItems();
+          var item = items[keyboardNavIndex];
+          fnY = item && (item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent);
+        }
+        if (fnY) {
+          navigator.clipboard.writeText(fnY.trim()).then(function() { showToast('文件名已复制', 'info', 1500); });
+        }
+        return;
+      }
+      // i: show file info of selected/navigated file
+      if (e.key === 'i' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        var checked = document.querySelectorAll('.file-check:checked');
+        var fnI = null;
+        if (checked.length === 1) {
+          var item = checked[0].closest('tr') || checked[0].closest('.file-item');
+          fnI = item && (item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent);
+        } else if (keyboardNavIndex >= 0) {
+          var items = getAllFileItems();
+          var item = items[keyboardNavIndex];
+          fnI = item && (item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent);
+        }
+        if (fnI) { showFileInfo(fnI.trim()); }
+        return;
+      }
+      // Space: toggle selection of current file (without opening)
+      if (e.key === ' ' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        if (keyboardNavIndex >= 0) {
+          var items = getAllFileItems();
+          var item = items[keyboardNavIndex];
+          if (item) {
+            var cb = item.querySelector('.file-check');
+            if (cb) { cb.checked = !cb.checked; updateBatchBar(); }
+          }
+        }
+        return;
+      }
       // s: toggle sort direction
       if (e.key === 's' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
         var active = document.activeElement;
