@@ -45,7 +45,10 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
         maxDownloads: body.maxDownloads,
         password: body.password,
         isText: file.type === 'text',
-        description: body.description || ''
+        description: body.description || '',
+        themeBg: body.themeBg || null,
+        themeColor: body.themeColor || null,
+        brandText: body.brandText || null
       });
 
       const url = `${BASE_URL}/s/${share.code}`;
@@ -70,9 +73,31 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
       downloadCount: item.downloadCount,
       viewCount: item.viewCount || 0,
       description: item.description,
+      themeBg: item.themeBg || null,
+      themeColor: item.themeColor || null,
+      brandText: item.brandText || null,
       url: `${BASE_URL}/s/${item.code}`
     }));
     sendJson(res, { success: true, shares });
+    return true;
+  }
+
+  // GET /api/share/stats - 分享链接统计分析
+  if (pathname === '/api/share/stats' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const stats = db.getShareStats();
+    sendJson(res, { success: true, stats });
+    return true;
+  }
+
+  // GET /api/share/expiring - 即将过期的分享链接（默认7天内）
+  if (pathname === '/api/share/expiring' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const days = parseInt(query.get('days') || '7', 10);
+    const rows = db.getExpiringShares(days);
+    sendJson(res, { success: true, shares: rows });
     return true;
   }
 
@@ -204,6 +229,9 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
 
     if (share.hasPassword) {
       if (method === 'GET') {
+        const pBg = share.themeBg || '#f6f7fb';
+        const pColor = share.themeColor || '#111827';
+        const pAccent = share.themeColor || '#111827';
         const page = `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -211,13 +239,13 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>访问分享</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f7fb;color:#111827;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:${pBg};color:${pColor};display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
     .card{width:min(420px,92vw);background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:28px;box-shadow:0 20px 50px rgba(0,0,0,.08)}
     h1{margin:0 0 10px;font-size:24px}
     p{color:#6b7280;line-height:1.5}
     input,button{width:100%;box-sizing:border-box;border-radius:12px;padding:14px 16px;font-size:16px}
     input{border:1px solid #d1d5db;margin:18px 0 12px}
-    button{border:none;background:#111827;color:#fff;cursor:pointer}
+    button{border:none;background:${pAccent};color:#fff;cursor:pointer}
   </style>
 </head>
 <body>
@@ -277,6 +305,10 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
     const fileSize = file.size ? (file.size > 1024*1024 ? (file.size/1024/1024).toFixed(1)+' MB' : (file.size/1024).toFixed(1)+' KB') : '未知大小';
     const createdAt = file.created_at ? new Date(file.created_at * 1000).toLocaleDateString('zh-CN') : '';
 
+    // Theme injection (custom background/color)
+    const themeBgStyle = share.themeBg ? `--theme-bg:${share.themeBg};--theme-color:${share.themeColor || '#111827'};` : '';
+    const brandTextHtml = share.brandText ? `<div style="text-align:center;padding:16px;font-size:12px;color:#9ca3af;margin-top:8px">${escapeHtml(share.brandText)}</div>` : '';
+
     // Text file: show content preview
     if (isTextFile) {
       const preview = file.content
@@ -289,32 +321,33 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escapeHtml(file.filename)} - ShareTool</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f7fb;color:#111827;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--theme-bg,#f6f7fb);color:var(--theme-color,#111827);margin:0;padding:0}
     .wrap{max-width:860px;margin:0 auto;padding:32px 16px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-bottom:16px}
+    .card{background:var(--card-bg,#fff);border:1px solid var(--line,#e5e7eb);border-radius:20px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-bottom:16px}
     h1{font-size:20px;margin:0 0 8px;font-weight:600}
-    .meta{color:#6b7280;font-size:13px;margin-bottom:20px}
+    .meta{color:var(--muted,#6b7280);font-size:13px;margin-bottom:20px}
     .meta span{margin-right:16px}
-    pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;background:#f8f9fa;border:1px solid #e5e7eb;border-radius:12px;padding:20px;white-space:pre-wrap;word-break:break-word;line-height:1.7;max-height:60vh;overflow-y:auto;color:#374151}
-    .dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:#111827;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
-    .dl-btn:hover{background:#1f2937}
+    pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;background:var(--code-bg,#f8f9fa);border:1px solid var(--line,#e5e7eb);border-radius:12px;padding:20px;white-space:pre-wrap;word-break:break-word;line-height:1.7;max-height:60vh;overflow-y:auto;color:var(--text,#374151)}
+    .dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:var(--theme-color,#111827);color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
+    .dl-btn:hover{opacity:0.85}
     .icon{font-size:40px;margin-bottom:12px}
     @media(max-width:480px){.wrap{padding:16px 12px}.card{padding:20px}}
   </style>
 </head>
-<body>
+<body ${share.themeBg ? `style="background:${share.themeBg};color:${share.themeColor || '#111827'}"` : ''}>
   <div class="wrap">
     <div class="card">
       <div class="icon">📄</div>
       <h1>${escapeHtml(file.filename)}</h1>
       <div class="meta"><span>📝 文本</span><span>${fileSize}</span>${createdAt ? '<span>🗓 '+createdAt+'</span>' : ''}</div>
-      ${share.description ? `<div style="background:#f0f9ff;border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px;color:#1e6091;">💬 ${escapeHtml(share.description)}</div>` : ''}
+      ${share.description ? `<div style="background:var(--note-bg,#f0f9ff);border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px;color:var(--note-color,#1e6091);">💬 ${escapeHtml(share.description)}</div>` : ''}
       <pre>${escapeHtml(preview)}</pre>
     </div>
     <form method="post" action="/s/${escapeHtml(code)}">
       <input type="hidden" name="action" value="download">
       <button type="submit" class="dl-btn">⬇ 下载文件</button>
     </form>
+    ${brandTextHtml}
   </div>
 </body>
 </html>`;
@@ -332,30 +365,31 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escapeHtml(file.filename)} - ShareTool</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f7fb;color:#111827;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--theme-bg,#f6f7fb);color:var(--theme-color,#111827);margin:0;padding:0}
     .wrap{max-width:900px;margin:0 auto;padding:32px 16px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-bottom:16px;text-align:center}
+    .card{background:var(--card-bg,#fff);border:1px solid var(--line,#e5e7eb);border-radius:20px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-bottom:16px;text-align:center}
     h1{font-size:20px;margin:0 0 8px;font-weight:600;text-align:left}
-    .meta{color:#6b7280;font-size:13px;margin-bottom:20px;text-align:left}
+    .meta{color:var(--muted,#6b7280);font-size:13px;margin-bottom:20px;text-align:left}
     .meta span{margin-right:16px}
-    img{max-width:100%;max-height:70vh;border-radius:12px;border:1px solid #e5e7eb;display:block;margin:0 auto}
-    .dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:#111827;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
-    .dl-btn:hover{background:#1f2937}
+    img{max-width:100%;max-height:70vh;border-radius:12px;border:1px solid var(--line,#e5e7eb);display:block;margin:0 auto}
+    .dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:var(--theme-color,#111827);color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
+    .dl-btn:hover{opacity:0.85}
     @media(max-width:480px){.wrap{padding:16px 12px}.card{padding:20px}}
   </style>
 </head>
-<body>
+<body ${share.themeBg ? `style="background:${share.themeBg};color:${share.themeColor || '#111827'}"` : ''}>
   <div class="wrap">
     <div class="card">
       <h1>${escapeHtml(file.filename)}</h1>
       <div class="meta"><span>🖼 图片</span><span>${fileSize}</span>${createdAt ? '<span>🗓 '+createdAt+'</span>' : ''}</div>
-      ${share.description ? `<div style="background:#f0f9ff;border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px;color:#1e6091;text-align:left;">💬 ${escapeHtml(share.description)}</div>` : ''}
+      ${share.description ? `<div style="background:var(--note-bg,#f0f9ff);border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px;color:var(--note-color,#1e6091);text-align:left;">💬 ${escapeHtml(share.description)}</div>` : ''}
       <img src="${imgSrc}" alt="${escapeHtml(file.filename)}" loading="lazy">
     </div>
     <form method="post" action="/s/${escapeHtml(code)}">
       <input type="hidden" name="action" value="download">
       <button type="submit" class="dl-btn">⬇ 下载文件</button>
     </form>
+    ${brandTextHtml}
   </div>
 </body>
 </html>`;
@@ -375,30 +409,31 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escapeHtml(file.filename)} - ShareTool</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f7fb;color:#111827;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--theme-bg,#f6f7fb);color:var(--theme-color,#111827);margin:0;padding:0}
     .wrap{max-width:860px;margin:0 auto;padding:32px 16px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-bottom:16px}
+    .card{background:var(--card-bg,#fff);border:1px solid var(--line,#e5e7eb);border-radius:20px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.06);margin-bottom:16px}
     h1{font-size:20px;margin:0 0 8px;font-weight:600}
-    .meta{color:#6b7280;font-size:13px;margin-bottom:20px}
+    .meta{color:var(--muted,#6b7280);font-size:13px;margin-bottom:20px}
     .meta span{margin-right:16px}
     ${tag}{display:block;width:100%;margin:0 auto 20px;background:#000;border-radius:12px;max-height:60vh}
-    .dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:#111827;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
-    .dl-btn:hover{background:#1f2937}
+    .dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:var(--theme-color,#111827);color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
+    .dl-btn:hover{opacity:0.85}
     @media(max-width:480px){.wrap{padding:16px 12px}.card{padding:20px}}
   </style>
 </head>
-<body>
+<body ${share.themeBg ? `style="background:${share.themeBg};color:${share.themeColor || '#111827'}"` : ''}>
   <div class="wrap">
     <div class="card">
       <h1>${escapeHtml(file.filename)}</h1>
       <div class="meta"><span>${isVideo ? '🎬' : '🎵'} ${isVideo ? '视频' : '音频'}</span><span>${fileSize}</span>${createdAt ? '<span>🗓 '+createdAt+'</span>' : ''}</div>
-      ${share.description ? `<div style="background:#f0f9ff;border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px;color:#1e6091;">💬 ${escapeHtml(share.description)}</div>` : ''}
+      ${share.description ? `<div style="background:var(--note-bg,#f0f9ff);border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px;color:var(--note-color,#1e6091);">💬 ${escapeHtml(share.description)}</div>` : ''}
       <${tag} ${playerAttrs}><source src="${mediaSrc}" ></${tag}>
     </div>
     <form method="post" action="/s/${escapeHtml(code)}">
       <input type="hidden" name="action" value="download">
       <button type="submit" class="dl-btn">⬇ 下载文件</button>
     </form>
+    ${brandTextHtml}
   </div>
 </body>
 </html>`;
@@ -417,31 +452,32 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>${escapeHtml(file.filename)} - ShareTool</title>
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f6f7fb;color:#111827;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--theme-bg,#f6f7fb);color:var(--theme-color,#111827);margin:0;padding:0}
     .wrap{max-width:520px;margin:0 auto;padding:48px 16px}
-    .card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:36px;box-shadow:0 4px 24px rgba(0,0,0,.06);text-align:center;margin-bottom:16px}
+    .card{background:var(--card-bg,#fff);border:1px solid var(--line,#e5e7eb);border-radius:20px;padding:36px;box-shadow:0 4px 24px rgba(0,0,0,.06);text-align:center;margin-bottom:16px}
     .icon{font-size:56px;margin-bottom:16px}
     h1{font-size:20px;margin:0 0 8px;font-weight:600;word-break:break-all}
-    .meta{color:#6b7280;font-size:13px;margin-bottom:20px}
-    .ext-tag{display:inline-block;background:#f3f4f6;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:500;color:#374151;text-transform:uppercase;margin-bottom:16px}
-    .dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:#111827;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
-    .dl-btn:hover{background:#1f2937}
+    .meta{color:var(--muted,#6b7280);font-size:13px;margin-bottom:20px}
+    .ext-tag{display:inline-block;background:var(--tag-bg,#f3f4f6);border-radius:6px;padding:2px 8px;font-size:12px;font-weight:500;color:var(--theme-color,#374151);text-transform:uppercase;margin-bottom:16px}
+    .dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:var(--theme-color,#111827);color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
+    .dl-btn:hover{opacity:0.85}
     @media(max-width:480px){.wrap{padding:32px 12px}.card{padding:28px}}
   </style>
 </head>
-<body>
+<body ${share.themeBg ? `style="background:${share.themeBg};color:${share.themeColor || '#111827'}"` : ''}>
   <div class="wrap">
     <div class="card">
       <div class="icon">${icon}</div>
       <div class="ext-tag">${escapeHtml(ext || '文件')}</div>
       <h1>${escapeHtml(file.filename)}</h1>
       <div class="meta"><span>${fileSize}</span>${createdAt ? '<span>🗓 '+createdAt+'</span>' : ''}</div>
-      ${share.description ? `<div style="background:#f0f9ff;border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px;color:#1e6091;text-align:left;">💬 ${escapeHtml(share.description)}</div>` : ''}
+      ${share.description ? `<div style="background:var(--note-bg,#f0f9ff);border-radius:10px;padding:14px;margin-bottom:20px;font-size:14px;color:var(--note-color,#1e6091);text-align:left;">💬 ${escapeHtml(share.description)}</div>` : ''}
     </div>
     <form method="post" action="/s/${escapeHtml(code)}">
       <input type="hidden" name="action" value="download">
       <button type="submit" class="dl-btn">⬇ 下载文件</button>
     </form>
+    ${brandTextHtml}
   </div>
 </body>
 </html>`;

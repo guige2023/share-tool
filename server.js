@@ -1108,6 +1108,8 @@ function renderPage() {
         </select>
         <button class="secondary" onclick="filterShares()">过滤</button>
         <button class="ghost" onclick="copyAllShares()">复制全部</button>
+        <button class="ghost" onclick="openShareAnalytics()">📈 分析</button>
+        <button class="ghost" onclick="openExpiringShares()">⏰ 过期提醒</button>
         <button class="danger" onclick="batchDeleteExpiredShares()">删除过期</button>
       </div>
       <div id="shareBatchBar" class="batch-bar" style="display:none">
@@ -7016,6 +7018,26 @@ function renderPage() {
             <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">最大下载次数（可选）</label>\
             <input id="shareMaxDlInput" type="number" min="1" placeholder="无限制" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;box-sizing:border-box">\
           </div>\
+          <details style="margin-bottom:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px">\
+            <summary style="cursor:pointer;font-size:13px;color:var(--muted);user-select:none">🎨 自定义外观（可选）</summary>\
+            <div style="margin-top:10px">\
+              <div style="margin-bottom:8px">\
+                <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">背景颜色</label>\
+                <input id="shareThemeBg" type="color" value="#f6f7fb" style="width:48px;height:32px;border-radius:6px;border:1px solid var(--line);cursor:pointer;vertical-align:middle">\
+                <span style="font-size:12px;color:var(--muted);margin-left:6px">或输入色值</span>\
+                <input id="shareThemeBgHex" type="text" placeholder="#f6f7fb" style="width:80px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;margin-left:4px">\
+              </div>\
+              <div style="margin-bottom:8px">\
+                <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">主题颜色（按钮/文字）</label>\
+                <input id="shareThemeColor" type="color" value="#111827" style="width:48px;height:32px;border-radius:6px;border:1px solid var(--line);cursor:pointer;vertical-align:middle">\
+                <input id="shareThemeColorHex" type="text" placeholder="#111827" style="width:80px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;margin-left:4px">\
+              </div>\
+              <div>\
+                <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">品牌文字（页脚显示）</label>\
+                <input id="shareBrandText" type="text" placeholder="例如：© 2024 我的公司" maxlength="80" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;box-sizing:border-box">\
+              </div>\
+            </div>\
+          </details>\
           <div style="display:flex;gap:8px;justify-content:flex-end">\
             <button class="secondary" onclick="document.getElementById(\'shareCreateModal\').remove()">取消</button>\
             <button onclick="confirmShareCreate(\'' + filename.replace(/'/g, "\\'") + '\')" id="shareCreateBtn">创建并复制链接</button>\
@@ -7047,7 +7069,10 @@ function renderPage() {
           filename: filename,
           expiryHours: expiryHours,
           password: password,
-          maxDownloads: maxDownloads ? parseInt(maxDownloads, 10) : null
+          maxDownloads: maxDownloads ? parseInt(maxDownloads, 10) : null,
+          themeBg: document.getElementById('shareThemeBgHex').value.trim() || null,
+          themeColor: document.getElementById('shareThemeColorHex').value.trim() || null,
+          brandText: document.getElementById('shareBrandText').value.trim() || null
         };
         if (customExpiry) {
           body.customExpiry = new Date(customExpiry).getTime();
@@ -7262,8 +7287,11 @@ function renderPage() {
       modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
       var currentExpiry = share.expiresAt ? new Date(share.expiresAt).toISOString().slice(0, 16) : '';
       var maxDl = share.maxDownloads || '';
+      var themeBgVal = share.themeBg || '';
+      var themeColorVal = share.themeColor || '';
+      var brandTextVal = share.brandText || '';
       modal.innerHTML = '\
-        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:420px;font-size:14px;max-height:90vh;overflow-y:auto">\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:460px;font-size:14px;max-height:90vh;overflow-y:auto">\
           <h3 style="margin:0 0 20px">编辑分享链接</h3>\
           <p style="margin:0 0 6px;font-size:12px;color:var(--muted);word-break:break-all"><strong>文件:</strong> ' + escapeHtmlClient(share.filename) + '</p>\
           <p style="margin:0 0 6px;font-size:12px;color:var(--muted);word-break:break-all"><strong>链接:</strong> ' + escapeHtmlClient(share.url || '') + '</p>\
@@ -7280,11 +7308,32 @@ function renderPage() {
             <label style="display:block;margin-bottom:4px;font-size:13px">下载次数限制</label>\
             <input id="editShareMaxDl" type="number" min="0" placeholder="不限制" value="' + maxDl + '" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
           </div>\
-          <div style="margin-bottom:16px">\
+          <div style="margin-bottom:12px">\
             <label style="display:block;margin-bottom:4px;font-size:13px">密码保护</label>\
             <input id="editSharePwd" type="text" placeholder="留空则不设置密码" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
             ' + (share.hasPassword ? '<div style="font-size:11px;color:var(--muted);margin-top:3px">当前已设置密码，如需修改请填写新密码</div>' : '') + '\
           </div>\
+          <details style="margin-bottom:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px">\
+            <summary style="cursor:pointer;font-size:13px;color:var(--muted);user-select:none">🎨 自定义外观</summary>\
+            <div style="margin-top:10px">\
+              <div style="margin-bottom:8px">\
+                <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">背景颜色</label>\
+                <input id="editShareThemeBg" type="color" value="' + (themeBgVal || '#f6f7fb') + '" style="width:48px;height:32px;border-radius:6px;border:1px solid var(--line);cursor:pointer;vertical-align:middle">\
+                <input id="editShareThemeBgHex" type="text" placeholder="#f6f7fb" value="' + escapeHtmlClient(themeBgVal) + '" style="width:100px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;margin-left:4px">\
+                <button onclick="clearShareThemeBg()" style="margin-left:6px;font-size:11px;padding:3px 8px;border-radius:6px;background:var(--line);border:none;cursor:pointer;color:var(--muted)">清除</button>\
+              </div>\
+              <div style="margin-bottom:8px">\
+                <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">主题颜色</label>\
+                <input id="editShareThemeColor" type="color" value="' + (themeColorVal || '#111827') + '" style="width:48px;height:32px;border-radius:6px;border:1px solid var(--line);cursor:pointer;vertical-align:middle">\
+                <input id="editShareThemeColorHex" type="text" placeholder="#111827" value="' + escapeHtmlClient(themeColorVal) + '" style="width:100px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;margin-left:4px">\
+                <button onclick="clearShareThemeColor()" style="margin-left:6px;font-size:11px;padding:3px 8px;border-radius:6px;background:var(--line);border:none;cursor:pointer;color:var(--muted)">清除</button>\
+              </div>\
+              <div>\
+                <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">品牌文字</label>\
+                <input id="editShareBrandText" type="text" placeholder="例如：© 2024 我的公司" maxlength="80" value="' + escapeHtmlClient(brandTextVal) + '" style="width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;box-sizing:border-box">\
+              </div>\
+            </div>\
+          </details>\
           <div style="display:flex;gap:8px;justify-content:flex-end">\
             <button class="secondary" onclick="document.getElementById(\'shareEditModal\').remove()">取消</button>\
             <button onclick="confirmShareEdit(\'' + code + '\')" id="shareEditBtn">保存</button>\
@@ -7292,6 +7341,22 @@ function renderPage() {
         </div>';
       document.body.appendChild(modal);
       modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+      // Sync color pickers with hex inputs
+      var bgPicker = document.getElementById('editShareThemeBg');
+      var bgHex = document.getElementById('editShareThemeBgHex');
+      if (bgPicker && bgHex) { bgPicker.addEventListener('input', function() { bgHex.value = bgPicker.value; }); }
+      var colorPicker = document.getElementById('editShareThemeColor');
+      var colorHex = document.getElementById('editShareThemeColorHex');
+      if (colorPicker && colorHex) { colorPicker.addEventListener('input', function() { colorHex.value = colorPicker.value; }); }
+    }
+
+    function clearShareThemeBg() {
+      var el = document.getElementById('editShareThemeBgHex');
+      if (el) el.value = '';
+    }
+    function clearShareThemeColor() {
+      var el = document.getElementById('editShareThemeColorHex');
+      if (el) el.value = '';
     }
 
     async function confirmShareEdit(code) {
@@ -7301,6 +7366,9 @@ function renderPage() {
         var expiryInput = document.getElementById('editShareExpiry').value;
         var maxDlInput = document.getElementById('editShareMaxDl').value;
         var pwdInput = document.getElementById('editSharePwd').value.trim();
+        var themeBgInput = document.getElementById('editShareThemeBgHex').value.trim();
+        var themeColorInput = document.getElementById('editShareThemeColorHex').value.trim();
+        var brandTextInput = document.getElementById('editShareBrandText').value.trim();
         var updates = {};
         if (expiryInput) {
           updates.expiresAt = new Date(expiryInput).getTime();
@@ -7311,6 +7379,9 @@ function renderPage() {
         }
         updates.maxDownloads = maxDlInput ? parseInt(maxDlInput, 10) : 0;
         updates.password = pwdInput || null;
+        updates.themeBg = themeBgInput || null;
+        updates.themeColor = themeColorInput || null;
+        updates.brandText = brandTextInput || null;
         var result = await request('/api/share/update/' + encodeURIComponent(code), {
           method: 'PUT',
           body: JSON.stringify(updates)
@@ -8075,6 +8146,150 @@ function renderPage() {
       forceCloseModal();
       showToast('已更新 ' + count2 + ' 个分享链接', 'success');
       await loadShares();
+    }
+
+    // ── Share Analytics ────────────────────────────────────────────────
+    async function openShareAnalytics() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📈 分享分析';
+      body.innerHTML = '<div class="loading">加载中…</div>';
+      modal.classList.add('active');
+
+      try {
+        var data = await request('/api/share/stats');
+        if (!data.success) throw new Error(data.error || '获取失败');
+        var s = data.stats;
+
+        var card = function(label, value, sub, color) {
+          return '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px;min-width:100px">' +
+            '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">' + label + '</div>' +
+            '<div style="font-size:28px;font-weight:700;color:' + (color || 'var(--text)') + '">' + value + '</div>' +
+            (sub ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + sub + '</div>' : '') +
+            '</div>';
+        };
+
+        var html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin-bottom:20px">';
+        html += card('总链接', s.total);
+        html += card('有效', s.active, null, '#10b981');
+        html += card('已过期', s.expired, null, '#ef4444');
+        html += card('密码保护', s.withPassword);
+        html += card('总浏览', s.totalViews);
+        html += card('总下载', s.totalDownloads);
+        html += card('限次数', s.withMaxDl);
+        html += card('已耗尽', s.atMaxDl, null, '#f59e0b');
+        html += '</div>';
+
+        // Top by views
+        var topViewsRows = '';
+        if (s.topByViews && s.topByViews.length) {
+          s.topByViews.forEach(function(r, i) {
+            var barW = s.totalViews > 0 ? Math.round(r.views / s.totalViews * 100) : 0;
+            topViewsRows += '<div style="margin-bottom:10px">' +
+              '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">' +
+              '<span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(r.filename) + '">' + (i + 1) + '. ' + escapeHtmlClient(r.filename) + '</span>' +
+              '<span style="color:var(--muted)">' + r.views + ' 次</span></div>' +
+              '<div style="background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden">' +
+              '<div style="height:6px;width:' + barW + '%;background:#6366f1;border-radius:4px"></div></div></div>';
+          });
+        } else {
+          topViewsRows = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">暂无数据</div>';
+        }
+
+        // Top by downloads
+        var topDlRows = '';
+        if (s.topByDownloads && s.topByDownloads.length) {
+          s.topByDownloads.forEach(function(r, i) {
+            var barW = s.totalDownloads > 0 ? Math.round(r.downloads / s.totalDownloads * 100) : 0;
+            topDlRows += '<div style="margin-bottom:10px">' +
+              '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">' +
+              '<span style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(r.filename) + '">' + (i + 1) + '. ' + escapeHtmlClient(r.filename) + '</span>' +
+              '<span style="color:var(--muted)">' + r.downloads + ' 次</span></div>' +
+              '<div style="background:var(--bg-tertiary);border-radius:4px;height:6px;overflow:hidden">' +
+              '<div style="height:6px;width:' + barW + '%;background:#10b981;border-radius:4px"></div></div></div>';
+          });
+        } else {
+          topDlRows = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">暂无数据</div>';
+        }
+
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">' +
+          '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
+          '<div style="font-weight:600;margin-bottom:14px;font-size:13px">🏆 浏览量 TOP 10</div>' + topViewsRows + '</div>' +
+          '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
+          '<div style="font-weight:600;margin-bottom:14px;font-size:13px">📥 下载量 TOP 10</div>' + topDlRows + '</div></div>';
+
+        body.innerHTML = html;
+      } catch (e) {
+        body.innerHTML = '<p class="muted">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
+
+    async function openExpiringShares() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '⏰ 即将过期';
+      body.innerHTML = '<div class="loading">加载中…</div>';
+      modal.classList.add('active');
+
+      try {
+        var data = await request('/api/share/expiring?days=30');
+        if (!data.success) throw new Error(data.error || '获取失败');
+        var rows = data.shares || [];
+
+        if (!rows.length) {
+          body.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">未来30天内没有即将过期的分享链接</div>';
+          return;
+        }
+
+        var urgentRows = rows.filter(function(r) { return r.daysLeft <= 3; });
+        var soonRows = rows.filter(function(r) { return r.daysLeft > 3; });
+
+        var makeRows = function(items) {
+          var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
+            '<thead><tr style="border-bottom:1px solid var(--line);color:var(--muted)">' +
+            '<th style="text-align:left;padding:6px 8px">文件</th><th style="text-align:center;padding:6px 8px">剩余</th><th style="text-align:right;padding:6px 8px">浏览</th><th style="text-align:right;padding:6px 8px">下载</th><th style="text-align:right;padding:6px 8px">操作</th></tr></thead><tbody>';
+          items.forEach(function(r) {
+            var color = r.daysLeft <= 1 ? '#ef4444' : r.daysLeft <= 3 ? '#f59e0b' : '#94a3b8';
+            h += '<tr style="border-bottom:1px solid var(--line)">' +
+              '<td style="padding:6px 8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(r.filename) + '">' + escapeHtmlClient(r.filename) + '</td>' +
+              '<td style="padding:6px 8px;text-align:center;color:' + color + ';font-weight:600">' + r.daysLeft + '天</td>' +
+              '<td style="padding:6px 8px;text-align:right;color:var(--muted)">' + (r.views || 0) + '</td>' +
+              '<td style="padding:6px 8px;text-align:right;color:var(--muted)">' + (r.downloads || 0) + '</td>' +
+              '<td style="padding:6px 8px;text-align:right"><button onclick="extendShareExpiry(\'' + escapeHtmlClient(r.code).replace(/'/g, "\\'") + '\')" class="secondary" style="font-size:11px;padding:3px 8px">续期</button></td></tr>';
+          });
+          h += '</tbody></table>';
+          return h;
+        };
+
+        var html = '<div style="max-height:500px;overflow-y:auto">';
+        if (urgentRows.length) {
+          html += '<div style="margin-bottom:16px"><div style="font-weight:600;margin-bottom:8px;font-size:13px;color:#ef4444">🔥 紧急（3天内）' + urgentRows.length + '个</div>' + makeRows(urgentRows) + '</div>';
+        }
+        if (soonRows.length) {
+          html += '<div><div style="font-weight:600;margin-bottom:8px;font-size:13px;color:var(--muted)">📅 近期（4-30天）' + soonRows.length + '个</div>' + makeRows(soonRows) + '</div>';
+        }
+        html += '</div>';
+        body.innerHTML = html;
+      } catch (e) {
+        body.innerHTML = '<p class="muted">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
+
+    async function extendShareExpiry(code) {
+      var days = prompt('延长多少天？', '30');
+      if (!days || isNaN(parseInt(days))) return;
+      var newExpiry = Date.now() + parseInt(days) * 86400000;
+      try {
+        var data = await request('/api/share/update/' + encodeURIComponent(code), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expiresAt: newExpiry })
+        });
+        if (data.success) { showToast('已续期', 'success'); openExpiringShares(); }
+        else showToast('续期失败: ' + (data.error || ''), 'error');
+      } catch (e) { showToast('续期失败: ' + e.message, 'error'); }
     }
 
     async function batchDeleteSelectedShares() {

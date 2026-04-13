@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 12; // v12: files.starred column
+const SCHEMA_VERSION = 13; // v13: share_links theme columns (theme_bg, theme_color, brand_text)
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -87,8 +87,13 @@ function initDatabase() {
     initSchemaV6(db);
     initSchemaV7(db);
     initSchemaV8(db);
+    initSchemaV9(db);   // v9: FTS5 full-text search index
+    initSchemaV10(db); // v10: unused (no-op)
+    initSchemaV11(db); // v11: share_links.view_count
+    initSchemaV12(db); // v12: files.starred
+    initSchemaV13(db); // v13: share_links theme columns
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
-    console.log('[DB] Fresh database initialized (v1-v8 schema)');
+    console.log('[DB] Fresh database initialized (v1-v13 schema)');
     return;
   }
 
@@ -590,9 +595,25 @@ function initSchemaV12(db) {
     console.log('[DB] Migrated: files.starred');
   } catch (e) {
     if (e.message.includes('duplicate column')) {
-      console.log('[DB] files.starred already exists');
+      console.log('[DB] files.starred already exists, skipping');
     } else {
-      console.error('[DB] starred migration failed:', e.message);
+      console.warn('[DB] Migration v12 failed:', e.message);
+    }
+  }
+}
+
+function initSchemaV13(db) {
+  // v13: add theme columns to share_links
+  try {
+    db.exec(`ALTER TABLE share_links ADD COLUMN theme_bg TEXT`);
+    db.exec(`ALTER TABLE share_links ADD COLUMN theme_color TEXT`);
+    db.exec(`ALTER TABLE share_links ADD COLUMN brand_text TEXT`);
+    console.log('[DB] Migrated: share_links theme columns');
+  } catch (e) {
+    if (e.message.includes('duplicate column')) {
+      console.log('[DB] share_links theme columns already exist, skipping');
+    } else {
+      console.warn('[DB] Migration v13 failed:', e.message);
     }
   }
 }
@@ -611,12 +632,15 @@ function initSchemaV9(db) {
     `);
     console.log('[DB] Migrated: files_fts FTS5 virtual table');
 
-    // 重建索引：填充现有数据
-    db.exec(`
-      INSERT INTO files_fts(rowid, filename, tags)
-      SELECT id, escapeHtml(filename), COALESCE(tags, '') FROM files
-    `);
-    console.log('[DB] FTS5 index seeded with existing files');
+    // 重建索引：填充现有数据（用 JS 遍历避免 SQL escapeHtml UDF 依赖）
+    const existingFiles = db.prepare('SELECT id, filename, tags FROM files').all();
+    if (existingFiles.length > 0) {
+      const insertFts = db.prepare('INSERT INTO files_fts(rowid, filename, tags) VALUES (?, ?, ?)');
+      for (const f of existingFiles) {
+        insertFts.run(f.id, escapeHtml(f.filename), f.tags || '');
+      }
+    }
+    console.log('[DB] FTS5 index seeded with existing files (' + existingFiles.length + ' rows)');
 
     // 创建触发器：insert
     db.exec(`
@@ -669,6 +693,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV11(db);
     } else if (v === 12) {
       initSchemaV12(db);
+    } else if (v === 13) {
+      initSchemaV13(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -2592,8 +2618,8 @@ function saveShareLink(shareData) {
   // 密码哈希存储（兼容无密码场景）
   const hashedPassword = shareData.password ? hashPassword(shareData.password) : null;
   const stmt = db.prepare(`
-    INSERT INTO share_links (code, filename, is_text, password, expires_at, max_downloads, download_count, description, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO share_links (code, filename, is_text, password, expires_at, max_downloads, download_count, description, created_by, theme_bg, theme_color, brand_text)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   // expiresAt: 0/undefined/null → MAX_TS（永不过期）
   const MAX_TS_SECONDS = Math.floor(32503680000000 / 1000); // 32503680000
@@ -2609,7 +2635,10 @@ function saveShareLink(shareData) {
     shareData.maxDownloads || null,
     0,
     shareData.description || '',
-    shareData.createdBy || null
+    shareData.createdBy || null,
+    shareData.themeBg || null,
+    shareData.themeColor || null,
+    shareData.brandText || null
   );
   // 返回完整对象（包含 hasPassword 和内部 _passwordHash）
   return {
@@ -2621,7 +2650,10 @@ function saveShareLink(shareData) {
     expiresAt: expiresAtSecs * 1000,
     maxDownloads: shareData.maxDownloads || null,
     description: shareData.description || '',
-    createdBy: shareData.createdBy || null
+    createdBy: shareData.createdBy || null,
+    themeBg: shareData.themeBg || null,
+    themeColor: shareData.themeColor || null,
+    brandText: shareData.brandText || null
   };
 }
 
@@ -2641,7 +2673,10 @@ function getShareLink(code) {
     description: row.description || '',
     createdAt: row.created_at * 1000,
     createdBy: row.created_by,
-    _passwordHash: row.password  // 内部使用，验证时比对
+    _passwordHash: row.password,  // 内部使用，验证时比对
+    themeBg: row.theme_bg || null,
+    themeColor: row.theme_color || null,
+    brandText: row.brand_text || null
   };
 }
 
@@ -2676,6 +2711,21 @@ function updateShareLink(code, updates) {
   if (updates.description !== undefined) {
     fields.push('description = ?');
     values.push(updates.description || '');
+  }
+
+  if (updates.themeBg !== undefined) {
+    fields.push('theme_bg = ?');
+    values.push(updates.themeBg || null);
+  }
+
+  if (updates.themeColor !== undefined) {
+    fields.push('theme_color = ?');
+    values.push(updates.themeColor || null);
+  }
+
+  if (updates.brandText !== undefined) {
+    fields.push('brand_text = ?');
+    values.push(updates.brandText || null);
   }
 
   if (fields.length === 0) {
@@ -2735,7 +2785,10 @@ function listShareLinks(filename = null) {
     created_at: row.created_at,
     createdAt: row.created_at * 1000,
     created_by: row.created_by,
-    createdBy: row.created_by
+    createdBy: row.created_by,
+    themeBg: row.theme_bg || null,
+    themeColor: row.theme_color || null,
+    brandText: row.brand_text || null
   }));
 }
 
@@ -2747,6 +2800,61 @@ function cleanupExpiredShareLinks() {
     console.log(`[DB] Cleaned up ${result.changes} expired share links`);
   }
   return result.changes;
+}
+
+function getShareStats() {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+
+  const total = db.prepare('SELECT COUNT(*) as c FROM share_links').get().c;
+  const active = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE (expires_at = 0 OR expires_at > ?)').get(now).c;
+  const expired = total - active;
+  const withPassword = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE password IS NOT NULL AND password != ""').get().c;
+  const totalViews = db.prepare('SELECT COALESCE(SUM(view_count), 0) as s FROM share_links').get().s;
+  const totalDownloads = db.prepare('SELECT COALESCE(SUM(download_count), 0) as s FROM share_links').get().s;
+  const withMaxDl = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE max_downloads > 0').get().c;
+  const atMaxDl = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE max_downloads > 0 AND download_count >= max_downloads').get().c;
+
+  // Top files by views
+  const topByViews = db.prepare('SELECT filename, view_count, download_count, expires_at FROM share_links ORDER BY view_count DESC LIMIT 10').all();
+
+  // Top files by downloads
+  const topByDownloads = db.prepare('SELECT filename, download_count, view_count, expires_at FROM share_links ORDER BY download_count DESC LIMIT 10').all();
+
+  return {
+    total, active, expired, withPassword,
+    totalViews, totalDownloads,
+    withMaxDl, atMaxDl,
+    topByViews: topByViews.map(r => ({
+      filename: r.filename,
+      views: r.view_count,
+      downloads: r.download_count,
+      expired: r.expires_at > 0 && r.expires_at < now
+    })),
+    topByDownloads: topByDownloads.map(r => ({
+      filename: r.filename,
+      downloads: r.download_count,
+      views: r.view_count,
+      expired: r.expires_at > 0 && r.expires_at < now
+    }))
+  };
+}
+
+function getExpiringShares(days = 7) {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const future = now + days * 86400;
+  const rows = db.prepare(
+    'SELECT code, filename, expires_at, view_count, download_count FROM share_links WHERE expires_at > ? AND expires_at <= ? ORDER BY expires_at ASC'
+  ).all(now, future);
+  return rows.map(r => ({
+    code: r.code,
+    filename: r.filename,
+    expiresAt: r.expires_at * 1000,
+    daysLeft: Math.ceil((r.expires_at - now) / 86400),
+    views: r.view_count,
+    downloads: r.download_count
+  }));
 }
 
 // ============================================================
@@ -3631,7 +3739,7 @@ module.exports = {
   addSearchHistory, getSearchHistory, clearSearchHistory, deleteSearchHistoryItem, getPopularSearches,
   // 分享链接
   saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload, incrementShareLinkViewCount,
-  listShareLinks, cleanupExpiredShareLinks,
+  listShareLinks, cleanupExpiredShareLinks, getShareStats, getExpiringShares,
   // 虚拟文件夹
   createVirtualFolder, listVirtualFolders, getVirtualFolder, deleteVirtualFolder, updateVirtualFolder,
   addFileToVirtualFolder, removeFileFromVirtualFolder, getVirtualFolderFiles, isFileInVirtualFolder,
