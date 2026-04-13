@@ -688,6 +688,10 @@ function renderPage() {
     .fab:active{transform:scale(.96)}
     @media(max-width:600px){.fab{display:flex}}
     [data-theme="dark"] #toast.error{background:#991b1b}
+    /* Pull-to-refresh indicator */
+    #pull-indicator{position:fixed;top:0;left:0;right:0;height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;font-size:13px;font-weight:500;z-index:999;transition:height .2s}
+    #pull-indicator .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:ptr-spin .8s linear infinite;margin-right:6px}
+    @keyframes ptr-spin{to{transform:rotate(360deg)}}
     .file-tags{display:flex;flex-wrap:wrap;gap:3px;max-width:110px}
     .tag-badge{background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500}
     .tag-edit-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;padding:2px 4px;border-radius:4px;transition:color .2s,background .2s}
