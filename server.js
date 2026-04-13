@@ -319,6 +319,9 @@ async function generateSelfSignedCert() {
   return { key: pems.private, cert: pems.cert };
 }
 
+// Module-level cert info for UI display
+var certInfo = null;
+
 async function getOrCreateCertificate() {
   const certPath = path.join(SSL_DIR, 'cert.pem');
   const keyPath = path.join(SSL_DIR, 'key.pem');
@@ -2231,6 +2234,7 @@ function renderPage() {
         : await Promise.all([request(url), request('/api/tags')]);
       const incoming = (data.files || []).map(function(f, i) { f._index = currentOffset + i; return f; });
       currentTotal = data.total || 0;
+      const prevLen = currentFiles.length;
       if (append) {
         currentFiles = currentFiles.concat(incoming);
       } else {
@@ -2243,7 +2247,12 @@ function renderPage() {
         updateTagFilterOptions(tagData.tags);
         renderTagQuickBar(tagData);
       }
-      renderFiles(tagColorMap);
+      if (append && prevLen > 0) {
+        // Incremental append: only render new rows, don't re-render existing DOM
+        appendFileRows(incoming, tagColorMap);
+      } else {
+        renderFiles(tagColorMap);
+      }
       loading.style.display = 'none';
       // Hide sentinel if no more files
       if (sentinel) sentinel.style.display = currentOffset >= currentTotal ? 'none' : 'block';
@@ -2491,6 +2500,36 @@ function renderPage() {
       currentVirtualFolderId = null;
       document.getElementById('vfBackBtn').style.display = 'none';
       loadFiles();
+    }
+
+    // Append only new rows during infinite scroll — does not re-render existing DOM
+    function appendFileRows(newFiles, tagColorMap) {
+      if (!newFiles || !newFiles.length) return;
+      if (currentView === 'grid') {
+        var gridBody = document.getElementById('fileTableGrid');
+        if (gridBody) {
+          var frag = document.createDocumentFragment();
+          newFiles.forEach(function(file) {
+            frag.appendChild(stringToDOM(renderFileItem(file, tagColorMap, 'grid')));
+          });
+          gridBody.appendChild(frag);
+        }
+      } else {
+        var listBody = document.getElementById('fileTableBody');
+        if (listBody) {
+          var frag = document.createDocumentFragment();
+          newFiles.forEach(function(file) {
+            frag.appendChild(stringToDOM(renderFileRow(file, tagColorMap)));
+          });
+          listBody.appendChild(frag);
+        }
+      }
+    }
+
+    function stringToDOM(html) {
+      var t = document.createElement('div');
+      t.innerHTML = html;
+      return t.firstElementChild;
     }
 
     function renderFiles(tagColorMap) {
@@ -3079,9 +3118,9 @@ function renderPage() {
         }
         case 'a': {
           if (e.ctrlKey || e.metaKey) return; // let browser select-all pass through
-          // 'a' alone → select all (or at least start nav)
+          // 'a' alone → select all files
           e.preventDefault();
-          applyNavHighlight(0);
+          toggleAll(true);
           break;
         }
         case 'r': {
@@ -3844,7 +3883,7 @@ function renderPage() {
         ['/', '聚焦搜索框'],
         ['Enter', '打开选中文件'],
         ['Space', '选中/取消选中'],
-        ['a', '跳转至首个文件'],
+        ['a', '全选文件'],
         ['s', '星标选中文件'],
         ['c', '清空选择'],
         ['d', '切换主题'],
