@@ -60,14 +60,16 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const dateFrom = query.get('date_from') || null;
     const dateTo = query.get('date_to') || null;
     const typeFilter = query.get('type') || null;
+    const limit = Math.min(parseInt(query.get('limit') || '500', 10) || 500, 5000);
+    const offset = Math.max(parseInt(query.get('offset') || '0', 10) || 0, 0);
     if (!q && !tags && !sizeMin && !sizeMax && !dateFrom && !dateTo && !typeFilter) {
-      sendJson(res, { success: true, files: [] });
+      sendJson(res, { success: true, total: 0, files: [] });
       return true;
     }
 
     // 优先使用 FTS5 搜索（更快），fallback 到 LIKE
     let results = db.searchFilesFTS(q, tags, {
-      fuzzy: true, limit: 100, tagMatch,
+      fuzzy: true, limit: limit + offset, tagMatch,
       size_min: sizeMin ? parseInt(sizeMin) : null,
       size_max: sizeMax ? parseInt(sizeMax) : null,
       date_from: dateFrom ? parseInt(dateFrom) : null,
@@ -77,7 +79,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     if (!results) {
       // FTS5 不可用，fallback 到 LIKE 搜索
       results = db.searchFiles(q, tags, {
-        fuzzy: true, limit: 100, tagMatch,
+        fuzzy: true, limit: limit + offset, tagMatch,
         size_min: sizeMin ? parseInt(sizeMin) : null,
         size_max: sizeMax ? parseInt(sizeMax) : null,
         date_from: dateFrom ? parseInt(dateFrom) : null,
@@ -85,6 +87,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         type: typeFilter
       });
     }
+
+    const total = results.length;
 
     const sort = query.get('sort') || 'updated_at';
     const order = (query.get('order') || 'desc').toLowerCase();
@@ -96,8 +100,13 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     } else if (sort === 'updated_at') {
       results.sort((a, b) => dir * (a.updated_at - b.updated_at));
     }
+
+    // Apply offset/limit after sorting
+    results = results.slice(offset, offset + limit);
+
     sendJson(res, {
       success: true,
+      total,
       files: results.map((file) => ({
         id: file.id,
         name: file.filename,
