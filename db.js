@@ -3137,6 +3137,14 @@ function deleteTagFromAllFiles(tag) {
   return { updated };
 }
 
+function cleanupOrphanTags() {
+  // 删除 tag_stats 中所有 count=0 的标签
+  const db = getDb();
+  const orphans = db.prepare('SELECT tag FROM tag_stats WHERE count = 0').all();
+  db.prepare('DELETE FROM tag_stats WHERE count = 0').run();
+  return { deleted: orphans.length };
+}
+
 function mergeTags(sources, target) {
   // 将所有 source 标签合并到 target（从每个文件的标签列表中移除 source，加入 target）
   const db = getDb();
@@ -3434,7 +3442,7 @@ module.exports = {
   cleanupSyncLog, cleanupAuditLog, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, touchTag,
-  getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, ensureTagStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags,
+  getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, ensureTagStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags, cleanupOrphanTags,
   // 垃圾桶
   moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, emptyTrash, cleanupExpiredTrash,
   // 文件版本历史

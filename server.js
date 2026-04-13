@@ -3671,7 +3671,7 @@ function renderPage() {
         statsHtml += '<option value="alpha-desc">按名称 Z→A</option>';
         statsHtml += '</select>';
         if (orphanTags.length > 0) {
-          statsHtml += '<button onclick="cleanupOrphanTags()" style="padding:6px 12px;background:#fef9c3;border:1px solid #f59e0b;border-radius:8px;color:#92400e;font-size:12px;cursor:pointer;white-space:nowrap">清理孤立 (' + orphanTags.length + ')</button>';
+          statsHtml += '<button onclick="confirmCleanupOrphans()" style="padding:6px 12px;background:#fef9c3;border:1px solid #f59e0b;border-radius:8px;color:#92400e;font-size:12px;cursor:pointer;white-space:nowrap">清理孤立 (' + orphanTags.length + ')</button>';
         }
         statsHtml += '</div>';
         if (orphanTags.length > 0) {
@@ -3791,7 +3791,25 @@ function renderPage() {
     function cleanupOrphanTags() {
       const section = document.getElementById('orphanTagSection');
       if (!section) return;
-      section.style.display = section.style.display === 'none' ? 'block' : 'none';
+      if (section.style.display === 'none') {
+        section.style.display = 'block';
+      } else {
+        section.style.display = 'none';
+      }
+    }
+
+    async function confirmCleanupOrphans() {
+      const section = document.getElementById('orphanTagSection');
+      if (!section) return;
+      if (!confirm('确定删除所有孤立标签？此操作不可撤销。')) return;
+      const res = await fetch('/api/tags/orphans', { method: 'DELETE', headers: headers() });
+      const data = await res.json();
+      if (data.success) {
+        showToast('已清理 ' + data.deleted + ' 个孤立标签', 'success');
+        openTagManager();
+      } else {
+        showToast('清理失败: ' + (data.error || '未知错误'), 'error');
+      }
     }
 
     async function createNewTag() {

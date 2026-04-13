@@ -382,6 +382,15 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // DELETE /api/tags/orphans - 清理所有孤立标签（count=0）
+  if (pathname === '/api/tags/orphans' && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const result = db.cleanupOrphanTags();
+    sendJson(res, { success: true, deleted: result.deleted });
+    return true;
+  }
+
   // GET /api/search/history - 获取搜索历史
   if (pathname === '/api/search/history' && method === 'GET') {
     const limit = parseInt(query.get('limit') || '20', 10);
