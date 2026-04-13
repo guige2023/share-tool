@@ -702,6 +702,43 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/virtual-folders/:id/download - Download all files in a virtual folder as streaming zip
+  if (pathname.startsWith('/api/virtual-folders/') && pathname.endsWith('/download') && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const id = parseInt(pathname.split('/')[3], 10);
+    if (!id) { sendJson(res, { success: false, error: 'Invalid folder id' }, 400); return true; }
+
+    const folder = db.getVirtualFolder(id);
+    if (!folder) { sendJson(res, { success: false, error: 'Folder not found' }, 404); return true; }
+
+    const files = db.getVirtualFolderFiles(id);
+    if (!files.length) { sendJson(res, { success: false, error: '文件夹为空' }, 400); return true; }
+
+    res.writeHead(200, {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': 'attachment; filename*=UTF-8\'\'' + encodeURIComponent(folder.name + '.zip'),
+      'Transfer-Encoding': 'chunked',
+    });
+
+    const archiver = require('archiver');
+    const archive = archiver('zip', { zlib: { level: 5 } });
+    archive.on('error', function(err) { console.error('[zip error]', err.message); });
+    archive.pipe(res);
+
+    for (const file of files) {
+      try {
+        const fullFile = db.getFileById(file.id);
+        if (!fullFile || !fullFile.content) continue;
+        archive.append(fullFile.content, { name: fullFile.filename });
+      } catch (e) {
+        console.error('[zip file error]', e.message);
+      }
+    }
+    archive.finalize();
+    return true;
+  }
+
   // POST /api/file-access-log - 记录文件访问日志
   if (pathname === '/api/file-access-log' && method === 'POST') {
     const auth = authRequired(req, res);

@@ -903,6 +903,11 @@ function listVirtualFolders() {
   }));
 }
 
+function getVirtualFolder(id) {
+  const db = getDb();
+  return db.prepare('SELECT * FROM virtual_folders WHERE id = ?').get(id);
+}
+
 function deleteVirtualFolder(id) {
   const db = getDb();
   db.prepare('DELETE FROM virtual_folders WHERE id = ?').run(id);
@@ -3447,7 +3452,7 @@ module.exports = {
   saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload,
   listShareLinks, cleanupExpiredShareLinks,
   // 虚拟文件夹
-  createVirtualFolder, listVirtualFolders, deleteVirtualFolder, updateVirtualFolder,
+  createVirtualFolder, listVirtualFolders, getVirtualFolder, deleteVirtualFolder, updateVirtualFolder,
   addFileToVirtualFolder, removeFileFromVirtualFolder, getVirtualFolderFiles, isFileInVirtualFolder,
   // 文件收集链接
   createRequestLink, getRequestLink, verifyRequestLinkPassword,

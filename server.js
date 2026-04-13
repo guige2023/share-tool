@@ -2582,9 +2582,10 @@ function renderPage() {
         return;
       }
       list.innerHTML = data.folders.map(f =>
-        '<div class="ctx-item" onclick="navigateVirtualFolder(' + f.id + ')" style="cursor:pointer">' +
-          '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + '">●</span> ' +
-          escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span>' +
+        '<div class="ctx-item" onclick="navigateVirtualFolder(' + f.id + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">' +
+          '<span><span style="color:' + escapeHtmlClient(f.color || '#667eea') + '">●</span> ' +
+          escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span></span>' +
+          '<button onclick="event.stopPropagation();downloadVirtualFolder(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 6px;border-radius:4px" title="下载为 ZIP">⬇</button>' +
         '</div>'
       ).join('');
     }
@@ -2703,6 +2704,19 @@ function renderPage() {
       currentVirtualFolderId = null;
       document.getElementById('vfBackBtn').style.display = 'none';
       loadFiles();
+    }
+
+    function downloadVirtualFolder(folderId, folderName) {
+      var url = '/api/virtual-folders/' + folderId + '/download';
+      var token = localStorage.getItem('token');
+      if (token) url += (url.includes('?') ? '&' : '?') + 'token=' + token;
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = (folderName || 'folder') + '.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast('正在打包下载: ' + folderName, 'info', 3000);
     }
 
     // Append only new rows during infinite scroll — does not re-render existing DOM
