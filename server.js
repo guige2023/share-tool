@@ -1289,6 +1289,7 @@ function renderPage() {
       loadFiles();
       loadStorageStats();
       setupInfiniteScroll();
+      showWelcomeIfNeeded();
 
       // URL param ?f=filename - highlight and scroll to specific file
       (function() {
@@ -1412,6 +1413,50 @@ function renderPage() {
       return short.length > 12 ? '文件' : short.charAt(0).toUpperCase() + short.slice(1);
     }
 
+    // Welcome guide for first-time users
+    var WELCOME_KEY = 'sharetool_welcomed_v1';
+    function showWelcomeIfNeeded() {
+      if (localStorage.getItem(WELCOME_KEY)) return;
+      var modal = document.createElement('div');
+      modal.id = 'welcomeModal';
+      modal.className = 'modal open';
+      modal.innerHTML = '\
+        <div class="modal-content" style="max-width:500px">\
+          <h3>👋 欢迎使用 ShareTool</h3>\
+          <div style="line-height:1.7;font-size:14px;color:var(--text-secondary);margin:16px 0">\
+            <p><strong>📤 上传文件</strong>：点击顶部「上传」按钮或直接拖拽文件到窗口</p>\
+            <p><strong>🔗 分享链接</strong>：选中文件后点击「分享」，生成分享码或链接</p>\
+            <p><strong>📱 多设备同步</strong>：同一局域网下自动发现，文件实时同步</p>\
+            <p><strong>⌨️ 快捷键</strong>：按 <kbd style="background:#eee;padding:2px 6px;border-radius:4px;font-size:12px">?</kbd> 查看所有快捷键</p>\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="showTour()">功能导览</button>\
+            <button onclick="dismissWelcome()">知道了</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+    }
+
+    function dismissWelcome() {
+      localStorage.setItem(WELCOME_KEY, '1');
+      var m = document.getElementById('welcomeModal');
+      if (m) m.remove();
+    }
+
+    function showTour() {
+      localStorage.setItem(WELCOME_KEY, '1');
+      var m = document.getElementById('welcomeModal');
+      if (m) m.remove();
+      // Highlight upload button as tour step 1
+      var uploadBtn = document.querySelector('.action-btn:not([disabled])') || document.querySelector('[onclick*="upload"]');
+      if (uploadBtn) {
+        uploadBtn.style.boxShadow = '0 0 0 3px var(--accent)';
+        uploadBtn.style.borderRadius = '8px';
+        setTimeout(function() { uploadBtn.style.boxShadow = ''; }, 4000);
+      }
+      showToast('点击「上传」开始添加文件', 'info', 4000);
+    }
+
     // PWA Install prompt
     var deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', function(e) {
@@ -1447,6 +1492,48 @@ function renderPage() {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    // Handle file item click: normal click clears selection, Shift+click does range select
+    function handleItemClick(e, index) {
+      // Ignore if clicking on interactive elements (checkbox, buttons, etc.)
+      if (e.target.closest('.file-check') || e.target.closest('button') || e.target.closest('.tag-edit-btn') || e.target.closest('.inline-rename-btn')) return;
+      // Ignore right/middle clicks
+      if (e.button !== 0) return;
+      if (e.shiftKey) {
+        // Shift+Click: range select from lastClickedIndex to current
+        e.preventDefault();
+        var start = lastClickedIndex;
+        var end = index;
+        if (start < 0) start = end;
+        var min = Math.min(start, end);
+        var max = Math.max(start, end);
+        var items = getAllFileItems();
+        // Clear existing selection first
+        document.querySelectorAll('.file-check').forEach(function(el) { el.checked = false; });
+        for (var i = min; i <= max; i++) {
+          var item = items[i];
+          if (item) {
+            var checkbox = item.querySelector('.file-check');
+            if (checkbox) checkbox.checked = true;
+          }
+        }
+        updateBatchBar();
+      } else if (e.ctrlKey || e.metaKey) {
+        // Ctrl/Cmd+Click: toggle this item only (don't clear selection)
+        // Already handled by checkbox bubbling - do nothing special
+      } else {
+        // Normal click: clear selection, then select this item
+        clearSelection();
+        var items = getAllFileItems();
+        var item = items[index];
+        if (item) {
+          var checkbox = item.querySelector('.file-check');
+          if (checkbox) checkbox.checked = true;
+          updateBatchBar();
+        }
+        lastClickedIndex = index;
+      }
     }
 
     function checkedNames() {
@@ -2721,8 +2808,8 @@ function renderPage() {
             return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
-      return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
-        '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()"></td>' +
+      return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" onmousedown="handleItemClick(event, ' + file._index + ')" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
+        '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()" onclick="lastClickedIndex=' + file._index + '"></td>' +
         '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><div class="muted">' + formatFileType(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
         '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
@@ -2776,8 +2863,8 @@ function renderPage() {
         gridIcon = iconSvg;
       }
 
-      return '<div class="file-item" data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" tabindex="0" draggable="true" ondblclick="previewFile(' + JSON.stringify(file.name) + ')">' +
-        '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()">' +
+      return '<div class="file-item" data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" tabindex="0" draggable="true" onmousedown="handleItemClick(event, ' + file._index + ')" ondblclick="previewFile(' + JSON.stringify(file.name) + ')">' +
+        '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()" onclick="lastClickedIndex=' + file._index + '">' +
         '<div class="file-content">' +
           gridIcon +
           '<div class="file-name"><span ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名">✏️</button></div>' +
@@ -3061,6 +3148,7 @@ function renderPage() {
     // --- Keyboard Navigation ---
     var keyboardNavIndex = -1;
     var gridColumns = 1;
+    var lastClickedIndex = -1;  // for Shift+Click range select
 
     function getAllFileItems() {
       if (currentView === 'grid') {
