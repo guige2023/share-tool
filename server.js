@@ -1260,6 +1260,25 @@ function renderPage() {
       loadFiles();
       loadStorageStats();
       setupInfiniteScroll();
+
+      // URL param ?f=filename - highlight and scroll to specific file
+      (function() {
+        var params = new URLSearchParams(location.search);
+        var target = params.get('f');
+        if (!target) return;
+        target = decodeURIComponent(target);
+        var attempt = 0;
+        var iv = setInterval(function() {
+          attempt++;
+          var el = document.querySelector('[data-filename="' + encodeURIComponent(target) + '"]');
+          if (!el && attempt < 20) return;
+          clearInterval(iv);
+          if (!el) return;
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.style.boxShadow = '0 0 0 3px var(--accent)';
+          setTimeout(function() { el.style.boxShadow = ''; }, 3000);
+        }, 100);
+      })();
     });
 
     // Refresh storage stats when page becomes visible again
@@ -2675,7 +2694,7 @@ function renderPage() {
         gridIcon = iconSvg;
       }
 
-      return '<div class="file-item" data-index="' + file._index + '" tabindex="0" draggable="true">' +
+      return '<div class="file-item" data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" tabindex="0" draggable="true">' +
         '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()">' +
         '<div class="file-content">' +
           gridIcon +
@@ -4808,6 +4827,11 @@ function renderPage() {
     }
 
     setupDragDrop();
+    // Initialize sort arrows on page load
+    ['filename', 'size', 'updated_at', 'created_at', 'position'].forEach(function (c) {
+      var arrow = document.getElementById('arrow-' + c);
+      if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
+    });
     loadFiles();
     loadRecentSearches();
 
