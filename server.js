@@ -2728,6 +2728,7 @@ function renderPage() {
         '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
         '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
         '<td data-label="更新时间">' + formatTime(file.updatedAt || file.createdAt) + '</td>' +
+        '<td data-label="创建时间">' + formatTime(file.createdAt) + '</td>' +
         '<td class="actions-cell" data-label="操作">' +
           '<button onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
           '<button class="secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
@@ -5255,7 +5256,7 @@ function renderPage() {
 
     // Show initial sort arrow
     (function initArrows() {
-      ['filename', 'size', 'updated_at'].forEach(function (c) {
+      ['filename', 'size', 'updated_at', 'created_at'].forEach(function (c) {
         var arrow = document.getElementById('arrow-' + c);
         if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
       });

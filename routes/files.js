@@ -107,6 +107,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       results.sort((a, b) => dir * (a.size - b.size));
     } else if (sort === 'updated_at') {
       results.sort((a, b) => dir * (a.updated_at - b.updated_at));
+    } else if (sort === 'created_at') {
+      results.sort((a, b) => dir * (a.created_at - b.created_at));
     }
 
     // Apply offset/limit after sorting
