@@ -3090,6 +3090,7 @@ function renderPage() {
         '<td class="actions-cell" data-label="操作">' +
           '<button onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
           '<button class="secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
+          '<button class="secondary" onclick=' + "'" + 'copyShareLink(' + JSON.stringify(file.name) + ')' + "'" + '>复制链接</button>' +
           '<button class="secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
           '<button class="secondary" onclick=' + "'" + 'renameFile(' + JSON.stringify(file.name) + ')' + "'" + '>重命名</button>' +
           '<button class="danger" onclick=' + "'" + 'deleteFile(' + JSON.stringify(file.name) + ')' + "'" + '>删除</button>' +
@@ -3644,6 +3645,20 @@ function renderPage() {
           if (selected.length === 1) {
             e.preventDefault();
             copyShareLink(selected[0]);
+          }
+          break;
+        }
+        case 'p': {
+          // p: preview selected file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          var names = getSelectedFiles();
+          if (!names.length && keyboardNavIndex >= 0) {
+            var item = getFileAtIndex(keyboardNavIndex);
+            if (item) names = [item.getAttribute('data-name')];
+          }
+          if (names.length === 1) {
+            e.preventDefault();
+            previewFile(names[0]);
           }
           break;
         }
@@ -5180,6 +5195,7 @@ function renderPage() {
         ['j', '向下导航'],
         ['k', '向上导航'],
         ['Enter', '打开/预览文件'],
+        ['p', '预览选中文件'],
         ['Space', '选中/取消选中'],
         ['c / l', '复制分享链接'],
         ['y', '复制文件名'],
