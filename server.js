@@ -545,6 +545,7 @@ function renderPage() {
     .type-chip{background:var(--bg-tertiary);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12px;cursor:pointer;transition:all .15s;color:var(--text-secondary);white-space:nowrap}
     .type-chip:hover{background:var(--bg-secondary);color:var(--text)}
     .type-chip.active{background:var(--accent-weak);border-color:var(--accent);color:var(--accent);font-weight:500}
+    .filter-chip{background:var(--accent-weak);border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:3px 10px;font-size:11px;white-space:nowrap}
     .recent-search-tag{display:inline-flex;align-items:center;gap:4px;padding:4px 8px 4px 12px;background:var(--accent-weak);color:var(--accent);border-radius:999px;font-size:12px;margin-right:6px;cursor:pointer}
     .recent-search-tag .delete-btn{opacity:0;padding:2px 4px;border-radius:999px;font-size:13px;line-height:1;transition:opacity .15s}
     .recent-search-tag:hover .delete-btn{opacity:1}
