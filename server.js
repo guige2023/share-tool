@@ -922,6 +922,7 @@ function renderPage() {
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button class="ghost" onclick="openStorageStats()" title="存储统计">📊</button>
+        <button class="ghost" onclick="toggleTheme()" title="切换主题" id="themeToggleBtn">🌙</button>
         <button class="ghost" onclick="openSettings()" title="设置 (Ctrl+,)">⚙</button>
         <button class="ghost" onclick="openKeyboardHelp()" title="键盘快捷键 (?)">?</button>
         <button id="installPwaBtn" class="secondary" style="display:none" onclick="installPWA()">安装应用</button>
@@ -951,6 +952,7 @@ function renderPage() {
         <button class="type-chip" data-type="text" onclick="setTypeFilter('text')">📝 文本</button>
         <button class="type-chip" data-type="recent" onclick="setTypeFilter('recent')">🕐 最近</button>
       </div>
+      <div id="tagChipsBar" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center"></div>
       <div id="fileStatsBar" style="display:flex;gap:16px;align-items:center;padding:0 0 8px 0;font-size:12px;color:var(--muted);font-family:monospace;flex-wrap:wrap">
         <span id="fileCountDisplay">共 <strong>0</strong> 个文件</span>
         <span id="selectedCountDisplay" style="display:none">，已选 <strong>0</strong> 个</span>
@@ -1552,6 +1554,27 @@ function renderPage() {
       var short = mime.replace(/^application\//, '').replace(/^text\//, '');
       return short.length > 12 ? '文件' : short.charAt(0).toUpperCase() + short.slice(1);
     }
+
+    // ── Theme Toggle ────────────────────────────────────────────────────
+    var THEME_KEY = 'sharetool_theme';
+
+    function setTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem(THEME_KEY, theme);
+      var btn = document.getElementById('themeToggleBtn');
+      if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+
+    function toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme');
+      setTheme(current === 'dark' ? 'light' : 'dark');
+    }
+
+    // Apply saved theme on load
+    (function() {
+      var saved = localStorage.getItem(THEME_KEY);
+      if (saved) setTheme(saved);
+    })();
 
     // Welcome guide for first-time users
     var WELCOME_KEY = 'sharetool_welcomed_v1';
@@ -2701,6 +2724,7 @@ function renderPage() {
       if (tagData && tagData.tags) {
         tagData.tags.forEach(function(t) { tagColorMap[t.tag] = t.color || '#e0e7ff'; });
         updateTagFilterOptions(tagData.tags);
+        renderTagChips();
         renderTagQuickBar(tagData);
       }
       if (append && prevLen > 0) {
@@ -2893,6 +2917,26 @@ function renderPage() {
       loadFiles();
     }
 
+    // Tag chips multi-select (OR logic)
+    function toggleTagFilterChip(tag) {
+      var idx = currentTagFilters.indexOf(tag);
+      if (idx === -1) {
+        currentTagFilters.push(tag);
+      } else {
+        currentTagFilters.splice(idx, 1);
+      }
+      localStorage.setItem('tagFilters', currentTagFilters.join(','));
+      renderTagChips();
+      loadFiles();
+    }
+
+    function clearTagFilterChips() {
+      currentTagFilters = [];
+      localStorage.setItem('tagFilters', '');
+      renderTagChips();
+      loadFiles();
+    }
+
     // Sort dropdown functions
     function toggleSortDropdown() {
       var menu = document.getElementById('sortDropdownMenu');
@@ -2963,12 +3007,30 @@ function renderPage() {
       }
     }
 
+    // 标签筛选栏：多选chips，OR逻辑（与typeFilter chips相同模式）
+    function renderTagChips() {
+      const bar = document.getElementById('tagChipsBar');
+      if (!bar) return;
+      const allTags = window._allTags || [];
+      if (!allTags.length) { bar.style.display = 'none'; return; }
+      const top = allTags.slice(0, 12); // show up to 12 tag chips
+      bar.innerHTML = top.map(function(t) {
+        const active = currentTagFilters.indexOf(t.tag) !== -1;
+        const tc = t.color || '#e0e7ff';
+        const escaped = escapeHtmlClient(t.tag);
+        const style = 'background:' + (active ? tc : 'var(--bg-tertiary)') + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;cursor:pointer;color:' + (active ? 'inherit' : 'var(--text-muted)') + ';border:1px solid ' + (active ? tc : 'var(--line)');
+        return '<span class="tag-chip" style="' + style + '" onclick="toggleTagFilterChip(' + JSON.stringify(t.tag) + ')" title="筛选: ' + escaped + '">' + escaped + ' <span style="opacity:.6">' + t.count + '</span></span>';
+      }).join('');
+      bar.style.display = 'flex';
+    }
+
     // 标签快速访问栏：显示所有标签，点击直接筛选
     function renderTagQuickBar(tagData) {
       const bar = document.getElementById('tagQuickBar');
       if (!bar) return;
       const tags = tagData.tags || [];
       const activeTag = (document.getElementById('tagFilterInput') || {}).dataset.selectedTag || '';
+      const hasChipFilter = currentTagFilters.length > 0;
       if (!tags.length) { bar.style.display = 'none'; return; }
       // 显示最多8个，按使用频率排序
       const top = tags.slice(0, 8);
@@ -2981,8 +3043,20 @@ function renderPage() {
         inner += '<button onclick="clearTagFilter()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px" title="清除筛选">✕清除</button>';
         inner += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px"></div>';
       }
+      // Show active tag chips (multi-select filter) with individual remove buttons
+      if (currentTagFilters.length > 0) {
+        inner += '<span style="font-size:11px;color:var(--muted);margin-right:4px">标签:</span>';
+        currentTagFilters.forEach(function(tag) {
+          var tagColor = '#e0e7ff';
+          for (var j = 0; j < tags.length; j++) { if (tags[j].tag === tag) { tagColor = tags[j].color || '#e0e7ff'; break; } }
+          var escaped = escapeHtmlClient(tag);
+          inner += '<span class="tag-badge" style="background:' + tagColor + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit">' + escaped + ' <span style="opacity:.7;cursor:pointer" onclick="event.stopPropagation();toggleTagFilterChip(' + JSON.stringify(tag) + ')">×</span></span>';
+        });
+        inner += '<button onclick="clearTagFilterChips()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px" title="清除标签筛选">✕清除</button>';
+        inner += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px"></div>';
+      }
       inner += top.map(function(t) {
-        if (t.tag === activeTag) return ''; // skip active tag
+        if (t.tag === activeTag || currentTagFilters.indexOf(t.tag) !== -1) return ''; // skip active + chip-selected tags
         var tc = t.color || '#e0e7ff';
         var escaped = escapeHtmlClient(t.tag);
         return '<span class="tag-badge" style="background:' + tc + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;cursor:pointer;color:inherit" onclick="filterBySingleTag(\'' + escaped.replace(/'/g, "\\'") + '\')" title="筛选: ' + escaped + '">' + escaped + ' <span style="opacity:.7">' + t.count + '</span></span>';
@@ -7600,6 +7674,9 @@ function renderPage() {
     var currentTypeFilters = localStorage.getItem('typeFilters')
       ? localStorage.getItem('typeFilters').split(',').filter(Boolean)
       : [];
+    var currentTagFilters = localStorage.getItem('tagFilters')
+      ? localStorage.getItem('tagFilters').split(',').filter(Boolean)
+      : [];
 
     // Initialize sort arrows on page load
     ['filename', 'size', 'updated_at', 'position', 'starred'].forEach(function(c) {
@@ -8061,6 +8138,13 @@ function renderPage() {
         var active = document.activeElement;
         if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
         setView(currentView === 'list' ? 'grid' : 'list');
+        return;
+      }
+      // m: toggle theme
+      if (e.key === 'm' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        toggleTheme();
         return;
       }
       // Escape: close modal or lightbox, clear toast, clear selection
