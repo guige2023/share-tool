@@ -929,6 +929,7 @@ function renderPage() {
         <button id="advancedSearchBtn" class="ghost" onclick="toggleAdvancedSearch()">高级 ⌄</button>
         <button id="downloadSelected" class="ghost" onclick="downloadSelected()">打包下载选中项</button>
         <button id="openTagManager" class="secondary" onclick="openTagManager()">标签管理</button>
+        <button class="ghost" onclick="openDuplicates()" title="查找重复文件">🔁 重复</button>
         <button class="secondary" onclick="openDashboard()">📊 存储分析</button>
         <button id="trashBtn" class="ghost" onclick="openTrash()">回收站</button>
         <button id="deleteAllFiles" class="danger" onclick="deleteAllFiles()">删除全部</button>
@@ -5782,8 +5783,7 @@ function renderPage() {
         ['Home/End', '跳到列表开头/末尾'],
         ['n', '新建文本文件'],
         ['r', '刷新文件列表'],
-        ['f / /', '聚焦搜索框'],
-        ['Ctrl+K', '聚焦搜索框'],
+        ['f', '聚焦搜索框'],
         ['Ctrl+A', '全选文件'],
         ['Ctrl+V', '粘贴图片/文件上传'],
         ['Ctrl+Enter', '上传/保存'],
@@ -7940,7 +7940,6 @@ function renderPage() {
           ['t', '批量添加标签'],
           ['v', '切换网格/列表视图'],
           ['Ctrl+A', '全选文件'],
-          ['Ctrl+K', '聚焦搜索框'],
           ['Ctrl+,', '打开设置'],
           ['Ctrl+Enter', '上传/保存'],
           ['Space', '选择/取消'],
