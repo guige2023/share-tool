@@ -3261,6 +3261,7 @@ function renderPage() {
           }
           break;
         }
+        function getSelectedFiles() { return checkedNames(); }
         case 'a': {
           if (e.ctrlKey || e.metaKey) return; // let browser select-all pass through
           // 'a' alone → select all files
@@ -3490,8 +3491,8 @@ function renderPage() {
         case 'download': downloadFile(filename); break;
         case 'share': createShare(filename); break;
         case 'copyLink': await copyShareLink(filename); break;
-        case 'copyName': await copyToClipboard(filename); showToast('已复制文件名', 'success'); break;
-        case 'copyPath': await copyToClipboard('/' + filename); showToast('已复制文件路径', 'success'); break;
+        case 'copyName': await navigator.clipboard.writeText(filename); showToast('已复制文件名: ' + filename, 'success'); break;
+        case 'copyPath': await navigator.clipboard.writeText('/' + filename); showToast('已复制文件路径', 'success'); break;
         case 'rename': startInlineRename(filename); break;
         case 'delete': if (confirm('确认删除 ' + filename + '？')) deleteFile(filename); break;
         case 'history': openVersionHistory(filename); break;
