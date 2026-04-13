@@ -1012,6 +1012,7 @@ function renderPage() {
         </span>
       </div>
       <div id="tagQuickBar" style="display:none;margin-bottom:4px"></div>
+      <div id="folderTagFilterBar" style="display:none;margin-bottom:4px"></div>
       <div id="advancedSearchPanel" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px;gap:12px">
         <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
           <div style="display:flex;flex-direction:column;gap:4px">
@@ -2966,6 +2967,14 @@ function renderPage() {
         updateTagFilterOptions(tagData.tags);
         renderTagChips();
         renderTagQuickBar(tagData);
+        // Also fetch folder tag definitions for the quick bar (on first load only)
+        if (!append) {
+          const ftRes = await request('/api/folder-tags');
+          if (ftRes.tags) {
+            window._folderTagDefinitions = ftRes.tags;
+            renderFolderTagFilterBar();
+          }
+        }
       }
       if (append && prevLen > 0) {
         // Incremental append: only render new rows, don't re-render existing DOM
@@ -3278,6 +3287,57 @@ function renderPage() {
         return '<span class="tag-chip" style="' + style + '" onclick="toggleTagFilterChip(' + JSON.stringify(t.tag) + ')" title="筛选: ' + escaped + '">' + escaped + ' <span style="opacity:.6">' + t.count + '</span></span>';
       }).join('');
       bar.style.display = 'flex';
+    }
+
+    // ── Folder Tag Filter Bar ────────────────────────────────────────────────
+    // Renders the "🏷️ 收藏夹标签" quick bar below the main tag bar
+    function renderFolderTagFilterBar() {
+      const bar = document.getElementById('folderTagFilterBar');
+      if (!bar) return;
+      const tags = window._folderTagDefinitions || [];
+      if (!tags.length) { bar.style.display = 'none'; return; }
+      const activeId = window._activeFolderTagFilter;
+      var html = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0;align-items:center">';
+      html += '<span style="font-size:11px;color:var(--muted);margin-right:4px">🏷️ 收藏夹标签:</span>';
+      if (activeId) {
+        const activeTag = tags.find(t => String(t.id) === String(activeId));
+        const color = activeTag ? (activeTag.color || '#e0e7ff') : '#e0e7ff';
+        const name = activeTag ? activeTag.name : '未知';
+        html += '<span style="background:' + escapeHtmlClient(color) + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit;cursor:pointer" onclick="clearFolderTagFilter()" title="点击清除">' + escapeHtmlClient(name) + ' ×</span>';
+        html += '<button onclick="clearFolderTagFilter()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px" title="清除筛选">✕清除</button>';
+        html += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px"></div>';
+      }
+      html += tags.map(t => {
+        if (String(t.id) === String(activeId)) return '';
+        const color = t.color || '#e0e7ff';
+        const name = escapeHtmlClient(t.name);
+        return '<span style="background:' + color + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;cursor:pointer;color:inherit;opacity:0.75" onclick="navigateVirtualFolderByFolderTag(' + t.id + ')" title="查看收藏夹: ' + name + '">' + name + '</span>';
+      }).join('');
+      html += '</div>';
+      bar.innerHTML = html;
+      bar.style.display = 'flex';
+    }
+
+    function clearFolderTagFilter() {
+      window._activeFolderTagFilter = null;
+      localStorage.removeItem('folderTagFilter');
+      renderFolderTagFilterBar();
+      loadFiles();
+    }
+
+    async function navigateVirtualFolderByFolderTag(tagId) {
+      window._activeFolderTagFilter = String(tagId);
+      localStorage.setItem('folderTagFilter', String(tagId));
+      // Get the first VF with this tag and navigate to it
+      const res = await fetch('/api/folder-tags/' + tagId + '/virtual-folders', { headers: headers() });
+      const data = await res.json();
+      const vfs = data.virtualFolders || [];
+      if (vfs.length === 0) {
+        showToast('该标签暂无收藏夹', 'info');
+        return;
+      }
+      navigateVirtualFolder(vfs[0].id);
+      renderFolderTagFilterBar();
     }
 
     // 标签快速访问栏：显示所有标签，点击直接筛选
@@ -8626,6 +8686,10 @@ function renderPage() {
     var currentTagFilters = localStorage.getItem('tagFilters')
       ? localStorage.getItem('tagFilters').split(',').filter(Boolean)
       : [];
+    // Folder tag definitions cache (fetched from API)
+    window._folderTagDefinitions = [];
+    // Active folder tag filter (tagId as string or null)
+    window._activeFolderTagFilter = null;
 
     // Initialize sort arrows on page load
     ['filename', 'size', 'updated_at', 'position', 'starred'].forEach(function(c) {
@@ -9427,6 +9491,12 @@ function renderPage() {
       if (savedTags) {
         currentTagFilters = savedTags.split(',').filter(Boolean);
         renderTagChips();
+      }
+      // Restore folder tag filter
+      var savedFolderTag = localStorage.getItem('folderTagFilter');
+      if (savedFolderTag) {
+        window._activeFolderTagFilter = savedFolderTag;
+        renderFolderTagFilterBar();
       }
       updateActiveFilterChips();
     })();

@@ -3574,6 +3574,20 @@ function deleteTagDefinition(id) {
   db.prepare('DELETE FROM tag_definitions WHERE id = ?').run(id);
 }
 
+// 获取指定标签关联的虚拟文件夹
+function getVirtualFoldersByTag(tagId) {
+  const db = getDb();
+  // Get VF records where the VF's name matches a folder_path in folder_tags for this tag
+  return db.prepare(`
+    SELECT vf.id, vf.name, vf.description, vf.color, vf.position, vf.created_at,
+      (SELECT COUNT(*) FROM virtual_folder_files vff WHERE vff.folder_id = vf.id) AS file_count
+    FROM virtual_folders vf
+    JOIN folder_tags ft ON ft.folder_path = vf.name
+    WHERE ft.tag_id = ?
+    ORDER BY vf.position ASC, vf.created_at DESC
+  `).all(tagId);
+}
+
 function mergeTags(sources, target) {
   // 将所有 source 标签合并到 target（从每个文件的标签列表中移除 source，加入 target）
   const db = getDb();
@@ -3875,7 +3889,7 @@ module.exports = {
   getTagEmoji, setTagEmoji,  getAllTags, getAllTagsWithStats, ensureTagStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags, cleanupOrphanTags,
   // 文件夹标签
   getFolderTags, setFolderTags, addFolderTag, removeFolderTag,
-  getAllTagDefinitions, createTagDefinition, updateTagDefinition, deleteTagDefinition,
+  getAllTagDefinitions, createTagDefinition, updateTagDefinition, deleteTagDefinition, getVirtualFoldersByTag,
   // 垃圾桶
   moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, emptyTrash, cleanupExpiredTrash,
   // 文件版本历史
