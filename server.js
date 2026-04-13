@@ -2798,7 +2798,24 @@ function renderPage() {
         : currentTagFilters;
       const tagParam = allTagFilters.length ? '&tags=' + allTagFilters.map(encodeURIComponent).join(',') : '';
       const typeParam = currentTypeFilters.length ? '&type=' + currentTypeFilters.map(encodeURIComponent).join(',') : '';
-      const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam + typeParam : '/api/list?' + sortParam + tagParam + typeParam;
+      // Advanced search filters (size in KB, dates as YYYY-MM-DD)
+      var sizeMinParam = '', sizeMaxParam = '', dateFromParam = '', dateToParam = '', tagMatchParam = '';
+      var sizeMin = localStorage.getItem('adv_size_min');
+      var sizeMax = localStorage.getItem('adv_size_max');
+      var dateFrom = localStorage.getItem('adv_date_from');
+      var dateTo = localStorage.getItem('adv_date_to');
+      var tagMatch = localStorage.getItem('adv_tag_match');
+      if (sizeMin) sizeMinParam = '&size_min=' + encodeURIComponent(sizeMin);
+      if (sizeMax) sizeMaxParam = '&size_max=' + encodeURIComponent(sizeMax);
+      if (dateFrom) dateFromParam = '&date_from=' + encodeURIComponent(dateFrom);
+      if (dateTo) dateToParam = '&date_to=' + encodeURIComponent(dateTo);
+      if (tagMatch && tagMatch !== 'all') tagMatchParam = '&tagMatch=' + encodeURIComponent(tagMatch);
+      const advParams = sizeMinParam + sizeMaxParam + dateFromParam + dateToParam + tagMatchParam;
+      // Use /api/search for any filtering (supports size/date/tagMatch); /api/list only supports sort/order/type/tags
+      const hasFilters = q || advParams || allTagFilters.length || currentTypeFilters.length;
+      const url = hasFilters
+        ? '/api/search?q=' + encodeURIComponent(q || '') + '&' + sortParam + tagParam + typeParam + advParams
+        : '/api/list?' + sortParam + tagParam + typeParam;
       await loadFilesFromUrl(url, false);
     }
 
@@ -2850,7 +2867,23 @@ function renderPage() {
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
       const typeParam = currentTypeFilters.length ? '&type=' + currentTypeFilters.map(encodeURIComponent).join(',') : '';
-      const baseUrl = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam + typeParam : '/api/list?' + sortParam + tagParam + typeParam;
+      // Advanced search filters (same as loadFiles)
+      var sizeMinParam = '', sizeMaxParam = '', dateFromParam = '', dateToParam = '', tagMatchParam = '';
+      var sizeMin = localStorage.getItem('adv_size_min');
+      var sizeMax = localStorage.getItem('adv_size_max');
+      var dateFrom = localStorage.getItem('adv_date_from');
+      var dateTo = localStorage.getItem('adv_date_to');
+      var tagMatch = localStorage.getItem('adv_tag_match');
+      if (sizeMin) sizeMinParam = '&size_min=' + encodeURIComponent(sizeMin);
+      if (sizeMax) sizeMaxParam = '&size_max=' + encodeURIComponent(sizeMax);
+      if (dateFrom) dateFromParam = '&date_from=' + encodeURIComponent(dateFrom);
+      if (dateTo) dateToParam = '&date_to=' + encodeURIComponent(dateTo);
+      if (tagMatch && tagMatch !== 'all') tagMatchParam = '&tagMatch=' + encodeURIComponent(tagMatch);
+      const advParams = sizeMinParam + sizeMaxParam + dateFromParam + dateToParam + tagMatchParam;
+      const hasFilters = q || advParams || currentTypeFilters.length;
+      const baseUrl = hasFilters
+        ? '/api/search?q=' + encodeURIComponent(q || '') + '&' + sortParam + tagParam + typeParam + advParams
+        : '/api/list?' + sortParam + tagParam + typeParam;
       const url = baseUrl + '&offset=' + currentOffset + '&limit=' + currentPageLimit;
       await loadFilesFromUrl(url, true);
       isAppending = false;
@@ -8767,8 +8800,62 @@ function renderPage() {
         var el = document.getElementById(id);
         if (el) el.value = '';
       });
+      currentTagFilters = [];
+      localStorage.setItem('tagFilters', '');
       updateActiveFilterChips();
+      renderTagChips();
+      loadFiles();
     };
+
+    // Apply advanced search filters
+    window.doAdvancedSearch = function() {
+      var sizeMin = (document.getElementById('sizeMin') || {}).value || '';
+      var sizeMax = (document.getElementById('sizeMax') || {}).value || '';
+      var dateFrom = (document.getElementById('dateFrom') || {}).value || '';
+      var dateTo = (document.getElementById('dateTo') || {}).value || '';
+      var typeFilter = (document.getElementById('typeFilter') || {}).value || '';
+      var tagMatchFilter = (document.getElementById('tagMatchFilter') || {}).value || 'all';
+      // Persist size/date/type filters to localStorage
+      localStorage.setItem('adv_size_min', sizeMin);
+      localStorage.setItem('adv_size_max', sizeMax);
+      localStorage.setItem('adv_date_from', dateFrom);
+      localStorage.setItem('adv_date_to', dateTo);
+      localStorage.setItem('adv_type', typeFilter);
+      localStorage.setItem('adv_tag_match', tagMatchFilter);
+      // Sync into main type filter system
+      if (typeFilter) {
+        currentTypeFilters = [typeFilter];
+        localStorage.setItem('typeFilters', typeFilter);
+        updateTypeFilterChips();
+      }
+      updateActiveFilterChips();
+      loadFiles();
+    };
+
+    // Restore advanced filters from localStorage on load
+    (function restoreAdvancedFilters() {
+      var ids = ['sizeMin','sizeMax','dateFrom','dateTo','typeFilter','tagMatchFilter'];
+      var keys = ['adv_size_min','adv_size_max','adv_date_from','adv_date_to','adv_type','adv_tag_match'];
+      ids.forEach(function(id, i) {
+        var el = document.getElementById(id);
+        var stored = localStorage.getItem(keys[i]);
+        if (el && stored) el.value = stored;
+      });
+      // Sync typeFilter from advanced search into currentTypeFilters
+      var advType = localStorage.getItem('adv_type');
+      if (advType) {
+        currentTypeFilters = [advType];
+        localStorage.setItem('typeFilters', advType);
+        updateTypeFilterChips();
+      }
+      // Restore tag filters
+      var savedTags = localStorage.getItem('tagFilters');
+      if (savedTags) {
+        currentTagFilters = savedTags.split(',').filter(Boolean);
+        renderTagChips();
+      }
+      updateActiveFilterChips();
+    })();
 
     // Service Worker registration (PWA offline support)
     if ('serviceWorker' in navigator) {

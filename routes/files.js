@@ -87,8 +87,11 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const tagMatch = query.get('tagMatch') || 'all';
     const sizeMin = query.get('size_min') || null;
     const sizeMax = query.get('size_max') || null;
-    const dateFrom = query.get('date_from') || null;
-    const dateTo = query.get('date_to') || null;
+    // date_from/to are YYYY-MM-DD strings — convert to Unix seconds
+    const dateFromRaw = query.get('date_from') || null;
+    const dateToRaw = query.get('date_to') || null;
+    const dateFrom = dateFromRaw ? Math.floor(new Date(dateFromRaw + 'T00:00:00Z').getTime() / 1000) : null;
+    const dateTo = dateToRaw ? Math.floor(new Date(dateToRaw + 'T23:59:59Z').getTime() / 1000) : null;
     const typeParam = query.get('type') || null;
     // Handle 'starred' as a special type filter; split comma-separated for multi-select
     const typeFilterList = typeParam ? typeParam.split(',').map(t => t.trim()).filter(Boolean) : [];
