@@ -2765,9 +2765,11 @@ function createRequestLink(opts = {}) {
 
 function getRequestLink(code) {
   const db = getDb();
-  const row = db.prepare('SELECT id, code, name, target_folder, max_uploads, upload_count, expires_at, active, created_at, created_by FROM request_links WHERE code = ?').get(code);
+  const row = db.prepare('SELECT id, code, name, target_folder, max_uploads, upload_count, expires_at, active, created_at, created_by, password FROM request_links WHERE code = ?').get(code);
   if (!row) return null;
-  return row;
+  // Exclude password from return but keep has_password indicator
+  const { password, ...rest } = row;
+  return { ...rest, has_password: password ? 1 : 0 };
 }
 
 function verifyRequestLinkPassword(code, inputPwd) {
@@ -2797,11 +2799,18 @@ function deleteRequestLink(code) {
 
 function listRequestLinks(createdBy = null) {
   const db = getDb();
-  const fields = 'id, code, name, target_folder, max_uploads, upload_count, expires_at, active, created_at, created_by';
+  const fields = 'id, code, name, target_folder, max_uploads, upload_count, expires_at, active, created_at, created_by, password';
+  let rows;
   if (createdBy) {
-    return db.prepare(`SELECT ${fields} FROM request_links WHERE created_by = ? ORDER BY created_at DESC`).all(createdBy);
+    rows = db.prepare(`SELECT ${fields} FROM request_links WHERE created_by = ? ORDER BY created_at DESC`).all(createdBy);
+  } else {
+    rows = db.prepare(`SELECT ${fields} FROM request_links ORDER BY created_at DESC`).all();
   }
-  return db.prepare(`SELECT ${fields} FROM request_links ORDER BY created_at DESC`).all();
+  // Strip password, add has_password
+  return rows.map(row => {
+    const { password, ...rest } = row;
+    return { ...rest, has_password: password ? 1 : 0 };
+  });
 }
 
 function cleanupExpiredRequestLinks() {

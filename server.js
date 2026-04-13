@@ -6200,6 +6200,7 @@ function renderPage() {
           '<td>' + statusLabel + (info.length ? '<br><span style="font-size:11px;color:var(--muted)">' + info.join(' · ') + '</span>' : '') + '</td>' +
           '<td>' +
             '<button class="secondary" onclick="copyToClipboard(location.origin + \'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制</button> ' +
+            '<button class="secondary" onclick="openRequestLinkEditModal(\'' + escapeHtmlClient(rl.code) + '\')">编辑</button> ' +
             '<button class="secondary" onclick="toggleRequestLinkActive(\'' + escapeHtmlClient(rl.code) + '\', ' + !rl.active + ')">' + (rl.active ? '停用' : '启用') + '</button> ' +
             '<button class="danger" onclick="deleteRequestLink(\'' + escapeHtmlClient(rl.code) + '\')">删除</button>' +
           '</td>' +
