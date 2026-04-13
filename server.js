@@ -622,7 +622,9 @@ function renderPage() {
       .toolbar{flex-wrap:wrap;gap:8px}
       .toolbar button{min-width:44px;width:auto;padding:9px 12px;font-size:13px}
       .toolbar input{flex:1 1 100%!important;min-width:0!important}
-      #tagFilterSelect{flex:1 1 100%;max-width:100%}
+      #tagFilterWrapper{flex:1 1 100%;max-width:160px}
+      .tag-filter-item:hover{background:var(--bg-tertiary)}
+      .tag-filter-item.active{background:var(--accent-weak);color:var(--accent)}
       #shareSearchInput{flex:1 1 100%!important}
       #shareStatusFilter{width:100%}
       /* Touch targets: min 44px height for buttons */
@@ -831,9 +833,15 @@ function renderPage() {
       <div class="toolbar">
         <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:32px">
         <span id="searchClear" onclick="clearSearchInput()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:16px;line-height:1;display:none;user-select:none" title="清除搜索">✕</span>
-        <select id="tagFilterSelect" onchange="filterByTag()" aria-label="按标签筛选" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:140px">
-          <option value="">全部标签</option>
-        </select>
+        <div id="tagFilterWrapper" style="position:relative;max-width:160px">
+          <input id="tagFilterInput" type="text" placeholder="全部标签" autocomplete="off"
+            style="padding:6px 28px 6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;width:100%;box-sizing:border-box"
+            onfocus="openTagFilterDropdown()" oninput="filterTagFilterDropdown()" onkeydown="handleTagFilterKeydown(event)">
+          <span id="tagFilterClear" onclick="clearTagFilter()" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:12px;display:none;user-select:none" title="清除标签">✕</span>
+          <div id="tagFilterDropdown" style="display:none;position:absolute;top:calc(100%+4px);left:0;right:0;background:var(--bg-secondary);border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:1000;max-height:220px;overflow:auto;font-size:13px">
+            <div id="tagFilterList"></div>
+          </div>
+        </div>
         <button id="vfBtn" class="ghost" onclick="toggleVirtualFolderMenu()" title="收藏夹">⭐</button>
         <div id="vfMenu" style="display:none;position:absolute;z-index:1000;background:var(--bg-secondary);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:180px;padding:6px 0;font-size:13px;margin-top:4px">
           <div id="vfMenuList"></div>
@@ -2418,7 +2426,7 @@ function renderPage() {
       currentOffset = 0;
       const q = document.getElementById('searchInput').value.trim();
       currentSearchQuery = q;  // expose for highlight in render
-      const selectedTag = (document.getElementById('tagFilterSelect') || {}).value || '';
+      const selectedTag = (document.getElementById('tagFilterInput') || {}).dataset.selectedTag || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
       const typeParam = currentTypeFilter ? '&type=' + encodeURIComponent(currentTypeFilter) : '';
@@ -2467,7 +2475,7 @@ function renderPage() {
       if (currentOffset >= currentTotal) return;
       isAppending = true;
       const q = document.getElementById('searchInput').value.trim();
-      const selectedTag = (document.getElementById('tagFilterSelect') || {}).value || '';
+      const selectedTag = (document.getElementById('tagFilterInput') || {}).dataset.selectedTag || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
       const typeParam = currentTypeFilter ? '&type=' + encodeURIComponent(currentTypeFilter) : '';
@@ -2493,16 +2501,131 @@ function renderPage() {
       observer.observe(sentinel);
     }
 
+    // Typeahead dropdown data cache
+    window._allTags = [];
+
     function updateTagFilterOptions(tags) {
-      const sel = document.getElementById('tagFilterSelect');
+      // Store tags globally for typeahead filtering
+      window._allTags = tags || [];
+      const sel = document.getElementById('tagFilterInput');
       if (!sel) return;
-      const current = sel.value;
-      sel.innerHTML = '<option value="">全部标签</option>' +
-        tags.map(function(t) {
-          return '<option value="' + escapeHtmlClient(t.tag) + '"' + (t.tag === current ? ' selected' : '') + '>' +
-            escapeHtmlClient(t.tag) + ' (' + t.count + ')</option>';
-        }).join('');
-      sel.value = current;
+      // Keep current value, just update cache
+      renderTagFilterDropdown(sel.value);
+    }
+
+    function renderTagFilterDropdown(filter) {
+      // filter = current input value (for typeahead filtering)
+      const list = document.getElementById('tagFilterList');
+      const input = document.getElementById('tagFilterInput');
+      const clearBtn = document.getElementById('tagFilterClear');
+      if (!list || !input) return;
+      const all = window._allTags || [];
+      const q = (filter || '').toLowerCase().trim();
+      const filtered = q ? all.filter(function(t) { return t.tag.toLowerCase().includes(q); }) : all.slice(0, 50);
+      const selected = input.dataset.selectedTag || '';
+
+      let html = '';
+      // "All tags" option at top
+      html += '<div class="tag-filter-item' + (!selected ? ' active' : '') + '" onclick="selectTagFilter(\'\')" style="padding:7px 12px;cursor:pointer;border-radius:6px;color:var(--text-muted);font-size:12px">' +
+        '全部标签' + (all.length ? ' <span style="opacity:.5">(' + all.reduce(function(s, t) { return s + (t.count || 0); }, 0) + ')</span>' : '') + '</div>';
+      if (filtered.length === 0 && q) {
+        html += '<div style="padding:7px 12px;color:var(--text-muted);font-size:12px">无匹配标签</div>';
+      }
+      filtered.forEach(function(t) {
+        const isSelected = t.tag === selected;
+        const color = t.color || '#e0e7ff';
+        html += '<div class="tag-filter-item' + (isSelected ? ' active' : '') + '" onclick="selectTagFilter(' + JSON.stringify(t.tag) + ')" style="padding:7px 12px;cursor:pointer;border-radius:6px;display:flex;align-items:center;gap:8px' + (isSelected ? ';' : '') + '">' +
+          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + color + ';flex-shrink:0"></span>' +
+          '<span style="flex:1">' + escapeHtmlClient(t.tag) + '</span>' +
+          '<span style="opacity:.5;font-size:11px">' + t.count + '</span>' +
+          (isSelected ? ' <span style="color:var(--accent);font-size:11px">✓</span>' : '') +
+          '</div>';
+      });
+
+      list.innerHTML = html;
+      // Update clear button visibility
+      if (clearBtn) clearBtn.style.display = selected ? 'block' : 'none';
+    }
+
+    function openTagFilterDropdown() {
+      const dropdown = document.getElementById('tagFilterDropdown');
+      if (dropdown) {
+        dropdown.style.display = 'block';
+        renderTagFilterDropdown(document.getElementById('tagFilterInput').value);
+      }
+      document.addEventListener('click', closeTagFilterOnClickOutside, { once: true });
+    }
+
+    function filterTagFilterDropdown() {
+      renderTagFilterDropdown(document.getElementById('tagFilterInput').value);
+    }
+
+    function closeTagFilterOnClickOutside(e) {
+      const wrapper = document.getElementById('tagFilterWrapper');
+      if (wrapper && !wrapper.contains(e.target)) {
+        const dropdown = document.getElementById('tagFilterDropdown');
+        if (dropdown) dropdown.style.display = 'none';
+        // Restore display if there's a selected tag
+        const input = document.getElementById('tagFilterInput');
+        if (input && input.dataset.selectedTag) {
+          input.value = input.dataset.selectedTag;
+        }
+      }
+    }
+
+    function handleTagFilterKeydown(e) {
+      const dropdown = document.getElementById('tagFilterDropdown');
+      if (!dropdown || dropdown.style.display === 'none') {
+        if (e.key === 'Enter') {
+          // Force open dropdown on Enter
+          openTagFilterDropdown();
+          e.preventDefault();
+        }
+        return;
+      }
+      const items = [].slice.call(dropdown.querySelectorAll('.tag-filter-item'));
+      const active = dropdown.querySelector('.tag-filter-item.active');
+      const idx = items.indexOf(active);
+      if (e.key === 'Escape') {
+        dropdown.style.display = 'none';
+        const input = document.getElementById('tagFilterInput');
+        if (input && input.dataset.selectedTag) input.value = input.dataset.selectedTag;
+        input && input.blur();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = items[Math.min(idx + 1, items.length - 1)];
+        if (next) {
+          items.forEach(function(i) { i.classList.remove('active'); });
+          next.classList.add('active');
+          next.scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = items[Math.max(idx - 1, 0)];
+        if (prev) {
+          items.forEach(function(i) { i.classList.remove('active'); });
+          prev.classList.add('active');
+          prev.scrollIntoView({ block: 'nearest' });
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (active) active.click();
+        else dropdown.style.display = 'none';
+      } else if (e.key === 'Tab') {
+        dropdown.style.display = 'none';
+      }
+    }
+
+    function selectTagFilter(tag) {
+      const input = document.getElementById('tagFilterInput');
+      const dropdown = document.getElementById('tagFilterDropdown');
+      if (!input) return;
+      input.dataset.selectedTag = tag;
+      input.value = tag;
+      if (dropdown) dropdown.style.display = 'none';
+      const clearBtn = document.getElementById('tagFilterClear');
+      if (clearBtn) clearBtn.style.display = tag ? 'block' : 'none';
+      filterByTag();
     }
 
     function filterByTag() {
@@ -2510,16 +2633,24 @@ function renderPage() {
     }
 
     function clearTagFilter() {
-      const sel = document.getElementById('tagFilterSelect');
-      if (sel) sel.value = '';
+      const input = document.getElementById('tagFilterInput');
+      if (input) {
+        input.value = '';
+        input.dataset.selectedTag = '';
+      }
+      const clearBtn = document.getElementById('tagFilterClear');
+      if (clearBtn) clearBtn.style.display = 'none';
       loadFiles();
     }
 
     // 点击文件列表中的标签 chip 进行筛选
     function filterBySingleTag(tag) {
-      const sel = document.getElementById('tagFilterSelect');
-      if (sel) {
-        sel.value = tag;
+      const input = document.getElementById('tagFilterInput');
+      if (input) {
+        input.value = tag;
+        input.dataset.selectedTag = tag;
+        const clearBtn = document.getElementById('tagFilterClear');
+        if (clearBtn) clearBtn.style.display = tag ? 'block' : 'none';
         loadFiles();
       }
     }
@@ -2529,7 +2660,7 @@ function renderPage() {
       const bar = document.getElementById('tagQuickBar');
       if (!bar) return;
       const tags = tagData.tags || [];
-      const activeTag = (document.getElementById('tagFilterSelect') || {}).value || '';
+      const activeTag = (document.getElementById('tagFilterInput') || {}).dataset.selectedTag || '';
       if (!tags.length) { bar.style.display = 'none'; return; }
       // 显示最多8个，按使用频率排序
       const top = tags.slice(0, 8);
@@ -6420,7 +6551,7 @@ function renderPage() {
         if (filters.dateTo) params.push('date_to=' + Math.floor(new Date(filters.dateTo + 'T23:59:59').getTime() / 1000));
         if (filters.typeFilter) params.push('type=' + filters.typeFilter);
       }
-      var tags = document.getElementById('tagFilterSelect') && document.getElementById('tagFilterSelect').value;
+      var tags = (document.getElementById('tagFilterInput') || {}).dataset.selectedTag || '';
       if (tags) params.push('tags=' + encodeURIComponent(tags));
       if (filters.tagMatch === 'any') params.push('tagMatch=any');
       var sort = document.getElementById('sortSelect') && document.getElementById('sortSelect').value;
