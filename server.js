@@ -742,6 +742,8 @@ function renderPage() {
     <div class="ctx-item" onclick="ctxAction('download')">⬇ 下载</div>
     <div class="ctx-item" onclick="ctxAction('share')">🔗 分享</div>
     <div class="ctx-item" onclick="ctxAction('copyLink')">📋 复制链接</div>
+    <div class="ctx-item" onclick="ctxAction('copyName')">📝 复制文件名</div>
+    <div class="ctx-item" onclick="ctxAction('copyPath')">📂 复制文件路径</div>
     <div class="ctx-item" onclick="ctxAction('history')">📜 版本历史</div>
     <div class="ctx-item" onclick="ctxAction('addToVF')">⭐ 添加到收藏夹</div>
     <div class="ctx-sep"></div>
@@ -3488,6 +3490,8 @@ function renderPage() {
         case 'download': downloadFile(filename); break;
         case 'share': createShare(filename); break;
         case 'copyLink': await copyShareLink(filename); break;
+        case 'copyName': await copyToClipboard(filename); showToast('已复制文件名', 'success'); break;
+        case 'copyPath': await copyToClipboard('/' + filename); showToast('已复制文件路径', 'success'); break;
         case 'rename': startInlineRename(filename); break;
         case 'delete': if (confirm('确认删除 ' + filename + '？')) deleteFile(filename); break;
         case 'history': openVersionHistory(filename); break;
