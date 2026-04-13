@@ -5095,7 +5095,9 @@ function renderPage() {
         var prevBtn = galTotal > 1 ? '<button onclick="navigateGallery(-1)" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);border:none;color:#fff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)" title="上一张 (←)">‹</button>' : '';
         var nextBtn = galTotal > 1 ? '<button onclick="navigateGallery(1)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.45);border:none;color:#fff;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)" title="下一张 (→)">›</button>' : '';
         var counter = galTotal > 1 ? '<div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);color:#fff;padding:4px 12px;border-radius:20px;font-size:12px;backdrop-filter:blur(4px)">' + galIdx + ' / ' + galTotal + '</div>' : '';
-        modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in;position:relative" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\', ' + JSON.stringify(filename) + ')">' + prevBtn + nextBtn + counter + '<img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大 · ' + formatBytes(file.size || 0) + '</div>';
+        var modDate = file.updated_at ? new Date(file.updated_at).toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
+        var infoBar = '<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px;font-size:12px;color:var(--muted)"><span>📄 ' + formatBytes(file.size || 0) + '</span><span>🕐 ' + modDate + '</span></div>';
+        modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in;position:relative" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\', ' + JSON.stringify(filename) + ')">' + prevBtn + nextBtn + counter + '<img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大</div>' + infoBar;
         setPreviewActions(filename);
       } else if (file.mime === 'application/pdf') {
         modalBody.innerHTML = '<iframe src="data:application/pdf;base64,' + file.content + '" style="width:100%;height:70vh;border:none;border-radius:8px" title="PDF预览"></iframe>';
@@ -5152,10 +5154,14 @@ function renderPage() {
         setPreviewActions(filename);
         return;
       } else if ((file.mime || '').startsWith('video/')) {
-        modalBody.innerHTML = '<video controls style="width:100%;max-height:70vh;border-radius:8px;background:#000"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持视频预览</video>';
+        var vModDate = file.updated_at ? new Date(file.updated_at).toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
+        var vInfoBar = '<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px;font-size:12px;color:var(--muted)"><span>📄 ' + formatBytes(file.size || 0) + '</span><span>🕐 ' + vModDate + '</span><span>← → 切换</span></div>';
+        modalBody.innerHTML = '<video controls style="width:100%;max-height:70vh;border-radius:8px;background:#000"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持视频预览</video>' + vInfoBar;
         setPreviewActions(filename);
       } else if ((file.mime || '').startsWith('audio/')) {
-        modalBody.innerHTML = '<audio controls style="width:100%;margin-top:20px"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持音频预览</audio>';
+        var aModDate = file.updated_at ? new Date(file.updated_at).toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
+        var aInfoBar = '<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-top:8px;font-size:12px;color:var(--muted)"><span>📄 ' + formatBytes(file.size || 0) + '</span><span>🕐 ' + aModDate + '</span></div>';
+        modalBody.innerHTML = '<audio controls style="width:100%;margin-top:20px"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持音频预览</audio>' + aInfoBar;
         setPreviewActions(filename);
       } else {
         modalBody.innerHTML = '<p class="muted">此文件类型不做内嵌预览，请直接下载。</p><button class="btn secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(filename) + ')' + "'" + '>下载文件</button>';
@@ -8752,6 +8758,7 @@ function renderPage() {
           ['n', '新建文本文件'],
           ['Ctrl+V', '粘贴图片/文件上传'],
           ['Enter', '打开/预览文件'],
+          ['← / →', '预览中切换图片'],
           ['j/k', 'vim导航'],
           ['d', '删除选中文件'],
           ['e', '重命名选中文件'],

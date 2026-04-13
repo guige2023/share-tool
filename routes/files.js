@@ -306,6 +306,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         type: file.type,
         size: file.size,
         updatedAt: file.updated_at * 1000,
+        updated_at: file.updated_at * 1000,
+        created_at: file.created_at ? file.created_at * 1000 : undefined,
         mime: file.content_type || guessMimeType(file.filename),
         content_type: file.content_type || guessMimeType(file.filename),
         content: file.content || '',
