@@ -870,6 +870,7 @@ function renderPage() {
         <button class="type-chip" data-type="document" onclick="setTypeFilter('document')">📄 文档</button>
         <button class="type-chip" data-type="archive" onclick="setTypeFilter('archive')">📦 压缩</button>
         <button class="type-chip" data-type="text" onclick="setTypeFilter('text')">📝 文本</button>
+        <button class="type-chip" data-type="recent" onclick="setTypeFilter('recent')">🕐 最近</button>
       </div>
       <div id="fileStatsBar" style="display:flex;gap:16px;align-items:center;padding:0 0 8px 0;font-size:12px;color:var(--muted);font-family:monospace;flex-wrap:wrap">
         <span id="fileCountDisplay">共 <strong>0</strong> 个文件</span>

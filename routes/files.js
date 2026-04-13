@@ -28,9 +28,33 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const folder = query.get('folder') || null;
     const tags = query.get('tags') || null;
     const typeFilter = query.get('type') || null;
-    // Handle 'starred' as a special type filter
+    // Handle 'starred' and 'recent' as special type filters
     const starredOnly = typeFilter === 'starred';
-    const actualTypeFilter = starredOnly ? null : typeFilter;
+    const recentOnly = typeFilter === 'recent';
+    const actualTypeFilter = starredOnly || recentOnly ? null : typeFilter;
+
+    // type=recent: return recently accessed files from file_access_log
+    if (recentOnly) {
+      const files = db.getRecentlyAccessedFiles(limit);
+      sendJson(res, {
+        success: true,
+        total: files.length,
+        files: files.map((file) => ({
+          id: file.id,
+          name: file.filename,
+          size: file.size,
+          type: file.type,
+          hash: file.hash,
+          tags: file.tags || '',
+          createdAt: file.created_at * 1000,
+          updatedAt: file.updated_at * 1000,
+          content_type: file.content_type || null,
+          last_accessed_at: file.last_accessed_at ? file.last_accessed_at * 1000 : null
+        }))
+      });
+      return true;
+    }
+
     const { files, total } = db.listFiles(limit, offset, sort, order, folder, starredOnly, tags, { typeFilter: actualTypeFilter });
 
     sendJson(res, {

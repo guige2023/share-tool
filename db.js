@@ -2291,6 +2291,22 @@ function getMostAccessedFiles(limit = 20, since = null) {
 }
 
 // ============================================================
+// 最近访问文件
+// ============================================================
+function getRecentlyAccessedFiles(limit = 50) {
+  const db = getDb();
+  // Return unique files by file_id ordered by most recent access, joined with file metadata
+  const files = db.prepare(`
+    SELECT DISTINCT f.${FILE_LIST_FIELDS}, fal.timestamp as last_accessed_at
+    FROM file_access_log fal
+    JOIN files f ON fal.file_id = f.id
+    ORDER BY fal.timestamp DESC
+    LIMIT ?
+  `).all(limit);
+  return files;
+}
+
+// ============================================================
 // 速率限制（防暴力破解）
 // ============================================================
 // 策略：共享 token 限速（同一 IP/分享码组合）
@@ -3450,7 +3466,7 @@ module.exports = {
   // Token
   generateToken, validateToken, refreshToken, revokeToken, revokeAllTokens,
   // 审计
-  addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV, addFileAccessLog, getFileAccessLog, getMostAccessedFiles,
+  addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV, addFileAccessLog, getFileAccessLog, getMostAccessedFiles, getRecentlyAccessedFiles,
   // 速率限制
   checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig, listRateLimits, deleteRateLimit,
   // 通知
