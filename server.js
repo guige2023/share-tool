@@ -3555,6 +3555,13 @@ function renderPage() {
       var tagInFocus = document.activeElement && document.activeElement.tagName;
       if (tagInFocus === 'INPUT' || tagInFocus === 'TEXTAREA') return;
 
+      // Ctrl/Cmd+A → select all files
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        toggleAll(true);
+        return;
+      }
+
       // "/" focuses the search box
       if (e.key === '/') {
         e.preventDefault();
@@ -3625,7 +3632,7 @@ function renderPage() {
         }
         function getSelectedFiles() { return checkedNames(); }
         case 'a': {
-          if (e.ctrlKey || e.metaKey) return; // let browser select-all pass through
+          if (e.ctrlKey || e.metaKey) return; // handled above
           // 'a' alone → select all files
           e.preventDefault();
           toggleAll(true);
