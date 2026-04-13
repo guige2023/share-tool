@@ -1561,7 +1561,7 @@ function tokenizeQuery(query) {
  */
 function searchFiles(query, tags = null, opts = {}) {
   const db = getDb();
-  const { limit = 100, offset = 0, fuzzy = true, size_min, size_max, date_from, date_to, tagMatch = 'all', content, type } = opts;
+  const { limit = 100, offset = 0, fuzzy = true, size_min, size_max, date_from, date_to, tagMatch = 'all', content, type, starred } = opts;
 
   // 构建 size 和 date 的 SQL 过滤条件
   const extraConditions = [];
