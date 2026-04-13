@@ -2907,8 +2907,61 @@ function renderPage() {
     var currentTotal = 0;
     var currentPageLimit = 500;
     var isAppending = false;
+    var isRecentFilesMode = false;
+
+    // ── Recent Files Mode ───────────────────────────────────────────────
+    window.showRecentFiles = async function() {
+      isRecentFilesMode = true;
+      document.getElementById('sortDropdownMenu').style.display = 'none';
+      // Update sort dropdown label to show active state
+      var label = document.getElementById('sortDropdownLabel');
+      if (label) label.innerHTML = '🕐 最近访问';
+      // Clear search input
+      document.getElementById('searchInput').value = '';
+      currentSearchQuery = '';
+      clearActiveFilterChips();
+      // Load recent files
+      try {
+        var res = await fetch('/api/recent-files?limit=100', { headers: headers() });
+        var data = await res.json();
+        if (data.success && data.files) {
+          renderFileList(data.files, 0, data.files.length, data.files.length);
+          updateFileCountDisplay(data.files.length);
+          // Store the files for scroll pagination
+          window._recentFilesCache = data.files;
+        }
+      } catch(e) {
+        showToast('加载最近文件失败', 'error');
+      }
+    };
+
+    function exitRecentFilesMode() {
+      if (!isRecentFilesMode) return;
+      isRecentFilesMode = false;
+      window._recentFilesCache = null;
+      var label = document.getElementById('sortDropdownLabel');
+      if (label) {
+        var sortKey = (currentSort || 'updated_at') + '-' + (currentOrder || 'desc');
+        var sortLabels = {
+          'updated_at-desc': '↕ 更新时间', 'updated_at-asc': '↕ 更新时间',
+          'filename-asc': '↕ 名称 A-Z', 'filename-desc': '↕ 名称 Z-A',
+          'size-desc': '↕ 大小', 'size-asc': '↕ 大小',
+          'created_at-desc': '↕ 创建时间', 'created_at-asc': '↕ 创建时间',
+          'type-asc': '↕ 类型',
+          'position-asc': '↕ 手动排序'
+        };
+        label.textContent = sortLabels[sortKey] || '↕ 排序';
+      }
+      loadFiles();
+    }
 
     async function loadFiles() {
+      if (isRecentFilesMode) {
+        isRecentFilesMode = false;
+        if (window._recentFilesCache) {
+          window._recentFilesCache = null;
+        }
+      }
       if (currentVirtualFolderId !== null) {
         currentVirtualFolderId = null;
         var breadcrumb = document.getElementById('breadcrumb');
@@ -3236,6 +3289,7 @@ function renderPage() {
     }
 
     function setSortFromDropdown(sort, order) {
+      isRecentFilesMode = false; // exit recent files mode on any sort change
       currentSort = sort;
       currentOrder = order;
       localStorage.setItem('sortBy', sort);
@@ -3552,6 +3606,7 @@ function renderPage() {
     };
 
     async function navigateVirtualFolder(folderId) {
+      isRecentFilesMode = false; // exit recent files mode when entering VF
       currentVirtualFolderId = folderId;
       document.getElementById('vfMenu').style.display = 'none';
       var breadcrumb = document.getElementById('breadcrumb');
@@ -3776,6 +3831,7 @@ function renderPage() {
     }
 
     function exitVirtualFolder() {
+      isRecentFilesMode = false; // exit recent files mode
       currentVirtualFolderId = null;
       var breadcrumb = document.getElementById('breadcrumb');
       if (breadcrumb) breadcrumb.style.display = 'none';
