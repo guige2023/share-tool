@@ -23,18 +23,18 @@
 ## 快速启动
 
 ```bash
-# 编译
+# 编译（从 go/ 目录构建，产物输出到项目根目录）
 cd go
-go build -o sharetool .
+go build -o ../sharetool .
 
 # 运行（默认端口 18793 HTTPS + 18790 HTTP 跳转）
 ./sharetool
 
-# 指定端口和共享目录
-./sharetool -port 8080 -dir /tmp/share
+# 指定共享目录和实例名称
+./sharetool -name "我的Mac" -dir ~/share
 
-# 指定实例名称
-./sharetool -name "我的Mac"
+# 只读模式（禁止上传和删除）
+./sharetool -readonly
 ```
 
 服务启动后，共享目录默认为 `./shared`，首次自动创建。
@@ -42,14 +42,24 @@ go build -o sharetool .
 **使用 launchd 开机自启（macOS）：**
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.share-tool.plist
+# 注册服务（需要 sudo）
+sudo launchctl load ~/Library/LaunchAgents/com.share-tool.plist
+
+# 卸载服务
+sudo launchctl unload ~/Library/LaunchAgents/com.share-tool.plist
 ```
 
 ## 命令行示例
 
 ```bash
-# 上传文件（HTTPS，API 路径带 /api/ 前缀）
-curl -sk -T report.pdf https://localhost:18793/api/files/report.pdf
+# 上传文件（multipart 表单，推荐方式）
+curl -sk -X POST https://localhost:18793/api/upload \
+  -F "file=@/path/to/report.pdf"
+
+# 上传到子目录
+curl -sk -X POST https://localhost:18793/api/upload \
+  -F "file=@/path/to/report.pdf" \
+  -F "path=docs"
 
 # 列出文件
 curl -sk https://localhost:18793/api/files
@@ -102,28 +112,57 @@ curl -sk -o qr.png 'https://localhost:18793/api/qr?url=https://192.168.1.10:1879
 
 ShareTool 暴露 AI 可读的 `/tools.json` 端点，支持 AI Agent 自动化操作。
 
-**注册方式**：Agent 读取 `GET /tools.json`，获取所有可用工具定义后，通过对应 HTTP API 执行。
-
-**可用工具**：
-
-| 工具名 | 说明 | 调用方式 |
-|--------|------|----------|
-| `share_text` | 分享文本到局域网 | `POST /api/text` |
-| `get_text_history` | 获取文本历史 | `GET /api/text` |
-| `delete_text_entry` | 删除单条历史 | `DELETE /api/text?id=...` |
-| `clear_text_history` | 清空全部历史 | `DELETE /api/text?all=true` |
-| `list_files` | 列出文件 | `GET /api/files` |
-| `upload_file` | 上传文件 | `PUT /api/files/:name` |
-| `download_file` | 下载文件 | `GET /api/files/:name` |
-| `batch_delete_files` | 批量删除 | `DELETE /api/files` + JSON body |
-
-**示例**：Agent 发现文件列表中有过期文件，执行清理：
+**标准调用流程**：
 
 ```bash
-curl -sk -X DELETE https://192.168.1.10:18793/api/files \
-  -H 'Content-Type: application/json' \
-  -d '{"names":["2024-旧报告.pdf","tmp_cache.bin"]}'
+# Step 1: 获取所有工具定义（Agent 注册时调用一次）
+curl -sk https://192.168.1.x:18793/tools.json
+
+# Step 2: 调用具体工具（根据 tools.json 中的 input_schema 构造请求）
 ```
+
+**常用工具调用标准指令**：
+
+```bash
+# --- share_text：分享文本到局域网所有设备 ---
+curl -sk -X POST https://192.168.1.x:18793/api/text \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"这里是要分享的文本内容"}'
+
+# --- get_text_history：获取文本分享历史 ---
+curl -sk https://192.168.1.x:18793/api/text
+
+# --- delete_text_entry：删除单条文本历史 ---
+curl -sk -X DELETE 'https://192.168.1.x:18793/api/text?id=abc123def456'
+
+# --- clear_text_history：清空全部文本历史 ---
+curl -sk -X DELETE 'https://192.168.1.x:18793/api/text?all=true'
+
+# --- list_files：列出共享文件 ---
+curl -sk https://192.168.1.x:18793/api/files
+
+# --- upload_file：上传文件（multipart 表单） ---
+# content: 文件路径（Agent 本地路径）
+# path:   可选，子目录名如 "reports"
+curl -sk -X POST https://192.168.1.x:18793/api/upload \
+  -F "file=@/tmp/example.pdf"
+
+# --- download_file：下载文件到本地 ---
+curl -sk -O https://192.168.1.x:18793/api/files/filename.pdf
+
+# --- delete_file：删除单个文件 ---
+curl -sk -X DELETE https://192.168.1.x:18793/api/files/old-report.pdf
+
+# --- batch_delete_files：批量删除多个文件 ---
+curl -sk -X DELETE https://192.168.1.x:18793/api/files \
+  -H 'Content-Type: application/json' \
+  -d '{"names":["file1.pdf","file2.txt"]}'
+
+# --- get_qr_code：生成访问二维码（手机扫码访问） ---
+curl -sk -o qr.png 'https://192.168.1.x:18793/api/qr?url=https://192.168.1.x:18793'
+```
+
+**OpenAPI 规范**：Agent 也可读取 `GET /openapi.json` 获取完整 OpenAPI 3.0 规范，用标准 HTTP 客户端调用。
 
 ## Web UI 操作
 
@@ -139,24 +178,63 @@ curl -sk -X DELETE https://192.168.1.10:18793/api/files \
 share-tool/
 ├── go/
 │   ├── main.go                    # 程序入口，命令行解析
+│   ├── go.mod / go.sum           # Go 模块依赖
 │   ├── internal/
 │   │   ├── server/
-│   │   │   ├── server.go           # HTTP/HTTPS 路由、SPA fallback
+│   │   │   ├── server.go           # HTTP/HTTPS 路由、SPA fallback、mDNS
 │   │   │   ├── file_api.go        # 文件上传/下载/删除/批量删除
 │   │   │   ├── text_api.go        # 文本历史（数组结构，最多200条）
+│   │   │   ├── tools_schema.go    # AI 工具定义 JSON
+│   │   │   ├── openapi.go         # OpenAPI 3.0 规范
+│   │   │   ├── peers_api.go       # 节点发现（mDNS）
 │   │   │   └── web/index.html     # Web UI（嵌入二进制）
-│   └── web/index.html             # Web UI 源码（同步用）
-├── cmd/                           # 预留扩展命令
-├── README.md
-└── LICENSE
+│   │   └── web/index.html         # Web UI 源码（修改后需同步到 internal/）
+├── shared/                         # 共享文件目录（运行时创建）
+├── sharetool                       # 编译产物（macOS amd64）
+├── sharetool_darwin_arm64          # 编译产物（macOS ARM64）
+├── sharetool_linux_amd64           # 编译产物（Linux）
+├── sharetool_windows_amd64.exe     # 编译产物（Windows）
+└── README.md
 ```
 
 ## 编译打包
 
 ```bash
+# 编译 macOS 版本
 cd go
-go build -o sharetool .
-# 输出单一二进制，无外部依赖
+go build -o ../sharetool_darwin_amd64 .
+
+# 编译 macOS ARM64 (Apple Silicon)
+GOOS=darwin GOARCH=arm64 go build -o ../sharetool_darwin_arm64 .
+
+# 编译 Linux
+GOOS=linux GOARCH=amd64 go build -o ../sharetool_linux_amd64 .
+
+# 编译 Windows
+GOOS=windows GOARCH=amd64 go build -o ../sharetool_windows_amd64.exe .
+```
+
+**制作 macOS DMG 安装包：**
+
+```bash
+# 1. 创建临时挂载点目录
+mkdir -p /tmp/sharetool_dmg
+
+# 2. 创建 DMG（APFS 压缩格式）
+hdiutil create -size 100m -fs APFS -volname "ShareTool" \
+  -srcfolder /Users/guige/my_project/share-tool/sharetool_darwin_amd64 \
+  /tmp/sharetool
+
+# 3. 转换并压缩为最终 DMG
+hdiutil convert /tmp/sharetool.dmg -format ULFO -o ShareTool-macos.dmg
+```
+
+**制作跨平台压缩包：**
+
+```bash
+cd ..
+tar czvf ShareTool-macos.tar.gz sharetool_darwin_amd64
+zip ShareTool-windows.zip sharetool_windows_amd64.exe
 ```
 
 ## 注意事项

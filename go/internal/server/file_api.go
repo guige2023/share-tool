@@ -284,7 +284,7 @@ func handleFileBatchDelete(sharedDir string) http.HandlerFunc {
 		var deleted, failed int
 		var errs []string
 		for _, name := range req.Names {
-			rel := safeRelPath("/files/" + name)
+			rel := safeRelPath("/api/files/" + name)
 			if rel == "" {
 				failed++
 				errs = append(errs, "unsafe name: "+name)

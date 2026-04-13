@@ -20,3 +20,11 @@ node_modules/
 
 # Test coverage
 coverage/
+
+# Build artifacts (use GitHub Releases for distribution)
+sharetool
+sharetool_darwin_amd64
+sharetool_darwin_arm64
+sharetool_linux_amd64
+sharetool_windows_amd64.exe
+ShareTool-macos.dmg

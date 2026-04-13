@@ -5,86 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>ShareTool</title>
 <style>
-:root {
-  --bg: #f5f5f7;
-  --panel-bg: #fff;
-  --text: #1d1d1f;
-  --muted: #86868b;
-  --border: #d2d2d7;
-  --accent: #0071e3;
-  --accent-dark: #005bb5;
-  --header-bg: #1d1d1f;
-  --header-text: #fff;
-  --input-bg: #fff;
-  --card-bg: #fff;
-  --shadow: rgba(0,0,0,.08);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #000;
-    --panel-bg: #1c1c1e;
-    --text: #f5f5f7;
-    --muted: #98989d;
-    --border: #38383a;
-    --accent: #0a84ff;
-    --accent-dark: #0055b3;
-    --header-bg: #1c1c1e;
-    --header-text: #f5f5f7;
-    --input-bg: #2c2c2e;
-    --card-bg: #1c1c1e;
-    --shadow: rgba(0,0,0,.3);
-  }
-  body { background: var(--bg); color: var(--text); }
-  header { background: var(--header-bg); color: var(--header-text); }
-  .text-section, .upload-section, .file-section { background: var(--panel-bg); }
-  .text-row input { background: var(--input-bg); border-color: var(--border); color: var(--text); }
-  .text-latest { background: #2c2c2e; color: var(--muted); }
-  .text-section h2, .file-section h2 { color: var(--muted); }
-  .tab { color: var(--muted); }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .tabs { background: var(--panel-bg); border-color: var(--border); }
-  .file-item { background: var(--panel-bg); border-color: var(--border); }
-  .file-item .name { color: var(--text); }
-  .file-item .meta { color: var(--muted); }
-  .share-code { background: #2c2c2e; color: var(--muted); }
-  #qrModal > div { background: var(--panel-bg); }
-  #qrModal p { color: var(--text); }
-  .modal-actions button { background: var(--accent); }
-  .tag { background: #2c2c2e; color: #0a84ff; }
-  pre { background: #2c2c2e; color: #e5e5ea; }
-}
-[data-theme="dark"] {
-  --bg: #000;
-  --panel-bg: #1c1c1e;
-  --text: #f5f5f7;
-  --muted: #98989d;
-  --border: #38383a;
-  --accent: #0a84ff;
-  --accent-dark: #0055b3;
-  --header-bg: #1c1c1e;
-  --header-text: #f5f5f7;
-  --input-bg: #2c2c2e;
-  --card-bg: #1c1c1e;
-  --shadow: rgba(0,0,0,.3);
-}
-[data-theme="dark"] body { background: var(--bg); color: var(--text); }
-[data-theme="dark"] header { background: var(--header-bg); color: var(--header-text); }
-[data-theme="dark"] .text-section, [data-theme="dark"] .upload-section, [data-theme="dark"] .file-section { background: var(--panel-bg); }
-[data-theme="dark"] .text-row input { background: var(--input-bg); border-color: var(--border); color: var(--text); }
-[data-theme="dark"] .text-latest { background: #2c2c2e; color: var(--muted); }
-[data-theme="dark"] .text-section h2, [data-theme="dark"] .file-section h2 { color: var(--muted); }
-[data-theme="dark"] .tab { color: var(--muted); }
-[data-theme="dark"] .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-[data-theme="dark"] .tabs { background: var(--panel-bg); border-color: var(--border); }
-[data-theme="dark"] .file-item { background: var(--panel-bg); border-color: var(--border); }
-[data-theme="dark"] .file-item .name { color: var(--text); }
-[data-theme="dark"] .file-item .meta { color: var(--muted); }
-[data-theme="dark"] .share-code { background: #2c2c2e; color: var(--muted); }
-[data-theme="dark"] #qrModal > div { background: var(--panel-bg); }
-[data-theme="dark"] #qrModal p { color: var(--text); }
-[data-theme="dark"] .modal-actions button { background: var(--accent); }
-[data-theme="dark"] .tag { background: #2c2c2e; color: #0a84ff; }
-[data-theme="dark"] pre { background: #2c2c2e; color: #e5e5ea; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -519,57 +439,14 @@ header .ip {
   .file-table { display: block; overflow-x: auto; white-space: nowrap; }
   .drop-zone { padding: 30px 16px; }
 }
-
-/* Toast notifications */
-#toast-container {
-  position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: center;
-  pointer-events: none;
-}
-
-.toast {
-  background: rgba(29, 29, 31, 0.92);
-  color: #fff;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-size: 14px;
-  max-width: 300px;
-  text-align: center;
-  backdrop-filter: blur(8px);
-  animation: toastIn .2s ease, toastOut .2s ease 2.3s forwards;
-  pointer-events: none;
-}
-
-.toast.ok { background: rgba(52, 199, 89, 0.92); }
-.toast.err { background: rgba(255, 59, 48, 0.92); }
-.toast.info { background: rgba(0, 113, 227, 0.92); }
-
-@keyframes toastIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes toastOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
 </style>
 </head>
 <body>
-<div id="toast-container"></div>
 
 <header>
   <h1>ShareTool</h1>
   <div class="header-right">
     <span class="ip" id="serverInfo">--</span>
-    <button id="themeToggle" onclick="toggleTheme()" title="切换深色模式" style="background:none;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:16px;line-height:1;color:#fff;">☾</button>
     <img id="headerQR" width="32" height="32" style="border-radius:4px;cursor:pointer;display:none;" title="点击查看大二维码" onclick="showQRModal()" />
   </div>
 </header>
@@ -661,29 +538,6 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-// Theme management
-const STORAGE_KEY_THEME = 'st_theme';
-function getPreferredTheme() {
-  const saved = localStorage.getItem(STORAGE_KEY_THEME);
-  if (saved) return saved;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-function applyTheme(theme) {
-  if (theme === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-  }
-  localStorage.setItem(STORAGE_KEY_THEME, theme);
-}
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  applyTheme(current === 'dark' ? 'light' : 'dark');
-}
-// Apply saved theme on load
-applyTheme(getPreferredTheme());
-
-// API object
 const API = {
   base: '',
   async request(url, opts) {
@@ -717,8 +571,7 @@ const API = {
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', this.base + '/api/files/' + encodeURIComponent(name));
       if (offset !== undefined) {
-        const end = offset + blob.size - 1;
-        xhr.setRequestHeader('Content-Range', `bytes ${offset}-${end}/${total}`);
+        xhr.setRequestHeader('Content-Range', `bytes ${offset}-${offset + blob.size - 1}/${total}`);
       }
       xhr.onload = () => {
         try { resolve(JSON.parse(xhr.responseText)); }
@@ -761,15 +614,6 @@ function escHtml(str) {
     .replace(/"/g,'&quot;');
 }
 
-function showToast(msg, type='default') {
-  const c = document.getElementById('toast-container');
-  const t = document.createElement('div');
-  t.className = 'toast' + (type !== 'default' ? ' ' + type : '');
-  t.textContent = msg;
-  c.appendChild(t);
-  setTimeout(() => t.remove(), 2500);
-}
-
 function timeAgo(ts) {
   const diff = Date.now() - ts;
   if (diff < 60000) return Math.floor(diff/1000) + '秒前';
@@ -795,7 +639,7 @@ async function sendText() {
     input.value = '';
     loadTextHistory();
   } catch(e) {
-    showToast('发送失败: ' + e.message, 'err');
+    alert('发送失败: ' + e.message);
   }
 }
 
@@ -834,7 +678,7 @@ async function deleteText(id) {
     await API.deleteText(id);
     loadTextHistory();
   } catch(e) {
-    showToast('删除失败: ' + e.message, 'err');
+    alert('删除失败: ' + e.message);
   }
 }
 
@@ -862,7 +706,7 @@ async function clearTextHistory() {
     await API.clearText();
     loadTextHistory();
   } catch(e) {
-    showToast('清空失败: ' + e.message, 'err');
+    alert('清空失败: ' + e.message);
   }
 }
 
@@ -915,9 +759,8 @@ async function uploadFile(file, name, total) {
   let offset = 0;
 
   while (offset < total) {
-    const chunkEnd = Math.min(offset + CHUNK, total);
-    const chunk = file.slice(offset, chunkEnd);
-    const pct = Math.round(chunkEnd / total * 100);
+    const chunk = file.slice(offset, offset + CHUNK);
+    const pct = Math.round((offset + chunk.size) / total * 100);
     fill.style.width = pct + '%';
     text.textContent = name + ' ' + pct + '%';
     await API.putFile(name, chunk, offset, total);
@@ -1007,7 +850,7 @@ async function batchDeleteFiles() {
     selectedFiles.clear();
     loadFiles();
   } catch(e) {
-    showToast('批量删除失败: ' + e.message, 'err');
+    alert('批量删除失败: ' + e.message);
   }
 }
 
@@ -1034,17 +877,18 @@ function batchDownloadFiles() {
         document.body.removeChild(a);
       }, i * 300); // 每隔 300ms 触发一个，避免浏览器拦截
     });
-    showToast('已向浏览器下载管理器添加 ' + names.length + ' 个文件', 'ok');
+    const last = (names.length - 1) * 300 + 500;
+    setTimeout(() => alert('已向浏览器下载管理器添加 ' + names.length + ' 个文件'), last);
   }
 }
 
 async function doDelete(name) {
-  if (!confirm('确认删除 ' + escHtml(name) + '？')) return;
+  if (!confirm('确认删除 ' + name + '？')) return;
   try {
     await API.deleteFile(name);
     loadFiles();
   } catch(e) {
-    showToast('删除失败: ' + e.message, 'err');
+    alert('删除失败: ' + e.message);
   }
 }
 
