@@ -1013,6 +1013,29 @@ function renderPage() {
       </div>
     </section>
 
+    <section class="panel request-links" style="margin-top:18px">
+      <h2>文件收集链接</h2>
+      <div class="toolbar" style="margin-bottom:12px;flex-wrap:wrap;gap:6px">
+        <input id="requestLinkSearchInput" type="text" placeholder="搜索收集链接" style="flex:1 1 180px">
+        <button class="secondary" onclick="filterRequestLinks()">过滤</button>
+        <button class="primary" onclick="openRequestLinkCreateModal()">+ 新建收集链接</button>
+      </div>
+      <div class="list-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>名称</th>
+              <th>链接</th>
+              <th style="width:130px">状态</th>
+              <th style="width:130px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="requestLinkTable"></tbody>
+        </table>
+        <div id="requestLinkEmpty" class="empty" style="display:none">还没有创建收集链接</div>
+      </div>
+    </section>
+
     <section class="panel" style="margin-top:18px">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h2>操作日志</h2>
@@ -5976,6 +5999,120 @@ function renderPage() {
       }
     }
 
+    // ── Request Links (文件收集链接) ───────────────────────────────────────
+
+    var currentRequestLinks = [];
+
+    async function loadRequestLinks() {
+      var data = await request('/api/request-links');
+      currentRequestLinks = data.request_links || [];
+      renderRequestLinkTable(currentRequestLinks);
+    }
+
+    function renderRequestLinkTable(links) {
+      var body = document.getElementById('requestLinkTable');
+      var empty = document.getElementById('requestLinkEmpty');
+      if (!links || !links.length) {
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      body.innerHTML = links.map(function(rl) {
+        var url = '/r/' + rl.code;
+        var statusLabel = rl.active ? '<span style="color:#22c55e">● 有效</span>' : '<span style="color:#94a3b8">○ 已停用</span>';
+        var info = [];
+        if (rl.upload_count) info.push('已收: ' + rl.upload_count + (rl.max_uploads ? '/' + rl.max_uploads : ''));
+        if (rl.has_password) info.push('🔒 有密码');
+        if (rl.expires_at) info.push('到期: ' + formatTime(rl.expires_at * 1000));
+        return '<tr>' +
+          '<td><strong>' + escapeHtmlClient(rl.name) + '</strong></td>' +
+          '<td><a href="' + escapeHtmlClient(url) + '" target="_blank">' + escapeHtmlClient(url) + '</a></td>' +
+          '<td>' + statusLabel + (info.length ? '<br><span style="font-size:11px;color:var(--muted)">' + info.join(' · ') + '</span>' : '') + '</td>' +
+          '<td>' +
+            '<button class="secondary" onclick="copyToClipboard(location.origin + \'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制</button> ' +
+            '<button class="secondary" onclick="toggleRequestLinkActive(\'' + escapeHtmlClient(rl.code) + '\', ' + !rl.active + ')">' + (rl.active ? '停用' : '启用') + '</button> ' +
+            '<button class="danger" onclick="deleteRequestLink(\'' + escapeHtmlClient(rl.code) + '\')">删除</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    function filterRequestLinks() {
+      var q = document.getElementById('requestLinkSearchInput').value.trim().toLowerCase();
+      if (!q) { renderRequestLinkTable(currentRequestLinks); return; }
+      var filtered = currentRequestLinks.filter(function(rl) {
+        return rl.name.toLowerCase().includes(q) || (rl.code || '').toLowerCase().includes(q);
+      });
+      renderRequestLinkTable(filtered);
+    }
+
+    function openRequestLinkCreateModal() {
+      var modal = document.createElement('div');
+      modal.id = 'requestLinkCreateModal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:420px;font-size:14px;max-height:90vh;overflow-y:auto">\
+          <h3 style="margin:0 0 20px">新建收集链接</h3>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">名称 *</label>\
+            <input id="rlName" type="text" placeholder="例如：收集作业" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">上传次数限制</label>\
+            <input id="rlMaxUploads" type="number" min="0" placeholder="不限制" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">密码保护</label>\
+            <input id="rlPassword" type="text" placeholder="留空则无需密码" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'requestLinkCreateModal\').remove()">取消</button>\
+            <button onclick="confirmRequestLinkCreate()" id="rlCreateBtn">创建</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+    }
+
+    async function confirmRequestLinkCreate() {
+      var name = document.getElementById('rlName').value.trim();
+      if (!name) { showToast('请输入名称', 'error'); return; }
+      var maxUploads = document.getElementById('rlMaxUploads').value;
+      var password = document.getElementById('rlPassword').value.trim();
+      var btn = document.getElementById('rlCreateBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '创建中...'; }
+      try {
+        var body = { name: name };
+        if (maxUploads) body.max_uploads = parseInt(maxUploads, 10);
+        if (password) body.password = password;
+        var result = await request('/api/request-links', { method: 'POST', body: JSON.stringify(body) });
+        if (result && result.success) {
+          showToast('收集链接已创建', 'success');
+          document.getElementById('requestLinkCreateModal').remove();
+          await loadRequestLinks();
+        } else {
+          showToast((result && result.error) || '创建失败', 'error');
+        }
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '创建'; }
+      }
+    }
+
+    async function toggleRequestLinkActive(code, active) {
+      await request('/api/request-links/' + encodeURIComponent(code) + '/active', {
+        method: 'PUT',
+        body: JSON.stringify({ active: active })
+      });
+      await loadRequestLinks();
+    }
+
+    async function deleteRequestLink(code) {
+      if (!confirm('删除这个收集链接?')) return;
+      await request('/api/request-links/' + encodeURIComponent(code), { method: 'DELETE' });
+      await loadRequestLinks();
+    }
+
     function toggleShareSelectAll(checked) {
       document.querySelectorAll('.share-check').forEach(function(el) { el.checked = checked; });
       updateShareBatchBar();
@@ -6486,7 +6623,7 @@ function renderPage() {
             if (fn3) { deleteFile(fn3.trim()); }
           }
         } else if (checked.length > 0) {
-          deleteSelected();
+          batchDeleteSelected();
         }
         return;
       }
@@ -6535,7 +6672,7 @@ function renderPage() {
       }
     });
 
-    Promise.all([loadFiles(), loadShares()]).catch(function (error) {
+    Promise.all([loadFiles(), loadShares(), loadRequestLinks()]).catch(function (error) {
       status(error.message);
     });
 
