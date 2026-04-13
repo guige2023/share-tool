@@ -882,13 +882,12 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
     }
   }
   if (tags) {
-    // tags is comma-separated string; each tag must be present in the tags column
+    // tags is comma-separated string; files matching ANY of the tags are returned (OR logic)
     const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
     if (tagList.length > 0) {
-      tagList.forEach(tag => {
-        conditions.push('LOWER(tags) LIKE ?');
-        params.push('%' + tag.toLowerCase() + '%');
-      });
+      const tagConditions = tagList.map(() => 'LOWER(tags) LIKE ?').join(' OR ');
+      conditions.push('(' + tagConditions + ')');
+      tagList.forEach(tag => params.push('%' + tag.toLowerCase() + '%'));
     }
   }
 
