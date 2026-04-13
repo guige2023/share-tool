@@ -560,6 +560,7 @@ function renderPage() {
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px 8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:14px}
     .sort-arrow{font-size:10px;color:var(--muted);margin-left:2px}
+    .sort-arrow.active{color:var(--accent);font-weight:bold}
     th{color:var(--muted);font-weight:600}
     td.actions{display:flex;gap:8px;flex-wrap:wrap}
     td.actions button{padding:8px 10px;border-radius:10px;font-size:13px}
@@ -7110,7 +7111,10 @@ function renderPage() {
     // Initialize sort arrows on page load
     ['filename', 'size', 'updated_at', 'position', 'starred'].forEach(function(c) {
       var arrow = document.getElementById('arrow-' + c);
-      if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
+      if (arrow) {
+        arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
+        arrow.className = 'sort-arrow' + (c === currentSort ? ' active' : '');
+      }
     });
 
     // Type filter chips
@@ -7230,7 +7234,10 @@ function renderPage() {
       // Update arrow indicators
       ['filename', 'size', 'updated_at', 'created_at', 'position'].forEach(function (c) {
         var arrow = document.getElementById('arrow-' + c);
-        if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
+        if (arrow) {
+          arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
+          arrow.className = 'sort-arrow' + (c === currentSort ? ' active' : '');
+        }
       });
       loadFiles();
     }
