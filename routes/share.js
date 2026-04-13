@@ -828,7 +828,7 @@ async function uploadAll() {
           sendJson(res, { success: false, error: 'Invalid filename' }, 400);
           return true;
         }
-        const decoded = type === 'base64' ? Buffer.from(content, 'base64').toString('utf8') : content;
+        const decoded = type === 'base64' ? Buffer.from(content, 'base64') : content;
         const byteLen = Buffer.byteLength(decoded, 'utf8');
         if (byteLen > 5 * 1024 * 1024) {
           sendJson(res, { success: false, error: 'File too large (max 5MB)' }, 413);
@@ -839,6 +839,7 @@ async function uploadAll() {
         if (row.target_folder) {
           targetName = (row.target_folder + '/' + filename).replace(/\/+/g, '/');
         }
+        // content may be a Buffer (from base64 decode) — keep as binary
         db.addFile(targetName, decoded, 'file');
         db.incrementRequestLinkUpload(code);
         db.addAuditLog('request_link_upload', targetName, getClientIp(req));
