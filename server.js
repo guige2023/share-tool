@@ -860,6 +860,24 @@ function renderPage() {
             <div id="tagFilterList"></div>
           </div>
         </div>
+        <div style="position:relative">
+          <button id="sortDropdownBtn" class="ghost" onclick="toggleSortDropdown()" title="排序方式" style="min-width:90px;font-size:13px">
+            <span id="sortDropdownLabel">↕ 更新时间</span>
+          </button>
+          <div id="sortDropdownMenu" style="display:none;position:absolute;top:calc(100%+4px);left:0;z-index:1000;background:var(--bg-secondary);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:160px;padding:6px 0;font-size:13px">
+            <div class="ctx-item" onclick="setSortFromDropdown('updated_at','desc')" id="sortItem-updated_at-desc">↕ 最新优先</div>
+            <div class="ctx-item" onclick="setSortFromDropdown('updated_at','asc')" id="sortItem-updated_at-asc">↑ 最旧优先</div>
+            <div class="ctx-item" onclick="setSortFromDropdown('filename','asc')" id="sortItem-filename-asc">A↕ 名称 A-Z</div>
+            <div class="ctx-item" onclick="setSortFromDropdown('filename','desc')" id="sortItem-filename-desc">Z↕ 名称 Z-A</div>
+            <div class="ctx-item" onclick="setSortFromDropdown('size','desc')" id="sortItem-size-desc">⬇ 最大优先</div>
+            <div class="ctx-item" onclick="setSortFromDropdown('size','asc')" id="sortItem-size-asc">⬆ 最小优先</div>
+            <div class="ctx-item" onclick="setSortFromDropdown('created_at','desc')" id="sortItem-created_at-desc">🕐 最新创建</div>
+            <div class="ctx-item" onclick="setSortFromDropdown('created_at','asc')" id="sortItem-created_at-asc">🕐 最旧创建</div>
+            <div class="ctx-item" onclick="setSortFromDropdown('type','asc')" id="sortItem-type-asc">📂 类型</div>
+            <div style="border-top:1px solid var(--line);margin:4px 0"></div>
+            <div class="ctx-item" onclick="setSortFromDropdown('position','asc')" id="sortItem-position-asc">📌 手动排序</div>
+          </div>
+        </div>
         <button id="vfBtn" class="ghost" onclick="toggleVirtualFolderMenu()" title="收藏夹">⭐</button>
         <div id="vfMenu" style="display:none;position:absolute;z-index:1000;background:var(--bg-secondary);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:180px;padding:6px 0;font-size:13px;margin-top:4px">
           <div id="vfMenuList"></div>
@@ -1368,6 +1386,7 @@ function renderPage() {
     // Init auth on page load
     initAuth().then(function() {
       loadFiles();
+      updateSortDropdownLabel();
       loadStorageStats();
       setupInfiniteScroll();
       showWelcomeIfNeeded();
@@ -2693,6 +2712,12 @@ function renderPage() {
           input.value = input.dataset.selectedTag;
         }
       }
+      // Also close sort dropdown when clicking outside
+      const sortBtn = document.getElementById('sortDropdownBtn');
+      const sortMenu = document.getElementById('sortDropdownMenu');
+      if (sortBtn && sortMenu && sortMenu.style.display !== 'none' && !sortBtn.contains(e.target) && !sortMenu.contains(e.target)) {
+        sortMenu.style.display = 'none';
+      }
     }
 
     function handleTagFilterKeydown(e) {
@@ -2763,6 +2788,64 @@ function renderPage() {
       const clearBtn = document.getElementById('tagFilterClear');
       if (clearBtn) clearBtn.style.display = 'none';
       loadFiles();
+    }
+
+    // Sort dropdown functions
+    function toggleSortDropdown() {
+      var menu = document.getElementById('sortDropdownMenu');
+      var wasOpen = menu && menu.style.display !== 'none';
+      // Close all other dropdowns
+      closeAllDropdowns();
+      if (wasOpen) {
+        if (menu) menu.style.display = 'none';
+      } else {
+        if (menu) menu.style.display = 'block';
+        updateSortDropdownActive();
+      }
+    }
+
+    function setSortFromDropdown(sort, order) {
+      currentSort = sort;
+      currentOrder = order;
+      localStorage.setItem('sortBy', sort);
+      localStorage.setItem('sortOrder', order);
+      updateSortDropdownLabel();
+      closeAllDropdowns();
+      loadFiles();
+    }
+
+    function updateSortDropdownLabel() {
+      var label = document.getElementById('sortDropdownLabel');
+      if (!label) return;
+      var sortLabels = {
+        'updated_at-desc': '↕ 最新优先',
+        'updated_at-asc': '↑ 最旧优先',
+        'filename-asc': 'A↕ 名称',
+        'filename-desc': 'Z↕ 名称',
+        'size-desc': '⬇ 最大优先',
+        'size-asc': '⬆ 最小优先',
+        'created_at-desc': '🕐 最新创建',
+        'created_at-asc': '🕐 最旧创建',
+        'type-asc': '📂 类型',
+        'position-asc': '📌 手动'
+      };
+      label.textContent = sortLabels[currentSort + '-' + currentOrder] || '↕ 排序';
+    }
+
+    function updateSortDropdownActive() {
+      var items = document.querySelectorAll('[id^="sortItem-"]');
+      items.forEach(function(item) { item.style.fontWeight = ''; item.style.color = ''; });
+      var active = document.getElementById('sortItem-' + currentSort + '-' + currentOrder);
+      if (active) { active.style.fontWeight = '600'; active.style.color = 'var(--accent)'; }
+    }
+
+    function closeAllDropdowns() {
+      var tagDd = document.getElementById('tagFilterDropdown');
+      if (tagDd) tagDd.style.display = 'none';
+      var sortDd = document.getElementById('sortDropdownMenu');
+      if (sortDd) sortDd.style.display = 'none';
+      var vfDd = document.getElementById('vfMenu');
+      if (vfDd) vfDd.style.display = 'none';
     }
 
     // 点击文件列表中的标签 chip 进行筛选
