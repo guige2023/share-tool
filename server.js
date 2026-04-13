@@ -3231,6 +3231,18 @@ function renderPage() {
           }
           break;
         }
+        case 'y': {
+          // y: yank (copy) filename of selected file to clipboard
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          var selected = getSelectedFiles();
+          if (selected.length === 1) {
+            e.preventDefault();
+            navigator.clipboard.writeText(selected[0]).then(function() {
+              showToast('已复制文件名: ' + selected[0], 'success');
+            }).catch(function() { showToast('复制失败', 'error'); });
+          }
+          break;
+        }
         case 'j': {
           // j: vim-style down
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
@@ -4078,9 +4090,10 @@ function renderPage() {
         ['Enter', '打开选中文件'],
         ['Space', '选中/取消选中'],
         ['a', '全选文件'],
-        ['s', '星标选中文件'],
+        ['s', '切换星标'],
         ['e', '内联重命名'],
         ['l', '复制链接'],
+        ['y', '复制文件名'],
         ['Del', '删除选中'],
         ['c', '清空选择'],
         ['d', '切换主题'],
