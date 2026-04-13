@@ -881,7 +881,7 @@ function renderPage() {
 
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
-        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:32px" onfocus="if(getRecentSearches().length>0){document.getElementById('recentSearches').style.display='block'}" oninput="document.getElementById('recentSearches').style.display='none'">
+        <input id="searchInput" type="text" placeholder="按文件名搜索 (/ 聚焦)" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:32px" onfocus="if(getRecentSearches().length>0){document.getElementById('recentSearches').style.display='block'}" oninput="document.getElementById('recentSearches').style.display='none'">
         <span id="searchClear" onclick="clearSearchInput()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:16px;line-height:1;display:none;user-select:none" title="清除搜索">✕</span>
         <div id="tagFilterWrapper" style="position:relative;max-width:160px">
           <input id="tagFilterInput" type="text" placeholder="全部标签" autocomplete="off"
@@ -2274,12 +2274,15 @@ function renderPage() {
 
       // Full-screen drop overlay (shown when dragging files anywhere over the page)
       var globalDropOverlay = null;
-      function showGlobalDropOverlay() {
-        if (globalDropOverlay) return;
+      function showGlobalDropOverlay(count) {
+        if (globalDropOverlay) {
+          if (count > 0) globalDropOverlay.textContent = '📥 释放 ' + count + ' 个文件以上传';
+          return;
+        }
         globalDropOverlay = document.createElement('div');
         globalDropOverlay.id = 'globalDropOverlay';
         globalDropOverlay.style.cssText = 'position:fixed;inset:0;background:rgba(16,185,129,0.12);border:4px dashed #10b981;z-index:9999;display:flex;align-items:center;justify-content:center;pointer-events:none;font-size:28px;font-weight:bold;color:#10b981;border-radius:16px;margin:16px';
-        globalDropOverlay.textContent = '📥 释放文件以上传';
+        globalDropOverlay.textContent = count > 0 ? '📥 释放 ' + count + ' 个文件以上传' : '📥 释放文件以上传';
         document.body.appendChild(globalDropOverlay);
       }
       function hideGlobalDropOverlay() {
@@ -2296,7 +2299,8 @@ function renderPage() {
         // Also show global overlay for page-level drag
         document.addEventListener(evt, function (e) {
           if (e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
-            showGlobalDropOverlay();
+            var count = e.dataTransfer.items ? e.dataTransfer.items.length : (e.dataTransfer.files ? e.dataTransfer.files.length : 0);
+            showGlobalDropOverlay(count);
           }
         });
       });
@@ -5777,8 +5781,8 @@ function renderPage() {
         ['n', '新建文本文件'],
         ['r', '刷新文件列表'],
         ['f / /', '聚焦搜索框'],
-        ['Ctrl+A', '全选文件'],
         ['Ctrl+K', '聚焦搜索框'],
+        ['Ctrl+A', '全选文件'],
         ['Ctrl+V', '粘贴图片/文件上传'],
         ['Ctrl+Enter', '上传/保存'],
         ['Ctrl+,', '打开设置'],
@@ -8159,6 +8163,24 @@ function renderPage() {
         var toast = document.getElementById('toast');
         if (toast) { toast.className = ''; if (toast._timer) clearTimeout(toast._timer); }
         clearSelection();
+      }
+      // Home: jump to first file
+      if (e.key === 'Home' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        var active = document.activeElement;
+        if (!(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT'))) {
+          var items = getAllFileItems();
+          if (items.length > 0) { setKeyboardNavIndex(0); applyNavHighlight(0); items[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }
+        return;
+      }
+      // End: jump to last file
+      if (e.key === 'End' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        var active = document.activeElement;
+        if (!(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT'))) {
+          var items = getAllFileItems();
+          if (items.length > 0) { var last = items.length - 1; setKeyboardNavIndex(last); applyNavHighlight(last); items[last].scrollIntoView({ behavior: 'smooth', block: 'end' }); }
+        }
+        return;
       }
       // Arrow keys in modal (image gallery): navigate prev/next
       var modalOpen = document.getElementById('modal') && document.getElementById('modal').classList.contains('open');
