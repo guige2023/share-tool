@@ -6404,6 +6404,7 @@ function renderPage() {
         return;
       }
       empty.style.display = 'none';
+      clearRlSelection(); // reset batch bar on re-render
       body.innerHTML = links.map(function(rl) {
         var url = (location.origin || '') + '/r/' + rl.code;
         var statusLabel = rl.active ? '<span style="color:#22c55e">● 有效</span>' : '<span style="color:#94a3b8">○ 已停用</span>';

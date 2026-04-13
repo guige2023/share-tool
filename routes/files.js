@@ -308,6 +308,38 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // POST /api/upload-text - create a new text file
+  if (pathname === '/api/upload-text' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    try {
+      const body = await readJsonBody(req);
+      const filename = (body.filename || '').trim();
+      const content = body.content !== undefined ? String(body.content) : '';
+
+      if (!filename) {
+        sendJson(res, { success: false, error: 'filename required' }, 400);
+        return true;
+      }
+
+      // Check if file already exists
+      const existing = db.getFileByName(filename);
+      if (existing) {
+        sendJson(res, { success: false, error: 'File already exists, use PUT /api/content to update' }, 409);
+        return true;
+      }
+
+      const file = db.addFile(filename, content, 'text');
+      db.addAuditLog('upload_text', filename, getClientIp(req), auth.token);
+      sendJson(res, { success: true, file: { name: file.filename, size: file.size } }, 201);
+      global.broadcastSSE({ type: 'files_changed' });
+    } catch (error) {
+      sendJson(res, { success: false, error: error.message }, 400);
+    }
+    return true;
+  }
+
   if (pathname.startsWith('/api/file-rename/') && method === 'POST') {
     const auth = authRequired(req, res);
     if (!auth) return true;
