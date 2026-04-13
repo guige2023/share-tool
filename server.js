@@ -4243,6 +4243,11 @@ function renderPage() {
         : '';
       const isMd = ext === 'md';
       let bodyContent;
+      // Edit button (text files only, non-truncated) — content stored in window var to avoid stringify issues
+      const editBtn = !isMd && !lang && !isTruncated
+        ? '<button id="textEditBtn" onclick="switchToEditMode(' + JSON.stringify(filename).replace(/'/g, "\\'") + ')" style="padding:5px 12px;font-size:12px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;margin-bottom:10px">✏️ 编辑</button>'
+        : '';
+      if (!isMd && !lang && !isTruncated) window._previewContent = content;
 
       if (isMd) {
         // Markdown rendering using marked (already in package.json)
@@ -4298,7 +4303,7 @@ function renderPage() {
         // Plain text with line numbers
         const lines = content.split('\n');
         const lineNumbers = lines.map((_, i) => '<span class="ln">' + (i + 1) + '</span>').join('');
-        modalBody.innerHTML = truncatedNote +
+        modalBody.innerHTML = truncatedNote + editBtn +
           '<div id="plainTextWrapper" style="display:flex;max-height:65vh;border-radius:8px;overflow:hidden;background:var(--bg-tertiary)">' +
           '<div id="plainLineNumbers" style="padding:12px 12px 12px 16px;text-align:right;user-select:none;min-width:48px;background:var(--bg-secondary);color:var(--text-muted);font-family:monospace;font-size:13px;line-height:1.5;overflow:hidden;flex-shrink:0;border-right:1px solid var(--line)">' + lineNumbers + '</div>' +
           '<div id="plainTextScroll" style="flex:1;overflow:auto"><pre id="plainTextPre" style="margin:0;padding:12px 16px;white-space:pre-wrap;background:var(--bg-secondary);font-size:13px;line-height:1.5">' + escapeHtmlClient(content) + '</pre></div>' +
@@ -4310,6 +4315,46 @@ function renderPage() {
           plainScroll.addEventListener('scroll', () => { plainLineNumbers.scrollTop = plainScroll.scrollTop; });
         }
       }
+    }
+
+    function switchToEditMode(filename) {
+      var content = window._previewContent || '';
+      var modalBody = document.getElementById('modalBody');
+      document.getElementById('modalTitle').textContent = '✏️ 编辑: ' + escapeHtmlClient(filename);
+      modalBody.innerHTML =
+        '<textarea id="editContent" spellcheck="false" style="width:100%;min-height:60vh;background:var(--bg-secondary);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:16px;font-family:monospace;font-size:13px;line-height:1.5;resize:vertical;box-sizing:border-box;outline:none">' + escapeHtmlClient(content) + '</textarea>' +
+        '<div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">' +
+        '<button onclick="cancelEdit(\'' + filename.replace(/'/g, "\\'") + '\')" class="secondary" style="padding:8px 16px">取消</button>' +
+        '<button onclick="saveEdit(\'' + filename.replace(/'/g, "\\'") + '\')" class="primary" style="padding:8px 16px">💾 保存</button>' +
+        '</div>';
+      window._previewContent = content; // preserve original for cancel
+    }
+
+    async function saveEdit(filename) {
+      var newContent = document.getElementById('editContent').value;
+      try {
+        var res = await fetch('/api/content/' + encodeURIComponent(filename), {
+          method: 'PUT',
+          headers: Object.assign({ 'Content-Type': 'application/json' }, headers()),
+          body: JSON.stringify({ content: newContent })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('文件已保存', 'success');
+          window._previewContent = newContent;
+          document.getElementById('modal').classList.remove('open');
+          if (typeof loadFiles === 'function') loadFiles();
+        } else {
+          showToast('保存失败: ' + (data.error || '未知错误'), 'error');
+        }
+      } catch (e) {
+        showToast('保存失败: ' + e.message, 'error');
+      }
+    }
+
+    function cancelEdit(filename) {
+      // Restore to preview mode by re-fetching
+      previewFile(filename);
     }
 
     function formatSize(bytes) {
