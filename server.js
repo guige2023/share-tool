@@ -1395,6 +1395,22 @@ function renderPage() {
       return new Date(ts).toLocaleString();
     }
 
+    function formatFileType(mime) {
+      if (!mime) return '文件';
+      if (mime.startsWith('image/')) return '图片';
+      if (mime.startsWith('video/')) return '视频';
+      if (mime.startsWith('audio/')) return '音频';
+      if (mime === 'application/pdf') return 'PDF';
+      if (mime.startsWith('text/')) return '文本';
+      if (mime.includes('zip') || mime.includes('rar') || mime.includes('tar') || mime.includes('gz') || mime.includes('7z')) return '压缩包';
+      if (mime.includes('word') || mime.includes('document')) return 'Word';
+      if (mime.includes('excel') || mime.includes('spreadsheet')) return 'Excel';
+      if (mime.includes('powerpoint') || mime.includes('presentation')) return 'PPT';
+      // Shorten common types
+      var short = mime.replace(/^application\//, '').replace(/^text\//, '');
+      return short.length > 12 ? '文件' : short.charAt(0).toUpperCase() + short.slice(1);
+    }
+
     // PWA Install prompt
     var deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', function(e) {
@@ -2706,7 +2722,7 @@ function renderPage() {
         : '<span class="muted" style="font-size:11px">—</span>';
       return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()"></td>' +
-        '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
+        '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><div class="muted">' + formatFileType(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
         '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
         '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
@@ -3260,22 +3276,29 @@ function renderPage() {
           break;
         }
         case 'g': {
-          // g: go to top
+          // g: go to top; Shift+G: go to bottom
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
-          applyNavHighlight(0);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          if (e.shiftKey) {
+            var items = getAllFileItems();
+            if (items.length) {
+              applyNavHighlight(items.length - 1);
+              items[items.length - 1].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+          } else {
+            applyNavHighlight(0);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }
           break;
         }
         case 'G': {
-          // G (shift+g): go to bottom
+          // G: go to bottom
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
-          var totalFiles = currentFiles.length;
-          if (totalFiles > 0) {
-            applyNavHighlight(totalFiles - 1);
-            var lastItem = getFileAtIndex(totalFiles - 1);
-            if (lastItem) lastItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          var items = getAllFileItems();
+          if (items.length) {
+            applyNavHighlight(items.length - 1);
+            items[items.length - 1].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
           }
           break;
         }
@@ -4091,6 +4114,7 @@ function renderPage() {
         ['Space', '选中/取消选中'],
         ['a', '全选文件'],
         ['s', '切换星标'],
+        ['b', '批量下载'],
         ['e', '内联重命名'],
         ['l', '复制链接'],
         ['y', '复制文件名'],
