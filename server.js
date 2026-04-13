@@ -3341,8 +3341,10 @@ function renderPage() {
           setView(newView);
           break;
         }
-        case '/': {
-          // /: focus search input
+        case '/':
+        case 'f':
+        case 'F': {
+          // / or f: focus search input
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
           var si = document.getElementById('searchInput');
@@ -3355,6 +3357,15 @@ function renderPage() {
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
           openTrash();
+          break;
+        }
+        case 'u':
+        case 'U': {
+          // u: trigger file upload
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          var fi = document.getElementById('fileInput');
+          if (fi) fi.click();
           break;
         }
         case '?': {
@@ -4128,10 +4139,11 @@ function renderPage() {
         ['j / k', 'vim 风格下/上导航'],
         ['g', '跳转至顶部'],
         ['Shift+G', '跳转至底部'],
-        ['/', '聚焦搜索框'],
+        ['/ 或 f', '聚焦搜索框'],
         ['Enter', '打开选中文件'],
         ['Space', '选中/取消选中'],
         ['a', '全选文件'],
+        ['u', '上传文件'],
         ['s', '切换星标'],
         ['b', '批量下载'],
         ['e', '内联重命名'],
@@ -5281,7 +5293,7 @@ function renderPage() {
       localStorage.setItem('sortBy', currentSort);
       localStorage.setItem('sortOrder', currentOrder);
       // Update arrow indicators
-      ['filename', 'size', 'updated_at', 'position'].forEach(function (c) {
+      ['filename', 'size', 'updated_at', 'created_at', 'position'].forEach(function (c) {
         var arrow = document.getElementById('arrow-' + c);
         if (arrow) arrow.textContent = c === currentSort ? (currentOrder === 'asc' ? '↑' : '↓') : '';
       });
