@@ -87,6 +87,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const tagMatch = query.get('tagMatch') || 'all';
     const sizeMin = query.get('size_min') || null;
     const sizeMax = query.get('size_max') || null;
+    const searchMode = query.get('mode') || 'normal'; // 'normal' | 'glob' | 'regex'
     // date_from/to are YYYY-MM-DD strings — convert to Unix seconds
     const dateFromRaw = query.get('date_from') || null;
     const dateToRaw = query.get('date_to') || null;
@@ -115,7 +116,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       date_from: dateFrom,
       date_to: dateTo,
       type: actualTypeFilter,
-      starred: starredOnly
+      starred: starredOnly,
+      mode: searchMode
     });
     if (!results) {
       // FTS5 不可用，fallback 到 LIKE 搜索
@@ -126,7 +128,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         date_from: dateFrom,
         date_to: dateTo,
         type: actualTypeFilter,
-        starred: starredOnly
+        starred: starredOnly,
+        mode: searchMode
       });
     }
 

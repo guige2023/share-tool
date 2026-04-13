@@ -740,7 +740,9 @@ function runMigrations(db, fromVersion) {
 // ============================================================
 function searchFilesFTS(query, tags = null, opts = {}) {
   const db = getDb();
-  const { limit = 100, offset = 0, tagMatch = 'all', size_min, size_max, date_from, date_to, type, starred } = opts;
+  const { limit = 100, offset = 0, tagMatch = 'all', size_min, size_max, date_from, date_to, type, starred, mode = 'normal' } = opts;
+  // glob/regex mode: FTS5 cannot handle these patterns — return null to trigger fallback
+  if (mode !== 'normal') return null;
 
   // 检查 FTS5 表是否存在
   try {
@@ -1676,7 +1678,7 @@ function tokenizeQuery(query) {
  */
 function searchFiles(query, tags = null, opts = {}) {
   const db = getDb();
-  const { limit = 100, offset = 0, fuzzy = true, size_min, size_max, date_from, date_to, tagMatch = 'all', content, type, starred } = opts;
+  const { limit = 100, offset = 0, fuzzy = true, size_min, size_max, date_from, date_to, tagMatch = 'all', content, type, starred, mode = 'normal' } = opts;
 
   // 构建 size 和 date 的 SQL 过滤条件
   const extraConditions = [];

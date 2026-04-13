@@ -934,7 +934,8 @@ function renderPage() {
 
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
-        <input id="searchInput" type="text" placeholder="按文件名搜索 (/ 聚焦)" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:32px" onfocus="if(getRecentSearches().length>0){document.getElementById('recentSearches').style.display='block'}" oninput="document.getElementById('recentSearches').style.display='none'">
+        <input id="searchInput" type="text" placeholder="按文件名搜索 (/ 聚焦)" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:56px" onfocus="if(getRecentSearches().length>0){document.getElementById('recentSearches').style.display='block'}" oninput="document.getElementById('recentSearches').style.display='none'">
+        <span id="searchModeBadge" onclick="cycleSearchMode()" style="position:absolute;right:32px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--accent);font-size:11px;font-weight:700;user-select:none;display:none;padding:2px 5px;border:1px solid var(--accent);border-radius:5px;opacity:0.8" title="点击切换搜索模式 (普通/Glob/正则)">Aa</span>
         <span id="searchClear" onclick="clearSearchInput()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:16px;line-height:1;display:none;user-select:none" title="清除搜索">✕</span>
         <div id="tagFilterWrapper" style="position:relative;max-width:160px">
           <input id="tagFilterInput" type="text" placeholder="全部标签" autocomplete="off"
@@ -1067,7 +1068,18 @@ function renderPage() {
         </div>
         <div id="activeFilters" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
       </div>
+      <div id="searchResultChip" style="display:none;background:var(--bg-secondary);border:1px solid var(--line);border-radius:8px;padding:6px 12px;margin-bottom:8px;align-items:center;gap:6px"></div>
       <div id="searchSuggestions" style="position:relative;z-index:100;display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)"></div>
+      <div id="savedSearchesPanel" style="display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line)">
+          <span style="font-size:12px;font-weight:600;color:var(--text)">\u5DF2\u4FDD\u5B58\u7684\u641C\u7D22</span>
+          <div style="display:flex;gap:6px">
+            <button onclick="saveCurrentSearch()" class="ghost" style="font-size:11px;padding:3px 8px">\u4FDD\u5B58\u5F53\u524D</button>
+            <button onclick="closeSavedSearchesPanel()" class="ghost" style="font-size:14px;padding:3px 8px">✕</button>
+          </div>
+        </div>
+        <div id="savedSearchesList"></div>
+      </div>
       <div id="batchBar" class="batch-bar" style="display:none">
         <span id="batchCount" style="font-size:13px;color:var(--muted)"></span>
         <span id="batchInfo" style="font-size:12px;color:var(--muted);margin-left:8px"></span>
@@ -4227,6 +4239,162 @@ function renderPage() {
       }
       await loadFiles();
     }
+
+    // ── Search Mode (normal / glob / regex) ────────────────────────────────
+    var _searchMode = localStorage.getItem('searchMode') || 'normal'; // 'normal' | 'glob' | 'regex'
+    function getSearchMode() { return _searchMode; }
+    function cycleSearchMode() {
+      var modes = ['normal', 'glob', 'regex'];
+      var idx = modes.indexOf(_searchMode);
+      _searchMode = modes[(idx + 1) % modes.length];
+      localStorage.setItem('searchMode', _searchMode);
+      updateSearchModeBadge();
+    }
+    function setSearchMode(mode) {
+      if (['normal','glob','regex'].indexOf(mode) === -1) return;
+      _searchMode = mode;
+      localStorage.setItem('searchMode', _searchMode);
+      updateSearchModeBadge();
+    }
+    function updateSearchModeBadge() {
+      var badge = document.getElementById('searchModeBadge');
+      var input = document.getElementById('searchInput');
+      if (!badge) return;
+      if (_searchMode === 'normal') {
+        badge.textContent = 'Aa';
+        badge.style.display = 'none';
+        input.style.paddingRight = '56px';
+      } else if (_searchMode === 'glob') {
+        badge.textContent = 'glob';
+        badge.style.display = 'block';
+        badge.style.color = '#f59e0b';
+        badge.style.borderColor = '#f59e0b';
+        input.style.paddingRight = '76px';
+      } else if (_searchMode === 'regex') {
+        badge.textContent = '.*';
+        badge.style.display = 'block';
+        badge.style.color = '#10b981';
+        badge.style.borderColor = '#10b981';
+        input.style.paddingRight = '76px';
+      }
+    }
+    // Restore search state from localStorage on load
+    function restoreSearchState() {
+      var savedQ = localStorage.getItem('lastSearchQuery') || '';
+      var savedMode = localStorage.getItem('searchMode') || 'normal';
+      if (savedQ) {
+        document.getElementById('searchInput').value = savedQ;
+        document.getElementById('searchClear').style.display = 'block';
+        currentSearchQuery = savedQ;
+      }
+      setSearchMode(savedMode);
+    }
+
+    // ── Saved Searches (localStorage) ──────────────────────────────────────
+    var LS_SAVED_SEARCHES = 'savedSearches';
+    var MAX_SAVED_SEARCHES = 20;
+    function getSavedSearches() {
+      try { return JSON.parse(localStorage.getItem(LS_SAVED_SEARCHES) || '[]'); }
+      catch (e) { return []; }
+    }
+    function saveCurrentSearch() {
+      var q = document.getElementById('searchInput').value.trim();
+      if (!q) return;
+      var mode = getSearchMode();
+      var label = q.length > 30 ? q.substring(0, 30) + '…' : q;
+      var entry = { q: q, mode: mode, label: label, ts: Date.now() };
+      var list = getSavedSearches().filter(function(s) { return s.q !== q; });
+      list.unshift(entry);
+      if (list.length > MAX_SAVED_SEARCHES) list = list.slice(0, MAX_SAVED_SEARCHES);
+      localStorage.setItem(LS_SAVED_SEARCHES, JSON.stringify(list));
+      showToast('\u2705 \u5DF2\u4FDD\u5B58\u5F53\u524D\u641C\u7D22', 'success');
+    }
+    function applySavedSearch(entry) {
+      document.getElementById('searchInput').value = entry.q;
+      document.getElementById('searchClear').style.display = 'block';
+      setSearchMode(entry.mode || 'normal');
+      currentSearchQuery = entry.q;
+      loadFiles();
+    }
+    function deleteSavedSearch(idx) {
+      var list = getSavedSearches();
+      list.splice(idx, 1);
+      localStorage.setItem(LS_SAVED_SEARCHES, JSON.stringify(list));
+      renderSavedSearches();
+    }
+    function renderSavedSearches() {
+      var container = document.getElementById('savedSearchesList') || null;
+      if (!container) return;
+      var list = getSavedSearches();
+      if (!list.length) { container.innerHTML = '<div style="padding:8px 12px;color:var(--muted);font-size:12px">暂无已保存的搜索</div>'; return; }
+      var html = '';
+      list.forEach(function(s, i) {
+        var modeTag = s.mode === 'glob' ? '<span style="color:#f59e0b;font-size:10px">glob</span>' : (s.mode === 'regex' ? '<span style="color:#10b981;font-size:10px">regex</span>' : '');
+        html += '<div class="suggestion-item" style="display:flex;align-items:center;padding:8px 12px;cursor:pointer" onmouseenter="this.style.background=\'var(--bg-secondary)\'" onmouseleave="this.style.background=\'\'" onclick="applySavedSearch(' + JSON.stringify(s) + ')">';
+        html += '<span style="flex:1;font-size:13px;color:var(--text)">' + escapeHtmlClient(s.q) + '</span>';
+        html += modeTag ? '<span style="margin:0 6px">' + modeTag + '</span>' : '';
+        html += '<span style="color:var(--muted);font-size:11px;margin-right:8px">' + new Date(s.ts).toLocaleDateString('zh') + '</span>';
+        html += '<span onclick="event.stopPropagation();deleteSavedSearch(' + i + ')" style="cursor:pointer;color:var(--muted);font-size:14px;padding:2px 4px" title="删除">✕</span>';
+        html += '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    // Result count chip — shown after search completes
+    function showSearchResultChip(total, q) {
+      var chip = document.getElementById('searchResultChip');
+      if (!chip) return;
+      if (!q && !currentTypeFilters.length && !allTagFilters.length) {
+        chip.style.display = 'none';
+        return;
+      }
+      var qLabel = q ? '\u201C' + escapeHtmlClient(q) + '\u201D' : '';
+      var modeLabel = getSearchMode() === 'normal' ? '' : (' [' + getSearchMode() + ']');
+      chip.innerHTML = '<span style="font-size:12px">找到 <strong>' + total + '</strong> 个结果' + (qLabel ? ' \u7528\u4E8E ' + qLabel : '') + modeLabel + '</span><span onclick="clearSearchInput();clearAdvancedSearch()" style="cursor:pointer;margin-left:10px;color:var(--muted);font-size:13px">✕</span>';
+      chip.style.display = 'flex';
+    }
+    function hideSearchResultChip() {
+      var chip = document.getElementById('searchResultChip');
+      if (chip) chip.style.display = 'none';
+    }
+
+    // Override loadFilesFromUrl to inject search mode + save/restore state
+    var _origLoadFilesFromUrl = window.loadFilesFromUrl || loadFilesFromUrl;
+    async function loadFilesFromUrl(url, append) {
+      // Inject mode param
+      var mode = getSearchMode();
+      if (mode !== 'normal') {
+        url += (url.indexOf('?') === -1 ? '?' : '&') + 'mode=' + encodeURIComponent(mode);
+      }
+      // Save state
+      var q = document.getElementById('searchInput') && document.getElementById('searchInput').value || '';
+      if (q) localStorage.setItem('lastSearchQuery', q);
+      else localStorage.removeItem('lastSearchQuery');
+      // Call original
+      var result = await _origLoadFilesFromUrl(url, append);
+      // After load, update result chip if not appending
+      if (!append) {
+        var totalEl = document.getElementById('fileCountDisplay');
+        if (totalEl) {
+          var text = totalEl.textContent || '';
+          var match = text.match(/\u5171(\d+)/);
+          if (match) showSearchResultChip(match[1], q);
+          else hideSearchResultChip();
+        }
+      }
+      return result;
+    }
+    window.loadFilesFromUrl = loadFilesFromUrl;
+
+    // Also intercept searchFiles to save last query
+    var _origSearchFiles = searchFiles;
+    window.searchFiles = async function() {
+      var q = document.getElementById('searchInput').value.trim();
+      if (q) localStorage.setItem('lastSearchQuery', q);
+      else localStorage.removeItem('lastSearchQuery');
+      return _origSearchFiles.call(this);
+    };
+
 
     // --- Context Menu ---
     var ctxTarget = null;
@@ -9202,10 +9370,24 @@ function renderPage() {
       document.getElementById('searchClear').style.display = 'none';
       document.getElementById('searchSuggestions').style.display = 'none';
       document.getElementById('recentSearches').style.display = 'none';
+      document.getElementById('savedSearchesPanel').style.display = 'none';
+      document.getElementById('searchResultChip').style.display = 'none';
       currentSearchQuery = '';
+      localStorage.removeItem('lastSearchQuery');
       loadFiles();
       document.getElementById('searchInput').focus();
     }
+
+    function openSavedSearchesPanel() {
+      document.getElementById('savedSearchesPanel').style.display = 'block';
+      document.getElementById('searchSuggestions').style.display = 'none';
+      renderSavedSearches();
+    }
+    window.openSavedSearchesPanel = openSavedSearchesPanel;
+    function closeSavedSearchesPanel() {
+      document.getElementById('savedSearchesPanel').style.display = 'none';
+    }
+    window.closeSavedSearchesPanel = closeSavedSearchesPanel;
 
     function filterByExt(ext) {
       // Use glob-style search: .ext at end of filename
@@ -9232,6 +9414,7 @@ function renderPage() {
     });
 
     // Sort state
+    restoreSearchState();
     var currentSort = localStorage.getItem('sortBy') || 'updated_at';
     var currentOrder = localStorage.getItem('sortOrder') || 'desc';
     var currentTypeFilters = localStorage.getItem('typeFilters')
@@ -9964,29 +10147,52 @@ function renderPage() {
 
     // Apply advanced filters and search
     window.doAdvancedSearch = function() {
-      var filters = getAdvancedFilters();
-      var hasFilters = filters.sizeMin || filters.sizeMax || filters.dateFrom || filters.dateTo || filters.typeFilter;
-      // Update chips
+      var sizeMin = (document.getElementById('sizeMin') || {}).value || '';
+      var sizeMax = (document.getElementById('sizeMax') || {}).value || '';
+      var dateFrom = (document.getElementById('dateFrom') || {}).value || '';
+      var dateTo = (document.getElementById('dateTo') || {}).value || '';
+      var typeFilter = (document.getElementById('typeFilter') || {}).value || '';
+      var tagMatchFilter = (document.getElementById('tagMatchFilter') || {}).value || 'all';
+      var hasFilters = sizeMin || sizeMax || dateFrom || dateTo || typeFilter;
+
+      // Persist size/date/type filters to localStorage
+      localStorage.setItem('adv_size_min', sizeMin);
+      localStorage.setItem('adv_size_max', sizeMax);
+      localStorage.setItem('adv_date_from', dateFrom);
+      localStorage.setItem('adv_date_to', dateTo);
+      localStorage.setItem('adv_type', typeFilter);
+      localStorage.setItem('adv_tag_match', tagMatchFilter);
+
+      // Update filter chips
       updateActiveFilterChips();
-      // If no text query, just update the regular search with filters
-      var q = document.getElementById('searchInput').value.trim();
+
+      // If no text query and no advanced filters, just return
+      var q = (document.getElementById('searchInput') || {}).value.trim() || '';
       if (!q && !hasFilters) return;
+
+      // Build search URL with all filters
       var params = [];
       if (q) params.push('q=' + encodeURIComponent(q));
-      if (hasFilters) {
-        if (filters.sizeMin) params.push('size_min=' + (parseInt(filters.sizeMin) * 1024));
-        if (filters.sizeMax) params.push('size_max=' + (parseInt(filters.sizeMax) * 1024));
-        if (filters.dateFrom) params.push('date_from=' + Math.floor(new Date(filters.dateFrom).getTime() / 1000));
-        if (filters.dateTo) params.push('date_to=' + Math.floor(new Date(filters.dateTo + 'T23:59:59').getTime() / 1000));
-        if (filters.typeFilter) params.push('type=' + filters.typeFilter);
-      }
+      if (sizeMin) params.push('size_min=' + (parseInt(sizeMin) * 1024));
+      if (sizeMax) params.push('size_max=' + (parseInt(sizeMax) * 1024));
+      if (dateFrom) params.push('date_from=' + Math.floor(new Date(dateFrom).getTime() / 1000));
+      if (dateTo) params.push('date_to=' + Math.floor(new Date(dateTo + 'T23:59:59').getTime() / 1000));
+      if (typeFilter) params.push('type=' + typeFilter);
       var tags = (document.getElementById('tagFilterInput') || {}).dataset.selectedTag || '';
       if (tags) params.push('tags=' + encodeURIComponent(tags));
-      if (filters.tagMatch === 'any') params.push('tagMatch=any');
+      if (tagMatchFilter === 'any') params.push('tagMatch=any');
       var sort = document.getElementById('sortSelect') && document.getElementById('sortSelect').value;
       var order = document.getElementById('orderSelect') && document.getElementById('orderSelect').value;
       if (sort) params.push('sort=' + sort);
       if (order) params.push('order=' + order);
+
+      // Sync typeFilter into main type filter system
+      if (typeFilter) {
+        currentTypeFilters = [typeFilter];
+        localStorage.setItem('typeFilters', typeFilter);
+        updateTypeFilterChips();
+      }
+
       var url = '/api/search?' + params.join('&');
       currentSearchQuery = q;
       loadFilesFromUrl(url);
@@ -9998,35 +10204,14 @@ function renderPage() {
         var el = document.getElementById(id);
         if (el) el.value = '';
       });
+      ['adv_size_min','adv_size_max','adv_date_from','adv_date_to','adv_type','adv_tag_match'].forEach(function(k) {
+        localStorage.removeItem(k);
+      });
       currentTagFilters = [];
       localStorage.setItem('tagFilters', '');
       updateActiveFilterChips();
       renderTagChips();
-      loadFiles();
-    };
-
-    // Apply advanced search filters
-    window.doAdvancedSearch = function() {
-      var sizeMin = (document.getElementById('sizeMin') || {}).value || '';
-      var sizeMax = (document.getElementById('sizeMax') || {}).value || '';
-      var dateFrom = (document.getElementById('dateFrom') || {}).value || '';
-      var dateTo = (document.getElementById('dateTo') || {}).value || '';
-      var typeFilter = (document.getElementById('typeFilter') || {}).value || '';
-      var tagMatchFilter = (document.getElementById('tagMatchFilter') || {}).value || 'all';
-      // Persist size/date/type filters to localStorage
-      localStorage.setItem('adv_size_min', sizeMin);
-      localStorage.setItem('adv_size_max', sizeMax);
-      localStorage.setItem('adv_date_from', dateFrom);
-      localStorage.setItem('adv_date_to', dateTo);
-      localStorage.setItem('adv_type', typeFilter);
-      localStorage.setItem('adv_tag_match', tagMatchFilter);
-      // Sync into main type filter system
-      if (typeFilter) {
-        currentTypeFilters = [typeFilter];
-        localStorage.setItem('typeFilters', typeFilter);
-        updateTypeFilterChips();
-      }
-      updateActiveFilterChips();
+      document.getElementById('searchResultChip').style.display = 'none';
       loadFiles();
     };
 
