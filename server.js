@@ -5628,6 +5628,7 @@ function renderPage() {
           '<button class="secondary" onclick="startInlineRename(\'' + filename.replace(/'/g, "\\'") + '\');forceCloseModal()">' + renameL + '</button>' +
           '<button class="secondary" onclick="createShare(' + JSON.stringify(filename) + ');forceCloseModal()">' + shareL + '</button>' +
           '<button class="secondary" onclick="copyFilePath(\'' + filename.replace(/'/g, "\\'") + '\')">' + copyPathL + '</button>' +
+          '<button class="secondary" onclick="openFileVersions(' + JSON.stringify(filename) + ')">📜 历史</button>' +
           '<button class="primary" onclick="downloadFile(' + JSON.stringify(filename) + ')">' + dlL + '</button>';
       }
 
@@ -6802,6 +6803,107 @@ function renderPage() {
         ).join('') + '</div>';
       modal.classList.add('open');
     }
+
+    async function openFileVersions(filename) {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📜 ' + filename + ' — 版本历史';
+      body.innerHTML = '<div id="versionsContent" style="max-height:70vh;overflow:auto;padding:4px 0"><div style="display:flex;justify-content:center;align-items:center;height:120px;color:var(--muted)">加载中...</div></div>';
+      modal.classList.add('open');
+      try {
+        var res = await fetch('/api/file-versions/' + encodeURIComponent(filename) + '?limit=50', { headers: headers() });
+        var data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        var versions = data.versions || [];
+        var currentHash = data.currentHash;
+        var fmtSize = function(b) {
+          if (b < 1024) return b + ' B';
+          if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+          if (b < 1073741824) return (b/1048576).toFixed(1) + ' MB';
+          return (b/1073741824).toFixed(2) + ' GB';
+        };
+        var fmtTime = function(ts) {
+          var d = new Date(ts * 1000);
+          return d.toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+        };
+        var html = '';
+        if (!versions.length) {
+          html = '<div style="text-align:center;color:var(--muted);padding:40px">暂无版本记录<br><span style="font-size:12px">修改文件内容后会自动保存版本</span></div>';
+        } else {
+          html = '<div style="margin-bottom:12px;font-size:12px;color:var(--muted)">共 ' + versions.length + ' 个版本（当前版本以绿色标记）</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:8px">';
+          versions.forEach(function(v, i) {
+            var isCurrent = v.hash === currentHash;
+            var bg = isCurrent ? 'border-left:3px solid #10b981;background:var(--bg-tertiary)' : 'border-left:3px solid var(--line)';
+            var label = isCurrent ? '<span style="background:#10b98122;color:#10b981;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600">当前</span>' : '';
+            html += '<div style="padding:10px 12px;border-radius:8px;' + bg + '">';
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+            html += '<div style="display:flex;align-items:center;gap:8px">';
+            html += '<span style="font-size:11px;color:var(--muted)">v' + (versions.length - i) + '</span>';
+            html += '<span style="font-size:12px;color:var(--text-secondary)">' + fmtTime(v.created_at) + '</span>';
+            html += label + '</div>';
+            html += '<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">' + fmtSize(v.size) + '</div></div>';
+            html += '<div style="display:flex;gap:6px;margin-top:6px">';
+            html += '<button onclick="previewVersion(\'' + filename.replace(/'/g, "\\'") + '\',' + v.id + ')" style="padding:4px 10px;font-size:11px;background:var(--bg-secondary);color:var(--text);border:1px solid var(--line);border-radius:6px;cursor:pointer">预览</button>';
+            if (!isCurrent) {
+              html += '<button onclick="restoreVersion(\'' + filename.replace(/'/g, "\\'") + '\',' + v.id + ')" style="padding:4px 10px;font-size:11px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer">恢复此版本</button>';
+              html += '<button onclick="deleteVersion(\'' + filename.replace(/'/g, "\\'") + '\',' + v.id + ')" style="padding:4px 10px;font-size:11px;background:var(--error);color:#fff;border:none;border-radius:6px;cursor:pointer">删除</button>';
+            }
+            html += '</div></div>';
+          });
+          html += '</div>';
+        }
+        var targetEl = document.getElementById('versionsContent');
+        if (targetEl) targetEl.innerHTML = html;
+      } catch (e) {
+        var errEl = document.getElementById('versionsContent');
+        if (errEl) errEl.innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
+    }
+
+    window.previewVersion = async function(filename, versionId) {
+      try {
+        var res = await fetch('/api/file-versions/' + encodeURIComponent(filename) + '/version/' + versionId, { headers: headers() });
+        var data = await res.json();
+        if (!data.success) { showToast(data.error || '加载失败', 'error'); return; }
+        var v = data.version;
+        var isText = v.content !== null && v.content !== undefined && v.size < 1024 * 512;
+        if (isText) {
+          // Show text diff preview
+          var previewModal = document.getElementById('modal');
+          var previewBody = document.getElementById('modalBody');
+          var previewTitle = document.getElementById('modalTitle');
+          previewTitle.textContent = '📜 版本预览 v' + versionId + ' — ' + filename;
+          previewBody.innerHTML = '<div style="max-height:60vh;overflow:auto;background:var(--bg-secondary);padding:12px;border-radius:8px;font-family:monospace;font-size:12px;white-space:pre-wrap;word-break:break-all;color:var(--text-secondary)">' + escapeHtmlClient(v.content) + '</div>';
+          previewModal.classList.add('open');
+        } else {
+          showToast('此版本为二进制文件，无法预览', 'info');
+        }
+      } catch (e) { showToast('加载失败: ' + e.message, 'error'); }
+    };
+
+    window.restoreVersion = async function(filename, versionId) {
+      if (!confirm('确认恢复到此版本？当前内容将作为新版本保存。')) return;
+      try {
+        var res = await fetch('/api/file-versions/' + encodeURIComponent(filename) + '/restore/' + versionId, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers() } });
+        var data = await res.json();
+        if (data.success) {
+          showToast('版本已恢复', 'success');
+          openFileVersions(filename);
+        } else { showToast(data.error || '恢复失败', 'error'); }
+      } catch (e) { showToast('恢复失败: ' + e.message, 'error'); }
+    };
+
+    window.deleteVersion = async function(filename, versionId) {
+      if (!confirm('确认删除此版本？')) return;
+      try {
+        var res = await fetch('/api/file-versions/' + encodeURIComponent(filename) + '/version/' + versionId, { method: 'DELETE', headers: headers() });
+        var data = await res.json();
+        if (data.success) { showToast('版本已删除', 'success'); openFileVersions(filename); }
+        else { showToast(data.error || '删除失败', 'error'); }
+      } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+    };
 
     async function openTagManager() {
       const modal = document.getElementById('modal');

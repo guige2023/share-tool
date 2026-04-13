@@ -996,6 +996,72 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── File Version History ─────────────────────────────────────────────────
+  // GET /api/file-versions/:filename - list versions for a file
+  if (pathname.startsWith('/api/file-versions/') && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const parts = pathname.slice('/api/file-versions/'.length).split('/');
+    const filename = decodeURIComponent(parts[0]);
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return true; }
+    const limit = parseInt(query.get('limit') || '20', 10);
+    const versions = db.listFileVersions(file.id, limit);
+    const count = db.getFileVersionCount(file.id);
+    sendJson(res, { success: true, versions, count, currentHash: file.hash, currentSize: file.size });
+    return true;
+  }
+
+  // GET /api/file-versions/:filename/version/:versionId - get version content
+  if (pathname.match(/^\/api\/file-versions\/[^/]+\/version\/\d+$/) && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const match = pathname.match(/^\/api\/file-versions\/([^/]+)\/version\/(\d+)$/);
+    const filename = decodeURIComponent(match[1]);
+    const versionId = parseInt(match[2], 10);
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return true; }
+    const version = db.getFileVersion(versionId);
+    if (!version || version.file_id !== file.id) { sendJson(res, { success: false, error: 'Version not found' }, 404); return true; }
+    sendJson(res, { success: true, version });
+    return true;
+  }
+
+  // POST /api/file-versions/:filename/restore/:versionId - restore a version
+  if (pathname.match(/^\/api\/file-versions\/[^/]+\/restore\/\d+$/) && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const match = pathname.match(/^\/api\/file-versions\/([^/]+)\/restore\/(\d+)$/);
+    const filename = decodeURIComponent(match[1]);
+    const versionId = parseInt(match[2], 10);
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return true; }
+    const version = db.getFileVersion(versionId);
+    if (!version || version.file_id !== file.id) { sendJson(res, { success: false, error: 'Version not found' }, 404); return true; }
+    // Save current content as a new version before restoring
+    db.saveFileVersion(file.id, file.filename, file.content || '', file.size, file.hash);
+    // Restore the old content
+    const updated = db.updateFile(filename, { content: version.content });
+    sendJson(res, { success: true, file: updated });
+    return true;
+  }
+
+  // DELETE /api/file-versions/:filename/version/:versionId - delete a version
+  if (pathname.match(/^\/api\/file-versions\/[^/]+\/version\/\d+$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const match = pathname.match(/^\/api\/file-versions\/([^/]+)\/version\/(\d+)$/);
+    const filename = decodeURIComponent(match[1]);
+    const versionId = parseInt(match[2], 10);
+    const file = db.getFileByName(filename);
+    if (!file) { sendJson(res, { success: false, error: 'File not found' }, 404); return true; }
+    const version = db.getFileVersion(versionId);
+    if (!version || version.file_id !== file.id) { sendJson(res, { success: false, error: 'Version not found' }, 404); return true; }
+    db.deleteFileVersion(versionId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
   // ── Notifications ────────────────────────────────────────────────────────
   // GET /api/notifications - list notifications
   if (pathname === '/api/notifications' && method === 'GET') {
