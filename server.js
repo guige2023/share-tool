@@ -46,7 +46,7 @@ const I18N = {
     confirmDeleteMulti: 'Delete selected files? This cannot be undone.',
     // System
     storage: 'Storage', usage: 'Usage', duplicateFiles: 'Duplicate Files', cleanupTrash: 'Empty Trash',
-    auditLog: 'Audit Log', exportData: 'Export', language: 'Language', theme: 'Theme', dashboard: 'Storage Analysis',
+    auditLog: 'Audit Log', exportData: 'Export', language: 'Language', theme: 'Theme', dashboard: 'Storage Analysis', settings: 'Settings', appearance: 'Appearance', defaultView: 'Default View', serverInfo: 'Server Info', dark: 'Dark', light: 'Light', system: 'System', listView: 'List View', gridView: 'Grid View', saved: 'Saved',
   },
   zh: {
     // Navigation & Actions
@@ -73,7 +73,7 @@ const I18N = {
     confirmDeleteMulti: '删除所选文件？此操作不可撤销。',
     // System
     storage: '存储', usage: '使用量', duplicateFiles: '重复文件', cleanupTrash: '清空回收站',
-    auditLog: '审计日志', exportData: '导出数据', language: '语言', theme: '主题', dashboard: '存储分析',
+    auditLog: '审计日志', exportData: '导出数据', language: '语言', theme: '主题', dashboard: '存储分析', settings: '设置', appearance: '外观', defaultView: '默认视图', serverInfo: '服务器信息', dark: '深色', light: '浅色', system: '跟随系统', listView: '列表视图', gridView: '网格视图', saved: '已保存',
   }
 };
 
@@ -835,6 +835,7 @@ function renderPage() {
         <button id="vfBackBtn" class="ghost" style="display:none" onclick="exitVirtualFolder()">← 全部文件</button>
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
+        <button class="ghost" onclick="openSettings()" title="设置 (Ctrl+,)">⚙</button>
         <button class="ghost" onclick="openKeyboardHelp()" title="键盘快捷键 (?)">?</button>
         <button id="installPwaBtn" class="secondary" style="display:none" onclick="installPWA()">安装应用</button>
         <button id="advancedSearchBtn" class="ghost" onclick="toggleAdvancedSearch()">高级 ⌄</button>
@@ -4216,6 +4217,95 @@ function renderPage() {
       } catch (e) {
         showToast('保存失败: ' + e.message, 'error');
       }
+    }
+
+    function openSettings() {
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
+      title.textContent = i18n.settings || '设置';
+
+      var savedLang = localStorage.getItem('st_lang') || 'zh';
+      var savedTheme = localStorage.getItem('st_theme_mode') || 'system';
+      var savedView = localStorage.getItem('viewMode') || 'list';
+
+      body.innerHTML = '<div style="display:flex;flex-direction:column;gap:20px;padding:8px 0;font-size:14px">' +
+
+        // Language
+        '<div>' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">' + (i18n.language || '语言') + '</label>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button id="langZhBtn" class="' + (savedLang === 'zh' ? 'primary' : 'secondary') + '" onclick="setLangAndReload(\'zh\')">中文</button>' +
+            '<button id="langEnBtn" class="' + (savedLang === 'en' ? 'primary' : 'secondary') + '" onclick="setLangAndReload(\'en\')">English</button>' +
+          '</div>' +
+        '</div>' +
+
+        // Theme
+        '<div>' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">' + (i18n.appearance || '外观') + '</label>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button id="themeDarkBtn" class="' + (savedTheme === 'dark' ? 'primary' : 'secondary') + '" onclick="setThemeAndReload(\'dark\')">🌙 ' + (i18n.dark || '深色') + '</button>' +
+            '<button id="themeLightBtn" class="' + (savedTheme === 'light' ? 'primary' : 'secondary') + '" onclick="setThemeAndReload(\'light\')">☀️ ' + (i18n.light || '浅色') + '</button>' +
+            '<button id="themeSystemBtn" class="' + (savedTheme === 'system' ? 'primary' : 'secondary') + '" onclick="setThemeAndReload(\'system\')">💻 ' + (i18n.system || '跟随系统') + '</button>' +
+          '</div>' +
+        '</div>' +
+
+        // Default view
+        '<div>' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">' + (i18n.defaultView || '默认视图') + '</label>' +
+          '<div style="display:flex;gap:8px">' +
+            '<button id="viewListBtn2" class="' + (savedView === 'list' ? 'primary' : 'secondary') + '" onclick="setDefaultView(\'list\')">☰ ' + (i18n.listView || '列表视图') + '</button>' +
+            '<button id="viewGridBtn2" class="' + (savedView === 'grid' ? 'primary' : 'secondary') + '" onclick="setDefaultView(\'grid\')">⊞ ' + (i18n.gridView || '网格视图') + '</button>' +
+          '</div>' +
+        '</div>' +
+
+        // Server info
+        '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">' + (i18n.serverInfo || '服务器信息') + '</label>' +
+          '<div style="font-size:12px;color:var(--muted);line-height:1.8">' +
+            '<div>ShareTool <span id="settingsVersion"></span></div>' +
+            '<div id="settingsUptime"></div>' +
+            '<div id="settingsStorage"></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+      modal.classList.add('open');
+      loadSettingsInfo();
+    }
+
+    function setLangAndReload(lang) {
+      localStorage.setItem('st_lang', lang);
+      location.reload();
+    }
+
+    function setThemeAndReload(theme) {
+      localStorage.setItem('st_theme_mode', theme);
+      location.reload();
+    }
+
+    function setDefaultView(view) {
+      localStorage.setItem('viewMode', view);
+      showToast(i18n.saved || '已保存', 'success');
+      // Update button states
+      document.getElementById('viewListBtn2').className = view === 'list' ? 'primary' : 'secondary';
+      document.getElementById('viewGridBtn2').className = view === 'grid' ? 'primary' : 'secondary';
+    }
+
+    function loadSettingsInfo() {
+      fetch('/api/health', { headers: headers() }).then(function(r) { return r.json(); }).then(function(data) {
+        var ver = document.getElementById('settingsVersion');
+        if (ver) ver.textContent = 'v' + (data.version || '?');
+      }).catch(function() {});
+      fetch('/api/storage', { headers: headers() }).then(function(r) { return r.json(); }).then(function(data) {
+        var el = document.getElementById('settingsStorage');
+        if (el && data.total !== undefined) {
+          el.textContent = i18n.storage || '存储' + ': ' + formatBytes(data.used || 0) + ' / ' + formatBytes(data.total || 0);
+        }
+      }).catch(function() {});
+      // Uptime from global if available
+      var up = document.getElementById('settingsUptime');
+      if (up && typeof _serverUptime !== 'undefined') up.textContent = 'Uptime: ' + _serverUptime;
     }
 
     function openKeyboardHelp() {
