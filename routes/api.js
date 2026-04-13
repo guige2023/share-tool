@@ -866,6 +866,20 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // POST /api/notifications - create a new notification
+  if (pathname === '/api/notifications' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    if (!body.type || !body.title) {
+      sendJson(res, { success: false, error: 'type and title are required' }, 400);
+      return true;
+    }
+    const notif = db.addNotification(body.type, body.title, body.message || null);
+    sendJson(res, { success: true, notification: notif });
+    return true;
+  }
+
   // POST /api/notifications/mark-read - mark notifications as read
   if (pathname === '/api/notifications/mark-read' && method === 'POST') {
     const auth = authRequired(req, res);
@@ -1202,6 +1216,51 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const newToken = rotateShareToken();
     addAuditLog('token_rotate', null, getClientIp(req));
     sendJson(res, { success: true, token: newToken });
+    return true;
+  }
+
+  // GET /api/expiring-links - get share/request links expiring within 7 days
+  if (pathname === '/api/expiring-links' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const now = Date.now();
+    const weekFromNow = now + (7 * 24 * 60 * 60 * 1000);
+    const items = [];
+
+    // Check share links expiring within 7 days
+    const shares = db.listShareLinks();
+    shares.forEach(share => {
+      if (share.expiresAt && share.expiresAt > now && share.expiresAt <= weekFromNow) {
+        const hoursLeft = Math.round((share.expiresAt - now) / (1000 * 60 * 60));
+        const type = hoursLeft <= 24 ? '紧急' : '提醒';
+        items.push({
+          type: 'share',
+          code: share.code,
+          filename: share.filename,
+          expiresAt: share.expiresAt,
+          hoursLeft,
+          message: `分享 "${share.filename}" 将于${hoursLeft <= 24 ? '24小时内' : hoursLeft + '小时后'}过期`
+        });
+      }
+    });
+
+    // Check request links expiring within 7 days
+    const reqLinks = db.listRequestLinks();
+    reqLinks.forEach(link => {
+      if (link.expiresAt && link.expiresAt > now && link.expiresAt <= weekFromNow) {
+        const hoursLeft = Math.round((link.expiresAt - now) / (1000 * 60 * 60));
+        items.push({
+          type: 'request',
+          code: link.code,
+          name: link.name,
+          expiresAt: link.expiresAt,
+          hoursLeft,
+          message: `收集链接 "${link.name}" 将于${hoursLeft <= 24 ? '24小时内' : hoursLeft + '小时后'}过期`
+        });
+      }
+    });
+
+    sendJson(res, { success: true, items });
     return true;
   }
 

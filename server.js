@@ -1502,13 +1502,61 @@ function renderPage() {
       return response;
     }
 
+    // Check for expiring share/request links and add notifications
+    async function checkExpiringLinks() {
+      try {
+        var data = await request('/api/expiring-links');
+        if (!data || !data.success) return;
+        var items = data.items || [];
+        if (!items.length) return;
+        // Only notify once per day (store check date in localStorage)
+        var today = new Date().toISOString().slice(0, 10);
+        var lastCheck = localStorage.getItem('lastExpirNotifCheck') || '';
+        if (lastCheck === today) return;
+        localStorage.setItem('lastExpirNotifCheck', today);
+        // Post each expiring item as a notification
+        var urgent = items.filter(function(i) { return i.hoursLeft <= 24; });
+        var warning = items.filter(function(i) { return i.hoursLeft > 24; });
+        if (urgent.length > 0) {
+          var urgentMsg = urgent.map(function(i) { return i.message; }).join('；');
+          await request('/api/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'expiry_urgent', title: '⚠️ 链接即将过期', message: urgentMsg })
+          });
+        }
+        if (warning.length > 0) {
+          var warningMsg = warning.map(function(i) { return i.message; }).join('；');
+          await request('/api/notifications', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'expiry', title: '🔔 链接到期提醒', message: warningMsg })
+          });
+        }
+        // Update badge
+        var countData = await request('/api/notifications/unread-count');
+        var badge = document.getElementById('notifBadge');
+        if (badge) {
+          var count = countData.unread_count || 0;
+          if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.style.display = 'flex';
+          } else {
+            badge.style.display = 'none';
+          }
+        }
+      } catch (e) {}
+    }
+
     // Init auth on page load
     initAuth().then(function() {
       loadFiles();
+      loadShares();
       updateSortDropdownLabel();
       loadStorageStats();
       setupInfiniteScroll();
       showWelcomeIfNeeded();
+      checkExpiringLinks();
 
       // URL param ?f=filename - highlight and scroll to specific file
       (function() {
