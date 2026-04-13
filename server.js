@@ -5792,6 +5792,15 @@ function renderPage() {
       document.getElementById('searchInput').focus();
     }
 
+    function filterByExt(ext) {
+      // Use glob-style search: .ext at end of filename
+      var q = ext ? '.' + ext + '$' : '';
+      document.getElementById('searchInput').value = q;
+      document.getElementById('searchClear').style.display = q ? 'block' : 'none';
+      currentSearchQuery = q;
+      loadFiles();
+    }
+
     function escapeRegex(s) {
       return s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
     }
