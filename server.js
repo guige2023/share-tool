@@ -2414,6 +2414,8 @@ function renderPage() {
     }
 
     // Drag and drop handlers
+    window._droppedFiles = null; // {files: FileList, count: int} — set on desktop drag-drop
+
     function handleFileSelect(files) {
       var list = document.getElementById('fileList');
       if (!files.length) {
@@ -2469,6 +2471,16 @@ function renderPage() {
         dropZone.addEventListener(evt, function (e) {
           e.preventDefault();
           dropZone.classList.remove('dragover');
+          if (evt === 'drop') {
+            e.stopPropagation(); // prevent document-level drop handler from also firing
+            var files = e.dataTransfer.files;
+            if (files.length) {
+              document.getElementById('fileInput').files = files;
+              handleFileSelect(files);
+              showToast('已选择 ' + files.length + ' 个文件，开始上传...', 'info', 2000);
+              uploadFiles();
+            }
+          }
         });
       });
       // Hide global overlay on drop or when leaving window
@@ -2481,6 +2493,9 @@ function renderPage() {
         if (files.length) {
           document.getElementById('fileInput').files = files;
           handleFileSelect(files);
+          // Auto-upload: show file count and start uploading immediately
+          showToast('已选择 ' + files.length + ' 个文件，开始上传...', 'info', 2000);
+          uploadFiles();
         }
       });
     }

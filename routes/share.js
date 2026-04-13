@@ -882,19 +882,30 @@ async function uploadAll() {
         sendJson(res, { success: false, error: 'Link expired' }, 410);
         return true;
       }
+      // Read body first (needed for password verification)
+      let body;
+      try {
+        body = await readJsonBody(req);
+      } catch (e) {
+        sendJson(res, { success: false, error: 'Invalid request body' }, 400);
+        return true;
+      }
+
+      // Password-protected: verify password from request body
+      if (row.has_password) {
+        if (!body.password || !db.verifyRequestLinkPassword(code, body.password)) {
+          sendJson(res, { success: false, error: 'Invalid password' }, 401);
+          return true;
+        }
+      }
+
       // Check max uploads
       if (row.max_uploads && row.upload_count >= row.max_uploads) {
         sendJson(res, { success: false, error: 'Upload limit reached' }, 410);
         return true;
       }
-      // Password-protected: verify via session cookie or body token
-      if (row.has_password) {
-        sendJson(res, { success: false, error: 'Password required' }, 403);
-        return true;
-      }
 
       try {
-        const body = await readJsonBody(req);
         const { filename, content, type } = body;
         if (!filename || !content) {
           sendJson(res, { success: false, error: 'filename and content required' }, 400);
