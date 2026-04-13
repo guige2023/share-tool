@@ -192,6 +192,33 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // GET /api/recent-files - recently accessed files (uses file_access_log)
+  if (pathname === '/api/recent-files' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    const limit = Math.min(parseInt(query.get('limit') || '20', 10) || 20, 100);
+    const files = db.getRecentlyAccessedFiles(limit);
+
+    sendJson(res, {
+      success: true,
+      files: files.map((f) => ({
+        id: f.id,
+        name: f.filename,
+        size: f.size,
+        type: f.type,
+        hash: f.hash,
+        createdAt: f.created_at * 1000,
+        updatedAt: f.updated_at * 1000,
+        tags: f.tags || '',
+        starred: f.starred === 1,
+        lastAccessedAt: f.last_accessed_at * 1000,
+        content_type: f.content_type || null
+      }))
+    });
+    return true;
+  }
+
   if (pathname === '/api/upload' && method === 'POST') {
     const auth = authRequired(req, res);
     if (!auth) return true;

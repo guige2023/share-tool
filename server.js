@@ -840,6 +840,7 @@ function renderPage() {
     <div class="ctx-item" onclick="ctxAction('info')">ℹ️ 文件属性</div>
     <div class="ctx-item ctx-star" data-starred="0" onclick="ctxAction('addToVF')">⭐ 添加到收藏夹</div>
     <div class="ctx-item ctx-star" data-starred="1" onclick="ctxAction('removeFromVF')" style="display:none">⭐ 从收藏移除</div>
+    <div class="ctx-item" onclick="ctxAction('addTags')">🏷️ 添加标签</div>
     <div class="ctx-sep"></div>
     <div class="ctx-item" onclick="ctxAction('rename')">✎ 重命名</div>
     <div class="ctx-item" onclick="ctxAction('delete')" style="color:var(--danger)">🗑 删除</div>
@@ -960,6 +961,8 @@ function renderPage() {
             <div class="ctx-item" onclick="setSortFromDropdown('type','asc')" id="sortItem-type-asc">📂 类型</div>
             <div style="border-top:1px solid var(--line);margin:4px 0"></div>
             <div class="ctx-item" onclick="setSortFromDropdown('position','asc')" id="sortItem-position-asc">📌 手动排序</div>
+            <div style="border-top:1px solid var(--line);margin:4px 0"></div>
+            <div class="ctx-item" onclick="showRecentFiles()" id="sortItem-recent" style="color:var(--accent);font-weight:500">🕐 最近访问</div>
           </div>
         </div>
         <button id="vfBtn" class="ghost" onclick="toggleVirtualFolderMenu()" title="收藏夹">⭐</button>
@@ -2981,6 +2984,17 @@ function renderPage() {
           renderFolderTagFilterBar();
         }
       }
+      // Enrich tagColorMap with folder tag definitions (colors + icons) for colored file row chips
+      if (window._folderTagDefinitions) {
+        window._folderTagDefinitions.forEach(function(td) {
+          if (!tagColorMap[td.name]) {
+            tagColorMap[td.name] = { color: td.color || '#e0e7ff', icon: td.icon || '' };
+          } else {
+            // Already have entry — ensure icon is captured if present
+            tagColorMap[td.name] = { color: tagColorMap[td.name].color || td.color || '#e0e7ff', icon: td.icon || tagColorMap[td.name].icon || '' };
+          }
+        });
+      }
       if (append && prevLen > 0) {
         // Incremental append: only render new rows, don't re-render existing DOM
         appendFileRows(incoming, tagColorMap);
@@ -3955,7 +3969,12 @@ function renderPage() {
       var tagHtml = tags
         ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
             var tc = tagColorMap[t.trim()] || '#e0e7ff';
-            return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + escapeHtmlClient(t.trim()) + '</span>';
+            var icon = '';
+            if (typeof tc === 'object' && tc !== null) {
+              icon = tc.icon || '';
+              tc = tc.color || '#e0e7ff';
+            }
+            return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + (icon ? escapeHtmlClient(icon) + ' ' : '') + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
       return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" onmousedown="handleItemClick(event, ' + file._index + ')" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
@@ -3982,8 +4001,13 @@ function renderPage() {
       var tagHtml = tags
         ? '<div class="file-tags">' + tags.split(',').filter(Boolean).map(function(t) {
             var tc = tagColorMap[t.trim()] || '#e0e7ff';
+            var icon = '';
+            if (typeof tc === 'object' && tc !== null) {
+              icon = tc.icon || '';
+              tc = tc.color || '#e0e7ff';
+            }
             var tagVal = escapeHtmlClient(t.trim());
-            return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit;cursor:pointer" onclick="filterBySingleTag(\'' + tagVal.replace(/'/g, "\\'") + '\')" title="点击筛选此标签">' + tagVal + '</span>';
+            return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit;cursor:pointer" onclick="filterBySingleTag(\'' + tagVal.replace(/'/g, "\\'") + '\')" title="点击筛选此标签">' + (icon ? escapeHtmlClient(icon) + ' ' : '') + tagVal + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
 
@@ -5046,6 +5070,15 @@ function renderPage() {
       modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
       document.getElementById('modal').classList.add('open');
 
+      // Ensure tag definitions are loaded for colored chip display
+      if (!window._folderTagDefinitions) {
+        try {
+          const ftRes = await fetch('/api/folder-tags', { headers: headers() });
+          const ftData = await ftRes.json();
+          if (ftData.tags) window._folderTagDefinitions = ftData.tags;
+        } catch (_) {}
+      }
+
       try {
         const encoded = encodeURIComponent(filename);
         const res = await fetch('/api/file-info/' + encoded, { headers: headers() });
@@ -5061,10 +5094,18 @@ function renderPage() {
         const fmtDate = ts => ts ? new Date(ts).toLocaleString('zh-CN') : '--';
         const fmtTs = ts => ts ? new Date(ts).toLocaleString('zh-CN') : '--';
 
-        const tagsHtml = f.tags
-          ? f.tags.split(',').filter(Boolean).map(t => {
-              const et = escapeHtmlClient(t);
-              return '<span onclick="filterBySingleTag(\'' + et.replace(/'/g, "\\'") + '\')" style="background:var(--bg-tertiary);padding:2px 8px;border-radius:6px;font-size:11px;margin:2px;display:inline-block;cursor:pointer" title="点击筛选: ' + et + '">' + et + '</span>';
+        // Build colored tag chips from tag definitions
+        var tagDefs = window._folderTagDefinitions || [];
+        var tagColorMap = {};
+        tagDefs.forEach(function(td) { tagColorMap[td.name] = td; });
+        var tagsHtml = f.tags
+          ? f.tags.split(',').filter(Boolean).map(function(t) {
+              var et = escapeHtmlClient(t.trim());
+              var def = tagColorMap[t.trim()] || {};
+              var color = def.color || '#e0e7ff';
+              var icon = def.icon || '';
+              var chipStyle = 'background:' + color + ';padding:2px 8px;border-radius:6px;font-size:11px;margin:2px;display:inline-block;cursor:pointer;color:inherit;font-weight:500';
+              return '<span onclick="filterBySingleTag(\'' + et.replace(/'/g, "\\'") + '\')" style="' + chipStyle + '" title="点击筛选: ' + et + '">' + (icon ? escapeHtmlClient(icon) + ' ' : '') + et + '</span>';
             }).join('')
           : '<span style="color:var(--text-muted);font-size:12px">无</span>';
 
