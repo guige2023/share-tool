@@ -5824,7 +5824,7 @@ function renderPage() {
       var title = document.getElementById('modalTitle');
       var body = document.getElementById('modalBody');
       title.textContent = '审计日志';
-      body.innerHTML = '<div id="auditStats" style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);margin-bottom:12px"><span>总: <b id="auditTotal">-</b></span><span>今日: <b id="auditToday">-</b></span><span>操作类型: <b id="auditTypes">-</b></span></div><div id="auditFilters" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><select id="auditActionFilter" onchange="loadAuditLogs()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px"><option value="">全部操作</option><option value="upload">上传</option><option value="delete">删除</option><option value="share_create">创建分享</option><option value="share_access">访问分享</option><option value="share_delete">删除分享</option><option value="share_update">更新分享</option><option value="token_rotate">更换Token</option><option value="text_update">文本更新</option><option value="rename">重命名</option><option value="batch_delete">批量删除</option></select><button onclick="exportAuditCSV()" style="font-size:12px;padding:5px 12px" class="secondary">导出 CSV</button></div><div id="auditLogs" style="max-height:400px;overflow-y:auto;font-size:12px"></div>';
+      body.innerHTML = '<div id="auditStats" style="display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;font-size:13px;color:var(--muted);border-bottom:1px solid var(--line);margin-bottom:12px"><span>总: <b id="auditTotal">-</b></span><span>今日: <b id="auditToday">-</b></span><span>操作类型: <b id="auditTypes">-</b></span></div><div id="auditFilters" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center"><select id="auditActionFilter" onchange="loadAuditLogs()" style="padding:5px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:12px"><option value="">全部操作</option><option value="upload">上传</option><option value="delete">删除</option><option value="share_create">创建分享</option><option value="share_access">访问分享</option><option value="share_delete">删除分享</option><option value="share_update">更新分享</option><option value="token_rotate">更换Token</option><option value="text_update">文本更新</option><option value="rename">重命名</option><option value="batch_delete">批量删除</option><option value="note">备注</option></select><button onclick="exportAuditCSV()" style="font-size:12px;padding:5px 12px" class="secondary">导出 CSV</button><button onclick="openAddAuditNote()" style="font-size:12px;padding:5px 12px" class="ghost">+ 添加备注</button><button onclick="openClearAuditLogs()" style="font-size:12px;padding:5px 12px" class="ghost">清理旧日志</button></div><div id="auditLogs" style="max-height:400px;overflow-y:auto;font-size:12px"></div>';
       modal.classList.add('open');
       loadAuditStats();
       loadAuditLogs();
@@ -5881,6 +5881,27 @@ function renderPage() {
       var action = document.getElementById('auditActionFilter') && document.getElementById('auditActionFilter').value;
       var url = '/api/audit/export' + (action ? '?action=' + encodeURIComponent(action) : '');
       window.open(url, '_blank');
+    }
+
+    function openAddAuditNote() {
+      var note = prompt('输入备注内容（最多500字）:');
+      if (!note || !note.trim()) return;
+      request('/api/audit/logs', { method: 'POST', body: { note: note.trim() } }).then(function(data) {
+        if (data.success) { showToast('备注已添加'); loadAuditLogs(); loadAuditStats(); }
+        else showToast('添加失败: ' + (data.error || ''), 'error');
+      }).catch(function(e) { showToast('添加失败: ' + e.message, 'error'); });
+    }
+
+    function openClearAuditLogs() {
+      var days = prompt('清理多少天之前的日志？（默认90天）:', '90');
+      if (days === null) return;
+      var d = parseInt(days, 10);
+      if (!days || isNaN(d) || d < 1) { showToast('请输入有效天数', 'error'); return; }
+      if (!confirm('确认清理 ' + d + ' 天之前的日志？此操作不可撤销。')) return;
+      request('/api/audit/clear', { method: 'POST', body: { confirm: true, olderThanDays: d } }).then(function(data) {
+        if (data.success) { showToast('已清理 ' + (data.deleted || 0) + ' 条日志'); loadAuditLogs(); loadAuditStats(); }
+        else showToast('清理失败: ' + (data.error || ''), 'error');
+      }).catch(function(e) { showToast('清理失败: ' + e.message, 'error'); });
     }
 
     function openKeyboardHelp() {

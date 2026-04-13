@@ -2899,6 +2899,10 @@ function cleanupAuditLog(daysToKeep = 90) {
   return result.changes;
 }
 
+function clearAuditLogs(daysToKeep = 90) {
+  return cleanupAuditLog(daysToKeep);
+}
+
 function getDbStats() {
   const db = getDb();
   const fileCount = db.prepare('SELECT COUNT(*) as c FROM files').get().c;
@@ -3618,7 +3622,7 @@ module.exports = {
   // 清理
   cleanupExpiredTokens, cleanupRateLimit, cleanupIncompleteUploads, cleanupSearchHistory,
   // DB 健康
-  cleanupSyncLog, cleanupAuditLog, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
+  cleanupSyncLog, cleanupAuditLog, clearAuditLogs, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, touchTag,
   getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, ensureTagStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags, cleanupOrphanTags,

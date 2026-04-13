@@ -170,6 +170,31 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // POST /api/audit/logs - add manual note
+  if (pathname === '/api/audit/logs' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const note = body && body.note ? String(body.note).slice(0, 500) : '';
+    if (!note) { sendJson(res, { success: false, error: 'Note required' }, 400); return true; }
+    db.addAuditLog('note', note, getClientIp(req), auth.token);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // DELETE /api/audit/logs - clear old logs (requires confirm: { confirm: true, olderThanDays: 30 })
+  if (pathname === '/api/audit/clear' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    if (!body || body.confirm !== true) { sendJson(res, { success: false, error: 'Confirmation required' }, 400); return true; }
+    const days = Math.max(1, Math.min(parseInt(body.olderThanDays || '90', 10), 365));
+    const deleted = db.clearAuditLogs(days);
+    db.addAuditLog('audit_clear', `Cleared logs older than ${days} days (${deleted} entries)`, getClientIp(req), auth.token);
+    sendJson(res, { success: true, deleted });
+    return true;
+  }
+
   // ── Rate Limit Status ───────────────────────────────────────────────
   if (pathname === '/api/rate-limit/check' && method === 'GET') {
     const ip = getClientIp(req);
