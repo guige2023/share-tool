@@ -3349,6 +3349,14 @@ function renderPage() {
           if (si) { si.focus(); si.select(); }
           break;
         }
+        case 't':
+        case 'T': {
+          // t: open trash
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          openTrash();
+          break;
+        }
         case '?': {
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           openKeyboardHelp();
@@ -4128,6 +4136,7 @@ function renderPage() {
         ['b', '批量下载'],
         ['e', '内联重命名'],
         ['l', '复制链接'],
+        ['t', '回收站'],
         ['y', '复制文件名'],
         ['Del', '删除选中'],
         ['c', '清空选择'],
