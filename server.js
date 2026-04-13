@@ -3662,7 +3662,9 @@ function renderPage() {
         if (isText && v.content) {
           const truncated = v.content.length > 500000;
           const display = truncated ? v.content.slice(0, 500000) : v.content;
-          modalBody.innerHTML = '<div style="max-height:70vh;overflow:auto;background:var(--bg-secondary);border-radius:8px;padding:16px;font-family:monospace;font-size:13px;white-space:pre-wrap;word-break:break-all">' + escapeHtmlClient(display) + '</div>' + (truncated ? '<p style="color:var(--text-muted);font-size:12px;margin-top:8px;text-align:center">内容过长，已截断</p>' : '');
+          modalBody.innerHTML = '<div style="margin-bottom:10px"><button class="btn secondary" onclick="openVersionHistory(window._versionHistoryFilename)" style="font-size:12px;padding:5px 12px">← 返回版本列表</button></div>' +
+            '<div style="max-height:65vh;overflow:auto;background:var(--bg-secondary);border-radius:8px;padding:16px;font-family:monospace;font-size:13px;white-space:pre-wrap;word-break:break-all">' + escapeHtmlClient(display) + '</div>' +
+            (truncated ? '<p style="color:var(--text-muted);font-size:12px;margin-top:8px;text-align:center">内容过长，已截断</p>' : '');
         } else if (v.content) {
           modalBody.innerHTML = '<p class="muted">此版本为非文本文件，请下载查看。</p><button class="btn secondary" onclick="downloadVersion(' + versionId + ')">下载此版本</button>';
         } else {
@@ -3674,20 +3676,21 @@ function renderPage() {
     }
 
     async function restoreVersion(versionId) {
-      if (!confirm('确认恢复此版本？当前内容将保存为新版本。')) return;
-      try {
-        const res = await fetch('/api/versions/' + versionId + '/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        const data = await res.json();
-        if (data.success) {
-          showToast('版本已恢复', 'success');
-          document.getElementById('modal').classList.remove('open');
-          if (typeof loadFiles === 'function') loadFiles();
-        } else {
-          showToast('恢复失败: ' + (data.error || '未知错误'), 'error');
+      showConfirm('确认恢复此版本？<br><span style="color:var(--text-muted);font-size:12px">当前文件内容将保存为新版本。</span>', async function() {
+        try {
+          const res = await fetch('/api/versions/' + versionId + '/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+          const data = await res.json();
+          if (data.success) {
+            showToast('版本已恢复', 'success');
+            document.getElementById('modal').classList.remove('open');
+            if (typeof loadFiles === 'function') loadFiles();
+          } else {
+            showToast('恢复失败: ' + (data.error || '未知错误'), 'error');
+          }
+        } catch (e) {
+          showToast('恢复失败: ' + e.message, 'error');
         }
-      } catch (e) {
-        showToast('恢复失败: ' + e.message, 'error');
-      }
+      });
     }
 
     async function showFileInfo(filename) {
@@ -6077,7 +6080,7 @@ function renderPage() {
           ['j/k', 'vim导航'],
           ['d', '删除选中文件'],
           ['i', '显示文件属性'],
-          ['c', '复制分享链接'],
+          ['l', '复制分享链接'],
           ['y', '复制文件名'],
           ['s', '切换排序方向'],
           ['Ctrl+A', '全选文件'],
