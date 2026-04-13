@@ -853,6 +853,7 @@ function renderPage() {
       <div id="searchResultsBar" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px"></div>
       <div id="typeFilterBar" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
         <button class="type-chip active" data-type="" onclick="setTypeFilter('')">全部</button>
+        <button class="type-chip" data-type="starred" onclick="setTypeFilter('starred')">⭐ 星标</button>
         <button class="type-chip" data-type="image" onclick="setTypeFilter('image')">🖼️ 图片</button>
         <button class="type-chip" data-type="video" onclick="setTypeFilter('video')">🎬 视频</button>
         <button class="type-chip" data-type="audio" onclick="setTypeFilter('audio')">🎵 音频</button>
@@ -2703,7 +2704,7 @@ function renderPage() {
             return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
-      return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '">' +
+      return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()"></td>' +
         '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
@@ -3197,12 +3198,12 @@ function renderPage() {
           break;
         }
         case 'e': {
-          // e: rename selected file
+          // e: rename selected file (inline edit)
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           var selected = getSelectedFiles();
           if (selected.length === 1) {
             e.preventDefault();
-            renameFile(selected[0]);
+            startInlineRename(selected[0]);
           }
           break;
         }
@@ -4023,7 +4024,7 @@ function renderPage() {
         ['Space', '选中/取消选中'],
         ['a', '全选文件'],
         ['s', '星标选中文件'],
-        ['e', '重命名'],
+        ['e', '内联重命名'],
         ['Del', '删除选中'],
         ['c', '清空选择'],
         ['d', '切换主题'],

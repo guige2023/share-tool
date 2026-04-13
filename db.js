@@ -635,7 +635,7 @@ function runMigrations(db, fromVersion) {
 // ============================================================
 function searchFilesFTS(query, tags = null, opts = {}) {
   const db = getDb();
-  const { limit = 100, offset = 0, tagMatch = 'all', size_min, size_max, date_from, date_to, type } = opts;
+  const { limit = 100, offset = 0, tagMatch = 'all', size_min, size_max, date_from, date_to, type, starred } = opts;
 
   // 检查 FTS5 表是否存在
   try {
@@ -645,7 +645,7 @@ function searchFilesFTS(query, tags = null, opts = {}) {
   }
 
   // 无查询词且无过滤条件：直接走列表
-  if (!query && !tags && !size_min && !size_max && !date_from && !date_to && !type) {
+  if (!query && !tags && !size_min && !size_max && !date_from && !date_to && !type && starred == null) {
     return db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
   }
 
@@ -673,7 +673,7 @@ function searchFilesFTS(query, tags = null, opts = {}) {
   }
 
   // 无任何过滤：直接返回（已带 offset）
-  if (!tags && !size_min && !size_max && !date_from && !date_to && !type) {
+  if (!tags && !size_min && !size_max && !date_from && !date_to && !type && starred == null) {
     return ftsResults.slice(offset, offset + limit);
   }
 
@@ -703,6 +703,10 @@ function searchFilesFTS(query, tags = null, opts = {}) {
     if (type) {
       if (f.type !== type) return false;
     }
+
+    // 星标过滤
+    if (starred === true && !f.starred) return false;
+    if (starred === false && f.starred) return false;
 
     return true;
   }).slice(offset, offset + limit);
@@ -1586,7 +1590,7 @@ function searchFiles(query, tags = null, opts = {}) {
   const extraWhere = extraConditions.length > 0 ? ' AND ' + extraConditions.join(' AND ') : '';
 
   if (!query && !tags && !content && !extraWhere) {
-    return db.prepare(`SELECT ${FILE_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
+    return db.prepare(`SELECT ${FILE_FIELDS} FROM files ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
   }
 
   // 解析 content: 搜索词（opts.content 优先，query 内联 content: 作后备）
@@ -1610,14 +1614,14 @@ function searchFiles(query, tags = null, opts = {}) {
     const tagJoin = tagMatch === 'any' ? ' OR ' : ' AND ';
     const tagConditions = tagList.map(() => `LOWER(tags) LIKE ?`).join(tagJoin);
     const tagParams = tagList.map(t => `%${t}%`);
-    return db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files WHERE ${tagConditions}${extraWhere} ORDER BY created_at DESC LIMIT ?`)
-      .all(...tagParams, ...extraParams, limit);
+    return db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files WHERE ${tagConditions}${extraWhere} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+      .all(...tagParams, ...extraParams, limit, offset);
   }
 
   // 有查询词：先用 FTS5 全文索引过滤候选集（避免全表扫描）
   // FTS5 MATCH 查询：英文前缀匹配（token*），中文精确匹配（"字"）
   // tags/content 仍用 LIKE 辅助过滤
-  const candidateLimit = 500;
+  const candidateLimit = limit + offset + 100;
   let candidateFiles;
   if (queryTokens.length > 0 || tags || contentQuery) {
     const ftsQuery = buildFtsQuery(queryTokens);
@@ -1669,12 +1673,13 @@ function searchFiles(query, tags = null, opts = {}) {
     }
   } else {
     candidateFiles = db.prepare(
-      `SELECT ${FILE_LIST_FIELDS} FROM files${extraWhere} LIMIT ?`
-    ).all(...extraParams, candidateLimit);
+      `SELECT ${FILE_LIST_FIELDS} FROM files${extraWhere} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+    ).all(...extraParams, limit + offset, offset);
   }
 
   if (!queryTokens.length && !tags && !contentQuery) {
-    return candidateFiles.slice(0, limit);
+    // candidateFiles already has offset+limit applied via SQL above, return as-is
+    return candidateFiles;
   }
 
   // Score each candidate
@@ -1752,7 +1757,7 @@ function searchFiles(query, tags = null, opts = {}) {
     return b.created_at - a.created_at;
   });
 
-  return scored.slice(0, limit);
+  return scored.slice(offset, offset + limit);
 }
 
 // ============================================================

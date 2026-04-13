@@ -28,7 +28,10 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const folder = query.get('folder') || null;
     const tags = query.get('tags') || null;
     const typeFilter = query.get('type') || null;
-    const { files, total } = db.listFiles(limit, offset, sort, order, folder, false, tags, { typeFilter });
+    // Handle 'starred' as a special type filter
+    const starredOnly = typeFilter === 'starred';
+    const actualTypeFilter = starredOnly ? null : typeFilter;
+    const { files, total } = db.listFiles(limit, offset, sort, order, folder, starredOnly, tags, { typeFilter: actualTypeFilter });
 
     sendJson(res, {
       success: true,
@@ -60,9 +63,12 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const dateFrom = query.get('date_from') || null;
     const dateTo = query.get('date_to') || null;
     const typeFilter = query.get('type') || null;
+    // Handle 'starred' as a special type filter
+    const starredOnly = typeFilter === 'starred';
+    const actualTypeFilter = starredOnly ? null : typeFilter;
     const limit = Math.min(parseInt(query.get('limit') || '500', 10) || 500, 5000);
     const offset = Math.max(parseInt(query.get('offset') || '0', 10) || 0, 0);
-    if (!q && !tags && !sizeMin && !sizeMax && !dateFrom && !dateTo && !typeFilter) {
+    if (!q && !tags && !sizeMin && !sizeMax && !dateFrom && !dateTo && !typeFilter && !starredOnly) {
       sendJson(res, { success: true, total: 0, files: [] });
       return true;
     }
@@ -74,7 +80,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       size_max: sizeMax ? parseInt(sizeMax) : null,
       date_from: dateFrom ? parseInt(dateFrom) : null,
       date_to: dateTo ? parseInt(dateTo) : null,
-      type: typeFilter
+      type: actualTypeFilter,
+      starred: starredOnly
     });
     if (!results) {
       // FTS5 不可用，fallback 到 LIKE 搜索
@@ -84,7 +91,8 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         size_max: sizeMax ? parseInt(sizeMax) : null,
         date_from: dateFrom ? parseInt(dateFrom) : null,
         date_to: dateTo ? parseInt(dateTo) : null,
-        type: typeFilter
+        type: actualTypeFilter,
+        starred: starredOnly
       });
     }
 
