@@ -69,7 +69,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
 
     // 优先使用 FTS5 搜索（更快），fallback 到 LIKE
     let results = db.searchFilesFTS(q, tags, {
-      fuzzy: true, limit: limit + offset, tagMatch,
+      fuzzy: true, limit, offset, tagMatch,
       size_min: sizeMin ? parseInt(sizeMin) : null,
       size_max: sizeMax ? parseInt(sizeMax) : null,
       date_from: dateFrom ? parseInt(dateFrom) : null,

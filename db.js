@@ -635,7 +635,7 @@ function runMigrations(db, fromVersion) {
 // ============================================================
 function searchFilesFTS(query, tags = null, opts = {}) {
   const db = getDb();
-  const { limit = 100, tagMatch = 'all', size_min, size_max, date_from, date_to, type } = opts;
+  const { limit = 100, offset = 0, tagMatch = 'all', size_min, size_max, date_from, date_to, type } = opts;
 
   // 检查 FTS5 表是否存在
   try {
@@ -646,10 +646,11 @@ function searchFilesFTS(query, tags = null, opts = {}) {
 
   // 无查询词且无过滤条件：直接走列表
   if (!query && !tags && !size_min && !size_max && !date_from && !date_to && !type) {
-    return db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
+    return db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(limit, offset);
   }
 
   const tokens = tokenizeQuery(query);
+  const fetchLimit = limit + offset; // fetch enough to cover offset
 
   // 构建 FTS5 MATCH 表达式
   let ftsResults = [];
@@ -663,20 +664,20 @@ function searchFilesFTS(query, tags = null, opts = {}) {
         WHERE files_fts MATCH ?
         ORDER BY fts_rank
         LIMIT ?
-      `).all(ftsQuery, limit * 2);
+      `).all(ftsQuery, fetchLimit * 2);
     } catch (e) {
       ftsResults = [];
     }
   } else {
-    ftsResults = db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ORDER BY created_at DESC LIMIT ?`).all(limit);
+    ftsResults = db.prepare(`SELECT ${FILE_LIST_FIELDS} FROM files ORDER BY created_at DESC LIMIT ? OFFSET ?`).all(fetchLimit, 0);
   }
 
-  // 无任何过滤：直接返回
+  // 无任何过滤：直接返回（已带 offset）
   if (!tags && !size_min && !size_max && !date_from && !date_to && !type) {
-    return ftsResults.slice(0, limit);
+    return ftsResults.slice(offset, offset + limit);
   }
 
-  // 后置过滤：标签 + size + date + type
+  // 后置过滤：标签 + size + date + type（filter 之后 slice）
   const tagList = tags ? tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
   return ftsResults.filter(f => {
     const fileTags = (f.tags || '').toLowerCase();
@@ -704,7 +705,7 @@ function searchFilesFTS(query, tags = null, opts = {}) {
     }
 
     return true;
-  }).slice(0, limit);
+  }).slice(offset, offset + limit);
 }
 
 // ============================================================

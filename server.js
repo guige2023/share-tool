@@ -670,7 +670,14 @@ function renderPage() {
     .tag-badge{background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500}
     .tag-edit-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;padding:2px 4px;border-radius:4px;transition:color .2s,background .2s}
     .tag-edit-btn:hover{color:var(--primary);background:rgba(99,102,241,.1)}
-    /* Context menu */
+    /* Inline rename */
+    .inline-rename-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:1px 3px;border-radius:3px;transition:color .2s,background .2s;margin-left:4px;vertical-align:middle}
+    .inline-rename-btn:hover{color:var(--primary);background:rgba(99,102,241,.1)}
+    .filename-cell{position:relative}
+    .filename-text:hover + .inline-rename-btn,.inline-rename-btn:hover{opacity:1}
+    .inline-rename-btn{opacity:.5}
+    .inline-rename-input{width:100%;border:1px solid var(--primary);border-radius:4px;padding:2px 6px;font-size:13px;background:var(--bg-primary);color:var(--text);outline:none;box-sizing:border-box}
+    /* Batch bar */
     .ctx-item{padding:10px 16px;cursor:pointer;transition:background .15s}
     .ctx-item:hover{background:var(--bg-tertiary)}
     .ctx-sep{height:1px;background:var(--border);margin:4px 0}
@@ -2698,7 +2705,7 @@ function renderPage() {
         : '<span class="muted" style="font-size:11px">—</span>';
       return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '">' +
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()"></td>' +
-        '<td data-label="文件"><strong>' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</strong><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
+        '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><div class="muted">' + escapeHtmlClient(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
         '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
         '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
@@ -2754,7 +2761,7 @@ function renderPage() {
         '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()">' +
         '<div class="file-content">' +
           gridIcon +
-          '<div class="file-name">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</div>' +
+          '<div class="file-name"><span ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名">✏️</button></div>' +
           '<div class="file-meta">' + formatBytes(file.size) + ' · ' + formatTime(file.updatedAt || file.createdAt) + '</div>' +
           tagHtml +
         '</div>' +
@@ -3174,6 +3181,29 @@ function renderPage() {
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
           clearSelection();
+          break;
+        }
+        case 'Delete': {
+          // Delete: delete selected files
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          var selected = getSelectedFiles();
+          if (!selected.length) return;
+          e.preventDefault();
+          if (selected.length === 1) {
+            if (confirm(i18n.confirmDeleteMsg || '确定删除 ' + selected[0] + '？')) deleteFiles([selected[0]]);
+          } else {
+            if (confirm(i18n.confirmDeleteMulti || '确定删除选中的 ' + selected.length + ' 个文件？')) deleteFiles(selected);
+          }
+          break;
+        }
+        case 'e': {
+          // e: rename selected file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          var selected = getSelectedFiles();
+          if (selected.length === 1) {
+            e.preventDefault();
+            renameFile(selected[0]);
+          }
           break;
         }
         case 'j': {
@@ -3902,6 +3932,8 @@ function renderPage() {
         ['Space', '选中/取消选中'],
         ['a', '全选文件'],
         ['s', '星标选中文件'],
+        ['e', '重命名'],
+        ['Del', '删除选中'],
         ['c', '清空选择'],
         ['d', '切换主题'],
         ['v', '切换视图'],
