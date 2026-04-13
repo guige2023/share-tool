@@ -710,20 +710,27 @@ function addFiles(newFiles) {
       showMsg('文件太大: '+f.name+' (最大 '+formatSize(MAX_BYTES)+')', 'error');
       continue;
     }
+    const idx = files.length;
     files.push(f);
     const el = document.createElement('div');
     el.className = 'file-item';
     el.dataset.name = f.name;
-    el.innerHTML = '<span class="name">'+f.name.replace(/</g,'&lt;')+'</span><span class="size">'+formatSize(f.size)+'</span><span class="remove" onclick="removeFile(\''+f.name.replace(/'/g,"\\'")+'\')">✕</span><span class="status" id="status_'+f.name.replace(/[^a-zA-Z0-9]/g,'_')+'"></span>';
+    el.innerHTML = '<span class="name">'+f.name.replace(/</g,'&lt;')+'</span><span class="size">'+formatSize(f.size)+'</span><span class="remove" onclick="removeFile('+idx+')">✕</span><span class="status" id="status_'+idx+'"></span><div class="file-progress" id="fp_'+idx+'" style="display:none;margin-top:4px"><div style="height:3px;background:#e5e7eb;border-radius:2px;overflow:hidden"><div id="fpbar_'+idx+'" style="height:100%;background:#667eea;width:0%;transition:width .2s"></div></div></div>';
     fileList.appendChild(el);
   }
   submitBtn.disabled = files.length === 0;
 }
 
-function removeFile(name) {
-  files = files.filter(f => f.name !== name);
-  const el = [...fileList.children].find(e => e.dataset.name === name);
-  if (el) el.remove();
+function removeFile(idx) {
+  files.splice(idx, 1);
+  fileList.innerHTML = '';
+  files.forEach((f, i) => {
+    const el = document.createElement('div');
+    el.className = 'file-item';
+    el.dataset.name = f.name;
+    el.innerHTML = '<span class="name">'+f.name.replace(/</g,'&lt;')+'</span><span class="size">'+formatSize(f.size)+'</span><span class="remove" onclick="removeFile('+i+')">✕</span><span class="status" id="status_'+i+'"></span>';
+    fileList.appendChild(el);
+  });
   submitBtn.disabled = files.length === 0;
 }
 
@@ -734,17 +741,28 @@ dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.
 fileInput.addEventListener('change', () => addFiles(fileInput.files));
 
 async function uploadFile(f, index) {
-  const statusEl = document.getElementById('status_'+f.name.replace(/[^a-zA-Z0-9]/g,'_'));
+  const statusEl = document.getElementById('status_'+index);
+  const fpEl = document.getElementById('fp_'+index);
+  const fpbarEl = document.getElementById('fpbar_'+index);
   const itemEl = statusEl ? statusEl.closest('.file-item') : null;
   try {
+    if (fpEl) fpEl.style.display = 'block';
     const buffer = await f.arrayBuffer();
     const base64 = btoa(new Uint8Array(buffer).reduce((s,b)=>s+String.fromCharCode(b),''));
+    // Fake progress: 0->70% while waiting for server
+    let prog = 0;
+    const progTimer = setInterval(() => {
+      prog = Math.min(prog + 10, 70);
+      if (fpbarEl) fpbarEl.style.width = prog+'%';
+    }, 200);
     const res = await fetch('/r/${escapeHtml(code)}', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ filename: f.name, content: base64, type: 'base64' })
     });
+    clearInterval(progTimer);
     const data = await res.json();
+    if (fpbarEl) fpbarEl.style.width = '100%';
     if (data.success) {
       if (statusEl) { statusEl.textContent = '✓'; statusEl.className = 'status ok'; }
       if (itemEl) itemEl.classList.add('success');
@@ -753,6 +771,7 @@ async function uploadFile(f, index) {
       if (itemEl) itemEl.classList.add('error');
     }
   } catch(e) {
+    if (fpEl) fpEl.style.display = 'none';
     if (statusEl) { statusEl.textContent = '✕ '+e.message; statusEl.className = 'status err'; }
     if (itemEl) itemEl.classList.add('error');
   }
@@ -772,7 +791,7 @@ async function uploadAll() {
   }
   progressText.textContent = '上传完成！';
   const remaining = files.filter((f,i) => {
-    const el = document.getElementById('status_'+f.name.replace(/[^a-zA-Z0-9]/g,'_'));
+    const el = document.getElementById('status_'+i);
     return el && !el.classList.contains('ok');
   }).length;
   if (remaining === 0) {
