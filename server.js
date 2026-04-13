@@ -2340,6 +2340,7 @@ function renderPage() {
         document.getElementById('vfBackBtn').style.display = 'none';
       }
       clearNavHighlight();
+      lastClickedIndex = -1;  // reset shift-click anchor on file list change
       currentOffset = 0;
       const q = document.getElementById('searchInput').value.trim();
       currentSearchQuery = q;  // expose for highlight in render
