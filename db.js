@@ -10,7 +10,13 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 9; // v9: FTS5 full-text search index
+const SCHEMA_VERSION = 10; // v10: FTS5 XSS-safe HTML-escaped content
+
+// HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
+function escapeHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 let db = null;
 
@@ -576,27 +582,27 @@ function initSchemaV9(db) {
     // 重建索引：填充现有数据
     db.exec(`
       INSERT INTO files_fts(rowid, filename, tags)
-      SELECT id, filename, COALESCE(tags, '') FROM files
+      SELECT id, escapeHtml(filename), COALESCE(tags, '') FROM files
     `);
     console.log('[DB] FTS5 index seeded with existing files');
 
     // 创建触发器：insert
     db.exec(`
       CREATE TRIGGER IF NOT EXISTS files_fts_insert AFTER INSERT ON files BEGIN
-        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, NEW.filename, COALESCE(NEW.tags, ''));
+        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, escapeHtml(NEW.filename), COALESCE(NEW.tags, ''));
       END
     `);
     // 创建触发器：delete
     db.exec(`
       CREATE TRIGGER IF NOT EXISTS files_fts_delete AFTER DELETE ON files BEGIN
-        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, OLD.filename, COALESCE(OLD.tags, ''));
+        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, escapeHtml(OLD.filename), COALESCE(OLD.tags, ''));
       END
     `);
     // 创建触发器：update
     db.exec(`
       CREATE TRIGGER IF NOT EXISTS files_fts_update AFTER UPDATE ON files BEGIN
-        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, OLD.filename, COALESCE(OLD.tags, ''));
-        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, NEW.filename, COALESCE(NEW.tags, ''));
+        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, escapeHtml(OLD.filename), COALESCE(OLD.tags, ''));
+        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, escapeHtml(NEW.filename), COALESCE(NEW.tags, ''));
       END
     `);
     console.log('[DB] FTS5 triggers created');
@@ -657,8 +663,10 @@ function searchFilesFTS(query, tags = null, opts = {}) {
   if (tokens.length > 0) {
     const ftsQuery = tokens.map(t => `"${t.replace(/"/g, '""')}*`).join(' OR ');
     try {
+      // FTS5 highlight() returns filename with matching terms wrapped in <mark> tags
       ftsResults = db.prepare(`
-        SELECT f.*, bm25(files_fts) as fts_rank
+        SELECT f.*, bm25(files_fts) as fts_rank,
+               highlight(files_fts, 1, '<mark class="search-highlight">', '</mark>') as highlighted_name
         FROM files_fts
         JOIN files f ON f.id = files_fts.rowid
         WHERE files_fts MATCH ?
@@ -1642,7 +1650,8 @@ function searchFiles(query, tags = null, opts = {}) {
           SELECT f.id, f.filename, f.tags, f.size, f.type, f.hash,
                  f.created_at, f.updated_at, f.parent_id, f.starred, f.encrypted,
                  f.content_type, f.birthtime, f.device_name,
-                 bm25(files_fts) as fts_rank
+                 bm25(files_fts) as fts_rank,
+                 highlight(files_fts, 1, '<mark class="search-highlight">', '</mark>') as highlighted_name
           FROM files_fts
           JOIN files f ON f.id = files_fts.rowid
           WHERE files_fts MATCH ?

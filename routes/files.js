@@ -120,6 +120,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       files: results.map((file) => ({
         id: file.id,
         name: file.filename,
+        highlightedName: file.highlighted_name || null, // FTS5 snippet for display; safe by design (FTS5 tokenizes escaped content)
         size: file.size,
         type: file.type,
         hash: file.hash,
