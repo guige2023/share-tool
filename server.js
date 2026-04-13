@@ -2461,12 +2461,12 @@ function renderPage() {
 
       var list = panel.querySelector('.uq-list');
       list.innerHTML = uploadQueue.map(function(item, i) {
-        var color = item.status === 'done' ? '#22c55e' : item.status === 'failed' ? '#ef4444' : item.status === 'paused' ? '#f59e0b' : '#3b82f6';
-        var icon = item.status === 'done' ? '✓' : item.status === 'failed' ? '✗' : item.status === 'paused' ? '⏸' : '↑';
+        var color = item.status === 'done' ? '#22c55e' : item.status === 'failed' ? '#ef4444' : item.status === 'paused' ? '#f59e0b' : item.status === 'queued' ? '#8b5cf6' : '#3b82f6';
+        var icon = item.status === 'done' ? '✓' : item.status === 'failed' ? '✗' : item.status === 'paused' ? '⏸' : item.status === 'queued' ? '⏳' : '↑';
         var canRetry = item.status === 'failed';
         var canPause = item.status === 'uploading';
         var canResume = item.status === 'paused';
-        var canCancel = item.status === 'pending' || item.status === 'uploading' || item.status === 'paused';
+        var canCancel = item.status === 'pending' || item.status === 'uploading' || item.status === 'paused' || item.status === 'queued';
         var actions = '';
         if (canRetry) actions += '<button class="uq-btn uq-retry" data-i="' + i + '" title="重试">↻</button>';
         if (canPause) actions += '<button class="uq-btn uq-pause" data-i="' + i + '" title="暂停">⏸</button>';
@@ -2551,6 +2551,7 @@ function renderPage() {
         reader.onload = function(e) {
           var content = e.target.result;
           if (content.startsWith('data:')) content = content.split(',')[1] || '';
+          item._base64 = content; // store for offline queue
           var payload = JSON.stringify({ filename: item.name, content: content, type: 'file' });
           var blob = new Blob([payload], { type: 'application/json' });
 
@@ -2606,8 +2607,29 @@ function renderPage() {
           xhr.onerror = function() {
             item.xhr = null;
             uploadActive--;
-            updateQueueItem(uploadQueue.indexOf(item), { status: 'failed' });
-            reject(new Error('网络错误'));
+            // Attempt to queue for later retry when offline
+            if (!navigator.onLine || !navigator.serviceWorker.controller) {
+              // No SW available — just mark as failed
+              updateQueueItem(uploadQueue.indexOf(item), { status: 'failed' });
+              reject(new Error('网络错误'));
+              processUploadQueue();
+              return;
+            }
+            // Extract base64 content from the blob we just sent (already read in reader.onload)
+            // We stored the content — re-queue it via SW
+            var queued = queueUpload({
+              filename: item.name,
+              content: item._base64 || '',
+              type: 'file',
+              token: (localStorage.getItem('st_auth_token') || STATIC_TOKEN)
+            });
+            if (queued) {
+              updateQueueItem(uploadQueue.indexOf(item), { status: 'queued', pct: 0 });
+              showToast('文件已加入离线队列，网络恢复后将自动上传', 'info', 4000);
+            } else {
+              updateQueueItem(uploadQueue.indexOf(item), { status: 'failed' });
+            }
+            reject(new Error('网络错误，已加入队列'));
             processUploadQueue();
           };
 
@@ -8625,6 +8647,18 @@ function renderPage() {
             showToast('\u4E0A\u4F20\u961F\u5217\u5B8C\u6210 ' + data.success + '\uFF0C\u5931\u8D25 ' + data.failed, 'warn', 6000);
           }
           if (typeof loadFiles === 'function') loadFiles();
+          // Remove synced queued items from browser upload queue
+          if (data.syncedFilenames && data.syncedFilenames.length) {
+            var syncedSet = new Set(data.syncedFilenames);
+            var removed = 0;
+            for (var i = uploadQueue.length - 1; i >= 0; i--) {
+              if (uploadQueue[i].status === 'queued' && syncedSet.has(uploadQueue[i].name)) {
+                uploadQueue.splice(i, 1);
+                removed++;
+              }
+            }
+            if (removed > 0) renderUploadQueuePanel();
+          }
         }
       });
     }

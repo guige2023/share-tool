@@ -1143,6 +1143,22 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── File Starred ─────────────────────────────────────────────────────────
+  // POST /api/files/:filename/star - toggle starred status
+  if (pathname.match(/^\/api\/files\/[^/]+\/star$/) && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const filename = decodeURIComponent(pathname.split('/')[3]);
+    const result = db.toggleStar(filename);
+    if (!result.success) {
+      sendJson(res, { success: false, error: result.error }, 404);
+      return true;
+    }
+    sendJson(res, { success: true, starred: result.starred === 1 });
+    global.broadcastSSE({ type: 'files_changed' });
+    return true;
+  }
+
   // ── Permanent Delete ─────────────────────────────────────────────────────
   // DELETE /api/files/permanent/:filename - permanently delete without trash
   if (pathname.match(/^\/api\/files\/permanent\/[^/]+$/) && method === 'DELETE') {

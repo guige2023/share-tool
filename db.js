@@ -1053,17 +1053,6 @@ function updateFileByName(filename, updates) {
   return updated;
 }
 
-function toggleFileStarred(filename) {
-  const db = getDb();
-  const existing = getFileByName(filename);
-  if (!existing) return null;
-  const newStarred = existing.starred ? 0 : 1;
-  db.prepare('UPDATE files SET starred = ?, updated_at = unixepoch() WHERE filename = ?').run(newStarred, filename);
-  const updated = getFileByName(filename);
-  addSyncLog(updated.id, filename, 'update', updated.hash, null, updated.size);
-  return updated;
-}
-
 function updateFile(id, updates) {
   const db = getDb();
   const existing = getFile(id);

@@ -81,14 +81,16 @@ async function uploadPendingFile(item) {
 // Background sync: upload all pending files
 async function syncPendingUploads(client) {
   const pending = await getPendingUploads();
-  if (!pending.length) return { success: 0, failed: 0 };
+  if (!pending.length) return { success: 0, failed: 0, syncedFilenames: [] };
 
   let success = 0, failed = 0;
+  const syncedFilenames = [];
   for (const item of pending) {
     try {
       await uploadPendingFile(item);
       await removePendingUpload(item.id);
       success++;
+      if (item.filename) syncedFilenames.push(item.filename);
     } catch (e) {
       failed++;
       // Remove if definitively failed (not a transient network error)
@@ -98,12 +100,12 @@ async function syncPendingUploads(client) {
     }
   }
 
-  // Notify all clients
-  const msg = { type: 'UPLOAD_SYNC_COMPLETE', success, failed };
+  // Notify all clients with list of synced filenames so browser queue can be updated
+  const msg = { type: 'UPLOAD_SYNC_COMPLETE', success, failed, syncedFilenames };
   const clients = await self.clients.matchAll();
   clients.forEach(c => c.postMessage(msg));
   if (client) client.postMessage(msg);
-  return { success, failed };
+  return { success, failed, syncedFilenames };
 }
 
 // Install: cache static assets
