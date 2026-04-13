@@ -2810,6 +2810,47 @@ function toggleRequestLinkActive(code, active) {
   db.prepare('UPDATE request_links SET active = ? WHERE code = ?').run(active ? 1 : 0, code);
 }
 
+function updateRequestLink(code, updates = {}) {
+  const db = getDb();
+  const allowed = ['name', 'password', 'max_uploads', 'expires_in_days', 'target_folder', 'active'];
+  const setClauses = [];
+  const params = [];
+
+  if (updates.name !== undefined) {
+    setClauses.push('name = ?');
+    params.push(updates.name);
+  }
+  if (updates.password !== undefined) {
+    setClauses.push('password = ?');
+    params.push(updates.password ? hashPassword(updates.password) : null);
+  }
+  if (updates.max_uploads !== undefined) {
+    setClauses.push('max_uploads = ?');
+    params.push(updates.max_uploads);
+  }
+  if (updates.expires_in_days !== undefined) {
+    setClauses.push('expires_at = ?');
+    if (updates.expires_in_days === null || updates.expires_in_days === 0) {
+      params.push(null);
+    } else {
+      params.push(Math.floor(Date.now() / 1000) + updates.expires_in_days * 86400);
+    }
+  }
+  if (updates.target_folder !== undefined) {
+    setClauses.push('target_folder = ?');
+    params.push(updates.target_folder);
+  }
+  if (updates.active !== undefined) {
+    setClauses.push('active = ?');
+    params.push(updates.active ? 1 : 0);
+  }
+
+  if (setClauses.length === 0) return false;
+  params.push(code);
+  const result = db.prepare('UPDATE request_links SET ' + setClauses.join(', ') + ' WHERE code = ?').run(...params);
+  return result.changes > 0;
+}
+
 function deleteRequestLink(code) {
   const db = getDb();
   db.prepare('DELETE FROM request_links WHERE code = ?').run(code);
@@ -3570,7 +3611,7 @@ module.exports = {
   addFileToVirtualFolder, removeFileFromVirtualFolder, getVirtualFolderFiles, isFileInVirtualFolder,
   // 文件收集链接
   createRequestLink, getRequestLink, verifyRequestLinkPassword,
-  toggleRequestLinkActive, deleteRequestLink, listRequestLinks,
+  toggleRequestLinkActive, updateRequestLink, deleteRequestLink, listRequestLinks,
   incrementRequestLinkUpload, cleanupExpiredRequestLinks,
   // 迁移
   migrateFromFileSystem,

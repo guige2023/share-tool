@@ -101,11 +101,15 @@ db.cleanupExpiredShareLinks();
 
 // Token rotation
 function rotateShareToken() {
-  const newToken = crypto.randomBytes(16).toString('hex');
-  SHARE_TOKEN = newToken;
-  config.shareToken = newToken;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let newTok = '';
+  for (let i = 0; i < 48; i++) newTok += chars[Math.floor(Math.random() * chars.length)];
+  RUNTIME_TOKEN = newTok;
+  config.shareToken = newTok;
   saveConfig();
-  return newToken;
+  global.rotateShareToken = rotateShareToken; // expose for api.js router
+  global.getEffectiveToken = getEffectiveToken;
+  return newTok;
 }
 
 function getLocalIp() {

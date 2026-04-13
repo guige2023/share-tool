@@ -19,10 +19,11 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
   if (pathname === '/api/health' && method === 'GET') {
     const uptime = Math.floor(process.uptime());
     const mem = process.memoryUsage();
+    const effective = typeof getEffectiveToken === 'function' ? getEffectiveToken() : SHARE_TOKEN;
     sendJson(res, {
       status: 'ok',
       version: VERSION,
-      token: SHARE_TOKEN,
+      token: effective,
       uptime,
       memory: {
         rss: Math.round(mem.rss / 1024 / 1024),
@@ -1151,8 +1152,15 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // POST /api/settings/rotate-token - rotate the static share token
+  if (pathname === '/api/settings/rotate-token' && method === 'POST') {
+    rotateTokenHandler(req, res);
+    return true;
+  }
+
   return false;
 };
+
 function readJsonBody(req) {
   return new Promise((resolve) => {
     let body = '', size = 0;
