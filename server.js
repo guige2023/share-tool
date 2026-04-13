@@ -829,6 +829,7 @@ function renderPage() {
         <div class="row" style="margin-top:12px">
           <button onclick="uploadFiles()">上传文件</button>
           <button class="secondary" onclick="openNewFolderModal()">📁 新建文件夹</button>
+          <button class="secondary" onclick="openNewTextFileModal()">📝 新建文本</button>
           <button class="secondary" onclick="clearFileInput()">清空选择</button>
         </div>
         <div class="progress-bar-wrap" id="progressBarWrap">
@@ -1006,6 +1007,8 @@ function renderPage() {
       <div id="shareBatchBar" class="batch-bar" style="display:none">
         <input type="checkbox" id="shareSelectAll" onchange="toggleShareSelectAll(this.checked)" style="margin-right:4px">
         <span id="shareBatchCount" style="font-size:13px;color:var(--muted)"></span>
+        <button class="ghost" onclick="batchCopySelectedShares()">复制链接</button>
+        <button class="ghost" onclick="batchDownloadSelectedQrs()">下载二维码</button>
         <button class="ghost" onclick="batchDeleteSelectedShares()">删除选中</button>
         <button class="ghost" onclick="clearShareSelection()">取消选择</button>
       </div>
@@ -1034,10 +1037,18 @@ function renderPage() {
         <button class="secondary" onclick="filterRequestLinks()">过滤</button>
         <button class="primary" onclick="openRequestLinkCreateModal()">+ 新建收集链接</button>
       </div>
+      <div id="rlBatchBar" class="batch-bar" style="display:none">
+        <input type="checkbox" id="rlSelectAll" onchange="toggleRlSelectAll(this.checked)" style="margin-right:4px">
+        <span id="rlBatchCount" style="font-size:13px;color:var(--muted)"></span>
+        <button class="ghost" onclick="batchCopySelectedRl()">复制链接</button>
+        <button class="ghost" onclick="batchDownloadSelectedRlQrs()">下载二维码</button>
+        <button class="ghost" onclick="clearRlSelection()">取消选择</button>
+      </div>
       <div class="list-scroll">
         <table>
           <thead>
             <tr>
+              <th style="width:28px"><input type="checkbox" id="rlListSelectAll" onchange="toggleRlSelectAll(this.checked)" style="margin:0"></th>
               <th>名称</th>
               <th>链接</th>
               <th style="width:130px">状态</th>
@@ -1827,6 +1838,65 @@ function renderPage() {
         } else {
           showToast(data.error || '创建失败', 'error');
         }
+      } catch(e) { showToast('创建失败: ' + e.message, 'error'); }
+    }
+
+    // 新建文本文件 modal
+    function openNewTextFileModal() {
+      document.getElementById('modalTitle').textContent = '新建文本文件';
+      document.getElementById('modalBody').innerHTML =
+        '<div style="padding:8px 0">' +
+          '<input id="newTextFileName" type="text" placeholder="文件名（如：笔记.txt）" ' +
+            'style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box;margin-bottom:12px" ' +
+            'onkeydown="if(event.key===\'Enter\')confirmNewTextFile();if(event.key===\'Escape\')forceCloseModal()">' +
+          '<textarea id="newTextFileContent" placeholder="输入文本内容…" ' +
+            'style="width:100%;height:200px;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box;resize:vertical;font-family:monospace" ' +
+            'onkeydown="if(event.key===\'Escape\')forceCloseModal()"></textarea>' +
+        '</div>';
+      var modal = document.getElementById('modal');
+      modal.querySelector('.modal-actions').innerHTML =
+        '<button class="secondary" onclick="forceCloseModal()">取消</button>' +
+        '<button class="primary" onclick="confirmNewTextFile()">创建</button>';
+      modal.classList.add('open');
+      setTimeout(function() { document.getElementById('newTextFileName').focus(); }, 50);
+    }
+
+    async function confirmNewTextFile() {
+      var nameInput = document.getElementById('newTextFileName');
+      var contentInput = document.getElementById('newTextFileContent');
+      var name = (nameInput && nameInput.value.trim()) || '新建文本.txt';
+      var content = contentInput ? contentInput.value : '';
+      // Ensure .txt extension
+      if (!name.includes('.')) name += '.txt';
+      forceCloseModal();
+      showToast('创建中…');
+      try {
+        // Try PUT /api/content/:filename first (updates existing)
+        var data = await request('/api/content/' + encodeURIComponent(name), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: content })
+        });
+        if (data.success) {
+          showToast('已保存: ' + name, 'success');
+        } else if (data.error === 'File not found') {
+          // Create new file using POST /api/upload-text
+          var createData = await request('/api/upload-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: name, content: content })
+          });
+          if (createData.success) {
+            showToast('已创建: ' + name, 'success');
+          } else {
+            showToast(createData.error || '创建失败', 'error');
+            return;
+          }
+        } else {
+          showToast(data.error || '保存失败', 'error');
+          return;
+        }
+        await loadFiles();
       } catch(e) { showToast('创建失败: ' + e.message, 'error'); }
     }
 
@@ -6343,12 +6413,13 @@ function renderPage() {
         if (rl.expires_at) info.push('到期: ' + formatTime(rl.expires_at * 1000));
         if (rl.target_folder) info.push('目录: ' + escapeHtmlClient(rl.target_folder));
         return '<tr>' +
+          '<td style="width:28px"><input type="checkbox" class="rl-check" value="' + encodeURIComponent(rl.code) + '" onchange="updateRlBatchBar()" style="margin:0"></td>' +
           '<td><strong>' + escapeHtmlClient(rl.name) + '</strong></td>' +
           '<td><a href="' + escapeHtmlClient(url) + '" target="_blank">' + escapeHtmlClient('/r/' + rl.code) + '</a></td>' +
           '<td>' + statusLabel + (info.length ? '<br><span style="font-size:11px;color:var(--muted)">' + info.join(' · ') + '</span>' : '') + '</td>' +
           '<td>' +
             '<button class="secondary" onclick="copyToClipboard(\'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制</button> ' +
-            '<button class="secondary" onclick="downloadRequestLinkQr(\'' + escapeHtmlClient(rl.code) + '\')">二维码</button> ' +
+            '<button class="secondary" onclick="downloadRequestLinkQr(\'' + encodeURIComponent(rl.code) + '\')">二维码</button> ' +
             '<button class="secondary" onclick="openRequestLinkEditModal(\'' + escapeHtmlClient(rl.code) + '\')">编辑</button> ' +
             '<button class="secondary" onclick="toggleRequestLinkActive(\'' + escapeHtmlClient(rl.code) + '\', ' + !rl.active + ')">' + (rl.active ? '停用' : '启用') + '</button> ' +
             '<button class="danger" onclick="deleteRequestLink(\'' + escapeHtmlClient(rl.code) + '\')">删除</button>' +
@@ -6364,6 +6435,70 @@ function renderPage() {
         return rl.name.toLowerCase().includes(q) || (rl.code || '').toLowerCase().includes(q);
       });
       renderRequestLinkTable(filtered);
+    }
+
+    function toggleRlSelectAll(checked) {
+      document.querySelectorAll('.rl-check').forEach(function(el) { el.checked = checked; });
+      updateRlBatchBar();
+    }
+
+    function updateRlBatchBar() {
+      var checked = document.querySelectorAll('.rl-check:checked');
+      var bar = document.getElementById('rlBatchBar');
+      var count = document.getElementById('rlBatchCount');
+      var listAll = document.getElementById('rlListSelectAll');
+      if (!bar || !count) return;
+      if (checked.length > 0) {
+        bar.style.display = 'flex';
+        count.textContent = '已选择 ' + checked.length + ' 个链接';
+        listAll.checked = checked.length === document.querySelectorAll('.rl-check').length;
+      } else {
+        bar.style.display = 'none';
+        listAll.checked = false;
+      }
+    }
+
+    async function batchCopySelectedRl() {
+      var checked = document.querySelectorAll('.rl-check:checked');
+      var rls = Array.from(checked).map(function(el) {
+        return currentRequestLinks.find(function(r) { return r.code === decodeURIComponent(el.value); });
+      }).filter(Boolean);
+      if (!rls.length) { showToast('请先选择链接', 'error'); return; }
+      var urls = rls.map(function(r) { return (location.origin || '') + '/r/' + r.code; }).join('\n');
+      await copyToClipboard(urls);
+      showToast('已复制 ' + rls.length + ' 个链接', 'success');
+    }
+
+    async function batchDownloadSelectedRlQrs() {
+      var checked = document.querySelectorAll('.rl-check:checked');
+      var codes = Array.from(checked).map(function(el) { return decodeURIComponent(el.value); });
+      if (!codes.length) { showToast('请先选择链接', 'error'); return; }
+      showToast('开始下载 ' + codes.length + ' 个二维码...');
+      var count = 0;
+      for (var i = 0; i < codes.length; i++) {
+        try {
+          var response = await fetch('/api/request-link/qr/' + encodeURIComponent(codes[i]));
+          if (!response.ok) continue;
+          var blob = await response.blob();
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'request-link-qr-' + codes[i] + '.png';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          count++;
+          await new Promise(function(r) { setTimeout(r, 200); });
+        } catch(e) {}
+      }
+      showToast('已下载 ' + count + ' 个二维码', 'success');
+    }
+
+    function clearRlSelection() {
+      document.querySelectorAll('.rl-check').forEach(function(el) { el.checked = false; });
+      document.getElementById('rlListSelectAll').checked = false;
+      updateRlBatchBar();
     }
 
     function openRequestLinkCreateModal() {
@@ -6746,6 +6881,43 @@ function renderPage() {
         bar.style.display = 'none';
         listAll.checked = false;
       }
+    }
+
+    async function batchCopySelectedShares() {
+      var checked = document.querySelectorAll('.share-check:checked');
+      var shares = Array.from(checked).map(function(el) {
+        return currentShares.find(function(s) { return s.code === decodeURIComponent(el.value); });
+      }).filter(Boolean);
+      if (!shares.length) { showToast('请先选择链接', 'error'); return; }
+      var urls = shares.map(function(s) { return s.url; }).join('\n');
+      await copyToClipboard(urls);
+      showToast('已复制 ' + shares.length + ' 个链接', 'success');
+    }
+
+    async function batchDownloadSelectedQrs() {
+      var checked = document.querySelectorAll('.share-check:checked');
+      var codes = Array.from(checked).map(function(el) { return decodeURIComponent(el.value); });
+      if (!codes.length) { showToast('请先选择链接', 'error'); return; }
+      showToast('开始下载 ' + codes.length + ' 个二维码...');
+      var count = 0;
+      for (var i = 0; i < codes.length; i++) {
+        try {
+          var response = await fetch('/api/share/qr/' + encodeURIComponent(codes[i]));
+          if (!response.ok) continue;
+          var blob = await response.blob();
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'share-qr-' + codes[i] + '.png';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          count++;
+          await new Promise(function(r) { setTimeout(r, 200); });
+        } catch(e) {}
+      }
+      showToast('已下载 ' + count + ' 个二维码', 'success');
     }
 
     function clearShareSelection() {
