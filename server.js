@@ -881,7 +881,7 @@ function renderPage() {
 
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
-        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:32px">
+        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:32px" onfocus="if(getRecentSearches().length>0){document.getElementById('recentSearches').style.display='block'}" oninput="document.getElementById('recentSearches').style.display='none'">
         <span id="searchClear" onclick="clearSearchInput()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:16px;line-height:1;display:none;user-select:none" title="清除搜索">✕</span>
         <div id="tagFilterWrapper" style="position:relative;max-width:160px">
           <input id="tagFilterInput" type="text" placeholder="全部标签" autocomplete="off"
@@ -7502,6 +7502,7 @@ function renderPage() {
       document.getElementById('searchInput').value = '';
       document.getElementById('searchClear').style.display = 'none';
       document.getElementById('searchSuggestions').style.display = 'none';
+      document.getElementById('recentSearches').style.display = 'none';
       currentSearchQuery = '';
       loadFiles();
       document.getElementById('searchInput').focus();
