@@ -642,23 +642,26 @@ function initSchemaV9(db) {
     }
     console.log('[DB] FTS5 index seeded with existing files (' + existingFiles.length + ' rows)');
 
-    // 创建触发器：insert
+    // 创建触发器：insert（用 SQLite REPLACE 模拟 escapeHtml，避免 JS UDF 依赖）
+    const ftsEscape = function(col) {
+      return `REPLACE(REPLACE(REPLACE(${col}, '&', '&amp;'), '<', '&lt;'), '>', '&gt;')`;
+    };
     db.exec(`
       CREATE TRIGGER IF NOT EXISTS files_fts_insert AFTER INSERT ON files BEGIN
-        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, escapeHtml(NEW.filename), COALESCE(NEW.tags, ''));
+        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, ${ftsEscape('NEW.filename')}, COALESCE(NEW.tags, ''));
       END
     `);
     // 创建触发器：delete
     db.exec(`
       CREATE TRIGGER IF NOT EXISTS files_fts_delete AFTER DELETE ON files BEGIN
-        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, escapeHtml(OLD.filename), COALESCE(OLD.tags, ''));
+        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, ${ftsEscape('OLD.filename')}, COALESCE(OLD.tags, ''));
       END
     `);
     // 创建触发器：update
     db.exec(`
       CREATE TRIGGER IF NOT EXISTS files_fts_update AFTER UPDATE ON files BEGIN
-        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, escapeHtml(OLD.filename), COALESCE(OLD.tags, ''));
-        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, escapeHtml(NEW.filename), COALESCE(NEW.tags, ''));
+        INSERT INTO files_fts(files_fts, rowid, filename, tags) VALUES('delete', OLD.id, ${ftsEscape('OLD.filename')}, COALESCE(OLD.tags, ''));
+        INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, ${ftsEscape('NEW.filename')}, COALESCE(NEW.tags, ''));
       END
     `);
     console.log('[DB] FTS5 triggers created');
