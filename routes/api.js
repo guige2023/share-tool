@@ -742,15 +742,6 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
-  // GET /api/duplicates - 查找重复文件（按 hash 分组）
-  if (pathname === '/api/duplicates' && method === 'GET') {
-    const auth = authRequired(req, res);
-    if (!auth) return true;
-    const duplicates = db.findDuplicates();
-    sendJson(res, { success: true, duplicates });
-    return true;
-  }
-
   // GET /api/virtual-folders/:id/download - Download all files in a virtual folder as streaming zip
   if (pathname.startsWith('/api/virtual-folders/') && pathname.endsWith('/download') && method === 'GET') {
     const auth = authRequired(req, res);
