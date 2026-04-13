@@ -6644,6 +6644,23 @@ function renderPage() {
         if (fn4) { copyShareLink(fn4.trim()); }
         return;
       }
+      // l: copy share link (alias for c)
+      if (e.key === 'l' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        var active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        var checked = document.querySelectorAll('.file-check:checked');
+        var fnL = null;
+        if (checked.length === 1) {
+          var item = checked[0].closest('tr') || checked[0].closest('.file-item');
+          fnL = item && (item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent);
+        } else if (keyboardNavIndex >= 0) {
+          var items = getAllFileItems();
+          var item = items[keyboardNavIndex];
+          fnL = item && (item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent);
+        }
+        if (fnL) { copyShareLink(fnL.trim()); }
+        return;
+      }
       // y: copy filename of selected/navigated file
       if (e.key === 'y' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
         var active = document.activeElement;
