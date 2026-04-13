@@ -3351,13 +3351,30 @@ function renderPage() {
         list.innerHTML = '<div style="padding:8px 14px;color:var(--muted);font-size:12px">暂无收藏夹</div>';
         return;
       }
-      list.innerHTML = data.folders.map(f =>
-        '<div class="ctx-item" onclick="navigateVirtualFolder(' + f.id + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">' +
+      // Fetch tags for each VF in parallel (folder_path = VF name)
+      const folderTags = await Promise.all(data.folders.map(f =>
+        fetch('/api/folders/' + encodeURIComponent(f.name) + '/tags', { headers: headers() })
+          .then(r => r.json())
+          .then(d => ({ id: f.id, tags: d.tags || [] }))
+          .catch(() => ({ id: f.id, tags: [] }))
+      ));
+      const tagMap = {};
+      folderTags.forEach(ft => { tagMap[ft.id] = ft.tags; });
+
+      list.innerHTML = data.folders.map(f => {
+        const tags = tagMap[f.id] || [];
+        const tagChips = tags.length > 0
+          ? '<span style="margin-left:4px">' + tags.map(t =>
+              '<span style="background:' + escapeHtmlClient(t.color || '#e0e7ff') + ';font-size:10px;padding:1px 5px;border-radius:8px;font-weight:500;color:inherit;display:inline-block;vertical-align:middle">' +
+              (t.icon ? escapeHtmlClient(t.icon) + ' ' : '') + escapeHtmlClient(t.name) + '</span>'
+            ).join('') + '</span>'
+          : '';
+        return '<div class="ctx-item" onclick="navigateVirtualFolder(' + f.id + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">' +
           '<span><span style="color:' + escapeHtmlClient(f.color || '#667eea') + '">●</span> ' +
-          escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span></span>' +
+          escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span>' + tagChips + '</span>' +
           '<button onclick="event.stopPropagation();downloadVirtualFolder(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 6px;border-radius:4px" title="下载为 ZIP">⬇</button>' +
-        '</div>'
-      ).join('');
+        '</div>';
+      }).join('');
     }
 
     async function navigateVirtualFolder(folderId) {
@@ -3365,7 +3382,7 @@ function renderPage() {
       document.getElementById('vfMenu').style.display = 'none';
       var breadcrumb = document.getElementById('breadcrumb');
       breadcrumb.style.display = 'flex';
-      breadcrumb.innerHTML = '<span style="cursor:pointer;color:var(--accent);font-weight:500" onclick="exitVirtualFolder()" title="返回全部文件">全部文件</span><span style="color:var(--muted)"> › </span><span id="breadcrumbVFName" style="color:var(--text)">加载中...</span>';
+      breadcrumb.innerHTML = '<span style="cursor:pointer;color:var(--accent);font-weight:500" onclick="exitVirtualFolder()" title="返回全部文件">全部文件</span><span style="color:var(--muted)"> › </span><span id="breadcrumbVFName" style="color:var(--text)">加载中...</span><span id="breadcrumbVFTags" style="margin-left:4px"></span>';
       clearNavHighlight();
       const res = await fetch('/api/virtual-folders/' + folderId + '/files', { headers: headers() });
       const data = await res.json();
@@ -3375,6 +3392,16 @@ function renderPage() {
         if (nameSpan) {
           nameSpan.textContent = data.folder.name;
           nameSpan.style.color = data.folder.color || 'var(--text)';
+        }
+        // Fetch and display VF tags in breadcrumb
+        var tagsRes = await fetch('/api/folders/' + encodeURIComponent(data.folder.name) + '/tags', { headers: headers() });
+        var tagsData = await tagsRes.json();
+        var tagsSpan = document.getElementById('breadcrumbVFTags');
+        if (tagsSpan && tagsData.tags && tagsData.tags.length > 0) {
+          tagsSpan.innerHTML = ' ' + tagsData.tags.map(t =>
+            '<span style="background:' + escapeHtmlClient(t.color || '#e0e7ff') + ';font-size:10px;padding:1px 6px;border-radius:8px;font-weight:500;color:inherit;display:inline-block;vertical-align:middle">' +
+            (t.icon ? escapeHtmlClient(t.icon) + ' ' : '') + escapeHtmlClient(t.name) + '</span>'
+          ).join(' ');
         }
       }
       currentFiles = files.map(function(f, i) { f._index = i; return f; });
@@ -3416,7 +3443,7 @@ function renderPage() {
       function renderVFRow(f) {
         const tags = tagMap[f.id] || [];
         const tagChips = tags.length > 0
-          ? tags.map(t => '<span style="background:' + escapeHtmlClient(t.color || '#e0e7ff') + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;color:inherit;display:inline-block;margin-right:3px">' + escapeHtmlClient(t.name) + '</span>').join('')
+          ? tags.map(t => '<span style="background:' + escapeHtmlClient(t.color || '#e0e7ff') + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;color:inherit;display:inline-block;margin-right:3px">' + (t.icon ? escapeHtmlClient(t.icon) + ' ' : '') + escapeHtmlClient(t.name) + '</span>').join('')
           : '<span style="color:var(--muted);font-size:11px">无标签</span>';
         return '<div style="display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:8px;background:var(--bg-tertiary);margin-bottom:6px">' +
           '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + ';font-size:16px;margin-top:2px">●</span>' +

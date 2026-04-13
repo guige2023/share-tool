@@ -557,6 +557,16 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/folder-tags/:tagId/virtual-folders - get VFs with a given tag
+  if (pathname.match(/^\/api\/folder-tags\/(\d+)\/virtual-folders$/) && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const tagId = parseInt(pathname.match(/^\/api\/folder-tags\/(\d+)\/virtual-folders$/)[1]);
+    const vfs = db.getVirtualFoldersByTag(tagId);
+    sendJson(res, { success: true, virtualFolders: vfs });
+    return true;
+  }
+
   // GET /api/search/history - 获取搜索历史
   if (pathname === '/api/search/history' && method === 'GET') {
     const limit = parseInt(query.get('limit') || '20', 10);
