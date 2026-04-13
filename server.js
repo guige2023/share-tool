@@ -6329,6 +6329,15 @@ function renderPage() {
             <input id="rlTargetFolder" type="text" placeholder="留空则存根目录" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
           </div>\
           <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">有效期</label>\
+            <select id="rlExpires" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+              <option value="">永不过期</option>\
+              <option value="7">7天</option>\
+              <option value="30">30天</option>\
+              <option value="90">90天</option>\
+            </select>\
+          </div>\
+          <div style="margin-bottom:12px">\
             <label style="display:block;margin-bottom:4px;font-size:13px">上传次数限制</label>\
             <input id="rlMaxUploads" type="number" min="0" placeholder="不限制" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
           </div>\
@@ -6349,6 +6358,7 @@ function renderPage() {
       var name = document.getElementById('rlName').value.trim();
       if (!name) { showToast('请输入名称', 'error'); return; }
       var targetFolder = document.getElementById('rlTargetFolder').value.trim();
+      var expires = document.getElementById('rlExpires').value;
       var maxUploads = document.getElementById('rlMaxUploads').value;
       var password = document.getElementById('rlPassword').value.trim();
       var btn = document.getElementById('rlCreateBtn');
@@ -6356,6 +6366,7 @@ function renderPage() {
       try {
         var body = { name: name };
         if (targetFolder) body.target_folder = targetFolder;
+        if (expires) body.expires_in_days = parseInt(expires, 10);
         if (maxUploads) body.max_uploads = parseInt(maxUploads, 10);
         if (password) body.password = password;
         var result = await request('/api/request-links', { method: 'POST', body: JSON.stringify(body) });
@@ -6383,6 +6394,7 @@ function renderPage() {
           <p style="margin:12px 0 4px;font-size:13px;color:var(--muted);word-break:break-all">' + escapeHtmlClient(url) + '</p>\
           <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">\
             <button class="secondary" onclick="copyToClipboard(\'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制链接</button>\
+            <button class="secondary" onclick="downloadRequestLinkQr(\'' + encodeURIComponent(code) + '\')">下载二维码</button>\
             <button class="secondary" onclick="document.getElementById(\'requestLinkQrModal\').remove()">关闭</button>\
           </div>\
         </div>';
