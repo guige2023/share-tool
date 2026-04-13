@@ -4393,7 +4393,7 @@ function renderPage() {
         renderTextPreview(filename, content, origSize, isTruncated, lang, ext);
       } else if ((file.mime || '').startsWith('image/')) {
         var imgSrc = 'data:' + file.mime + ';base64,' + file.content;
-        modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\')"><img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大 · ' + formatBytes(file.size || 0) + '</div>';
+        modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\', ' + JSON.stringify(filename) + ')"><img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大 · ' + formatBytes(file.size || 0) + '</div>';
       } else if (file.mime === 'application/pdf') {
         modalBody.innerHTML = '<iframe src="data:application/pdf;base64,' + file.content + '" style="width:100%;height:70vh;border:none;border-radius:8px" title="PDF预览"></iframe>';
       } else if (file.mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
@@ -4456,7 +4456,7 @@ function renderPage() {
     function openQrLightbox(code) {
       // Fetch the QR code image URL and show it in lightbox
       var qrUrl = '/api/share/qr/' + encodeURIComponent(code);
-      openLightbox(qrUrl, 'image/png');
+      openLightbox(qrUrl, 'image/png', null); // null = no download btn for QR
     }
 
     /* ===== File Hover Card ===== */
@@ -4492,14 +4492,20 @@ function renderPage() {
     }
     .hover-card .hc-row span:first-child { color: var(--text-muted, #9ca3af); }
 
-    function openLightbox(imgSrc, mime) {
+    function openLightbox(imgSrc, mime, filename) {
       var lb = document.getElementById('lightboxOverlay');
       if (lb) { lb.remove(); }
       lb = document.createElement('div');
       lb.id = 'lightboxOverlay';
-      lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
-      lb.onclick = function() { lb.remove(); };
-      lb.innerHTML = '<img src="' + imgSrc + '" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,.5)" alt="">';
+      lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center';
+      lb.onclick = function(e) { if (e.target === lb || e.target.tagName === 'IMG') lb.remove(); };
+      var downloadBtn = filename
+        ? '<button onclick="downloadFile(' + JSON.stringify(filename) + ')" style="position:fixed;top:16px;right:80px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;backdrop-filter:blur(4px)">⬇ 下载</button>'
+        : '';
+      lb.innerHTML = downloadBtn +
+        '<img src="' + imgSrc + '" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:4px;box-shadow:0 8px 40px rgba(0,0,0,.5);cursor:zoom-out" alt="">' +
+        '<button onclick="lbremove()" style="position:fixed;top:16px;right:16px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)">✕</button>';
+      window.lbremove = function() { var l = document.getElementById('lightboxOverlay'); if (l) l.remove(); };
       document.body.appendChild(lb);
     }
 
@@ -4669,6 +4675,15 @@ function renderPage() {
         const plainLineNumbers = document.getElementById('plainLineNumbers');
         if (plainScroll && plainLineNumbers) {
           plainScroll.addEventListener('scroll', () => { plainLineNumbers.scrollTop = plainScroll.scrollTop; });
+        }
+      }
+      // Add modal action buttons for text preview
+      var previewModal = document.getElementById('modal');
+      if (previewModal) {
+        var actions = previewModal.querySelector('.modal-actions');
+        if (actions) {
+          actions.innerHTML = '<button class="secondary" onclick="forceCloseModal()">' + (i18n.cancel || '关闭') + '</button>' +
+            '<button class="primary" onclick="downloadFile(' + JSON.stringify(filename) + ')">' + (i18n.download || '下载') + '</button>';
         }
       }
     }
