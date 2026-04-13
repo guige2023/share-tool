@@ -1096,6 +1096,7 @@ function renderPage() {
         <span id="shareBatchCount" style="font-size:13px;color:var(--muted)"></span>
         <button class="ghost" onclick="batchCopySelectedShares()">复制链接</button>
         <button class="ghost" onclick="batchDownloadSelectedQrs()">下载二维码</button>
+        <button class="ghost" onclick="openBatchShareUpdateModal()">批量更新</button>
         <button class="ghost" onclick="batchDeleteSelectedShares()">删除选中</button>
         <button class="ghost" onclick="clearShareSelection()">取消选择</button>
       </div>
@@ -7069,6 +7070,86 @@ function renderPage() {
       }
     }
 
+    function openBatchShareUpdateModal() {
+      var checked = document.querySelectorAll('.share-check:checked');
+      if (!checked.length) { showToast('请先选择要更新的分享链接', 'error'); return; }
+      var count = checked.length;
+      var modal = document.createElement('div');
+      modal.id = 'batchShareUpdateModal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:420px;font-size:14px;max-height:90vh;overflow-y:auto">\
+          <h3 style="margin:0 0 6px">批量更新分享链接</h3>\
+          <p style="margin:0 0 16px;font-size:12px;color:var(--muted)">将同时更新选中的 ' + count + ' 个链接。不修改的字段留空即可。</p>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">到期时间</label>\
+            <input id="batchShareExpiry" type="datetime-local" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">留空表示不修改；清空并保存表示永不过期</div>\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">下载次数限制</label>\
+            <input id="batchShareMaxDl" type="number" min="0" placeholder="不限制（留空）" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">留空表示不修改；0或不限制均表示无限制</div>\
+          </div>\
+          <div style="margin-bottom:16px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">密码保护</label>\
+            <input id="batchSharePwd" type="text" placeholder="留空表示不修改" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">留空表示不修改；输入密码则统一设置</div>\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'batchShareUpdateModal\').remove()">取消</button>\
+            <button id="batchShareUpdateBtn" onclick="confirmBatchShareUpdate()">保存更新</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+    }
+
+    async function confirmBatchShareUpdate() {
+      var checked = document.querySelectorAll('.share-check:checked');
+      if (!checked.length) return;
+      var codes = Array.from(checked).map(function(c) { return c.getAttribute('data-code'); });
+      var btn = document.getElementById('batchShareUpdateBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '更新中...'; }
+      var expiryInput = document.getElementById('batchShareExpiry').value;
+      var maxDlInput = document.getElementById('batchShareMaxDl').value;
+      var pwdInput = document.getElementById('batchSharePwd').value.trim();
+      var results = { success: 0, failed: 0 };
+      var errors = [];
+      for (var i = 0; i < codes.length; i++) {
+        var code = codes[i];
+        var updates = {};
+        if (expiryInput !== '') {
+          updates.expiresAt = expiryInput ? new Date(expiryInput).getTime() : 0; // 0 = never
+        }
+        if (maxDlInput !== '') {
+          updates.maxDownloads = maxDlInput ? parseInt(maxDlInput, 10) : 0;
+        }
+        if (pwdInput !== '') {
+          updates.password = pwdInput;
+        }
+        if (Object.keys(updates).length === 0) {
+          showToast('请至少填写一个要更新的字段', 'error');
+          if (btn) { btn.disabled = false; btn.textContent = '保存更新'; }
+          return;
+        }
+        try {
+          var r = await request('/api/share/update/' + encodeURIComponent(code), {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+          });
+          if (r && r.success) results.success++;
+          else { results.failed++; errors.push(code + ': ' + (r && r.error || '未知错误')); }
+        } catch(e) { results.failed++; errors.push(code + ': ' + e.message); }
+      }
+      if (btn) { btn.disabled = false; btn.textContent = '保存更新'; }
+      document.getElementById('batchShareUpdateModal').remove();
+      var msg = '成功更新 ' + results.success + ' 个';
+      if (results.failed > 0) msg += '，失败 ' + results.failed + ' 个';
+      showToast(msg, results.failed > 0 ? 'error' : 'success');
+      await loadShares();
+    }
+
     // ── Request Links (文件收集链接) ───────────────────────────────────────
 
     var currentRequestLinks = [];
@@ -7675,6 +7756,68 @@ function renderPage() {
       document.querySelectorAll('.share-check').forEach(function(el) { el.checked = false; });
       document.getElementById('shareListSelectAll').checked = false;
       updateShareBatchBar();
+    }
+
+    function openBatchShareUpdateModal() {
+      var checked = document.querySelectorAll('.share-check:checked');
+      if (!checked.length) { showToast('请先选择链接', 'error'); return; }
+      document.getElementById('modalTitle').textContent = '批量更新分享链接 (' + checked.length + ')';
+      document.getElementById('modalBody').innerHTML = '\
+        <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0">\
+          <div>\
+            <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:500">到期时间</label>\
+            <input id="batchShareExpiry" type="datetime-local" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box">\
+            <p style="font-size:11px;color:var(--muted);margin-top:4px">留空表示保持不变，设值则批量更新</p>\
+          </div>\
+          <div>\
+            <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:500">最大下载次数</label>\
+            <input id="batchShareMaxDl" type="number" min="0" placeholder="留空保持不变" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box">\
+          </div>\
+          <div>\
+            <label style="display:block;margin-bottom:6px;font-size:13px;font-weight:500">密码保护</label>\
+            <input id="batchSharePwd" type="text" placeholder="留空保持不变，填 none 则清除密码" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box">\
+          </div>\
+          <div>\
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">\
+              <input type="checkbox" id="batchShareActive">\
+              <span>设为激活状态（勾选后激活，取消则保持不变）</span>\
+            </label>\
+          </div>\
+        </div>';
+      document.getElementById('modalFooter').innerHTML = '\
+        <button class="secondary" onclick="forceCloseModal()">取消</button>\
+        <button onclick="confirmBatchShareUpdate(' + checked.length + ')">确认更新</button>';
+      openModal();
+    }
+
+    async function confirmBatchShareUpdate(count) {
+      var checked = document.querySelectorAll('.share-check:checked');
+      var codes = Array.from(checked).map(function(el) { return decodeURIComponent(el.value); });
+      if (!codes.length) return;
+      var expiry = document.getElementById('batchShareExpiry').value;
+      var maxDl = document.getElementById('batchShareMaxDl').value;
+      var pwd = document.getElementById('batchSharePwd').value;
+      var activate = document.getElementById('batchShareActive').checked;
+      var count2 = 0;
+      for (var i = 0; i < codes.length; i++) {
+        var updates = {};
+        if (expiry) updates.expiresAt = new Date(expiry).getTime();
+        if (maxDl !== '') updates.maxDownloads = maxDl ? parseInt(maxDl, 10) : 0;
+        if (pwd === 'none') updates.password = null;
+        else if (pwd) updates.password = pwd;
+        if (activate) updates.active = true;
+        var keys = Object.keys(updates);
+        if (keys.length === 0) continue;
+        await request('/api/share/update/' + encodeURIComponent(codes[i]), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates)
+        });
+        count2++;
+      }
+      forceCloseModal();
+      showToast('已更新 ' + count2 + ' 个分享链接', 'success');
+      await loadShares();
     }
 
     async function batchDeleteSelectedShares() {
