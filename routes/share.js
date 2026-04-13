@@ -541,7 +541,7 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
     }
 
     // Password-protected: show password prompt
-    if (row.password) {
+    if (row.has_password) {
       if (method === 'GET') {
         const page = `<!doctype html>
 <html lang="zh-CN">
