@@ -3315,6 +3315,35 @@ function getDashboardStats() {
     monthlyTrend.push({ label: weekLabel, added: count, deleted: delCount });
   }
 
+  // 每日趋势（近7天，每天显示新增+删除）
+  const dailyTrend = [];
+  for (let i = 6; i >= 0; i--) {
+    const dayStart = now - (i + 1) * oneDay;
+    const dayEnd = now - i * oneDay;
+    const added = db.prepare('SELECT COUNT(*) as c FROM files WHERE created_at >= ? AND created_at < ?').get(dayStart, dayEnd).c;
+    const deleted = db.prepare('SELECT COUNT(*) as c FROM trash WHERE deleted_at >= ? AND deleted_at < ?').get(dayStart, dayEnd).c;
+    const date = new Date(dayStart * 1000);
+    const label = (date.getMonth() + 1) + '/' + date.getDate();
+    dailyTrend.push({ label, added, deleted });
+  }
+
+  // 热门文件 TOP 10（按访问次数）
+  const topAccessed = db.prepare(`
+    SELECT fal.file_id, f.filename, COUNT(*) as access_count,
+           MAX(fal.timestamp) as last_access,
+           SUM(CASE WHEN fal.action = 'view' THEN 1 ELSE 0 END) as view_count,
+           SUM(CASE WHEN fal.action = 'download' THEN 1 ELSE 0 END) as download_count,
+           f.size, f.type
+    FROM file_access_log fal
+    LEFT JOIN files f ON fal.file_id = f.id
+    GROUP BY fal.file_id
+    ORDER BY access_count DESC
+    LIMIT 10
+  `).all();
+
+  // 最后同步时间
+  const lastSync = db.prepare('SELECT MAX(timestamp) as ts FROM sync_log').get().ts;
+
   return {
     files: { total: totalFiles, text: textFiles, binary: binaryFiles, starred: starredFiles, trash: trashCount },
     storage: { total: totalSize },
@@ -3327,8 +3356,10 @@ function getDashboardStats() {
     devices: { total: totalDevices, online: onlineDevices },
     tokens: { total: totalTokens, active: activeTokens },
     audit: { total: auditTotal, today: auditToday },
-    sync: { unsynced },
-    monthlyTrend
+    sync: { unsynced, lastSync },
+    monthlyTrend,
+    dailyTrend,
+    topAccessed
   };
 }
 

@@ -7488,8 +7488,11 @@ function renderPage() {
         var byFolder = data.byFolder || [];
         var topLargest = data.topLargest || [];
         var monthlyTrend = data.monthlyTrend || [];
+        var dailyTrend = data.dailyTrend || [];
+        var topAccessed = data.topAccessed || [];
         var activity = data.activity, shares = data.shares, devices = data.devices;
         var tokens = data.tokens, audit = data.audit;
+        var sync = data.sync || {};
         var fmtSize = function(b) {
           if (b < 1024) return b + ' B';
           if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
@@ -7607,10 +7610,59 @@ function renderPage() {
         }
         html += '</div></div>';
 
-        // Row 4: Weekly trend + system stats
+        // Row 4: Daily trend (7 days, added + deleted bars) + Hot files TOP 10
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">';
         html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
-        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">\uD83D\uDCC8 \u8FD1\u4E09\u5468\u6BCF\u5468\u8D8B\u52BF</div>';
+        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">📅 近7天每日趋势</div>';
+        if (dailyTrend && dailyTrend.length) {
+          var maxDaily = Math.max.apply(null, dailyTrend.map(function(d) { return Math.max(d.added, d.deleted); }).concat([1]));
+          html += '<div style="display:flex;align-items:flex-end;gap:6px;height:80px">';
+          dailyTrend.forEach(function(w) {
+            var addedH = Math.max(Math.round(w.added / maxDaily * 60), w.added > 0 ? 4 : 1);
+            var delH = Math.max(Math.round(w.deleted / maxDaily * 60), w.deleted > 0 ? 4 : 1);
+            html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0;height:100%;justify-content:flex-end">';
+            html += '<div style="width:100%;display:flex;flex-direction:column;align-items:center;gap:1px">';
+            html += '<div style="font-size:9px;color:var(--muted)">' + w.added + '</div>';
+            html += '<div style="width:100%;height:' + addedH + 'px;background:#10b981;border-radius:2px 2px 0 0;opacity:0.85"></div>';
+            html += '<div style="width:100%;height:' + delH + 'px;background:#ef4444;border-radius:0 0 2px 2px;opacity:0.85"></div>';
+            html += '</div>';
+            html += '<div style="font-size:9px;color:var(--muted);margin-top:3px">' + escapeHtmlClient(w.label) + '</div></div>';
+          });
+          html += '</div>';
+          html += '<div style="display:flex;gap:12px;margin-top:8px;justify-content:center">';
+          html += '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><div style="width:8px;height:8px;border-radius:2px;background:#10b981"></div>新增</div>';
+          html += '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><div style="width:8px;height:8px;border-radius:2px;background:#ef4444"></div>删除</div>';
+          html += '</div>';
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px">暂无数据</div>';
+        }
+        html += '</div>';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
+        html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">🔥 热门文件 TOP 10</div>';
+        if (topAccessed && topAccessed.length) {
+          var maxAccess = topAccessed[0] && topAccessed[0].access_count > 0 ? topAccessed[0].access_count : 1;
+          for (var ai = 0; ai < topAccessed.length; ai++) {
+            var af = topAccessed[ai];
+            if (!af.filename) continue;
+            var apct = Math.round(af.access_count / maxAccess * 100);
+            var lastStr = af.last_access ? new Date(af.last_access * 1000).toLocaleDateString('zh-CN', {month:'numeric',day:'numeric'}) : '-';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer" onclick="forceCloseModal();previewFile(\'' + escapeHtmlClient(encodeURIComponent(af.filename || '')).replace(/'/g, "\\'") + '\')" title="访问' + af.access_count + '次 | 查看' + (af.view_count||0) + ' | 下载' + (af.download_count||0) + ' | 上次' + lastStr + '">';
+            html += '<div style="font-size:10px;color:var(--muted);width:16px;flex-shrink:0;text-align:right">' + (ai + 1) + '</div>';
+            html += '<div style="flex:1;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(af.filename) + '</div>';
+            html += '<div style="font-size:10px;color:var(--muted);flex-shrink:0">' + af.access_count + '</div>';
+            html += '</div>';
+            html += '<div style="height:3px;background:var(--bg-tertiary);border-radius:3px;margin-bottom:8px;padding-left:24px">';
+            html += '<div style="height:3px;width:' + apct + '%;background:#f97316;border-radius:3px"></div></div>';
+          }
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px">暂无访问数据</div>';
+        }
+        html += '</div></div>';
+
+        // Row 5: Weekly trend + System stats
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
+        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">📊 近4周每周趋势</div>';
         if (monthlyTrend && monthlyTrend.length) {
           var maxAdded = Math.max.apply(null, monthlyTrend.map(function(d) { return d.added; }).concat([1]));
           html += '<div style="display:flex;align-items:flex-end;gap:8px;height:80px">';
@@ -7623,26 +7675,29 @@ function renderPage() {
           });
           html += '</div>';
           html += '<div style="display:flex;gap:12px;margin-top:8px;justify-content:center">';
-          html += '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><div style="width:8px;height:8px;border-radius:2px;background:#10b981"></div>\u65B0\u589E</div>';
-          html += '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><div style="width:8px;height:8px;border-radius:2px;background:#ef4444"></div>\u5220\u9664</div>';
+          html += '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><div style="width:8px;height:8px;border-radius:2px;background:#10b981"></div>新增</div>';
+          html += '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)"><div style="width:8px;height:8px;border-radius:2px;background:#ef4444"></div>删除</div>';
           html += '</div>';
         } else {
-          html += '<div style="color:var(--muted);font-size:12px">\u6682\u65E0\u6570\u636E</div>';
+          html += '<div style="color:var(--muted);font-size:12px">暂无数据</div>';
         }
         html += '</div>';
         html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
-        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">\uD83D\uDCC8 \u7CFB\u7EDF\u72B6\u6001</div>';
+        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">📊 系统状态</div>';
+        var lastSyncStr = sync.lastSync ? new Date(sync.lastSync * 1000).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '从未';
         var sysItems = [
-          { label: '\u6587\u672C\u6587\u4EF6', value: files.text },
-          { label: '\u4E8C\u8FDB\u5236\u6587\u4EF6', value: files.binary },
-          { label: '\u661F\u6807\u6587\u4EF6', value: files.starred },
-          { label: '\u56DE\u6536\u7AD9', value: files.trash },
-          { label: '\u603B\u5206\u4EAB\u6570', value: shares.total },
-          { label: '\u5BC6\u7801\u4FDD\u62A4', value: shares.withPassword },
-          { label: 'Token \u603B\u6570', value: tokens.total },
-          { label: 'Token \u6D3B\u8DC3', value: tokens.active },
-          { label: '\u5BA1\u8BA1\u65E5\u5FD7', value: audit.total },
-          { label: '\u4ECA\u65E5\u5BA1\u8BA1', value: audit.today },
+          { label: '文本文件', value: files.text },
+          { label: '二进制文件', value: files.binary },
+          { label: '星标文件', value: files.starred },
+          { label: '回收站', value: files.trash },
+          { label: '总分享数', value: shares.total },
+          { label: '密码保护', value: shares.withPassword },
+          { label: '未同步项', value: sync.unsynced || 0 },
+          { label: '上次同步', value: lastSyncStr },
+          { label: 'Token 总数', value: tokens.total },
+          { label: 'Token 活跃', value: tokens.active },
+          { label: '审计日志', value: audit.total },
+          { label: '今日审计', value: audit.today },
         ];
         html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
         for (var si = 0; si < sysItems.length; si++) {
