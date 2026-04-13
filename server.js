@@ -7322,6 +7322,7 @@ function renderPage() {
           arrow.className = 'sort-arrow' + (c === currentSort ? ' active' : '');
         }
       });
+      updateSortDropdownLabel();
       loadFiles();
     }
 
