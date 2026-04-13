@@ -4037,7 +4037,7 @@ function renderPage() {
         renderTextPreview(filename, content, origSize, isTruncated, lang, ext);
       } else if ((file.mime || '').startsWith('image/')) {
         var imgSrc = 'data:' + file.mime + ';base64,' + file.content;
-        modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\')"><img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大</div>';
+        modalBody.innerHTML = '<div id="imgPreviewWrap" style="text-align:center;cursor:zoom-in" onclick="openLightbox(\'' + imgSrc.replace(/'/g, "\\'") + '\', \'' + (file.mime || '').replace(/'/g, "\\'") + '\')"><img alt="" src="' + imgSrc + '" style="max-width:100%;max-height:70vh;display:block;margin:0 auto;border-radius:8px"></div><div style="text-align:center;margin-top:8px;font-size:11px;color:var(--muted)">点击图片放大 · ' + formatBytes(file.size || 0) + '</div>';
       } else if (file.mime === 'application/pdf') {
         modalBody.innerHTML = '<iframe src="data:application/pdf;base64,' + file.content + '" style="width:100%;height:70vh;border:none;border-radius:8px" title="PDF预览"></iframe>';
       } else if (file.mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
