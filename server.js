@@ -1623,7 +1623,7 @@ function renderPage() {
           });
           if (resp.ok) {
             var data = await resp.json();
-            links.push(location.origin + '/s/' + data.code);
+            if (data.success && data.share && data.share.url) links.push(data.share.url);
           }
         } catch(e) {}
       }
