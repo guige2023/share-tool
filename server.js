@@ -3969,13 +3969,9 @@ function renderPage() {
       if (!files.length) return;
 
       e.preventDefault();
-      // Use existing fileInput + handleFileSelect flow
-      var fi = document.getElementById('fileInput');
-      if (!fi) return;
-      // Create a DataTransfer to set files on the input
-      var dt = new DataTransfer();
-      files.forEach(function(f) { dt.items.add(f); });
-      fi.files = dt.files;
+      // Store in window._droppedFiles (same pattern as drag-and-drop, FileList is readonly)
+      window._droppedFiles = { files: files, count: files.length };
+      handleFileSelect(files);
       showToast('已粘贴 ' + files.length + ' 个文件，正在上传...', 'info');
       uploadFiles();
     });
