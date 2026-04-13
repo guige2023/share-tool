@@ -3438,7 +3438,7 @@ function renderPage() {
           '<span><span style="color:' + escapeHtmlClient(f.color || '#667eea') + '">●</span> ' +
           escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span>' + tagChips + '</span>' +
           '<span style="display:flex;gap:2px;align-items:center">' +
-            '<button onclick="event.stopPropagation();openVFFolderDetail(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px" title="详情">ℹ️</button>' +
+            '<button onclick="event.stopPropagation();openVFFolderDetail(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px" title="详情/标签">ℹ️</button>' +
             '<button onclick="event.stopPropagation();downloadVirtualFolder(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px" title="下载为 ZIP">⬇</button>' +
           '</span>' +
         '</div>';
