@@ -4493,6 +4493,24 @@ function renderPage() {
       }
     }
 
+    async function downloadRequestLinkQr(code) {
+      try {
+        var response = await fetch('/api/request-link/qr/' + encodeURIComponent(code));
+        if (!response.ok) { showToast('下载失败', 'error'); return; }
+        var blob = await response.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'request-link-qr-' + code + '.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch(e) {
+        showToast('下载失败', 'error');
+      }
+    }
+
     /* ===== File Hover Card ===== */
     .hover-card {
       position: fixed;
@@ -6183,7 +6201,11 @@ function renderPage() {
         <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:420px;font-size:14px;max-height:90vh;overflow-y:auto">\
           <h3 style="margin:0 0 20px">编辑分享链接</h3>\
           <p style="margin:0 0 6px;font-size:12px;color:var(--muted);word-break:break-all"><strong>文件:</strong> ' + escapeHtmlClient(share.filename) + '</p>\
-          <p style="margin:0 0 16px;font-size:12px;color:var(--muted)"><strong>链接:</strong> ' + escapeHtmlClient(share.url || '') + '</p>\
+          <p style="margin:0 0 6px;font-size:12px;color:var(--muted);word-break:break-all"><strong>链接:</strong> ' + escapeHtmlClient(share.url || '') + '</p>\
+          <div style="margin-bottom:16px;text-align:center">\
+            <img src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="border-radius:12px;max-width:160px;border:1px solid var(--line)" alt="QR">\
+            <div style="margin-top:8px"><button class="secondary" onclick="downloadQrCode(\'' + escapeHtmlClient(share.code) + '\')" style="font-size:12px;padding:6px 12px">下载二维码</button></div>\
+          </div>\
           <div style="margin-bottom:12px">\
             <label style="display:block;margin-bottom:4px;font-size:13px">到期时间</label>\
             <input id="editShareExpiry" type="datetime-local" value="' + currentExpiry + '" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
@@ -6260,18 +6282,20 @@ function renderPage() {
       }
       empty.style.display = 'none';
       body.innerHTML = links.map(function(rl) {
-        var url = '/r/' + rl.code;
+        var url = (location.origin || '') + '/r/' + rl.code;
         var statusLabel = rl.active ? '<span style="color:#22c55e">● 有效</span>' : '<span style="color:#94a3b8">○ 已停用</span>';
         var info = [];
         if (rl.upload_count) info.push('已收: ' + rl.upload_count + (rl.max_uploads ? '/' + rl.max_uploads : ''));
         if (rl.has_password) info.push('🔒 有密码');
         if (rl.expires_at) info.push('到期: ' + formatTime(rl.expires_at * 1000));
+        if (rl.target_folder) info.push('目录: ' + escapeHtmlClient(rl.target_folder));
         return '<tr>' +
           '<td><strong>' + escapeHtmlClient(rl.name) + '</strong></td>' +
-          '<td><a href="' + escapeHtmlClient(url) + '" target="_blank">' + escapeHtmlClient(url) + '</a></td>' +
+          '<td><a href="' + escapeHtmlClient(url) + '" target="_blank">' + escapeHtmlClient('/r/' + rl.code) + '</a></td>' +
           '<td>' + statusLabel + (info.length ? '<br><span style="font-size:11px;color:var(--muted)">' + info.join(' · ') + '</span>' : '') + '</td>' +
           '<td>' +
-            '<button class="secondary" onclick="copyToClipboard(location.origin + \'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制</button> ' +
+            '<button class="secondary" onclick="copyToClipboard(\'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制</button> ' +
+            '<button class="secondary" onclick="downloadRequestLinkQr(\'' + escapeHtmlClient(rl.code) + '\')">二维码</button> ' +
             '<button class="secondary" onclick="openRequestLinkEditModal(\'' + escapeHtmlClient(rl.code) + '\')">编辑</button> ' +
             '<button class="secondary" onclick="toggleRequestLinkActive(\'' + escapeHtmlClient(rl.code) + '\', ' + !rl.active + ')">' + (rl.active ? '停用' : '启用') + '</button> ' +
             '<button class="danger" onclick="deleteRequestLink(\'' + escapeHtmlClient(rl.code) + '\')">删除</button>' +
