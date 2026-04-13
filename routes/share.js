@@ -850,7 +850,7 @@ async function uploadAll() {
         return true;
       }
       // Password-protected: verify via session cookie or body token
-      if (row.password) {
+      if (row.has_password) {
         sendJson(res, { success: false, error: 'Password required' }, 403);
         return true;
       }
@@ -879,9 +879,9 @@ async function uploadAll() {
         }
         // content may be a Buffer (from base64 decode) — keep as binary
         db.addFile(targetName, decoded, 'file');
-        db.incrementRequestLinkUpload(code);
+        const uploadCount = db.incrementRequestLinkUpload(code);
         db.addAuditLog('request_link_upload', targetName, getClientIp(req));
-        sendJson(res, { success: true, filename: targetName });
+        sendJson(res, { success: true, filename: targetName, upload_count: uploadCount });
       } catch (e) {
         sendJson(res, { success: false, error: e.message }, 400);
       }

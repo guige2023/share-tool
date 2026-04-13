@@ -972,8 +972,8 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
   // POST /api/request-links/:code/upload - record an upload (public)
   if (pathname.match(/^\/api\/request-links\/[^/]+\/upload$/) && method === 'POST') {
     const code = pathname.split('/')[3];
-    const row = db.incrementRequestLinkUpload(code);
-    sendJson(res, { success: true, upload_count: row.upload_count });
+    const uploadCount = db.incrementRequestLinkUpload(code);
+    sendJson(res, { success: true, upload_count: uploadCount });
     return true;
   }
 
