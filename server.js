@@ -560,8 +560,8 @@ function renderPage() {
     .suggestion-type{font-size:11px;color:var(--muted);flex-shrink:0;margin-left:10px}
     table{width:100%;border-collapse:collapse}
     th,td{padding:12px 8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top;font-size:14px}
-    .sort-arrow,.share-sort-arrow{font-size:10px;color:var(--muted);margin-left:2px}
-    .sort-arrow.active,.share-sort-arrow.active{color:var(--accent);font-weight:bold}
+    .sort-arrow,.share-sort-arrow,.rl-sort-arrow{font-size:10px;color:var(--muted);margin-left:2px}
+    .sort-arrow.active,.share-sort-arrow.active,.rl-sort-arrow.active{color:var(--accent);font-weight:bold}
     th{color:var(--muted);font-weight:600}
     td.actions{display:flex;gap:8px;flex-wrap:wrap}
     td.actions button{padding:8px 10px;border-radius:10px;font-size:13px}
@@ -760,7 +760,7 @@ function renderPage() {
     @media(max-width:768px){
       section.shares table,section.request-links table{min-width:600px}
       section.shares .list-scroll,section.request-links .list-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-      .share-sort-arrow,.share-sort-arrow.active{color:var(--accent)}
+      .share-sort-arrow,.share-sort-arrow.active,.rl-sort-arrow,.rl-sort-arrow.active{color:var(--accent)}
       section.shares td,section.request-links td{text-align:left}
       section.shares td[data-label]:not(:empty)::before,section.request-links td[data-label]:not(:empty)::before{
         content:attr(data-label);display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}
@@ -1105,10 +1105,12 @@ function renderPage() {
           <thead>
             <tr>
               <th style="width:28px"><input type="checkbox" id="rlListSelectAll" onchange="toggleRlSelectAll(this.checked)" style="margin:0"></th>
-              <th>名称</th>
-              <th>链接</th>
-              <th style="width:130px">状态</th>
-              <th style="width:130px">操作</th>
+              <th data-label="名称" style="cursor:pointer;user-select:none" onclick="setRlSort('name')">名称 <span class="rl-sort-arrow" id="rlArrow-name"></span></th>
+              <th data-label="链接">链接</th>
+              <th data-label="创建时间" style="cursor:pointer;user-select:none" onclick="setRlSort('created_at')">创建时间 <span class="rl-sort-arrow" id="rlArrow-created_at"></span></th>
+              <th data-label="已收" style="cursor:pointer;user-select:none" onclick="setRlSort('upload_count')">已收 <span class="rl-sort-arrow" id="rlArrow-upload_count"></span></th>
+              <th data-label="状态" style="width:130px">状态</th>
+              <th data-label="操作" style="width:130px">操作</th>
             </tr>
           </thead>
           <tbody id="requestLinkTable"></tbody>
@@ -6578,6 +6580,50 @@ function renderPage() {
       filterShares();
     }
 
+    var currentRlSort = 'created_at';
+    var currentRlOrder = 'desc';
+
+    function applyRlSort(rlList) {
+      var field = currentRlSort;
+      var order = currentRlOrder;
+      return rlList.slice().sort(function (a, b) {
+        var va = a[field], vb = b[field];
+        if (va == null) va = '';
+        if (vb == null) vb = '';
+        if (field === 'created_at') {
+          va = a.created_at || 0;
+          vb = b.created_at || 0;
+        }
+        if (typeof va === 'number' && typeof vb === 'number') {
+          return order === 'asc' ? va - vb : vb - va;
+        }
+        var cmp = String(va).localeCompare(String(vb));
+        return order === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    function updateRlSortArrows() {
+      var fields = ['name', 'created_at', 'upload_count'];
+      fields.forEach(function (f) {
+        var el = document.getElementById('rlArrow-' + f);
+        if (el) {
+          el.textContent = f === currentRlSort ? (currentRlOrder === 'asc' ? '↑' : '↓') : '';
+          el.className = 'rl-sort-arrow' + (f === currentRlSort ? ' active' : '');
+        }
+      });
+    }
+
+    function setRlSort(field) {
+      if (field === currentRlSort) {
+        currentRlOrder = currentRlOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentRlSort = field;
+        currentRlOrder = field === 'name' ? 'asc' : 'desc';
+      }
+      updateRlSortArrows();
+      filterRequestLinks();
+    }
+
     async function loadShares() {
       const data = await request('/api/share/list');
       const shares = data.shares || [];
@@ -6732,7 +6778,8 @@ function renderPage() {
     async function loadRequestLinks() {
       var data = await request('/api/request-links');
       currentRequestLinks = data.request_links || [];
-      renderRequestLinkTable(currentRequestLinks);
+      updateRlSortArrows();
+      renderRequestLinkTable(applyRlSort(currentRequestLinks));
     }
 
     function renderRequestLinkTable(links) {
@@ -6754,11 +6801,13 @@ function renderPage() {
         if (rl.expires_at) info.push('到期: ' + formatTime(rl.expires_at * 1000));
         if (rl.target_folder) info.push('目录: ' + escapeHtmlClient(rl.target_folder));
         return '<tr>' +
-          '<td style="width:28px"><input type="checkbox" class="rl-check" value="' + encodeURIComponent(rl.code) + '" onchange="updateRlBatchBar()" style="margin:0"></td>' +
-          '<td><strong>' + escapeHtmlClient(rl.name) + '</strong></td>' +
-          '<td><a href="' + escapeHtmlClient(url) + '" target="_blank">' + escapeHtmlClient('/r/' + rl.code) + '</a></td>' +
-          '<td>' + statusLabel + (info.length ? '<br><span style="font-size:11px;color:var(--muted)">' + info.join(' · ') + '</span>' : '') + '</td>' +
-          '<td>' +
+          '<td data-label=""><input type="checkbox" class="rl-check" value="' + encodeURIComponent(rl.code) + '" onchange="updateRlBatchBar()" style="margin:0"></td>' +
+          '<td data-label="名称"><strong>' + escapeHtmlClient(rl.name) + '</strong></td>' +
+          '<td data-label="链接"><a href="' + escapeHtmlClient(url) + '" target="_blank" style="word-break:break-all;font-size:12px">' + escapeHtmlClient('/r/' + rl.code) + '</a></td>' +
+          '<td data-label="创建时间">' + (rl.created_at ? formatTime(rl.created_at * 1000) : '—') + '</td>' +
+          '<td data-label="已收">' + (rl.upload_count || 0) + (rl.max_uploads ? ' / ' + rl.max_uploads : '') + '</td>' +
+          '<td data-label="状态">' + statusLabel + (info.length ? '<br><span style="font-size:11px;color:var(--muted)">' + info.join(' · ') + '</span>' : '') + '</td>' +
+          '<td class="actions-cell" data-label="操作">' +
             '<button class="secondary" onclick="copyToClipboard(\'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制</button> ' +
             '<button class="secondary" onclick="downloadRequestLinkQr(\'' + encodeURIComponent(rl.code) + '\')">二维码</button> ' +
             '<button class="secondary" onclick="openRequestLinkEditModal(\'' + escapeHtmlClient(rl.code) + '\')">编辑</button> ' +
@@ -6771,11 +6820,14 @@ function renderPage() {
 
     function filterRequestLinks() {
       var q = document.getElementById('requestLinkSearchInput').value.trim().toLowerCase();
-      if (!q) { renderRequestLinkTable(currentRequestLinks); return; }
+      if (!q) {
+        renderRequestLinkTable(applyRlSort(currentRequestLinks));
+        return;
+      }
       var filtered = currentRequestLinks.filter(function(rl) {
         return rl.name.toLowerCase().includes(q) || (rl.code || '').toLowerCase().includes(q);
       });
-      renderRequestLinkTable(filtered);
+      renderRequestLinkTable(applyRlSort(filtered));
     }
 
     // Pull-to-refresh for mobile

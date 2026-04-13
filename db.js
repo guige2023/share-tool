@@ -2771,8 +2771,20 @@ function getRequestLink(code) {
   const row = db.prepare('SELECT id, code, name, target_folder, max_uploads, upload_count, expires_at, active, created_at, created_by, password FROM request_links WHERE code = ?').get(code);
   if (!row) return null;
   // Exclude password from return but keep has_password indicator
-  const { password, ...rest } = row;
-  return { ...rest, has_password: password ? 1 : 0 };
+  // Build result explicitly to never include password hash
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    target_folder: row.target_folder,
+    max_uploads: row.max_uploads,
+    upload_count: row.upload_count,
+    expires_at: row.expires_at,
+    active: row.active,
+    created_at: row.created_at,
+    created_by: row.created_by,
+    has_password: row.password ? 1 : 0,
+  };
 }
 
 function verifyRequestLinkPassword(code, inputPwd) {
@@ -2785,7 +2797,8 @@ function verifyRequestLinkPassword(code, inputPwd) {
 
 function incrementRequestLinkUpload(code) {
   const db = getDb();
-  db.prepare('UPDATE request_links SET upload_count = upload_count + 1 WHERE code = ?').run(code);
+  const result = db.prepare('UPDATE request_links SET upload_count = upload_count + 1 WHERE code = ?').run(code);
+  if (result.changes === 0) return null; // code not found
   const row = db.prepare('SELECT upload_count FROM request_links WHERE code = ?').get(code);
   return row ? row.upload_count : 0;
 }
