@@ -2799,18 +2799,14 @@ function deleteRequestLink(code) {
 
 function listRequestLinks(createdBy = null) {
   const db = getDb();
-  const fields = 'id, code, name, target_folder, max_uploads, upload_count, expires_at, active, created_at, created_by, password';
+  const fields = 'id, code, name, target_folder, max_uploads, upload_count, expires_at, active, created_at, created_by, CASE WHEN password IS NOT NULL THEN 1 ELSE 0 END AS has_password';
   let rows;
   if (createdBy) {
     rows = db.prepare(`SELECT ${fields} FROM request_links WHERE created_by = ? ORDER BY created_at DESC`).all(createdBy);
   } else {
     rows = db.prepare(`SELECT ${fields} FROM request_links ORDER BY created_at DESC`).all();
   }
-  // Strip password, add has_password
-  return rows.map(row => {
-    const { password, ...rest } = row;
-    return { ...rest, has_password: password ? 1 : 0 };
-  });
+  return rows;
 }
 
 function cleanupExpiredRequestLinks() {
