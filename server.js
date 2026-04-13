@@ -3207,6 +3207,16 @@ function renderPage() {
           }
           break;
         }
+        case 'l': {
+          // l: copy share link of selected file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          var selected = getSelectedFiles();
+          if (selected.length === 1) {
+            e.preventDefault();
+            copyShareLink(selected[0]);
+          }
+          break;
+        }
         case 'j': {
           // j: vim-style down
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
@@ -4025,6 +4035,7 @@ function renderPage() {
         ['a', '全选文件'],
         ['s', '星标选中文件'],
         ['e', '内联重命名'],
+        ['l', '复制链接'],
         ['Del', '删除选中'],
         ['c', '清空选择'],
         ['d', '切换主题'],
