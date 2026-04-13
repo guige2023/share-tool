@@ -743,6 +743,7 @@ function renderPage() {
         <div class="chip">局域网地址 https://${escapeHtml(pageInfo.localIp)}:${pageInfo.port}</div>
         <div class="chip">Token ${escapeHtml(pageInfo.token)}</div>
         <div class="chip">最大上传 ${pageInfo.maxUploadSizeMB} MB</div>
+        <div class="chip" id="wsStatusChip" title="WebSocket 实时同步状态">🔄 同步中</div>
         <div class="chip">版本 v${escapeHtml(pageInfo.version)}</div>
       </div>
     </section>
@@ -5072,6 +5073,61 @@ function renderPage() {
         navigator.serviceWorker.register('/sw.js').catch(() => {
           // SW registration failure is non-fatal
         });
+
+        // WebSocket status manager
+        (function wsStatusManager() {
+          var chip = document.getElementById('wsStatusChip');
+          if (!chip) return;
+          var lastSync = Date.now();
+          var connected = false;
+
+          function updateChip(status, color) {
+            chip.textContent = status;
+            chip.style.color = color || '';
+          }
+
+          // Try WebSocket connection
+          var wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+          var wsUrl = wsProtocol + '//' + location.host + '/ws';
+          var ws = new WebSocket(wsUrl);
+
+          ws.onopen = function() {
+            connected = true;
+            lastSync = Date.now();
+            updateChip('✅ 已连接', '#10b981');
+          };
+
+          ws.onmessage = function(ev) {
+            try {
+              var msg = JSON.parse(ev.data);
+              if (msg.type === 'sync' || msg.type === 'file_update') {
+                lastSync = Date.now();
+                updateChip('🔄 同步中', '#f59e0b');
+                setTimeout(function() { updateChip('✅ 已同步', '#10b981'); }, 2000);
+              }
+            } catch(e) {}
+          };
+
+          ws.onclose = function() {
+            connected = false;
+            updateChip('⚠️ 离线模式', '#ef4444');
+          };
+
+          ws.onerror = function() {
+            connected = false;
+            updateChip('⚠️ 连接失败', '#ef4444');
+          };
+
+          // Heartbeat every 30s
+          setInterval(function() {
+            if (connected) {
+              var age = Math.round((Date.now() - lastSync) / 1000);
+              if (age > 10) {
+                updateChip('🔄 同步中', '#f59e0b');
+              }
+            }
+          }, 30000);
+        })();
       });
     }
   </script>
