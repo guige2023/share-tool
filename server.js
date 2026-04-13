@@ -7678,6 +7678,7 @@ function renderPage() {
           '<td data-label="下载">' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</td>' +
           '<td class="actions-cell" data-label="操作">' +
             '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
+            '<button class="secondary" onclick=' + "'" + 'previewShare("' + escapeHtmlClient(share.code) + '")' + "'" + '>预览</button>' +
             '<button class="secondary" onclick=' + "'" + 'downloadQrCode(' + JSON.stringify(share.code) + ')' + "'" + '>二维码</button>' +
             '<button class="secondary" onclick=' + "'" + 'openShareEditModal(' + JSON.stringify(share.code) + ')' + "'" + '>编辑</button>' +
             '<button class="danger" onclick=' + "'" + 'deleteShare(' + JSON.stringify(share.code) + ')' + "'" + '>删除</button>' +
@@ -7722,6 +7723,12 @@ function renderPage() {
       await request('/api/share/delete/' + encodeURIComponent(code), { method: 'DELETE' });
       await loadShares();
     }
+
+    window.previewShare = function(code) {
+      var base = window.location.origin;
+      var url = base + '/s/' + encodeURIComponent(code);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    };
 
     async function openShareEditModal(code) {
       var share = currentShares.find(function(s) { return s.code === code; });
