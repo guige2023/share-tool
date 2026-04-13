@@ -607,6 +607,10 @@ function renderPage() {
       #openDuplicates{display:none!important}
       /* iOS auto-zoom fix: all inputs must be >=16px */
       input,select,textarea{font-size:16px!important}
+      /* Prevent double-tap zoom on buttons */
+      button{touch-action:manipulation}
+      /* Mobile: files panel scrolls vertically */
+      #filesPanel{max-height:calc(100vh - 200px);overflow-y:auto}
       /* Mobile: drop zone is the primary upload affordance - make it prominent */
       .drop-zone{padding:24px 16px;font-size:14px}
       .drop-zone-inner p{margin:4px 0}
@@ -650,6 +654,12 @@ function renderPage() {
       #batchBar{overflow-x:auto;justify-content:flex-start!important;padding:8px 12px!important;gap:6px;flex-wrap:nowrap;white-space:nowrap}
       #batchBar button{min-height:36px;padding:7px 12px;font-size:12px;white-space:nowrap;flex-shrink:0}
       #batchCount{white-space:nowrap;font-size:12px;flex-shrink:0}
+      /* Mobile: shares/request-links tables — horizontal scroll */
+      .shares .list-scroll,.request-links .list-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+      .shares .list-scroll table,.request-links .list-scroll table{min-width:600px}
+      /* Mobile: RL batch bar also scrolls */
+      #rlBatchBar{overflow-x:auto;justify-content:flex-start!important;padding:8px 12px!important;gap:6px;flex-wrap:nowrap;white-space:nowrap}
+      #rlBatchBar button{min-height:36px;padding:7px 12px;font-size:12px;white-space:nowrap;flex-shrink:0}
       /* Mobile modal: full-screen preview */
       .modal-card{width:100%;max-height:100vh;height:100vh;border-radius:0;padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom));padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
       .modal{padding:0}
