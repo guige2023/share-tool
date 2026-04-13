@@ -3099,9 +3099,10 @@ function renderPage() {
       if (dateTo) dateToParam = '&date_to=' + encodeURIComponent(dateTo);
       if (tagMatch && tagMatch !== 'all') tagMatchParam = '&tagMatch=' + encodeURIComponent(tagMatch);
       const advParams = sizeMinParam + sizeMaxParam + dateFromParam + dateToParam + tagMatchParam;
+      const modeParam = (_searchMode !== 'normal') ? '&mode=' + _searchMode : '';
       const hasFilters = q || advParams || currentTypeFilters.length;
       const baseUrl = hasFilters
-        ? '/api/search?q=' + encodeURIComponent(q || '') + '&' + sortParam + tagParam + typeParam + advParams
+        ? '/api/search?q=' + encodeURIComponent(q || '') + '&' + sortParam + tagParam + typeParam + advParams + modeParam
         : '/api/list?' + sortParam + tagParam + typeParam;
       const url = baseUrl + '&offset=' + currentOffset + '&limit=' + currentPageLimit;
       await loadFilesFromUrl(url, true);
@@ -10187,6 +10188,8 @@ function renderPage() {
       var order = document.getElementById('orderSelect') && document.getElementById('orderSelect').value;
       if (sort) params.push('sort=' + sort);
       if (order) params.push('order=' + order);
+      // Append search mode (glob/regex bypass FTS5)
+      if (_searchMode !== 'normal') params.push('mode=' + _searchMode);
 
       // Sync typeFilter into main type filter system
       if (typeFilter) {
