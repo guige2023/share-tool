@@ -817,7 +817,7 @@ function renderPage() {
 
       <section class="panel" id="uploadSection">
         <h2>上传文件</h2>
-        <p class="muted">支持同时选择多个文件、整个文件夹（保留结构），也可拖拽文件到此处。Shift+N 新建文件夹。</p>
+        <p class="muted">支持同时选择多个文件、整个文件夹（保留结构），也可拖拽文件到此处。按 Shift+N 新建文件夹，n 新建文本。</p>
         <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
           <input id="fileInput" type="file" multiple webkitdirectory style="display:none" onchange="handleFileSelect(this.files)" title="支持选择文件夹">
           <div class="drop-zone-inner">
@@ -3695,7 +3695,14 @@ function renderPage() {
           if (!e.shiftKey) break;
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
-          createNewFolder();
+          openNewFolderModal();
+          break;
+        }
+        case 'n': {
+          // n: create new text file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          openNewTextFileModal();
           break;
         }
         case 'e': {
@@ -3708,8 +3715,10 @@ function renderPage() {
           }
           break;
         }
+        case 'c':
+        case 'C':
         case 'l': {
-          // l: copy share link of selected file
+          // c or l: copy share link of selected file
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           var selected = getSelectedFiles();
           if (selected.length === 1) {
@@ -3755,6 +3764,21 @@ function renderPage() {
             navigator.clipboard.writeText(selected[0]).then(function() {
               showToast('已复制文件名: ' + selected[0], 'success');
             }).catch(function() { showToast('复制失败', 'error'); });
+          }
+          break;
+        }
+        case 'e':
+        case 'E': {
+          // e: rename selected file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          var names = getSelectedFiles();
+          if (!names.length && keyboardNavIndex >= 0) {
+            var item = getFileAtIndex(keyboardNavIndex);
+            if (item) names = [item.getAttribute('data-name')];
+          }
+          if (names.length === 1) {
+            e.preventDefault();
+            startInlineRename(names[0]);
           }
           break;
         }
@@ -5358,9 +5382,10 @@ function renderPage() {
         ['Space', '选中/取消选中'],
         ['c / l', '复制分享链接'],
         ['y', '复制文件名'],
+        ['e', '重命名选中文件'],
         ['i', '显示文件属性'],
         ['d', '删除选中文件'],
-        ['s', '切换排序方向'],
+        ['s', '标记/取消标记收藏'],
         ['v', '切换视图 (list/grid)'],
         ['n', '新建文本文件'],
         ['r', '刷新文件列表'],
@@ -7299,10 +7324,11 @@ function renderPage() {
           ['Enter', '打开/预览文件'],
           ['j/k', 'vim导航'],
           ['d', '删除选中文件'],
+          ['e', '重命名选中文件'],
           ['i', '显示文件属性'],
-          ['l', '复制分享链接'],
+          ['c / l', '复制分享链接'],
           ['y', '复制文件名'],
-          ['s', '切换排序方向'],
+          ['s', '标记/取消标记收藏'],
           ['t', '批量添加标签'],
           ['v', '切换网格/列表视图'],
           ['Ctrl+A', '全选文件'],
@@ -7310,7 +7336,6 @@ function renderPage() {
           ['Ctrl+,', '打开设置'],
           ['Ctrl+Enter', '上传/保存'],
           ['Space', '选择/取消'],
-          ['v', '切换视图'],
           ['Esc', '关闭弹窗/取消选择'],
         ];
         div.innerHTML = '<div style="font-weight:600;margin-bottom:10px;font-size:13px">⌨ 快捷键</div>' +
