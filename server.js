@@ -6324,25 +6324,46 @@ function renderPage() {
     async function confirmRequestLinkCreate() {
       var name = document.getElementById('rlName').value.trim();
       if (!name) { showToast('请输入名称', 'error'); return; }
+      var targetFolder = document.getElementById('rlTargetFolder').value.trim();
       var maxUploads = document.getElementById('rlMaxUploads').value;
       var password = document.getElementById('rlPassword').value.trim();
       var btn = document.getElementById('rlCreateBtn');
       if (btn) { btn.disabled = true; btn.textContent = '创建中...'; }
       try {
         var body = { name: name };
+        if (targetFolder) body.target_folder = targetFolder;
         if (maxUploads) body.max_uploads = parseInt(maxUploads, 10);
         if (password) body.password = password;
         var result = await request('/api/request-links', { method: 'POST', body: JSON.stringify(body) });
-        if (result && result.success) {
-          showToast('收集链接已创建', 'success');
+        if (result && result.success && result.request_link) {
           document.getElementById('requestLinkCreateModal').remove();
           await loadRequestLinks();
+          openRequestLinkQrModal(result.request_link.code);
         } else {
           showToast((result && result.error) || '创建失败', 'error');
         }
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = '创建'; }
       }
+    }
+
+    function openRequestLinkQrModal(code) {
+      var url = location.origin + '/r/' + code;
+      var modal = document.createElement('div');
+      modal.id = 'requestLinkQrModal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:360px;font-size:14px;text-align:center">\
+          <h3 style="margin:0 0 16px">收集链接已创建</h3>\
+          <img src="/api/request-link/qr/' + encodeURIComponent(code) + '" style="border-radius:12px;max-width:100%;height:auto" alt="QR Code">\
+          <p style="margin:12px 0 4px;font-size:13px;color:var(--muted);word-break:break-all">' + escapeHtmlClient(url) + '</p>\
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">\
+            <button class="secondary" onclick="copyToClipboard(\'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制链接</button>\
+            <button class="secondary" onclick="document.getElementById(\'requestLinkQrModal\').remove()">关闭</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
     }
 
     function openRequestLinkEditModal(code) {

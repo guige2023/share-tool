@@ -141,6 +141,25 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
     return true;
   }
 
+  // GET /api/request-link/qr/:code — QR code for a request link
+  if (pathname.startsWith('/api/request-link/qr/') && method === 'GET') {
+    const code = pathname.slice('/api/request-link/qr/'.length);
+    const row = db.getRequestLink(code);
+    if (!row) {
+      sendJson(res, { success: false, error: 'Link not found' }, 404);
+      return true;
+    }
+    const url = `${BASE_URL}/r/${code}`;
+    try {
+      const png = await QRCode.toBuffer(url, { width: 320, margin: 2 });
+      res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length });
+      res.end(png);
+    } catch (error) {
+      sendJson(res, { success: false, error: error.message }, 500);
+    }
+    return true;
+  }
+
   // Serve file content for preview (without triggering download)
   if (pathname.startsWith('/api/share/content/') && method === 'GET') {
     const code = pathname.slice('/api/share/content/'.length);
