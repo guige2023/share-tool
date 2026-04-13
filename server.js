@@ -3575,7 +3575,7 @@ function renderPage() {
         case 'copyName': await navigator.clipboard.writeText(filename); showToast('已复制文件名: ' + filename, 'success'); break;
         case 'copyPath': await navigator.clipboard.writeText('/' + filename); showToast('已复制文件路径', 'success'); break;
         case 'rename': startInlineRename(filename); break;
-        case 'delete': if (confirm('确认删除 ' + filename + '？')) deleteFile(filename); break;
+        case 'delete': openDeleteConfirmModal([filename]); break;
         case 'history': openVersionHistory(filename); break;
         case 'info': showFileInfo(filename); break;
         case 'addToVF': openAddToVirtualFolder(filename); break;
@@ -4298,9 +4298,14 @@ function renderPage() {
 
     function confirmDeleteFromModal(count) {
       forceCloseModal();
-      var selected = getSelectedFiles();
-      if (!selected.length) return;
-      deleteFiles(selected.slice(0, count));
+      var names = checkedNames().map(function(n) { return decodeURIComponent(n); });
+      if (!names.length) return;
+      var toDelete = names.slice(0, count);
+      if (toDelete.length === 1) {
+        deleteFile(toDelete[0]);
+      } else {
+        batchDeleteConfirmed(toDelete);
+      }
     }
 
     function forceCloseModal() {
@@ -4524,7 +4529,6 @@ function renderPage() {
     }
 
     async function deleteFile(filename) {
-      if (!confirm('删除 ' + filename + ' ?')) return;
       try {
         const res = await request('/api/files/' + encodeURIComponent(filename), { method: 'DELETE' });
         // 保存被删除文件的 trashId 以便撤销
@@ -5179,7 +5183,7 @@ function renderPage() {
             var r = byType[ti];
             var pct = totalFiles > 0 ? Math.round(r.count / totalFiles * 100) : 0;
             var color = colors[ti % colors.length];
-            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="forceCloseModal();setTypeFilter(\'' + escapeHtmlClient(r.type || '').replace(/'/g, "\\'") + '\')" title="筛选此类文件">';
             html += '<div style="width:12px;height:12px;border-radius:3px;background:' + color + ';flex-shrink:0"></div>';
             html += '<div style="flex:1;font-size:12px;color:var(--text-secondary)">' + escapeHtmlClient(r.type || 'unknown') + '</div>';
             html += '<div style="font-size:12px;color:var(--muted)">' + r.count + ' (' + pct + '%)</div></div>';
@@ -5197,7 +5201,7 @@ function renderPage() {
           for (var ei = 0; ei < byExt.length; ei++) {
             var er = byExt[ei];
             var epct = Math.round(er.count / maxCount * 100);
-            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
+            html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;cursor:pointer" onclick="forceCloseModal();filterByExt(\'' + escapeHtmlClient(er.ext || '').replace(/'/g, "\\'") + '\')" title="筛选 .' + escapeHtmlClient(er.ext || '') + ' 文件">';
             html += '<div style="width:40px;font-size:11px;color:var(--muted);flex-shrink:0">.' + escapeHtmlClient(er.ext || 'none') + '</div>';
             html += '<div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px">';
             html += '<div style="height:6px;width:' + epct + '%;background:var(--accent);border-radius:3px;opacity:0.7"></div></div>';
@@ -6030,6 +6034,8 @@ function renderPage() {
           ['c', '复制分享链接'],
           ['s', '切换排序方向'],
           ['Ctrl+A', '全选文件'],
+          ['Ctrl+K', '聚焦搜索框'],
+          ['Ctrl+,', '打开设置'],
           ['Ctrl+Enter', '上传/保存'],
           ['Esc', '关闭弹窗/取消选择'],
         ];
@@ -6070,6 +6076,17 @@ function renderPage() {
         e.preventDefault();
         document.getElementById('searchInput').focus();
         document.getElementById('searchInput').select();
+      }
+      // Ctrl/Cmd + K: focus search (VS Code / GitHub style)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('searchInput').focus();
+        document.getElementById('searchInput').select();
+      }
+      // Ctrl/Cmd + ,: open settings
+      if ((e.ctrlKey || e.metaKey) && e.key === ',') {
+        e.preventDefault();
+        openSettings();
       }
       // Ctrl/Cmd + A: select all files
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
