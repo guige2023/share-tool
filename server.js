@@ -4357,7 +4357,7 @@ function renderPage() {
           searchInput.value = '';
           searchFiles();
         }
-        closeModal();
+        forceCloseModal();
       }
     });
 
@@ -6125,7 +6125,8 @@ function renderPage() {
 
     async function copyShare(url) {
       await copyToClipboard(url);
-      showToast('已复制', 'success');
+      var display = url.length > 60 ? url.slice(0, 57) + '...' : url;
+      showToast('已复制: ' + display, 'success');
     }
 
     async function deleteShare(code) {
