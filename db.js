@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 11; // v11: share_links view_count
+const SCHEMA_VERSION = 12; // v12: files.starred column
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -583,6 +583,20 @@ function initSchemaV11(db) {
   }
 }
 
+function initSchemaV12(db) {
+  // v12: add starred column to files
+  try {
+    db.exec(`ALTER TABLE files ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`);
+    console.log('[DB] Migrated: files.starred');
+  } catch (e) {
+    if (e.message.includes('duplicate column')) {
+      console.log('[DB] files.starred already exists');
+    } else {
+      console.error('[DB] starred migration failed:', e.message);
+    }
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {
@@ -653,6 +667,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV10(db);
     } else if (v === 11) {
       initSchemaV11(db);
+    } else if (v === 12) {
+      initSchemaV12(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -1032,7 +1048,17 @@ function updateFileByName(filename, updates) {
 
   const stmt = db.prepare(`UPDATE files SET ${fields.join(', ')} WHERE filename = ?`);
   stmt.run(...values);
+  const updated = getFileByName(filename);
+  addSyncLog(updated.id, filename, 'update', updated.hash, null, updated.size);
+  return updated;
+}
 
+function toggleFileStarred(filename) {
+  const db = getDb();
+  const existing = getFileByName(filename);
+  if (!existing) return null;
+  const newStarred = existing.starred ? 0 : 1;
+  db.prepare('UPDATE files SET starred = ?, updated_at = unixepoch() WHERE filename = ?').run(newStarred, filename);
   const updated = getFileByName(filename);
   addSyncLog(updated.id, filename, 'update', updated.hash, null, updated.size);
   return updated;

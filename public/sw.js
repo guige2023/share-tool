@@ -1,7 +1,5 @@
 // ShareTool Service Worker - PWA Offline Support
-// Version must be updated when static assets change
-const CACHE_VERSION = 'v6.12.0';
-const CACHE_NAME = 'sharetool-' + CACHE_VERSION;
+// Cache name is injected server-side: const CACHE_NAME = 'sharetool-vX.Y.Z';
 // Static assets to cache on install (cache-first strategy)
 const STATIC_ASSETS = [
   '/',
@@ -93,7 +91,7 @@ async function syncPendingUploads(client) {
       success++;
     } catch (e) {
       failed++;
-      // Remove if definitively failed (not network issue)
+      // Remove if definitively failed (not a transient network error)
       if (e.message.includes('4') || e.message.includes('5')) {
         await removePendingUpload(item.id);
       }
@@ -102,16 +100,16 @@ async function syncPendingUploads(client) {
 
   // Notify all clients
   const msg = { type: 'UPLOAD_SYNC_COMPLETE', success, failed };
-  if (client) client.postMessage(msg);
   const clients = await self.clients.matchAll();
   clients.forEach(c => c.postMessage(msg));
+  if (client) client.postMessage(msg);
   return { success, failed };
 }
 
 // Install: cache static assets
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async cache => {
+    caches.open('sharetool-cache').then(async cache => {
       await cache.addAll(STATIC_ASSETS).catch(() => {
         // Ignore cache.addAll failure (e.g. network unavailable at install time)
       });
@@ -125,7 +123,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+        keys.filter(k => k.startsWith('sharetool-')).map(k => caches.delete(k))
       )
     ).then(() => self.clients.claim())
   );
@@ -151,7 +149,7 @@ self.addEventListener('fetch', event => {
         return fetch(event.request).then(response => {
           if (response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+            caches.open('sharetool-cache').then(cache => cache.put(event.request, clone));
           }
           return response;
         });
@@ -163,24 +161,23 @@ self.addEventListener('fetch', event => {
 // Handle messages from the main thread
 self.addEventListener('message', event => {
   const data = event.data || {};
+
   if (data === 'skipWaiting' || data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
-  // Store a pending upload (called before going offline)
-  if (data.type === 'STORE_PENDING_UPLOAD') {
-    storePendingUpload(data.file).catch(() => {});
+
+  // Store a pending upload when going offline
+  // Browser sends: { type: 'QUEUE_UPLOAD', file: { filename, content, type, token } }
+  if (data.type === 'QUEUE_UPLOAD') {
+    const { filename, content, type, token } = data.file || {};
+    if (filename && content) {
+      storePendingUpload({ filename, content, type: type || 'file', token }).catch(() => {});
+    }
+    return;
   }
-  // Sync pending uploads
+
+  // Sync pending uploads (called by browser when back online)
   if (data.type === 'SYNC_UPLOADS') {
     syncPendingUploads(event.source).catch(() => {});
   }
-  // Online event — auto-sync
-  if (data.type === 'ONLINE') {
-    syncPendingUploads(event.source).catch(() => {});
-  }
-});
-
-// Listen for online event to trigger sync
-self.addEventListener('online', () => {
-  syncPendingUploads().catch(() => {});
 });

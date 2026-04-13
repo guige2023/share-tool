@@ -41,6 +41,7 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
 
       const share = createShareLink(filename, {
         expiryHours: body.expiryHours,
+        customExpiry: body.customExpiry || null,
         maxDownloads: body.maxDownloads,
         password: body.password,
         isText: file.type === 'text',

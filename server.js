@@ -395,10 +395,15 @@ async function getOrCreateCertificate() {
 
 function createShareLink(filename, options = {}) {
   const now = Date.now();
-  const hours = options.expiryHours === undefined || options.expiryHours === null || options.expiryHours === ''
-    ? 168
-    : parseInt(options.expiryHours, 10);
-  const expiresAt = hours > 0 ? now + hours * 60 * 60 * 1000 : 0;
+  let expiresAt;
+  if (options.customExpiry) {
+    expiresAt = options.customExpiry;
+  } else {
+    const hours = options.expiryHours === undefined || options.expiryHours === null || options.expiryHours === ''
+      ? 168
+      : parseInt(options.expiryHours, 10);
+    expiresAt = hours > 0 ? now + hours * 60 * 60 * 1000 : 0;
+  }
   const share = db.saveShareLink({
     code: generateShareCode(),
     filename,
@@ -1856,49 +1861,60 @@ function renderPage() {
     function openBatchMoveModal() {
       var names = checkedNames();
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
-      document.getElementById('modalTitle').textContent = '批量移动文件';
-      document.getElementById('modalBody').innerHTML =
-        '<div style="padding:8px 0">' +
-          '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">为 ' + names.length + ' 个文件添加前缀（如 <code>backups_</code>），文件将重命名为「前缀_原名」：</p>' +
-          '<input id="batchMovePrefix" type="text" placeholder="输入前缀（如 backups）" ' +
-            'style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box" ' +
-            'onkeydown="if(event.key===\'Enter\')confirmBatchMove(' + names.length + ');if(event.key===\'Escape\')forceCloseModal()">' +
-          '<p style="color:var(--text-muted);font-size:11px;margin-top:8px">示例：输入 <code>backups</code> → 文件名.txt → <code>backups_文件名.txt</code></p>' +
-        '</div>';
-      var modal = document.getElementById('modal');
-      modal.querySelector('.modal-actions').innerHTML =
-        '<button class="secondary" onclick="forceCloseModal()">取消</button>' +
-        '<button class="primary" onclick="confirmBatchMove(' + names.length + ')">确认</button>';
-      modal.classList.add('open');
-      setTimeout(function() { document.getElementById('batchMovePrefix').focus(); }, 50);
-    }
-
-    function confirmBatchMove(count) {
-      var input = document.getElementById('batchMovePrefix');
-      var folder = input && input.value.trim();
-      forceCloseModal();
-      if (!folder) { showToast('请输入前缀', 'error'); return; }
-      if (folder.startsWith('/')) folder = folder.slice(1);
-      var names = checkedNames().map(function(n) { return decodeURIComponent(n); });
-      batchMoveSelected(names, folder);
-    }
-
-    async function batchMoveSelected(names, folder) {
-      var moved = 0, failed = 0;
-      for (var i = 0; i < names.length; i++) {
-        var oldPath = names[i];
-        var newPath = (folder ? folder + '_' : '') + oldPath.split('/').pop();
-        if (oldPath === newPath) continue;
-        try {
-          var resp = await fetch('/api/file-rename/' + encodeURIComponent(oldPath), {
-            method: 'POST', headers: headers(),
-            body: JSON.stringify({ newFilename: newPath })
+      fetch('/api/virtual-folders', { headers: headers() }).then(function(res) { return res.json(); }).then(function(data) {
+        var folders = data.folders || [];
+        var body = '<div style="padding:8px 0">' +
+          '<p style="color:var(--text-muted);font-size:12px;margin-bottom:12px">将 ' + names.length + ' 个文件添加到收藏夹：</p>';
+        if (folders.length === 0) {
+          body += '<p style="color:var(--muted);font-size:13px;text-align:center;padding:20px">暂无收藏夹，<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="createVirtualFolderFromMove()">创建第一个</button></p>';
+        } else {
+          body += '<div id="vfList" style="max-height:240px;overflow-y:auto">';
+          folders.forEach(function(f) {
+            body += '<div class="ctx-item" onclick="batchMoveToFolder(' + f.id + ')" style="cursor:pointer;padding:10px 14px;display:flex;align-items:center;gap:8px">' +
+              '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + ';font-size:16px">●</span>' +
+              '<span style="flex:1;font-size:13px">' + escapeHtmlClient(f.name) + '</span>' +
+              '<span style="color:var(--muted);font-size:11px">' + (f.file_count || 0) + ' 个文件</span>' +
+            '</div>';
           });
-          if (resp.ok) moved++; else failed++;
-        } catch(e) { failed++; }
+          body += '</div>';
+        }
+        body += '</div>';
+        document.getElementById('modalTitle').textContent = '📁 移动到收藏夹';
+        document.getElementById('modalBody').innerHTML = body;
+        document.getElementById('modal').classList.add('open');
+      }).catch(function(e) { showToast('加载收藏夹失败', 'error'); });
+    }
+
+    function createVirtualFolderFromMove() {
+      var name = prompt('收藏夹名称:');
+      if (!name || !name.trim()) return;
+      fetch('/api/virtual-folders', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), description: '' })
+      }).then(function(res) { return res.json(); }).then(function(data) {
+        if (data.folder && data.folder.id) {
+          batchMoveToFolder(data.folder.id);
+        } else {
+          showToast('创建收藏夹失败', 'error');
+        }
+      });
+    }
+
+    async function batchMoveToFolder(folderId) {
+      forceCloseModal();
+      var checked = document.querySelectorAll('.file-check:checked');
+      var count = 0;
+      for (var cb of checked) {
+        var fileId = parseInt(cb.dataset.fileId, 10);
+        if (fileId) {
+          await fetch('/api/virtual-folders/' + folderId + '/files', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileId: fileId })
+          });
+          count++;
+        }
       }
-      if (moved || failed) { showToast((moved ? '已移动 ' + moved + ' 个文件' : '') + (failed ? '，' + failed + ' 个失败' : ''), moved > 0 ? 'success' : 'error'); loadFiles(); }
-      else showToast('无文件需要移动', 'info');
+      showToast('已添加 ' + count + ' 个文件到收藏夹', 'success');
     }
 
     async function batchDownloadSelected() {
@@ -6780,14 +6796,18 @@ function renderPage() {
           <p id="shareCreateFileName" style="font-size:13px;color:var(--muted);margin-bottom:16px;word-break:break-all"></p>\
           <div style="margin-bottom:12px">\
             <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">有效期</label>\
-            <select id="shareExpirySelect" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg)">\
-              <option value="24">24 小时</option>\
-              <option value="48">48 小时</option>\
-              <option value="168" selected>7 天（推荐）</option>\
-              <option value="336">14 天</option>\
-              <option value="720">30 天</option>\
-              <option value="0">永不过期</option>\
-            </select>\
+            <div style="display:flex;gap:6px;align-items:center">\
+              <select id="shareExpirySelect" onchange="toggleShareCustomExpiry(this.value)" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg)">\
+                <option value="24">24 小时</option>\
+                <option value="48">48 小时</option>\
+                <option value="168" selected>7 天（推荐）</option>\
+                <option value="336">14 天</option>\
+                <option value="720">30 天</option>\
+                <option value="custom">自定义日期</option>\
+                <option value="0">永不过期</option>\
+              </select>\
+              <input id="shareCustomExpiry" type="datetime-local" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);display:none">\
+            </div>\
           </div>\
           <div style="margin-bottom:12px">\
             <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">访问密码（可选）</label>\
@@ -6808,22 +6828,35 @@ function renderPage() {
       document.getElementById('sharePasswordInput').focus();
     }
 
+    function toggleShareCustomExpiry(val) {
+      var input = document.getElementById('shareCustomExpiry');
+      if (!input) return;
+      input.style.display = val === 'custom' ? 'block' : 'none';
+      if (val === 'custom') setTimeout(function() { input.focus(); }, 50);
+    }
+
     async function confirmShareCreate(filename) {
       var btn = document.getElementById('shareCreateBtn');
       if (btn) { btn.disabled = true; btn.textContent = '创建中…'; }
-      var expiryHours = parseInt(document.getElementById('shareExpirySelect').value, 10);
+      var expiryVal = document.getElementById('shareExpirySelect').value;
+      var expiryHours = expiryVal === 'custom' ? null : parseInt(expiryVal, 10);
+      var customExpiry = expiryVal === 'custom' ? document.getElementById('shareCustomExpiry').value : null;
       var password = document.getElementById('sharePasswordInput').value.trim();
       var maxDownloads = document.getElementById('shareMaxDlInput').value.trim();
       try {
+        var body = {
+          filename: filename,
+          expiryHours: expiryHours,
+          password: password,
+          maxDownloads: maxDownloads ? parseInt(maxDownloads, 10) : null
+        };
+        if (customExpiry) {
+          body.customExpiry = new Date(customExpiry).getTime();
+        }
         var data = await request('/api/share/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: filename,
-            expiryHours: expiryHours,
-            password: password,
-            maxDownloads: maxDownloads ? parseInt(maxDownloads, 10) : null
-          })
+          body: JSON.stringify(body)
         });
         if (!data || !data.success || !data.share || !data.share.url) {
           showToast('创建分享链接失败', 'error');
@@ -8596,16 +8629,21 @@ function renderPage() {
       });
     }
 
-    // Queue upload when offline
-    window.queueUpload = function(endpoint, body, headers) {
+    // Queue upload when offline — file: { filename, content, type, token }
+    window.queueUpload = function(file) {
       if (!navigator.serviceWorker.controller) return false;
       var mc = new MessageChannel();
       navigator.serviceWorker.controller.postMessage(
-        { type: 'QUEUE_UPLOAD', payload: { endpoint: endpoint, body: body, headers: headers } },
+        { type: 'QUEUE_UPLOAD', file: file },
         [mc.port2]
       );
       return true;
     };
+
+    // Browser-side online detection — trigger sync when back online
+    window.addEventListener('online', function() {
+      syncUploads();
+    });
 
     // Trigger SW sync
     window.syncUploads = function() {
