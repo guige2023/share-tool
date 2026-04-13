@@ -3399,23 +3399,112 @@ function renderPage() {
       const res = await fetch('/api/virtual-folders', { headers: headers() });
       const data = await res.json();
       const folders = data.folders || [];
+      // Fetch all folder tag definitions
+      const tagRes = await fetch('/api/folder-tags', { headers: headers() });
+      const tagData = await tagRes.json();
+      const allTags = tagData.tags || [];
+      // Fetch tags for each folder in parallel
+      const folderTags = await Promise.all(folders.map(f =>
+        fetch('/api/folders/' + encodeURIComponent(f.name) + '/tags', { headers: headers() })
+          .then(r => r.json())
+          .then(d => ({ id: f.id, tags: d.tags || [] }))
+          .catch(() => ({ id: f.id, tags: [] }))
+      ));
+      const tagMap = {};
+      folderTags.forEach(ft => { tagMap[ft.id] = ft.tags; });
+
+      function renderVFRow(f) {
+        const tags = tagMap[f.id] || [];
+        const tagChips = tags.length > 0
+          ? tags.map(t => '<span style="background:' + escapeHtmlClient(t.color || '#e0e7ff') + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;color:inherit;display:inline-block;margin-right:3px">' + escapeHtmlClient(t.name) + '</span>').join('')
+          : '<span style="color:var(--muted);font-size:11px">无标签</span>';
+        return '<div style="display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:8px;background:var(--bg-tertiary);margin-bottom:6px">' +
+          '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + ';font-size:16px;margin-top:2px">●</span>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:13px;font-weight:500;margin-bottom:4px">' + escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span></div>' +
+            '<div style="margin-bottom:6px" id="vfTagChips_' + f.id + '">' + tagChips + '</div>' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap" id="vfTagEdit_' + f.id + '">' +
+              allTags.map(t => {
+                const active = tags.some(ft => ft.id === t.id);
+                return '<span onclick="toggleVFFolderTag(' + f.id + ',' + t.id + ')" ' +
+                  'style="cursor:pointer;background:' + (active ? escapeHtmlClient(t.color || '#e0e7ff') : 'var(--bg-secondary)') + ';font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500;color:' + (active ? 'inherit' : 'var(--text-muted)') + ';border:1px solid ' + (active ? escapeHtmlClient(t.color || '#e0e7ff') : 'var(--line)') + ';opacity:' + (active ? '1' : '0.6') + '" ' +
+                  'title="' + escapeHtmlClient(t.name) + '">' + escapeHtmlClient(t.name) + '</span>';
+              }).join('') +
+              (allTags.length === 0 ? '<span style="color:var(--muted);font-size:11px">先创建标签</span>' : '') +
+            '</div>' +
+          '</div>' +
+          '<button class="ghost" style="font-size:11px;padding:3px 8px;white-space:nowrap;margin-top:2px" onclick="deleteVirtualFolder(' + f.id + ')">删除</button>' +
+        '</div>';
+      }
+
       const body = '<div style="display:flex;flex-direction:column;gap:12px">' +
-        '<div id="vfList" style="max-height:300px;overflow-y:auto">' +
-        (folders.length === 0 ? '<div style="color:var(--muted);text-align:center;padding:20px">暂无收藏夹</div>' :
-          folders.map(f => '<div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;background:var(--bg-tertiary);margin-bottom:6px">' +
-            '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + ';font-size:16px">●</span>' +
-            '<span style="flex:1;font-size:13px">' + escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span></span>' +
-            '<button class="ghost" style="font-size:11px;padding:3px 8px" onclick="deleteVirtualFolder(' + f.id + ')">删除</button>' +
-          '</div>'
-        ).join('')) +
+        '<div id="vfList" style="max-height:340px;overflow-y:auto">' +
+        (folders.length === 0 ? '<div style="color:var(--muted);text-align:center;padding:20px">暂无收藏夹，创建一个并为其添加标签</div>' :
+          folders.map(f => renderVFRow(f)).join('')) +
         '</div>' +
-        '<div style="display:flex;gap:8px;align-items:center">' +
-          '<input id="vfNameInput" type="text" placeholder="新收藏夹名称" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text)">' +
-          '<input id="vfColorInput" type="color" value="#667eea" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:6px">' +
-          '<button class="secondary" onclick="createVirtualFolder()">创建</button>' +
+        '<div style="border-top:1px solid var(--line);padding-top:10px">' +
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">点击标签chips切换分配，标签会自动创建</div>' +
+          '<div style="display:flex;gap:8px;align-items:center">' +
+            '<input id="vfNameInput" type="text" placeholder="新收藏夹名称" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text)">' +
+            '<input id="vfColorInput" type="color" value="#667eea" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:6px">' +
+            '<button class="secondary" onclick="createVirtualFolder()">创建</button>' +
+          '</div>' +
+          '<div style="margin-top:8px">' +
+            '<input id="newTagNameInput" type="text" placeholder="新标签名称" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);width:calc(100% - 100px)">' +
+            '<input id="newTagColorInput" type="color" value="#e0e7ff" style="width:36px;height:36px;border:none;cursor:pointer;border-radius:6px;margin-left:4px">' +
+            '<button class="secondary" style="margin-left:4px" onclick="createFolderTagInVFMgr()">+ 标签</button>' +
+          '</div>' +
         '</div>' +
       '</div>';
-      openModal('收藏夹管理', body, '');
+      openModal('收藏夹 + 标签管理', body, '');
+    }
+
+    async function toggleVFFolderTag(vfId, tagId) {
+      // VF name is stored as data attribute on the tag chips div
+      const chipsEl = document.getElementById('vfTagChips_' + vfId);
+      const editEl = document.getElementById('vfTagEdit_' + vfId);
+      if (!chipsEl || !editEl) return;
+      const vfRow = chipsEl.closest('div[style*="background:var(--bg-tertiary)"]');
+      if (!vfRow) return;
+      // Find VF name from the name div inside the row
+      const vfNameEl = vfRow.querySelector('div > div:first-child');
+      if (!vfNameEl) return;
+      const vfName = vfNameEl.textContent.replace(/\s*\(\d+\).*/,'').trim();
+      if (!vfName) return;
+      // Check if this specific tag is currently assigned (opacity 1 = assigned)
+      const allSpans = editEl.querySelectorAll('span');
+      let isAssigned = false;
+      allSpans.forEach(s => {
+        try {
+          const style = s.getAttribute('style') || '';
+          if (style.includes('opacity:0.6')) {
+            // not assigned, check if this is the one we're toggling
+          } else {
+            // Find the onclick attribute to see if this span is for tagId
+            const onclick = s.getAttribute('onclick') || '';
+            if (onclick.includes(String(tagId))) {
+              isAssigned = true;
+            }
+          }
+        } catch(e) {}
+      });
+      if (isAssigned) {
+        await fetch('/api/folders/' + encodeURIComponent(vfName) + '/tags/' + tagId, { method: 'DELETE', headers: headers() });
+      } else {
+        await fetch('/api/folders/' + encodeURIComponent(vfName) + '/tags/' + tagId, { method: 'POST', headers: headers() });
+      }
+      openVirtualFolderManager();
+    }
+
+    async function createFolderTagInVFMgr() {
+      const name = document.getElementById('newTagNameInput')?.value.trim();
+      const color = document.getElementById('newTagColorInput')?.value || '#e0e7ff';
+      if (!name) return;
+      await fetch('/api/folder-tags', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, color, icon: '' })
+      });
+      openVirtualFolderManager();
     }
 
     async function createVirtualFolder() {

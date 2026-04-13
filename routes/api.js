@@ -453,6 +453,110 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Folder Tags ───────────────────────────────────────────────────────────────
+
+  // GET /api/folder-tags - list all tag definitions with folder counts
+  if (pathname === '/api/folder-tags' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const tags = db.getAllTagDefinitions();
+    sendJson(res, { success: true, tags });
+    return true;
+  }
+
+  // POST /api/folder-tags - create a new tag definition
+  if (pathname === '/api/folder-tags' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { name, color, icon } = body || {};
+    if (!name) {
+      sendJson(res, { success: false, error: 'name required' }, 400);
+      return true;
+    }
+    const result = db.createTagDefinition(name, color || '#e0e7ff', icon || '');
+    sendJson(res, { success: true, tag: result });
+    return true;
+  }
+
+  // PUT /api/folder-tags/:id - update a tag definition
+  if (pathname.match(/^\/api\/folder-tags\/(\d+)$/) && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const id = parseInt(pathname.match(/^\/api\/folder-tags\/(\d+)$/)[1]);
+    const body = await readJsonBody(req);
+    const { name, color, icon } = body || {};
+    if (!name && !color && !icon) {
+      sendJson(res, { success: false, error: 'name, color or icon required' }, 400);
+      return true;
+    }
+    db.updateTagDefinition(id, { name, color, icon });
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // DELETE /api/folder-tags/:id - delete a tag definition
+  if (pathname.match(/^\/api\/folder-tags\/(\d+)$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const id = parseInt(pathname.match(/^\/api\/folder-tags\/(\d+)$/)[1]);
+    db.deleteTagDefinition(id);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // GET /api/folders/:path/tags - get tags for a folder
+  if (pathname.match(/^\/api\/folders\/[^/]+\/tags$/) && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const parts = pathname.split('/');
+    const folderPath = decodeURIComponent(parts[3]);
+    const tags = db.getFolderTags(folderPath);
+    sendJson(res, { success: true, tags });
+    return true;
+  }
+
+  // PUT /api/folders/:path/tags - set tags for a folder
+  if (pathname.match(/^\/api\/folders\/[^/]+\/tags$/) && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const parts = pathname.split('/');
+    const folderPath = decodeURIComponent(parts[3]);
+    const body = await readJsonBody(req);
+    const { tagIds } = body || {};
+    if (!Array.isArray(tagIds)) {
+      sendJson(res, { success: false, error: 'tagIds array required' }, 400);
+      return true;
+    }
+    db.setFolderTags(folderPath, tagIds);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // POST /api/folders/:path/tags/:tagId - add a tag to a folder
+  if (pathname.match(/^\/api\/folders\/[^/]+\/tags\/\d+$/) && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const parts = pathname.split('/');
+    const folderPath = decodeURIComponent(parts[3]);
+    const tagId = parseInt(parts[5]);
+    db.addFolderTag(folderPath, tagId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // DELETE /api/folders/:path/tags/:tagId - remove a tag from a folder
+  if (pathname.match(/^\/api\/folders\/[^/]+\/tags\/\d+$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const parts = pathname.split('/');
+    const folderPath = decodeURIComponent(parts[3]);
+    const tagId = parseInt(parts[5]);
+    db.removeFolderTag(folderPath, tagId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
   // GET /api/search/history - 获取搜索历史
   if (pathname === '/api/search/history' && method === 'GET') {
     const limit = parseInt(query.get('limit') || '20', 10);

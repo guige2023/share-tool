@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 13; // v13: share_links theme columns (theme_bg, theme_color, brand_text)
+const SCHEMA_VERSION = 14; // v14: folder_tags + tag_definitions tables
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -92,8 +92,9 @@ function initDatabase() {
     initSchemaV11(db); // v11: share_links.view_count
     initSchemaV12(db); // v12: files.starred
     initSchemaV13(db); // v13: share_links theme columns
+    initSchemaV14(db); // v14: folder_tags + tag_definitions
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
-    console.log('[DB] Fresh database initialized (v1-v13 schema)');
+    console.log('[DB] Fresh database initialized (v1-v14 schema)');
     return;
   }
 
@@ -618,6 +619,35 @@ function initSchemaV13(db) {
   }
 }
 
+function initSchemaV14(db) {
+  // v14: folder_tags + tag_definitions tables
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS tag_definitions (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        name       TEXT    NOT NULL UNIQUE,
+        color      TEXT    NOT NULL DEFAULT '#e0e7ff',
+        icon       TEXT    NOT NULL DEFAULT '',
+        created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS folder_tags (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        folder_path TEXT    NOT NULL,
+        tag_id     INTEGER NOT NULL,
+        added_at   INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (tag_id) REFERENCES tag_definitions(id) ON DELETE CASCADE,
+        UNIQUE(folder_path, tag_id)
+      )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_folder_tags_path ON folder_tags(folder_path)`);
+    console.log('[DB] Migrated: folder_tags + tag_definitions tables');
+  } catch (e) {
+    console.warn('[DB] Migration v14 failed:', e.message);
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {
@@ -698,6 +728,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV12(db);
     } else if (v === 13) {
       initSchemaV13(db);
+    } else if (v === 14) {
+      initSchemaV14(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -3460,6 +3492,88 @@ function cleanupOrphanTags() {
   return { deleted: orphans.length };
 }
 
+// ============================================================
+// 文件夹标签 (folder_tags)
+// ============================================================
+
+// 获取一个文件夹的所有标签（含颜色/图标）
+function getFolderTags(folderPath) {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT td.id, td.name, td.color, td.icon
+    FROM folder_tags ft
+    JOIN tag_definitions td ON td.id = ft.tag_id
+    WHERE ft.folder_path = ?
+    ORDER BY td.name
+  `).all(folderPath);
+  return rows;
+}
+
+// 设置文件夹的标签（替换模式）
+function setFolderTags(folderPath, tagIds) {
+  const db = getDb();
+  db.prepare('DELETE FROM folder_tags WHERE folder_path = ?').run(folderPath);
+  for (const tagId of tagIds) {
+    db.prepare('INSERT OR IGNORE INTO folder_tags (folder_path, tag_id) VALUES (?, ?)').run(folderPath, tagId);
+  }
+}
+
+// 添加单个标签到文件夹
+function addFolderTag(folderPath, tagId) {
+  const db = getDb();
+  db.prepare('INSERT OR IGNORE INTO folder_tags (folder_path, tag_id) VALUES (?, ?)').run(folderPath, tagId);
+}
+
+// 移除单个标签
+function removeFolderTag(folderPath, tagId) {
+  const db = getDb();
+  db.prepare('DELETE FROM folder_tags WHERE folder_path = ? AND tag_id = ?').run(folderPath, tagId);
+}
+
+// 获取所有标签定义（供标签管理器使用）
+function getAllTagDefinitions() {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT td.*,
+      (SELECT COUNT(*) FROM folder_tags ft WHERE ft.tag_id = td.id) as folder_count
+    FROM tag_definitions td
+    ORDER BY td.name
+  `).all();
+  return rows;
+}
+
+// 创建标签定义
+function createTagDefinition(name, color = '#e0e7ff', icon = '') {
+  const db = getDb();
+  try {
+    const result = db.prepare('INSERT INTO tag_definitions (name, color, icon) VALUES (?, ?, ?)').run(name, color, icon);
+    return { id: result.lastInsertRowid, name, color, icon };
+  } catch (e) {
+    if (e.message.includes('UNIQUE')) {
+      return db.prepare('SELECT * FROM tag_definitions WHERE name = ?').get(name);
+    }
+    throw e;
+  }
+}
+
+// 更新标签定义
+function updateTagDefinition(id, fields) {
+  const db = getDb();
+  const allowed = ['name', 'color', 'icon'];
+  const sets = Object.keys(fields).filter(k => allowed.includes(k)).map(k => `${k} = ?`).join(', ');
+  if (!sets) return false;
+  const values = Object.keys(fields).filter(k => allowed.includes(k)).map(k => fields[k]);
+  db.prepare(`UPDATE tag_definitions SET ${sets} WHERE id = ?`).run(...values, id);
+  return true;
+}
+
+// 删除标签定义
+function deleteTagDefinition(id) {
+  const db = getDb();
+  db.prepare('DELETE FROM folder_tags WHERE tag_id = ?').run(id);
+  db.prepare('DELETE FROM tag_definitions WHERE id = ?').run(id);
+}
+
 function mergeTags(sources, target) {
   // 将所有 source 标签合并到 target（从每个文件的标签列表中移除 source，加入 target）
   const db = getDb();
@@ -3758,7 +3872,10 @@ module.exports = {
   cleanupSyncLog, cleanupAuditLog, clearAuditLogs, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, touchTag,
-  getTagEmoji, setTagEmoji, getAllTags, getAllTagsWithStats, ensureTagStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags, cleanupOrphanTags,
+  getTagEmoji, setTagEmoji,  getAllTags, getAllTagsWithStats, ensureTagStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags, cleanupOrphanTags,
+  // 文件夹标签
+  getFolderTags, setFolderTags, addFolderTag, removeFolderTag,
+  getAllTagDefinitions, createTagDefinition, updateTagDefinition, deleteTagDefinition,
   // 垃圾桶
   moveToTrash, permanentlyDeleteFile, listTrash, restoreFromTrash, permanentlyDeleteTrash, emptyTrash, cleanupExpiredTrash,
   // 文件版本历史
