@@ -4902,6 +4902,11 @@ function renderPage() {
       showToast('已复制: ' + display, 'success');
     }
 
+    async function copyFilePath(filename) {
+      await navigator.clipboard.writeText('/' + filename);
+      showToast('已复制文件路径: /' + filename, 'success');
+    }
+
     var recentSearchesCache = [];
     var MAX_RECENT_SEARCHES = 8;
     var LS_KEY = 'sharetool_recent_searches';
@@ -5109,6 +5114,7 @@ function renderPage() {
         } catch () {
           document.getElementById('docxPreview').innerHTML = '<p class="muted">文档预览失败，请下载查看。</p>';
         }
+        setPreviewActions(filename);
         return;
       } else if (file.mime === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
         modalBody.innerHTML = '<div id="pptxPreview" style="max-height:70vh;overflow:auto;padding:16px;background:#fff;color:#222;border-radius:8px"><div style="text-align:center;color:var(--text-muted);padding:40px">正在加载演示文稿...</div></div>';
@@ -5125,6 +5131,7 @@ function renderPage() {
         } catch () {
           document.getElementById('pptxPreview').innerHTML = '<p class="muted">演示文稿预览失败，请下载查看。</p>';
         }
+        setPreviewActions(filename);
         return;
       } else if (file.mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
         modalBody.innerHTML = '<div id="xlsxPreview" style="max-height:70vh;overflow:auto;padding:0;background:#fff;border-radius:8px"><div style="text-align:center;color:var(--text-muted);padding:40px">正在加载表格...</div></div>';
@@ -5142,11 +5149,14 @@ function renderPage() {
         } catch () {
           document.getElementById('xlsxPreview').innerHTML = '<p class="muted">表格预览失败，请下载查看。</p>';
         }
+        setPreviewActions(filename);
         return;
       } else if ((file.mime || '').startsWith('video/')) {
         modalBody.innerHTML = '<video controls style="width:100%;max-height:70vh;border-radius:8px;background:#000"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持视频预览</video>';
+        setPreviewActions(filename);
       } else if ((file.mime || '').startsWith('audio/')) {
         modalBody.innerHTML = '<audio controls style="width:100%;margin-top:20px"><source src="data:' + file.mime + ';base64,' + file.content + '">您的浏览器不支持音频预览</audio>';
+        setPreviewActions(filename);
       } else {
         modalBody.innerHTML = '<p class="muted">此文件类型不做内嵌预览，请直接下载。</p><button class="btn secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(filename) + ')' + "'" + '>下载文件</button>';
       }
