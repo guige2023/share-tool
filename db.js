@@ -1042,6 +1042,7 @@ function updateFileByName(filename, updates) {
     values.push(updates.tags);
   }
   if (updates.encrypted !== undefined) { fields.push('encrypted = ?'); values.push(updates.encrypted ? 1 : 0); }
+  if (updates.starred !== undefined) { fields.push('starred = ?'); values.push(updates.starred ? 1 : 0); }
 
   fields.push('updated_at = unixepoch()');
   values.push(filename);
@@ -1076,6 +1077,7 @@ function updateFile(id, updates) {
   if (updates.tags !== undefined) { fields.push('tags = ?'); values.push(updates.tags); }
   if (updates.filename !== undefined) { fields.push('filename = ?'); values.push(updates.filename); }
   if (updates.encrypted !== undefined) { fields.push('encrypted = ?'); values.push(updates.encrypted ? 1 : 0); }
+  if (updates.starred !== undefined) { fields.push('starred = ?'); values.push(updates.starred ? 1 : 0); }
 
   fields.push('updated_at = unixepoch()');
   values.push(id);

@@ -69,6 +69,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         type: file.type,
         hash: file.hash,
         tags: file.tags || '',
+        starred: file.starred === 1,
         createdAt: file.created_at * 1000,
         updatedAt: file.updated_at * 1000,
         content_type: file.content_type || null
@@ -154,6 +155,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         createdAt: file.created_at * 1000,
         updatedAt: file.updated_at * 1000,
         tags: file.tags || '',
+        starred: file.starred === 1,
         // FTS5: use fts_rank (bm25, lower is better); LIKE: use computed score
         score: file.fts_rank !== undefined ? -file.fts_rank : (file.score || 0),
         content_type: file.content_type || null
