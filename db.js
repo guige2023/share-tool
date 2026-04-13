@@ -828,9 +828,20 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
   if (folder) { conditions.push('filename LIKE ? ESCAPE ?'); params.push(folder + '/%', '\\'); }
   if (starred) { conditions.push('starred = 1'); }
   if (typeFilter) {
-    // typeFilter: 'text' | 'image' | 'audio' | 'video' | 'file'
-    conditions.push('type = ?');
-    params.push(typeFilter);
+    // typeFilter now maps to MIME-based filtering
+    const typeMap = {
+      text: "type = 'text'",
+      image: "content_type LIKE 'image/%'",
+      video: "content_type LIKE 'video/%'",
+      audio: "content_type LIKE 'audio/%'",
+      pdf: "content_type = 'application/pdf'",
+      document: "content_type LIKE 'application/vnd%' OR content_type LIKE 'application/ms%' OR content_type = 'application/vnd.openxmlformats-officedocument%'",
+      archive: "content_type LIKE 'application/zip' OR content_type LIKE 'application/x-rar%' OR content_type LIKE 'application/x-7z%' OR content_type LIKE 'application/x-tar%' OR content_type LIKE 'application/gzip'"
+    };
+    const cond = typeMap[typeFilter];
+    if (cond) {
+      conditions.push(cond);
+    }
   }
   if (tags) {
     // tags is comma-separated string; each tag must be present in the tags column
@@ -842,7 +853,6 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
       });
     }
   }
-  if (typeFilter) { conditions.push('type = ?'); params.push(typeFilter); }
 
   const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
   const files = db.prepare(`
