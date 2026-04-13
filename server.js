@@ -610,6 +610,8 @@ function renderPage() {
       .drop-zone-inner p{margin:4px 0}
       /* Prevent iOS from auto-zooming on inputs inside toolbar/search */
       .toolbar input{font-size:16px!important}
+      #searchInput{min-height:44px;padding:8px 40px 8px 12px;border-radius:10px}
+      #searchClear{width:32px;height:32px;display:flex!important;align-items:center;justify-content:center;top:50%;transform:translateY(-50%);font-size:14px}
       .search-input-wrap input{font-size:16px!important}
       .meta .chip{font-size:11px;padding:7px 10px}
       .hero h1{font-size:24px}
@@ -1640,12 +1642,31 @@ function renderPage() {
     function openBatchMoveModal() {
       var names = checkedNames();
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
-      var folder = prompt('输入目标文件夹前缀（如 backups），文件将重命名为「前缀_原名」：', '');
-      if (folder === null) return;
-      folder = folder.trim();
-      // Strip leading slash to satisfy validateFilename (no absolute paths)
+      document.getElementById('modalTitle').textContent = '批量移动文件';
+      document.getElementById('modalBody').innerHTML =
+        '<div style="padding:8px 0">' +
+          '<p style="color:var(--text-muted);font-size:13px;margin-bottom:12px">为 ' + names.length + ' 个文件添加前缀（如 <code>backups_</code>），文件将重命名为「前缀_原名」：</p>' +
+          '<input id="batchMovePrefix" type="text" placeholder="输入前缀（如 backups）" ' +
+            'style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box" ' +
+            'onkeydown="if(event.key===\'Enter\')confirmBatchMove(' + names.length + ');if(event.key===\'Escape\')forceCloseModal()">' +
+          '<p style="color:var(--text-muted);font-size:11px;margin-top:8px">示例：输入 <code>backups</code> → 文件名.txt → <code>backups_文件名.txt</code></p>' +
+        '</div>';
+      var modal = document.getElementById('modal');
+      modal.querySelector('.modal-actions').innerHTML =
+        '<button class="secondary" onclick="forceCloseModal()">取消</button>' +
+        '<button class="primary" onclick="confirmBatchMove(' + names.length + ')">确认</button>';
+      modal.classList.add('open');
+      setTimeout(function() { document.getElementById('batchMovePrefix').focus(); }, 50);
+    }
+
+    function confirmBatchMove(count) {
+      var input = document.getElementById('batchMovePrefix');
+      var folder = input && input.value.trim();
+      forceCloseModal();
+      if (!folder) { showToast('请输入前缀', 'error'); return; }
       if (folder.startsWith('/')) folder = folder.slice(1);
-      batchMoveSelected(names.map(function (n) { return decodeURIComponent(n); }), folder);
+      var names = checkedNames().map(function(n) { return decodeURIComponent(n); });
+      batchMoveSelected(names, folder);
     }
 
     async function batchMoveSelected(names, folder) {
