@@ -5753,10 +5753,13 @@ function renderPage() {
         showToast('排序: ' + (newOrder === 'desc' ? '最新优先' : '最旧优先'), 'info', 1500);
         return;
       }
-      // Escape: close modal or lightbox, clear selection
+      // Escape: close modal or lightbox, clear toast, clear selection
       if (e.key === 'Escape') {
         var lb = document.getElementById('lightboxOverlay');
         if (lb) { lb.remove(); } else { forceCloseModal(); }
+        // Hide toast if showing
+        var toast = document.getElementById('toast');
+        if (toast) { toast.className = ''; if (toast._timer) clearTimeout(toast._timer); }
         clearSelection();
       }
     });
