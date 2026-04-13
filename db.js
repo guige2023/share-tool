@@ -1587,6 +1587,9 @@ function searchFiles(query, tags = null, opts = {}) {
     extraConditions.push(`type = ?`);
     extraParams.push(type);
   }
+  if (starred === true) {
+    extraConditions.push(`starred = 1`);
+  }
   const extraWhere = extraConditions.length > 0 ? ' AND ' + extraConditions.join(' AND ') : '';
 
   if (!query && !tags && !content && !extraWhere) {
