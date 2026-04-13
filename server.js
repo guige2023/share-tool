@@ -5129,6 +5129,14 @@ function renderPage() {
           openTrash();
           break;
         }
+        case 'o':
+        case 'O': {
+          // o: open saved searches panel
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          openSavedSearchesPanel();
+          break;
+        }
         case 'u':
         case 'U': {
           // u: trigger file upload
@@ -6962,6 +6970,7 @@ function renderPage() {
         ['r', '刷新文件列表'],
         ['f / /', '聚焦搜索框'],
         ['t', '打开回收站'],
+        ['o', '打开已保存搜索'],
         ['u', '触发上传'],
         ['Ctrl+A', '全选文件'],
         ['?', '显示帮助'],
@@ -9776,6 +9785,7 @@ function renderPage() {
           ['y', '复制文件名'],
           ['s', '标记/取消标记收藏'],
           ['t', '批量添加标签'],
+          ['o', '已保存搜索'],
           ['v', '切换网格/列表视图'],
           ['Ctrl+A', '全选文件'],
           ['Ctrl+,', '打开设置'],
