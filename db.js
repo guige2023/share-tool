@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 10; // v10: FTS5 XSS-safe HTML-escaped content
+const SCHEMA_VERSION = 11; // v11: share_links view_count
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -565,6 +565,24 @@ function initSchemaV8(db) {
   }
 }
 
+function initSchemaV10(db) {
+  // v10: unused — skipped after v9 refactor (kept for migration compat)
+}
+
+function initSchemaV11(db) {
+  // v11: add view_count to share_links for tracking link opens
+  try {
+    db.exec(`ALTER TABLE share_links ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0`);
+    console.log('[DB] Migrated: share_links.view_count');
+  } catch (e) {
+    if (e.message.includes('duplicate column')) {
+      console.log('[DB] share_links.view_count already exists');
+    } else {
+      console.error('[DB] view_count migration failed:', e.message);
+    }
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {
@@ -631,6 +649,10 @@ function runMigrations(db, fromVersion) {
       initSchemaV8(db);
     } else if (v === 9) {
       initSchemaV9(db);
+    } else if (v === 10) {
+      initSchemaV10(db);
+    } else if (v === 11) {
+      initSchemaV11(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -2588,6 +2610,7 @@ function getShareLink(code) {
     expiresAt: row.expires_at * 1000,
     maxDownloads: row.max_downloads,
     downloadCount: row.download_count,
+    viewCount: row.view_count,
     description: row.description || '',
     createdAt: row.created_at * 1000,
     createdBy: row.created_by,
@@ -2653,6 +2676,11 @@ function incrementShareLinkDownload(code) {
   return { allowed: true };
 }
 
+function incrementShareLinkViewCount(code) {
+  const db = getDb();
+  db.prepare('UPDATE share_links SET view_count = view_count + 1 WHERE code = ?').run(code);
+}
+
 function listShareLinks(filename = null) {
   const db = getDb();
   const now = Math.floor(Date.now() / 1000);
@@ -2674,6 +2702,8 @@ function listShareLinks(filename = null) {
     maxDownloads: row.max_downloads,
     download_count: row.download_count,
     downloadCount: row.download_count,
+    view_count: row.view_count,
+    viewCount: row.view_count,
     description: row.description || '',
     created_at: row.created_at,
     createdAt: row.created_at * 1000,
@@ -3474,7 +3504,7 @@ module.exports = {
   // 搜索历史
   addSearchHistory, getSearchHistory, clearSearchHistory, deleteSearchHistoryItem, getPopularSearches,
   // 分享链接
-  saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload,
+  saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload, incrementShareLinkViewCount,
   listShareLinks, cleanupExpiredShareLinks,
   // 虚拟文件夹
   createVirtualFolder, listVirtualFolders, getVirtualFolder, deleteVirtualFolder, updateVirtualFolder,

@@ -135,6 +135,9 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
       return true;
     }
 
+    // Track share link view (non-blocking)
+    db.incrementShareLinkViewCount(code);
+
     const file = db.getFileByName(share.filename);
     if (!file) {
       sendHtml(res, '<!doctype html><html><body style="font-family:sans-serif;padding:40px;"><h2>文件不存在</h2></body></html>', 404);
