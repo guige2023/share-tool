@@ -2758,12 +2758,33 @@ function renderPage() {
       menu.style.left = x + 'px';
       menu.style.top = y + 'px';
       menu.style.display = 'block';
+      // Init keyboard nav state for ctx menu
+      ctxMenuNavIndex = -1;
+      updateCtxMenuHighlight();
     });
 
     document.addEventListener('click', function(e) {
       var menu = document.getElementById('ctxMenu');
       if (!menu.contains(e.target)) menu.style.display = 'none';
     });
+
+    // --- Context Menu Keyboard Navigation ---
+    var ctxMenuNavIndex = -1;
+    var ctxMenuItems = [];
+
+    function updateCtxMenuHighlight() {
+      ctxMenuItems = Array.from(document.querySelectorAll('#ctxMenu .ctx-item'));
+      ctxMenuItems.forEach(function(item, i) {
+        item.style.background = i === ctxMenuNavIndex ? 'var(--primary)' : '';
+        item.style.color = i === ctxMenuNavIndex ? 'var(--text-inverse,#fff)' : '';
+      });
+    }
+
+    function getCtxMenuVisibleItems() {
+      return Array.from(document.querySelectorAll('#ctxMenu .ctx-item')).filter(function(item) {
+        return item.style.display !== 'none' && !item.classList.contains('ctx-sep');
+      });
+    }
 
     // Mobile: long-press (500ms) on file row shows context menu
     var longPressTimer = null;
@@ -2797,7 +2818,36 @@ function renderPage() {
       menu.style.left = x + 'px';
       menu.style.top = y + 'px';
       menu.style.display = 'block';
+      ctxMenuNavIndex = -1;
+      updateCtxMenuHighlight();
     }
+
+    // Context menu keyboard navigation
+    document.addEventListener('keydown', function(e) {
+      var menu = document.getElementById('ctxMenu');
+      if (!menu || menu.style.display === 'none') return;
+      var items = getCtxMenuVisibleItems();
+      if (!items.length) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        ctxMenuNavIndex = Math.min(ctxMenuNavIndex + 1, items.length - 1);
+        updateCtxMenuHighlight();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        e.stopPropagation();
+        ctxMenuNavIndex = Math.max(ctxMenuNavIndex - 1, 0);
+        updateCtxMenuHighlight();
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (ctxMenuNavIndex >= 0 && ctxMenuNavIndex < items.length) {
+          items[ctxMenuNavIndex].click();
+        }
+      } else if (e.key === 'Escape') {
+        menu.style.display = 'none';
+      }
+    }, true); // Use capture to intercept before handleKeyboardNav
 
     // --- Drag-to-Reorder ---
     var draggedItem = null;
@@ -3716,9 +3766,24 @@ function renderPage() {
       const title = document.getElementById('modalTitle');
       const body = document.getElementById('modalBody');
       title.textContent = '编辑标签';
+
+      // Fetch all existing tags for autocomplete
+      var tagSuggestions = [];
+      try {
+        var res = await fetch('/api/tags/list', { headers: headers() });
+        if (res.ok) {
+          var data = await res.json();
+          tagSuggestions = (data.tags || []).map(function(t) { return t.tag; }).filter(Boolean);
+        }
+      } catch(e) {}
+
+      var suggestionsHtml = tagSuggestions.length
+        ? '<datalist id="tagSuggestions"><option value="' + tagSuggestions.join('"><option value="') + '"></datalist>'
+        : '';
       body.innerHTML = '<div style="padding:8px 0">' +
         '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">文件名: ' + escapeHtmlClient(filename) + '</div>' +
-        '<input id="tagInput" type="text" placeholder="标签（逗号分隔，如：工作,重要）" value="' + escapeHtmlClient(currentTags || '') + '" ' +
+        suggestionsHtml +
+        '<input id="tagInput" type="text" list="tagSuggestions" placeholder="标签（逗号分隔，如：工作,重要）" value="' + escapeHtmlClient(currentTags || '') + '" ' +
         'style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:14px;box-sizing:border-box"' +
         ' onkeydown="if(event.key===\'Enter\'){saveFileTags(\'' + filename.replace(/'/g, "\\'") + '\')}">' +
         '<div style="font-size:11px;color:var(--muted);margin-top:6px">多个标签用逗号分隔，如：工作,项目A,重要</div>' +
