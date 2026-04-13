@@ -736,7 +736,7 @@ function renderPage() {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
-  <div id="toast"></div>
+  <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
   <div id="ctxMenu" style="display:none;position:fixed;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:10000;min-width:160px;overflow:hidden;font-size:14px">
     <div class="ctx-item" onclick="ctxAction('open')">👁 查看</div>
     <div class="ctx-item" onclick="ctxAction('download')">⬇ 下载</div>
@@ -821,9 +821,9 @@ function renderPage() {
 
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
-        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" style="padding-right:32px">
+        <input id="searchInput" type="text" placeholder="按文件名搜索" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:32px">
         <span id="searchClear" onclick="clearSearchInput()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:16px;line-height:1;display:none;user-select:none" title="清除搜索">✕</span>
-        <select id="tagFilterSelect" onchange="filterByTag()" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:140px">
+        <select id="tagFilterSelect" onchange="filterByTag()" aria-label="按标签筛选" style="padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:140px">
           <option value="">全部标签</option>
         </select>
         <button id="vfBtn" class="ghost" onclick="toggleVirtualFolderMenu()" title="收藏夹">⭐</button>
@@ -1034,7 +1034,7 @@ function renderPage() {
     </section>
   </div>
 
-  <div id="modal" class="modal" onclick="closeModal(event)">
+  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="closeModal(event)">
     <div class="modal-card">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
         <strong id="modalTitle">预览</strong>
@@ -3298,14 +3298,6 @@ function renderPage() {
           }).catch(function() { showToast('操作失败', 'error'); });
           break;
         }
-        case 'c':
-        case 'C': {
-          if (e.ctrlKey || e.metaKey || e.altKey) return;
-          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
-          e.preventDefault();
-          clearSelection();
-          break;
-        }
         case 'b':
         case 'B': {
           // b: batch download selected files as zip
@@ -3326,6 +3318,15 @@ function renderPage() {
           } else {
             if (confirm(i18n.confirmDeleteMulti || '确定删除选中的 ' + selected.length + ' 个文件？')) deleteFiles(selected);
           }
+          break;
+        }
+        case 'v':
+        case 'V': {
+          // v: toggle list/grid view
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          setView(currentView === 'list' ? 'grid' : 'list');
           break;
         }
         case 'e': {
@@ -4322,6 +4323,7 @@ function renderPage() {
         ['Enter', '打开选中文件'],
         ['Space', '选中/取消选中'],
         ['a', '全选文件'],
+        ['Shift+Click', '范围选择'],
         ['u', '上传文件'],
         ['s', '切换星标'],
         ['b', '批量下载'],
@@ -4330,8 +4332,7 @@ function renderPage() {
         ['t', '回收站'],
         ['y', '复制文件名'],
         ['Del', '删除选中'],
-        ['c', '清空选择'],
-        ['d', '切换主题'],
+        ['d', '删除选中'],
         ['v', '切换视图'],
         ['r', '刷新文件列表'],
         ['?', '显示此帮助'],
@@ -5074,25 +5075,76 @@ function renderPage() {
     }
 
     async function createShare(filename) {
-      const expiryRaw = prompt('分享有效期（小时，留空默认 168）', '168');
-      if (expiryRaw === null) return;
-      const password = prompt('访问密码（可留空）', '') || '';
-      const data = await request('/api/share/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: filename,
-          expiryHours: expiryRaw.trim() ? parseInt(expiryRaw, 10) : 168,
-          password: password
-        })
-      });
-      if (!data || !data.success || !data.share || !data.share.url) {
-        showToast('创建分享链接失败', 'error');
-        return;
+      // Remove any existing share-create modal
+      var existing = document.getElementById('shareCreateModal');
+      if (existing) existing.remove();
+
+      var modal = document.createElement('div');
+      modal.id = 'shareCreateModal';
+      modal.className = 'modal open';
+      modal.innerHTML = '\
+        <div class="modal-content" style="max-width:460px">\
+          <h3>创建分享链接</h3>\
+          <p id="shareCreateFileName" style="font-size:13px;color:var(--muted);margin-bottom:16px;word-break:break-all"></p>\
+          <div style="margin-bottom:12px">\
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">有效期</label>\
+            <select id="shareExpirySelect" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg)">\
+              <option value="24">24 小时</option>\
+              <option value="48">48 小时</option>\
+              <option value="168" selected>7 天（推荐）</option>\
+              <option value="336">14 天</option>\
+              <option value="720">30 天</option>\
+              <option value="0">永不过期</option>\
+            </select>\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">访问密码（可选）</label>\
+            <input id="sharePasswordInput" type="text" placeholder="留空则无需密码" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:16px">\
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">最大下载次数（可选）</label>\
+            <input id="shareMaxDlInput" type="number" min="1" placeholder="无限制" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;box-sizing:border-box">\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'shareCreateModal\').remove()">取消</button>\
+            <button onclick="confirmShareCreate(\'' + filename.replace(/'/g, "\\'") + '\')" id="shareCreateBtn">创建并复制链接</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      document.getElementById('shareCreateFileName').textContent = filename;
+      // Focus password field for quick entry
+      document.getElementById('sharePasswordInput').focus();
+    }
+
+    async function confirmShareCreate(filename) {
+      var btn = document.getElementById('shareCreateBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '创建中…'; }
+      var expiryHours = parseInt(document.getElementById('shareExpirySelect').value, 10);
+      var password = document.getElementById('sharePasswordInput').value.trim();
+      var maxDownloads = document.getElementById('shareMaxDlInput').value.trim();
+      try {
+        var data = await request('/api/share/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: filename,
+            expiryHours: expiryHours,
+            password: password,
+            maxDownloads: maxDownloads ? parseInt(maxDownloads, 10) : null
+          })
+        });
+        if (!data || !data.success || !data.share || !data.share.url) {
+          showToast('创建分享链接失败', 'error');
+          return;
+        }
+        await copyToClipboard(data.share.url);
+        showToast('分享链接已复制到剪贴板', 'success');
+        var m = document.getElementById('shareCreateModal');
+        if (m) m.remove();
+        await loadShares();
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '创建并复制链接'; }
       }
-      await copyToClipboard(data.share.url);
-      showToast('分享链接已复制', 'success');
-      await loadShares();
     }
 
     async function loadShares() {
@@ -5672,14 +5724,17 @@ function renderPage() {
       if (e.key === 'c' && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
         var active = document.activeElement;
         if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
-        if (keyboardNavIndex >= 0) {
+        var checked = document.querySelectorAll('.file-check:checked');
+        var fn4 = null;
+        if (checked.length === 1) {
+          var item = checked[0].closest('tr') || checked[0].closest('.file-item');
+          fn4 = item && (item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent);
+        } else if (keyboardNavIndex >= 0) {
           var items = getAllFileItems();
           var item = items[keyboardNavIndex];
-          if (item) {
-            var fn4 = item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent;
-            if (fn4) { copyShareLink(fn4.trim()); }
-          }
+          fn4 = item && (item.getAttribute('data-filename') || item.querySelector('.filename') && item.querySelector('.filename').textContent);
         }
+        if (fn4) { copyShareLink(fn4.trim()); }
         return;
       }
       // s: toggle safe area / toggle sidebar
