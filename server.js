@@ -855,11 +855,11 @@ function renderPage() {
         <button class="ghost" onclick="openKeyboardHelp()" title="键盘快捷键 (?)">?</button>
         <button id="installPwaBtn" class="secondary" style="display:none" onclick="installPWA()">安装应用</button>
         <button id="advancedSearchBtn" class="ghost" onclick="toggleAdvancedSearch()">高级 ⌄</button>
-        <button class="ghost" onclick="downloadSelected()">打包下载选中项</button>
-        <button class="secondary" onclick="openTagManager()">标签管理</button>
+        <button id="downloadSelected" class="ghost" onclick="downloadSelected()">打包下载选中项</button>
+        <button id="openTagManager" class="secondary" onclick="openTagManager()">标签管理</button>
         <button class="secondary" onclick="openDashboard()">📊 存储分析</button>
-        <button class="ghost" onclick="openTrash()">回收站</button>
-        <button class="danger" onclick="deleteAllFiles()">删除全部</button>
+        <button id="trashBtn" class="ghost" onclick="openTrash()">回收站</button>
+        <button id="deleteAllFiles" class="danger" onclick="deleteAllFiles()">删除全部</button>
         <div class="view-toggle">
           <input type="checkbox" id="gridSelectAll" onchange="toggleAll(this.checked)" style="display:none;margin-right:6px;cursor:pointer" title="全选">
           <button id="viewListBtn" class="active" onclick="setView('list')" title="列表视图">☰</button>
