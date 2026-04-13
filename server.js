@@ -4821,11 +4821,102 @@ function renderPage() {
           }
           break;
         }
-        case '?': {
-          // ?: show keyboard shortcuts help
+        case 'j': {
+          // j: move keyboard nav down
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
-          openKeyboardHelp();
+          updateGridColumns();
+          applyNavHighlight(keyboardNavIndex + 1);
+          break;
+        }
+        case 'k': {
+          // k: move keyboard nav up
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          updateGridColumns();
+          applyNavHighlight(keyboardNavIndex - 1);
+          break;
+        }
+        case 'Home': {
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          var firstItems = getAllFileItems();
+          if (firstItems.length) {
+            applyNavHighlight(0);
+            firstItems[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+          break;
+        }
+        case 'End': {
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          var lastItems = getAllFileItems();
+          if (lastItems.length) {
+            applyNavHighlight(lastItems.length - 1);
+            lastItems[lastItems.length - 1].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+          break;
+        }
+        case 'r': {
+          // r: refresh file list
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          loadFiles();
+          break;
+        }
+        case 'n': {
+          // n: new text file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          openNewFileDialog();
+          break;
+        }
+        case 'Space': {
+          // Space: toggle checkbox on keyboard-navigated file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          if (keyboardNavIndex < 0) return;
+          var spaceItem = getFileAtIndex(keyboardNavIndex);
+          if (!spaceItem) return;
+          var cb = spaceItem.querySelector('.file-check');
+          if (cb) {
+            cb.checked = !cb.checked;
+            cb.dispatchEvent(new Event('change'));
+            updateBatchBar();
+          }
+          break;
+        }
+        case 's': {
+          // s: toggle star on keyboard-navigated file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          if (keyboardNavIndex < 0) return;
+          var sItem = getFileAtIndex(keyboardNavIndex);
+          if (!sItem) return;
+          var sFilename = decodeURIComponent(sItem.getAttribute('data-filename') || '');
+          if (sFilename) toggleStar(sFilename);
+          break;
+        }
+        case 'y': {
+          // y: copy filename to clipboard
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          if (keyboardNavIndex < 0) return;
+          var yItem = getFileAtIndex(keyboardNavIndex);
+          if (!yItem) return;
+          var yFilename = decodeURIComponent(yItem.getAttribute('data-filename') || '');
+          if (yFilename) { copyToClipboard(yFilename); showToast('已复制: ' + yFilename, 'success'); }
+          break;
+        }
+        case 'c': {
+          // c: copy share link for keyboard-navigated file
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          if (keyboardNavIndex < 0) return;
+          var cItem = getFileAtIndex(keyboardNavIndex);
+          if (!cItem) return;
+          var cFilename = decodeURIComponent(cItem.getAttribute('data-filename') || '');
+          if (cFilename) copyShareLink(cFilename);
           break;
         }
         case 'd': {
@@ -4877,7 +4968,9 @@ function renderPage() {
           break;
         }
         case '?': {
+          // ?: show keyboard shortcuts help
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
           openKeyboardHelp();
           break;
         }
@@ -6683,28 +6776,23 @@ function renderPage() {
       const body = document.getElementById('modalBody');
       title.textContent = '键盘快捷键';
       const shortcuts = [
-        ['j', '向下导航'],
-        ['k', '向上导航'],
+        ['j / ↓', '向下导航'],
+        ['k / ↑', '向上导航'],
         ['Enter', '打开/预览文件'],
-        ['p', '预览选中文件'],
         ['Space', '选中/取消选中'],
-        ['c / l', '复制分享链接'],
+        ['s', '标记/取消收藏'],
         ['y', '复制文件名'],
-        ['e', '重命名选中文件'],
-        ['i', '显示文件属性'],
-        ['d', '删除选中文件'],
-        ['s', '标记/取消标记收藏'],
-        ['v', '切换视图 (list/grid)'],
-        ['m', '切换深色/浅色主题'],
-        ['Home/End', '跳到列表开头/末尾'],
+        ['c', '复制分享链接'],
+        ['v', '切换视图 (list↔grid)'],
+        ['d', '切换主题 (light↔dark)'],
+        ['Home / End', '跳到开头/末尾'],
         ['n', '新建文本文件'],
         ['r', '刷新文件列表'],
-        ['f', '聚焦搜索框'],
+        ['f / /', '聚焦搜索框'],
+        ['t', '打开回收站'],
+        ['u', '触发上传'],
         ['Ctrl+A', '全选文件'],
-        ['Ctrl+V', '粘贴图片/文件上传'],
-        ['Ctrl+Enter', '上传/保存'],
-        ['Ctrl+,', '打开设置'],
-        ['?', '显示/隐藏帮助'],
+        ['?', '显示帮助'],
         ['Esc', '关闭弹窗/取消选择'],
       ];
       body.innerHTML = '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 20px;padding:8px 0;font-size:13px">' +
