@@ -486,6 +486,7 @@ function renderPage() {
     [data-theme="dark"] .chip.warn{background:#451a03;color:#fde68a}
     [data-theme="dark"] .tag-badge{color:#c7d2fe}
     [data-theme="dark"] .fab{background:#0f766e}
+    [data-theme="dark"] #pull-indicator{background:#0f766e}
     *{box-sizing:border-box}
     [data-theme="dark"] body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
     [data-theme="dark"] .hero{border-color:var(--line);background:rgba(30,41,59,.86)}
@@ -763,6 +764,7 @@ function renderPage() {
 </head>
 <body>
   <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="pull-indicator"><span class="spinner"></span>下拉刷新...</div>
   <div id="ctxMenu" style="display:none;position:fixed;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:10000;min-width:160px;overflow:hidden;font-size:14px">
     <div class="ctx-item" onclick="ctxAction('open')">👁 查看</div>
     <div class="ctx-item" onclick="ctxAction('download')">⬇ 下载</div>
@@ -6630,6 +6632,37 @@ function renderPage() {
       renderRequestLinkTable(filtered);
     }
 
+    // Pull-to-refresh for mobile
+    var ptrStartY = 0;
+    var ptrEl = document.getElementById('pull-indicator');
+    document.addEventListener('touchstart', function(e) {
+      // Only activate when at top of page
+      if (document.documentElement.scrollTop <= 5 || document.body.scrollTop <= 5) {
+        ptrStartY = e.touches[0].clientY;
+      }
+    }, { passive: true });
+    document.addEventListener('touchmove', function(e) {
+      if (ptrStartY === 0) return;
+      var delta = e.touches[0].clientY - ptrStartY;
+      if (delta > 0 && (document.documentElement.scrollTop <= 5 || document.body.scrollTop <= 5)) {
+        e.preventDefault();
+        var pullPx = Math.min(delta, 100);
+        ptrEl.style.height = pullPx + 'px';
+        ptrEl.querySelector('.spinner').style.display = pullPx >= 60 ? 'inline-block' : 'none';
+        ptrEl.childNodes[ptrEl.childNodes.length - 1].textContent = pullPx >= 60 ? '松开刷新' : '下拉刷新...';
+      }
+    }, { passive: false });
+    document.addEventListener('touchend', function() {
+      if (ptrStartY === 0) return;
+      var h = parseInt(ptrEl.style.height) || 0;
+      ptrStartY = 0;
+      ptrEl.style.height = '0px';
+      if (h >= 60) {
+        loadFiles();
+        showToast('刷新中...', 'info');
+      }
+    }, { passive: true });
+
     function toggleRlSelectAll(checked) {
       document.querySelectorAll('.rl-check').forEach(function(el) { el.checked = checked; });
       updateRlBatchBar();
@@ -7771,6 +7804,32 @@ function renderPage() {
         loadFiles();
       }
     });
+  </script>
+  <script>
+    // FAB auto-hide on mobile: hide when scrolling down, show when scrolling up
+    (function() {
+      var fab = document.querySelector('.fab');
+      if (!fab) return;
+      var lastY = 0;
+      var ticking = false;
+      window.addEventListener('scroll', function() {
+        if (!ticking) {
+          requestAnimationFrame(function() {
+            var y = document.documentElement.scrollTop || document.body.scrollTop;
+            if (y > lastY && y > 100) {
+              fab.style.opacity = '0';
+              fab.style.pointerEvents = 'none';
+            } else {
+              fab.style.opacity = '';
+              fab.style.pointerEvents = '';
+            }
+            lastY = y;
+            ticking = false;
+          });
+          ticking = true;
+        }
+      }, { passive: true });
+    })();
   </script>
   <script>
     if ('serviceWorker' in navigator) {
