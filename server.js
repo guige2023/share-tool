@@ -1348,7 +1348,7 @@ function renderPage() {
     function showToast(message, type = '', undoCallback = null) {
       const el = document.getElementById('toast');
       if (undoCallback) {
-        el.innerHTML = '<span style="margin-right:12px">' + message + '</span><button onclick="event.stopPropagation();undoLastDelete()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer">撤销</button>';
+        el.innerHTML = '<span style="margin-right:12px">' + escapeHtmlClient(message) + '</span><button onclick="event.stopPropagation();undoLastDelete()" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer">撤销</button>';
       } else {
         el.textContent = message;
       }
@@ -5163,8 +5163,8 @@ function renderPage() {
         const expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
         return '<tr>' +
           '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
-          '<td data-label="链接"><a href="' + share.url + '" target="_blank">' + share.url + '</a></td>' +
-          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + share.code + '\')" title="点击查看大图"></td>' +
+          '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank">' + escapeHtmlClient(share.url) + '</a></td>' +
+          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
           '<td data-label="信息">' +
             '<div>到期: ' + expireText + '</div>' +
             '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
@@ -5204,8 +5204,8 @@ function renderPage() {
         return '<tr>' +
           '<td><input type="checkbox" class="share-check" value="' + encodeURIComponent(share.code) + '" onchange="updateShareBatchBar()"></td>' +
           '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
-          '<td data-label="链接"><a href="' + share.url + '" target="_blank">' + share.url + '</a></td>' +
-          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + share.code + '\')" title="点击查看大图"></td>' +
+          '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank">' + escapeHtmlClient(share.url) + '</a></td>' +
+          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
           '<td data-label="信息">' +
             '<div>到期: ' + expireText + '</div>' +
             '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
