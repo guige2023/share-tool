@@ -331,10 +331,16 @@ async function getOrCreateCertificate() {
     }
     if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
       const certPem = fs.readFileSync(certPath, 'utf8');
-      const cert = new crypto.X509Certificate(certPem);
-      const daysRemaining = Math.ceil((new Date(cert.validTo) - new Date()) / 86400000);
+      const x509 = new crypto.X509Certificate(certPem);
+      const daysRemaining = Math.ceil((new Date(x509.validTo) - new Date()) / 86400000);
       if (daysRemaining > 7) {
         console.log(`[ShareTool] Using existing certificate (expires in ${daysRemaining} days)`);
+        certInfo = {
+          subject: x509.subject.split('\n')[0].replace('CN=', '').trim(),
+          issuer: x509.issuer.split('\n')[0].replace('CN=', '').trim(),
+          validTo: x509.validTo,
+          daysRemaining
+        };
         return { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) };
       }
       console.log('[ShareTool] Certificate expires soon, regenerating...');
@@ -347,6 +353,13 @@ async function getOrCreateCertificate() {
   fs.writeFileSync(certPath, pems.cert, { mode: 0o644 });
   console.log('[ShareTool] Self-signed certificate generated');
   console.log(`[ShareTool] Certificate: ${path.join(SSL_DIR, 'cert.pem')}`);
+  const x509 = new crypto.X509Certificate(pems.cert);
+  certInfo = {
+    subject: 'ShareTool Self-Signed',
+    issuer: 'ShareTool',
+    validTo: x509.validTo,
+    daysRemaining: 365
+  };
   return { key: pems.key, cert: pems.cert };
 }
 
