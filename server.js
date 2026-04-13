@@ -5805,6 +5805,7 @@ function renderPage() {
           '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
           '<td data-label="信息">' +
             '<div>到期: ' + expireText + '</div>' +
+            '<div>访问: ' + (share.viewCount || 0) + '</div>' +
             '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
             '<div>' + (share.hasPassword ? '有密码' : '无密码') + '</div>' +
           '</td>' +
@@ -5846,6 +5847,7 @@ function renderPage() {
           '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
           '<td data-label="信息">' +
             '<div>到期: ' + expireText + '</div>' +
+            '<div>访问: ' + (share.viewCount || 0) + '</div>' +
             '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
             '<div>' + (share.hasPassword ? '有密码' : '无密码') + '</div>' +
           '</td>' +
