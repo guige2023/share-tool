@@ -3,7 +3,7 @@
  */
 
 module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) {
-  const { db, sendJson, authRequired, VERSION, getClientIp, SHARE_TOKEN, addAuditLog, I18N, t } = ctx;
+  const { db, sendJson, authRequired, VERSION, getClientIp, SHARE_TOKEN, addAuditLog, I18N, t, getShareToken } = ctx;
   const { method } = req;
 
   // ── i18n: Get translations ────────────────────────────────────────
