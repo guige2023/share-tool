@@ -3061,6 +3061,42 @@ const TAG_COLOR_PRESETS = [
   '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316'
 ];
 
+// ── Smart tag suggestions based on file type/name ──────────────────────
+function suggestTags(filename, mime) {
+  const tags = [];
+  const lower = (filename || '').toLowerCase();
+  const ext = lower.includes('.') ? lower.split('.').pop() : '';
+
+  // Type-based tags
+  if (!mime || mime === 'application/octet-stream') mime = detectMimeType(filename);
+  if (mime) {
+    if (mime.startsWith('image/')) tags.push('图片', 'image');
+    else if (mime.startsWith('video/')) tags.push('视频', 'video');
+    else if (mime.startsWith('audio/')) tags.push('音频', 'audio');
+    else if (mime === 'application/pdf') tags.push('文档', 'pdf');
+    else if (mime.startsWith('text/')) tags.push('文本', 'text');
+    else if (mime.includes('spreadsheet') || mime.includes('excel') || ext === 'xls' || ext === 'xlsx') tags.push('表格', 'excel');
+    else if (mime.includes('presentation') || mime.includes('powerpoint') || ext === 'ppt' || ext === 'pptx') tags.push('演示', 'ppt');
+    else if (mime.includes('document') || mime.includes('word') || ext === 'doc' || ext === 'docx') tags.push('文档', 'word');
+    else if (mime.includes('zip') || mime.includes('rar') || mime.includes('tar') || mime.includes('gz') || ext === 'zip' || ext === '7z' || ext === 'tar' || ext === 'gz') tags.push('压缩包', 'archive');
+    else if (mime.includes('javascript') || mime.includes('typescript') || ext === 'js' || ext === 'ts' || ext === 'py' || ext === 'java' || ext === 'cpp' || ext === 'c' || ext === 'go' || ext === 'rs') tags.push('代码', 'code');
+  }
+
+  // Name-based tags
+  if (/^IMG_\d|photo|camera|截图|screenshot|capture/i.test(lower)) tags.push('照片', 'photo');
+  if (/backup|备份|副本|副本|copy/i.test(lower)) tags.push('备份', 'backup');
+  if (/draft|草稿|初稿/i.test(lower)) tags.push('草稿', 'draft');
+  if (/temp|tmp|临时/i.test(lower)) tags.push('临时', 'temp');
+  if (/important|重要|保密|secret|private/i.test(lower)) tags.push('重要', 'important');
+  if (/report|报告|总结|周报|月报|年报/i.test(lower)) tags.push('报告', 'report');
+  if (/invoice|发票|账单|收据/i.test(lower)) tags.push('财务', 'finance');
+  if (/202[0-9]|20[0-9][0-9]/i.test(lower)) tags.push('年度', 'annual');
+
+  // Deduplicate while preserving order
+  const seen = new Set();
+  return tags.filter(t => { if (seen.has(t)) return false; seen.add(t); return true; });
+}
+
 function getTagColor(tag) {
   const db = getDb();
   const row = db.prepare('SELECT color FROM tag_colors WHERE tag = ?').get(tag);
@@ -3516,6 +3552,7 @@ module.exports = {
   updateDeviceSyncStats, resetDeviceSyncCount, getDeviceSyncInfo,
   // 同步
   addSyncLog, getUnsyncedLogs, markLogsSynced, getSyncStatus,
+  suggestTags,
   // Token
   generateToken, validateToken, refreshToken, revokeToken, revokeAllTokens,
   // 审计

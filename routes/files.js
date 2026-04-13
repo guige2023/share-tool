@@ -193,6 +193,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       const filename = (body.filename || '').trim();
       const type = body.type === 'text' ? 'text' : 'file';
       const content = typeof body.content === 'string' ? body.content : '';
+      const autoTags = body.auto_tags !== false; // default true
 
       if (!filename) {
         sendJson(res, { success: false, error: 'filename required' }, 400);
@@ -206,12 +207,36 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       }
 
       const result = db.addFile(filename, content, type);
+
+      // Auto-apply smart tag suggestions (type + name based)
+      if (autoTags && result) {
+        const mime = result.content_type || '';
+        const suggested = db.suggestTags(filename, mime);
+        if (suggested.length > 0) {
+          const existing = result.tags ? result.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+          const merged = [...new Set([...existing, ...suggested])].join(',');
+          db.updateFile(result.id, { tags: merged });
+          result.tags = merged;
+        }
+      }
+
       db.addAuditLog('upload', filename, getClientIp(req), auth.token);
       sendJson(res, { success: true, file: result });
       global.broadcastSSE({ type: 'files_changed' });
     } catch (error) {
       sendJson(res, { success: false, error: error.message }, 400);
     }
+    return true;
+  }
+
+  // GET /api/suggest-tags - get tag suggestions for a filename (for preview before upload)
+  if (pathname === '/api/suggest-tags' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const filename = (query.get('filename') || '').trim();
+    const mime = query.get('mime') || '';
+    const suggestions = db.suggestTags(filename, mime);
+    sendJson(res, { success: true, suggestions });
     return true;
   }
 
