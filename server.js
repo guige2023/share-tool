@@ -6520,6 +6520,55 @@ function renderPage() {
       }
     }
 
+    var currentShareSort = 'filename';
+    var currentShareOrder = 'asc';
+
+    function getShareSortArrow(field) {
+      if (field !== currentShareSort) return '';
+      return currentShareOrder === 'asc' ? '↑' : '↓';
+    }
+
+    function applyShareSort(shareList) {
+      var field = currentShareSort;
+      var order = currentShareOrder;
+      return shareList.slice().sort(function (a, b) {
+        var va = a[field], vb = b[field];
+        if (va == null) va = '';
+        if (vb == null) vb = '';
+        if (field === 'expiresAt') {
+          va = va ? new Date(va).getTime() : 0;
+          vb = vb ? new Date(vb).getTime() : 0;
+        }
+        if (typeof va === 'number' && typeof vb === 'number') {
+          return order === 'asc' ? va - vb : vb - va;
+        }
+        var cmp = String(va).localeCompare(String(vb));
+        return order === 'asc' ? cmp : -cmp;
+      });
+    }
+
+    function updateShareSortArrows() {
+      var fields = ['filename', 'expiresAt', 'viewCount', 'downloadCount'];
+      fields.forEach(function (f) {
+        var el = document.getElementById('shareArrow-' + f);
+        if (el) {
+          el.textContent = getShareSortArrow(f);
+          el.className = 'share-sort-arrow' + (f === currentShareSort ? ' active' : '');
+        }
+      });
+    }
+
+    function setShareSort(field) {
+      if (field === currentShareSort) {
+        currentShareOrder = currentShareOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        currentShareSort = field;
+        currentShareOrder = field === 'filename' ? 'asc' : 'desc';
+      }
+      updateShareSortArrows();
+      filterShares();
+    }
+
     async function loadShares() {
       const data = await request('/api/share/list');
       const shares = data.shares || [];
