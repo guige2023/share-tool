@@ -2059,6 +2059,11 @@ function getOnlineDevices() {
   return db.prepare('SELECT * FROM devices WHERE is_online = 1').all();
 }
 
+function deleteDevice(deviceId) {
+  const db = getDb();
+  db.prepare('DELETE FROM devices WHERE device_id = ?').run(deviceId);
+}
+
 function cleanupStaleDevices(minutesOffline = 5) {
   const db = getDb();
   const cutoff = Math.floor(Date.now() / 1000) - minutesOffline * 60;
@@ -3609,7 +3614,7 @@ module.exports = {
   searchFiles, searchFilesFTS, getFilesByHashSince, getFileCount, getTotalStorageSize, getStorageStats, getFolderSize, getAllFolderSizes, findDuplicates,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
-  touchDevice, getOnlineDevices, cleanupStaleDevices,
+  touchDevice, getOnlineDevices, deleteDevice, cleanupStaleDevices,
   updateDeviceSyncStats, resetDeviceSyncCount, getDeviceSyncInfo,
   // 同步
   addSyncLog, getUnsyncedLogs, markLogsSynced, getSyncStatus,

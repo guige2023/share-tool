@@ -95,6 +95,17 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  if (pathname.startsWith('/api/devices/') && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const id = pathname.slice('/api/devices/'.length);
+    // Exclude sub-paths
+    if (id.includes('/')) { sendJson(res, { success: false, error: 'Invalid device id' }, 400); return true; }
+    db.deleteDevice(id);
+    sendJson(res, { success: true });
+    return true;
+  }
+
   if (pathname.startsWith('/api/devices/') && pathname.endsWith('/offline') && method === 'POST') {
     const auth = authRequired(req, res);
     if (!auth) return true;

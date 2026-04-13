@@ -5802,9 +5802,10 @@ function renderPage() {
           '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
             '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="rotateToken()">🔄 更换 Token</button>' +
             '<button class="ghost" style="font-size:13px;padding:6px 14px" onclick="openAuditLog()">📋 审计日志</button>' +
+            '<button class="ghost" style="font-size:13px;padding:6px 14px" onclick="openDeviceManager()">📱 设备管理</button>' +
+            '</div>' +
           '</div>' +
-        '</div>' +
-      '</div>';
+        '</div>';
 
       modal.classList.add('open');
       loadSettingsInfo();
@@ -6037,6 +6038,63 @@ function renderPage() {
         if (data.success) { showToast('已清理 ' + (data.deleted || 0) + ' 条日志'); loadAuditLogs(); loadAuditStats(); }
         else showToast('清理失败: ' + (data.error || ''), 'error');
       }).catch(function(e) { showToast('清理失败: ' + e.message, 'error'); });
+    }
+
+    // ── Device Manager ────────────────────────────────────────────────
+    async function openDeviceManager() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📱 设备管理';
+      body.innerHTML = '<div style="padding:8px 0"><div id="deviceList" style="max-height:400px;overflow-y:auto"></div></div>';
+      modal.classList.add('open');
+      await loadDeviceList();
+    }
+
+    async function loadDeviceList() {
+      var container = document.getElementById('deviceList');
+      if (!container) return;
+      try {
+        var data = await request('/api/devices');
+        var devices = data.devices || [];
+        if (devices.length === 0) {
+          container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px">暂无已注册设备</div>';
+          return;
+        }
+        var html = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+          '<thead><tr style="border-bottom:1px solid var(--line);color:var(--muted)">' +
+          '<th style="text-align:left;padding:8px 10px">设备</th>' +
+          '<th style="text-align:left;padding:8px 10px">IP</th>' +
+          '<th style="text-align:left;padding:8px 10px">最后活跃</th>' +
+          '<th style="text-align:center;padding:8px 10px">状态</th>' +
+          '<th style="text-align:right;padding:8px 10px">操作</th></tr></thead><tbody>';
+        devices.forEach(function(d) {
+          var isOnline = d.is_online === 1;
+          var lastSeen = d.last_seen ? new Date(d.last_seen * 1000).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '未知';
+          var syncInfo = d.last_sync_at ? ('同步于 ' + new Date(d.last_sync_at * 1000).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })) : '从未同步';
+          var name = escapeHtmlClient(d.device_name || d.device_id || '未知设备');
+          var ip = escapeHtmlClient(d.ip || '-');
+          html += '<tr style="border-bottom:1px solid var(--line)">' +
+            '<td style="padding:8px 10px"><div style="font-weight:500">' + name + '</div><div style="font-size:11px;color:var(--muted);margin-top:2px">' + syncInfo + '</div></td>' +
+            '<td style="padding:8px 10px;color:var(--muted);font-size:12px">' + ip + '</td>' +
+            '<td style="padding:8px 10px;color:var(--muted);font-size:12px;white-space:nowrap">' + lastSeen + '</td>' +
+            '<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;background:' + (isOnline ? '#10b98122;color:#10b981' : '#94a3b822;color:#94a3b8') + '">' + (isOnline ? '🟢 在线' : '⚫ 离线') + '</span></td>' +
+            '<td style="padding:8px 10px;text-align:right"><button onclick="deleteDeviceById(\'' + escapeHtmlClient(d.device_id || '').replace(/'/g, "\\'") + '\')" class="danger" style="font-size:12px;padding:4px 10px">删除</button></td></tr>';
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      } catch (e) {
+        container.innerHTML = '<div style="color:#ef4444;padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
+    }
+
+    async function deleteDeviceById(deviceId) {
+      if (!confirm('确认删除该设备？删除后该设备需要重新注册。')) return;
+      try {
+        var data = await request('/api/devices/' + encodeURIComponent(deviceId), { method: 'DELETE' });
+        if (data.success) { showToast('设备已删除', 'success'); loadDeviceList(); }
+        else showToast('删除失败: ' + (data.error || ''), 'error');
+      } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
     }
 
     function openKeyboardHelp() {
