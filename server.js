@@ -4475,6 +4475,24 @@ function renderPage() {
       openLightbox(qrUrl, 'image/png', null); // null = no download btn for QR
     }
 
+    async function downloadQrCode(code) {
+      try {
+        var response = await fetch('/api/share/qr/' + encodeURIComponent(code));
+        if (!response.ok) { showToast('下载失败', 'error'); return; }
+        var blob = await response.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'share-qr-' + code + '.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch(e) {
+        showToast('下载失败', 'error');
+      }
+    }
+
     /* ===== File Hover Card ===== */
     .hover-card {
       position: fixed;
@@ -6032,8 +6050,24 @@ function renderPage() {
         }
         await copyToClipboard(data.share.url);
         showToast('分享链接已复制到剪贴板', 'success');
+        // Show success state with QR code in the modal
         var m = document.getElementById('shareCreateModal');
-        if (m) m.remove();
+        if (m) {
+          var content = m.querySelector('.modal-content');
+          if (content) {
+            var share = data.share;
+            var qrImg = '<img src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="max-width:180px;border-radius:12px;border:1px solid var(--line);display:block;margin:0 auto" alt="QR Code">';
+            content.innerHTML = '\
+              <h3>分享链接已创建</h3>\
+              <p style="font-size:13px;color:var(--muted);margin-bottom:12px;word-break:break-all;background:var(--bg-secondary);padding:8px 12px;border-radius:8px">' + escapeHtmlClient(share.url) + '</p>\
+              <div style="text-align:center;margin:16px 0">' + qrImg + '</div>\
+              <div style="text-align:center;font-size:12px;color:var(--muted);margin-bottom:16px">扫码访问 · 链接已复制到剪贴板</div>\
+              <div style="display:flex;gap:8px;justify-content:center">\
+                <button class="secondary" onclick="downloadQrCode(\'' + share.code + '\')">下载二维码</button>\
+                <button onclick="document.getElementById(\'shareCreateModal\').remove()">关闭</button>\
+              </div>';
+          }
+        }
         await loadShares();
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = '创建并复制链接'; }
