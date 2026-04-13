@@ -2591,6 +2591,29 @@ function renderPage() {
       });
     }
 
+    // Apply current sort to a file array (used for virtual folders, search results)
+    function sortFiles(files) {
+      return files.slice().sort(function(a, b) {
+        var va = a[currentSort], vb = b[currentSort];
+        if (va == null) va = '';
+        if (vb == null) vb = '';
+        if (currentSort === 'size') {
+          return currentOrder === 'asc' ? (a.size || 0) - (b.size || 0) : (b.size || 0) - (a.size || 0);
+        }
+        if (currentSort === 'updated_at' || currentSort === 'created_at') {
+          va = va ? new Date(va).getTime() : 0;
+          vb = vb ? new Date(vb).getTime() : 0;
+          return currentOrder === 'asc' ? va - vb : vb - va;
+        }
+        if (currentSort === 'type') {
+          var extA = (a.name || '').split('.').pop() || '';
+          var extB = (b.name || '').split('.').pop() || '';
+          return currentOrder === 'asc' ? extA.localeCompare(extB) : extB.localeCompare(extA);
+        }
+        return currentOrder === 'asc' ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+      });
+    }
+
     var currentOffset = 0;
     var currentTotal = 0;
     var currentPageLimit = 500;
@@ -2610,7 +2633,7 @@ function renderPage() {
       const selectedTag = (document.getElementById('tagFilterInput') || {}).dataset.selectedTag || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
-      const typeParam = currentTypeFilter ? '&type=' + encodeURIComponent(currentTypeFilter) : '';
+      const typeParam = currentTypeFilters.length ? '&type=' + currentTypeFilters.map(encodeURIComponent).join(',') : '';
       const url = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam + typeParam : '/api/list?' + sortParam + tagParam + typeParam;
       await loadFilesFromUrl(url, false);
     }
@@ -2659,7 +2682,7 @@ function renderPage() {
       const selectedTag = (document.getElementById('tagFilterInput') || {}).dataset.selectedTag || '';
       const sortParam = 'sort=' + encodeURIComponent(currentSort) + '&order=' + encodeURIComponent(currentOrder);
       const tagParam = selectedTag ? '&tags=' + encodeURIComponent(selectedTag) : '';
-      const typeParam = currentTypeFilter ? '&type=' + encodeURIComponent(currentTypeFilter) : '';
+      const typeParam = currentTypeFilters.length ? '&type=' + currentTypeFilters.map(encodeURIComponent).join(',') : '';
       const baseUrl = q ? '/api/search?q=' + encodeURIComponent(q) + '&' + sortParam + tagParam + typeParam : '/api/list?' + sortParam + tagParam + typeParam;
       const url = baseUrl + '&offset=' + currentOffset + '&limit=' + currentPageLimit;
       await loadFilesFromUrl(url, true);
@@ -2976,7 +2999,7 @@ function renderPage() {
       clearNavHighlight();
       const res = await fetch('/api/virtual-folders/' + folderId + '/files', { headers: headers() });
       const data = await res.json();
-      const files = data.files || [];
+      const files = sortFiles(data.files || []);
       if (data.folder) {
         var nameSpan = document.getElementById('breadcrumbVFName');
         if (nameSpan) {
@@ -7511,7 +7534,9 @@ function renderPage() {
     // Sort state
     var currentSort = localStorage.getItem('sortBy') || 'updated_at';
     var currentOrder = localStorage.getItem('sortOrder') || 'desc';
-    var currentTypeFilter = localStorage.getItem('typeFilter') || '';
+    var currentTypeFilters = localStorage.getItem('typeFilters')
+      ? localStorage.getItem('typeFilters').split(',').filter(Boolean)
+      : [];
 
     // Initialize sort arrows on page load
     ['filename', 'size', 'updated_at', 'position', 'starred'].forEach(function(c) {
@@ -7522,14 +7547,27 @@ function renderPage() {
       }
     });
 
-    // Type filter chips
+    // Initialize type filter chips from localStorage
+    updateTypeFilterChips();
+
+    // Type filter chips (multi-select)
     function setTypeFilter(type) {
-      currentTypeFilter = type;
-      localStorage.setItem('typeFilter', type);
-      document.querySelectorAll('.type-chip').forEach(function(c) {
-        c.classList.toggle('active', c.getAttribute('data-type') === type);
-      });
+      var idx = currentTypeFilters.indexOf(type);
+      if (idx === -1) {
+        currentTypeFilters.push(type);
+      } else {
+        currentTypeFilters.splice(idx, 1);
+      }
+      localStorage.setItem('typeFilters', currentTypeFilters.join(','));
+      updateTypeFilterChips();
       loadFiles();
+    }
+
+    function updateTypeFilterChips() {
+      document.querySelectorAll('.type-chip').forEach(function(c) {
+        var t = c.getAttribute('data-type');
+        c.classList.toggle('active', t === '' ? currentTypeFilters.length === 0 : currentTypeFilters.indexOf(t) !== -1);
+      });
     }
 
     // Storage usage bar
