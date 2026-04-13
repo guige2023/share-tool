@@ -600,6 +600,10 @@ function renderPage() {
       .hero .meta{gap:6px}
       .hero .chip{padding:5px 8px;font-size:10px}
       .hero p{display:none}
+      /* Mobile: hide hero subtitle too on very small screens */
+      @media(max-width:400px){
+        .hero .meta .chip:nth-child(n+4){display:none}
+      }
       /* Touch-friendly: increase tap targets */
       button,.ctx-item{padding:10px 14px}
       /* Hide less-used toolbar buttons on small screens, show via FAB+menu */
@@ -914,7 +918,7 @@ function renderPage() {
       </div>
       <div id="recentSearches" style="display:none;margin-bottom:10px"></div>
       <div id="searchResultsBar" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px"></div>
-      <div id="typeFilterBar" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+      <div id="typeFilterBar" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch">
         <button class="type-chip active" data-type="" onclick="setTypeFilter('')">全部</button>
         <button class="type-chip" data-type="starred" onclick="setTypeFilter('starred')">⭐ 星标</button>
         <button class="type-chip" data-type="image" onclick="setTypeFilter('image')">🖼️ 图片</button>
