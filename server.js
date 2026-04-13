@@ -3656,7 +3656,10 @@ function renderPage() {
         const fmtTs = ts => ts ? new Date(ts).toLocaleString('zh-CN') : '--';
 
         const tagsHtml = f.tags
-          ? f.tags.split(',').filter(Boolean).map(t => '<span style="background:var(--bg-tertiary);padding:2px 8px;border-radius:6px;font-size:11px;margin:2px;display:inline-block">' + escapeHtmlClient(t) + '</span>').join('')
+          ? f.tags.split(',').filter(Boolean).map(t => {
+              const et = escapeHtmlClient(t);
+              return '<span onclick="filterBySingleTag(\'' + et.replace(/'/g, "\\'") + '\')" style="background:var(--bg-tertiary);padding:2px 8px;border-radius:6px;font-size:11px;margin:2px;display:inline-block;cursor:pointer" title="点击筛选: ' + et + '">' + et + '</span>';
+            }).join('')
           : '<span style="color:var(--text-muted);font-size:12px">无</span>';
 
         const accessRows = s.recentAccess && s.recentAccess.length
