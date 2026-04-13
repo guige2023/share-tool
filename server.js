@@ -2422,8 +2422,20 @@ function renderPage() {
         list.innerHTML = '';
         return;
       }
-      list.innerHTML = '已选 ' + files.length + ' 个文件: ' +
-        Array.from(files).map(function (f) { return escapeHtmlClient(f.name); }).join(', ');
+      // Show a compact icon+name+size list for dropped/dragged files
+      var html = '<div style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;padding:4px 0">';
+      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">已选 ' + files.length + ' 个文件:</div>';
+      Array.from(files).slice(0, 20).forEach(function(f) {
+        var icon = getFileIcon(f.name, '');
+        var size = formatBytes(f.size);
+        html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px">' +
+          '<span>' + icon + '</span>' +
+          '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(f.name) + '">' + escapeHtmlClient(f.name) + '</span>' +
+          '<span style="color:var(--muted);font-size:12px;white-space:nowrap">' + size + '</span></div>';
+      });
+      if (files.length > 20) html += '<div style="font-size:12px;color:var(--muted);text-align:center">... 还有 ' + (files.length - 20) + ' 个文件</div>';
+      html += '</div>';
+      list.innerHTML = html;
     }
 
     function clearFileInput() {
@@ -2472,10 +2484,10 @@ function renderPage() {
           e.preventDefault();
           dropZone.classList.remove('dragover');
           if (evt === 'drop') {
-            e.stopPropagation(); // prevent document-level drop handler from also firing
+            e.stopPropagation();
             var files = e.dataTransfer.files;
             if (files.length) {
-              document.getElementById('fileInput').files = files;
+              window._droppedFiles = { files: files, count: files.length };
               handleFileSelect(files);
               showToast('已选择 ' + files.length + ' 个文件，开始上传...', 'info', 2000);
               uploadFiles();
@@ -2491,9 +2503,8 @@ function renderPage() {
         hideGlobalDropOverlay();
         var files = e.dataTransfer.files;
         if (files.length) {
-          document.getElementById('fileInput').files = files;
+          window._droppedFiles = { files: files, count: files.length };
           handleFileSelect(files);
-          // Auto-upload: show file count and start uploading immediately
           showToast('已选择 ' + files.length + ' 个文件，开始上传...', 'info', 2000);
           uploadFiles();
         }
@@ -2764,7 +2775,13 @@ function renderPage() {
 
     async function uploadFiles() {
       const input = document.getElementById('fileInput');
-      const files = Array.from(input.files || []);
+      // Prefer files dropped from desktop (FileList cannot be assigned to input.files)
+      const dropped = window._droppedFiles;
+      const files = dropped
+        ? Array.from(dropped.files)
+        : Array.from(input.files || []);
+      // Clear dropped state after consuming
+      if (dropped) { window._droppedFiles = null; }
       if (!files.length) {
         showToast('请先选择文件', 'error');
         return;
