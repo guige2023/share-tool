@@ -22,12 +22,23 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     sendJson(res, {
       status: 'ok',
       version: VERSION,
+      token: SHARE_TOKEN,
       uptime,
       memory: {
         rss: Math.round(mem.rss / 1024 / 1024),
         heapUsed: Math.round(mem.heapUsed / 1024 / 1024)
       }
     });
+    return true;
+  }
+
+  // ── Settings: Rotate Token ────────────────────────────────────────
+  if (pathname === '/api/settings/rotate-token' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const newToken = rotateShareToken();
+    addAuditLog('token_rotate', null, getClientIp(req));
+    sendJson(res, { success: true, token: newToken });
     return true;
   }
 

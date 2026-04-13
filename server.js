@@ -89,15 +89,24 @@ const HTTPS_PORT = parseInt(process.env.SHARE_TOOL_HTTPS_PORT || '18793', 10);
 const CONFIG_DIR = path.join(os.homedir(), '.share-tool');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 const SSL_DIR = path.join(CONFIG_DIR, 'ssl');
-const DEFAULT_TOKEN='35e7438f1e72356ebc6d4e839881cc35233ee01ec81d5af6';
+const DEFAULT_TOKEN='35e743...5af6';
 const LOCAL_IP = getLocalIp();
 const BASE_URL = `https://${LOCAL_IP}:${HTTPS_PORT}`;
 
 let config = loadConfig();
-const SHARE_TOKEN=process.env.SHARE_TOKEN || config.shareToken || DEFAULT_TOKEN;
+let SHARE_TOKEN=process.env.SHARE_TOKEN || config.shareToken || DEFAULT_TOKEN;
 
 db.initDatabase();
 db.cleanupExpiredShareLinks();
+
+// Token rotation
+function rotateShareToken() {
+  const newToken = crypto.randomBytes(16).toString('hex');
+  SHARE_TOKEN = newToken;
+  config.shareToken = newToken;
+  saveConfig();
+  return newToken;
+}
 
 function getLocalIp() {
   const nets = os.networkInterfaces();
@@ -211,10 +220,24 @@ function getClientIp(req) {
 }
 
 function authRequired(req, res) {
-  const token = req.headers['x-auth-token'];
-  // Static token always valid
-  if (token === SHARE_TOKEN) {
-    return { token: SHARE_TOKEN, type: 'static' };
+  const token = req.headers['x-auth-token'] || '';
+  const effective = getEffectiveToken();
+  // Static token (original or rotated runtime) always valid
+  if (token === SHARE_TOKEN || token === effective) {
+    return { token: effective, type: 'static' };
+  }
+  // Check for Bearer token against static token
+  const authHeader = req.headers['authorization'] || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const bearerToken = authHeader.slice(7);
+    if (bearerToken === SHARE_TOKEN || bearerToken === effective) {
+      return { token: effective, type: 'static' };
+    }
+    // Also check dynamic tokens table
+    const valid = db.validateToken(bearerToken);
+    if (valid) {
+      return { token: bearerToken, type: 'dynamic', deviceId: valid.device_id };
+    }
   }
   // Dynamic token from tokens table
   if (token) {
@@ -223,10 +246,10 @@ function authRequired(req, res) {
       return { token, type: 'dynamic', deviceId: valid.device_id };
     }
   }
-  sendJson(res, { success: false, error: 'Unauthorized' }, 401);
+  res.writeHead(401, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ success: false, error: 'Unauthorized' }));
   return null;
 }
-
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -5629,6 +5652,15 @@ function renderPage() {
             '<div id="settingsStorage"></div>' +
           '</div>' +
         '</div>' +
+
+        // Token management
+        '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">🔑 Token 管理</label>' +
+          '<div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">定期更换 Token 可提升安全性。当前 Token: <code id="settingsCurrentToken" style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-size:11px;word-break:break-all"></code></div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="rotateToken()">🔄 更换 Token</button>' +
+          '</div>' +
+        '</div>' +
       '</div>';
 
       modal.classList.add('open');
@@ -5749,6 +5781,8 @@ function renderPage() {
       fetch('/api/health', { headers: headers() }).then(function(r) { return r.json(); }).then(function(data) {
         var ver = document.getElementById('settingsVersion');
         if (ver) ver.textContent = 'v' + (data.version || '?');
+        var tok = document.getElementById('settingsCurrentToken');
+        if (tok) tok.textContent = data.token || SHARE_TOKEN;
       }).catch(function() {});
       fetch('/api/storage', { headers: headers() }).then(function(r) { return r.json(); }).then(function(data) {
         var el = document.getElementById('settingsStorage');
@@ -5759,6 +5793,22 @@ function renderPage() {
       // Uptime from global if available
       var up = document.getElementById('settingsUptime');
       if (up && typeof _serverUptime !== 'undefined') up.textContent = 'Uptime: ' + _serverUptime;
+    }
+
+    async function rotateToken() {
+      if (!confirm('确定要更换 Token 吗？更换后需要重新扫码或手动输入新 Token。')) return;
+      try {
+        var data = await request('/api/settings/rotate-token', { method: 'POST' });
+        if (data.success && data.token) {
+          var tok = document.getElementById('settingsCurrentToken');
+          if (tok) tok.textContent = data.token;
+          showToast('Token 已更换，请刷新页面并更新客户端', 'success', 4000);
+        } else {
+          showToast(data.error || '更换 Token 失败', 'error');
+        }
+      } catch (e) {
+        showToast('更换 Token 失败: ' + e.message, 'error');
+      }
     }
 
     function openKeyboardHelp() {
@@ -8576,7 +8626,8 @@ async function requestHandler(req, res) {
     createShareLink,
     validateShareCode,
     maxUploadBytes,
-    saveConfig
+    saveConfig,
+    rotateShareToken
   };
 
   try {
