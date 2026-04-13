@@ -47,9 +47,10 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
   if (pathname === '/api/ws-token' && method === 'GET') {
     const auth = authRequired(req, res);
     if (!auth) return true;
-    // Use getShareToken() to always get the current (possibly rotated) token
-    const wsToken = getShareToken();
-    sendJson(res, { success: true, token: wsToken });
+    // Short-lived token bound to current SHARE_TOKEN
+    const { generateToken } = require('../db');
+    const token = generateToken('ws-session', 300);
+    sendJson(res, { success: true, token });
     return true;
   }
 
@@ -1151,20 +1152,13 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
-  // GET /api/ws-token - issue a short-lived WebSocket token (auth required)
-  if (pathname === '/api/ws-token' && method === 'GET') {
-    const auth = authRequired(req, res);
-    if (!auth) return true;
-    const { generateToken } = require('../db');
-    // WebSocket tokens are short-lived (5 minutes) and bound to the authenticated session
-    const token = generateToken('ws-session', 300);
-    sendJson(res, { success: true, token });
-    return true;
-  }
-
   // POST /api/settings/rotate-token - rotate the static share token
   if (pathname === '/api/settings/rotate-token' && method === 'POST') {
-    rotateTokenHandler(req, res);
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const newToken = rotateShareToken();
+    addAuditLog('token_rotate', null, getClientIp(req));
+    sendJson(res, { success: true, token: newToken });
     return true;
   }
 
