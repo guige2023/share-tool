@@ -5141,9 +5141,69 @@ function renderPage() {
               fill.style.background = pct > 90 ? '#ef4444' : pct > 70 ? '#f59e0b' : 'var(--accent)';
               text.textContent = '存储 ' + formatSize(used) + ' / ' + formatSize(max) + ' (' + pct + '%)';
             }
+            // Update type chip counts
+            var typeCounts = {};
+            if (data.byType) {
+              data.byType.forEach(function(r) { typeCounts[r.category] = r.count; });
+            }
+            // Update starred separately via API call (no stats endpoint for starred)
+            updateTypeChipCounts(typeCounts, data.count || 0);
           }
         } catch (e) {}
       }, 500);
+    }
+
+    function updateTypeChipCounts(typeCounts, totalCount) {
+      // Map category names to data-type values
+      var mapping = {
+        'image': 'image',
+        'video': 'video',
+        'audio': 'audio',
+        'pdf': 'pdf',
+        'document': 'document',
+        'archive': 'archive',
+        'text': 'text'
+      };
+      Object.keys(mapping).forEach(function(cat) {
+        var btn = document.querySelector('.type-chip[data-type="' + mapping[cat] + '"]');
+        if (btn) {
+          var count = typeCounts[cat] || 0;
+          var label = {
+            'image': '🖼️ 图片',
+            'video': '🎬 视频',
+            'audio': '🎵 音频',
+            'pdf': '📕 PDF',
+            'document': '📄 文档',
+            'archive': '📦 压缩',
+            'text': '📝 文本'
+          }[cat];
+          var existing = btn.textContent.replace(/\u00a0\d+$/, ''); // strip existing count
+          btn.textContent = existing + '\u00a0' + count;
+        }
+      });
+      // Update total (全部)
+      var allBtn = document.querySelector('.type-chip[data-type=""]');
+      if (allBtn) {
+        var existing = allBtn.textContent.replace(/\u00a0\d+$/, '');
+        allBtn.textContent = existing + '\u00a0' + totalCount;
+      }
+      // Fetch starred count separately
+      fetchStarredCount();
+    }
+
+    var _starredCount = 0;
+    function fetchStarredCount() {
+      // Use a quick search with type=starred to get count
+      fetch('/api/search?type=starred&limit=1', { headers: headers() })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          _starredCount = data.total || 0;
+          var btn = document.querySelector('.type-chip[data-type="starred"]');
+          if (btn) {
+            var existing = btn.textContent.replace(/\u00a0\d+$/, '');
+            btn.textContent = existing + '\u00a0' + _starredCount;
+          }
+        }).catch(function() {});
     }
 
     // Show initial sort arrow
