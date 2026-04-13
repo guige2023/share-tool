@@ -3067,6 +3067,22 @@ function renderPage() {
           applyNavHighlight(keyboardNavIndex - 1);
           break;
         }
+        case 'g': {
+          // g: go to top
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          applyNavHighlight(0);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          break;
+        }
+        case 'v': {
+          // v: toggle grid/list view
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          var newView = currentView === 'grid' ? 'list' : 'grid';
+          setView(newView);
+          break;
+        }
         case '/': {
           // /: focus search input
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
@@ -3397,6 +3413,12 @@ function renderPage() {
       }
     }
 
+    function openQrLightbox(code) {
+      // Fetch the QR code image URL and show it in lightbox
+      var qrUrl = '/api/share/qr/' + encodeURIComponent(code);
+      openLightbox(qrUrl, 'image/png');
+    }
+
     function openLightbox(imgSrc, mime) {
       var lb = document.getElementById('lightboxOverlay');
       if (lb) { lb.remove(); }
@@ -3691,12 +3713,14 @@ function renderPage() {
       const shortcuts = [
         ['↑ ↓ ← →', '导航文件'],
         ['j / k', 'vim 风格下/上导航'],
+        ['g', '跳转至顶部'],
         ['/', '聚焦搜索框'],
         ['Enter', '打开选中文件'],
         ['Space', '选中/取消选中'],
         ['a', '跳转至首个文件'],
         ['s', '星标选中文件'],
         ['c', '清空选择'],
+        ['v', '切换视图'],
         ['r', '刷新文件列表'],
         ['?', '显示此帮助'],
         ['Esc', '关闭弹窗/菜单'],
@@ -4476,7 +4500,7 @@ function renderPage() {
         return '<tr>' +
           '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
           '<td data-label="链接"><a href="' + share.url + '" target="_blank">' + share.url + '</a></td>' +
-          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '"></td>' +
+          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + share.code + '\')" title="点击查看大图"></td>' +
           '<td data-label="信息">' +
             '<div>到期: ' + expireText + '</div>' +
             '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
@@ -4517,7 +4541,7 @@ function renderPage() {
           '<td><input type="checkbox" class="share-check" value="' + encodeURIComponent(share.code) + '" onchange="updateShareBatchBar()"></td>' +
           '<td data-label=""><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
           '<td data-label="链接"><a href="' + share.url + '" target="_blank">' + share.url + '</a></td>' +
-          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '"></td>' +
+          '<td data-label=""><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + share.code + '\')" title="点击查看大图"></td>' +
           '<td data-label="信息">' +
             '<div>到期: ' + expireText + '</div>' +
             '<div>下载: ' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</div>' +
