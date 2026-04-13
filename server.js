@@ -907,7 +907,9 @@ function renderPage() {
           <div style="border-top:1px solid var(--line);margin:4px 0"></div>
           <div class="ctx-item" onclick="openVirtualFolderManager()" style="color:var(--accent)">⚙ 管理收藏夹</div>
         </div>
-        <button id="vfBackBtn" class="ghost" style="display:none" onclick="exitVirtualFolder()">← 全部文件</button>
+        <nav id="breadcrumb" aria-label="导航路径" style="display:none;align-items:center;gap:4px;font-size:13px;padding:6px 10px;background:var(--bg-secondary);border-radius:10px;border:1px solid var(--line);flex-shrink:0">
+          <span style="cursor:pointer;color:var(--accent);font-weight:500" onclick="exitVirtualFolder()" title="返回全部文件">全部文件</span>
+        </nav>
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button class="ghost" onclick="openSettings()" title="设置 (Ctrl+,)">⚙</button>
@@ -2583,7 +2585,8 @@ function renderPage() {
     async function loadFiles() {
       if (currentVirtualFolderId !== null) {
         currentVirtualFolderId = null;
-        document.getElementById('vfBackBtn').style.display = 'none';
+        var breadcrumb = document.getElementById('breadcrumb');
+        if (breadcrumb) breadcrumb.style.display = 'none';
       }
       clearNavHighlight();
       lastClickedIndex = -1;  // reset shift-click anchor on file list change
@@ -2953,11 +2956,20 @@ function renderPage() {
     async function navigateVirtualFolder(folderId) {
       currentVirtualFolderId = folderId;
       document.getElementById('vfMenu').style.display = 'none';
-      document.getElementById('vfBackBtn').style.display = 'inline-block';
+      var breadcrumb = document.getElementById('breadcrumb');
+      breadcrumb.style.display = 'flex';
+      breadcrumb.innerHTML = '<span style="cursor:pointer;color:var(--accent);font-weight:500" onclick="exitVirtualFolder()" title="返回全部文件">全部文件</span><span style="color:var(--muted)"> › </span><span id="breadcrumbVFName" style="color:var(--text)">加载中...</span>';
       clearNavHighlight();
       const res = await fetch('/api/virtual-folders/' + folderId + '/files', { headers: headers() });
       const data = await res.json();
       const files = data.files || [];
+      if (data.folder) {
+        var nameSpan = document.getElementById('breadcrumbVFName');
+        if (nameSpan) {
+          nameSpan.textContent = data.folder.name;
+          nameSpan.style.color = data.folder.color || 'var(--text)';
+        }
+      }
       currentFiles = files.map(function(f, i) { f._index = i; return f; });
       currentOffset = files.length;
       currentTotal = files.length;
@@ -3062,7 +3074,8 @@ function renderPage() {
 
     function exitVirtualFolder() {
       currentVirtualFolderId = null;
-      document.getElementById('vfBackBtn').style.display = 'none';
+      var breadcrumb = document.getElementById('breadcrumb');
+      if (breadcrumb) breadcrumb.style.display = 'none';
       loadFiles();
     }
 

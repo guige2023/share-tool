@@ -644,8 +644,9 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const auth = authRequired(req, res);
     if (!auth) return true;
     const folderId = parseInt(pathname.split('/')[3], 10);
+    const folder = db.getVirtualFolder(folderId);
     const files = db.getVirtualFolderFiles(folderId);
-    sendJson(res, { success: true, files });
+    sendJson(res, { success: true, files, folder: folder ? { id: folder.id, name: folder.name, color: folder.color } : null });
     return true;
   }
 
