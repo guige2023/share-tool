@@ -49,32 +49,47 @@ class StatusBarController: NSObject {
     }
 
     private func setupMenu() {
+        // Status (informational only)
         let sMI = NSMenuItem(title: "状态: 启动中...", action: nil, keyEquivalent: "")
         sMI.isEnabled = false
         self.statusMenuItem = sMI
 
+        // IP (informational only)
         let ipMI = NSMenuItem(title: "IP: 获取中...", action: nil, keyEquivalent: "")
         ipMI.isEnabled = false
         self.ipMenuItem = ipMI
 
-        let owmMI = NSMenuItem(title: "打开 Web UI", action: nil, keyEquivalent: "o")
+        // Copy IP - action set
+        let cIPMI = NSMenuItem(title: "复制 IP", action: #selector(copyIP), keyEquivalent: "c")
+        cIPMI.target = self
+
+        // Open Web UI - action set
+        let owmMI = NSMenuItem(title: "打开 Web UI", action: #selector(openWeb), keyEquivalent: "o")
+        owmMI.target = self
         self.openWebMenuItem = owmMI
 
-        let ofmMI = NSMenuItem(title: "打开共享文件夹", action: nil, keyEquivalent: "f")
+        // Open shared folder - action set
+        let ofmMI = NSMenuItem(title: "打开共享文件夹", action: #selector(openFolder), keyEquivalent: "f")
+        ofmMI.target = self
         self.openFolderMenuItem = ofmMI
 
-        let ssmMI = NSMenuItem(title: "停止服务", action: nil, keyEquivalent: "s")
+        // Start/Stop service - action set
+        let ssmMI = NSMenuItem(title: "停止服务", action: #selector(toggleService), keyEquivalent: "s")
+        ssmMI.target = self
         self.startStopMenuItem = ssmMI
 
-        let asmMI = NSMenuItem(title: "开机自动启动", action: nil, keyEquivalent: "")
+        // Auto start - action set
+        let asmMI = NSMenuItem(title: "开机自动启动", action: #selector(toggleAutoStart), keyEquivalent: "")
         asmMI.state = UserDefaults.standard.bool(forKey: "autoStart") ? .on : .off
+        asmMI.target = self
         self.autoStartMenuItem = asmMI
 
-        let qMI = NSMenuItem(title: "退出", action: nil, keyEquivalent: "q")
+        // Quit - action set
+        let qMI = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
+        qMI.target = self
         self.quitMenuItem = qMI
 
-        let cIPMI = NSMenuItem(title: "复制 IP", action: nil, keyEquivalent: "c")
-
+        // Assemble menu
         self.menu.addItem(self.statusMenuItem)
         self.menu.addItem(NSMenuItem.separator())
         self.menu.addItem(self.ipMenuItem)
@@ -87,13 +102,6 @@ class StatusBarController: NSObject {
         self.menu.addItem(self.autoStartMenuItem)
         self.menu.addItem(NSMenuItem.separator())
         self.menu.addItem(self.quitMenuItem)
-
-        self.openWebMenuItem.target = self
-        self.openFolderMenuItem.target = self
-        self.startStopMenuItem.target = self
-        self.autoStartMenuItem.target = self
-        self.quitMenuItem.target = self
-        cIPMI.target = self
     }
 
     private func setupStatusItem() {
@@ -127,17 +135,10 @@ class StatusBarController: NSObject {
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            if running {
-                self.statusMenuItem.title = "状态: 运行中"
-                self.startStopMenuItem.title = "停止服务"
-                self.openWebMenuItem.isEnabled = true
-                self.ipMenuItem.title = "IP: \(ip)"
-            } else {
-                self.statusMenuItem.title = "状态: 已停止"
-                self.startStopMenuItem.title = "启动服务"
-                self.openWebMenuItem.isEnabled = false
-                self.ipMenuItem.title = "IP: ---"
-            }
+            self.statusMenuItem.title = running ? "状态: 运行中" : "状态: 已停止"
+            self.startStopMenuItem.title = running ? "停止服务" : "启动服务"
+            self.openWebMenuItem.isEnabled = running
+            self.ipMenuItem.title = running ? "IP: \(ip)" : "IP: ---"
         }
     }
 
@@ -149,6 +150,7 @@ class StatusBarController: NSObject {
     }
 
     @objc private func openWeb() { onOpenWebUI() }
+
     @objc private func openFolder() { onOpenFolder() }
 
     @objc private func copyIP() {
