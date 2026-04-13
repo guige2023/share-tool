@@ -1058,6 +1058,7 @@ function renderPage() {
         <button class="secondary" onclick="forceCloseModal()">关闭</button>
       </div>
       <div id="modalBody"></div>
+      <div class="modal-actions"></div>
     </div>
   </div>
 
