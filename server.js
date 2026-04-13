@@ -6849,6 +6849,27 @@ function renderPage() {
         loadFiles();
         showToast('文件已更新', 'info', 3000);
       });
+      es.addEventListener('batch_delete', function (e) {
+        var data = JSON.parse(e.data || '{}');
+        var count = (data.filenames || []).length;
+        showToast('批量删除完成：' + count + ' 个文件', 'success', 4000);
+        loadFiles();
+      });
+      es.addEventListener('batch_rename', function (e) {
+        var data = JSON.parse(e.data || '{}');
+        showToast('批量重命名完成：' + (data.renamed || 0) + ' 个文件', 'success', 4000);
+        loadFiles();
+      });
+      es.addEventListener('batch_move', function (e) {
+        var data = JSON.parse(e.data || '{}');
+        showToast('批量移动完成：' + (data.moved || 0) + ' 个文件', 'success', 4000);
+        loadFiles();
+      });
+      es.addEventListener('batch_copy', function (e) {
+        var data = JSON.parse(e.data || '{}');
+        showToast('批量复制完成：' + (data.copied || 0) + ' 个文件', 'success', 4000);
+        loadFiles();
+      });
       es.onerror = function () {
         // Silently reconnect; EventSource auto reconnects
       };

@@ -557,10 +557,11 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       // 记录审计日志
       db.addAuditLog('batch_rename', `${result.renamed} 个文件重命名`, getClientIp(req), auth.token);
       if (result.renamed > 0) global.broadcastSSE({ type: 'files_changed' });
+      global.broadcastSSE({ type: 'batch_rename', renamed: result.renamed });
       sendJson(res, {
         success: true,
         renamed: result.renamed,
-        errors: result.errors.length > 0 ? result.errors : undefined
+        errors: result.errors
       });
     } catch (error) {
       sendJson(res, { success: false, error: error.message }, 400);
@@ -657,6 +658,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       if (result.results.some(r => r.success)) {
         global.broadcastSSE({ type: 'files_changed' });
       }
+      global.broadcastSSE({ type: 'batch_move', moved: result.results.filter(r => r.success).length });
       sendJson(res, {
         success: true,
         moved: result.results.filter(r => r.success).length,
@@ -698,6 +700,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       if (result.results.some(r => r.success)) {
         global.broadcastSSE({ type: 'files_changed' });
       }
+      global.broadcastSSE({ type: 'batch_copy', copied: result.results.filter(r => r.success).length });
       sendJson(res, {
         success: true,
         copied: result.results.filter(r => r.success).length,
@@ -710,15 +713,6 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
-  // GET /api/duplicates - 查找重复文件
-  if (pathname === '/api/duplicates' && method === 'GET') {
-    const auth = authRequired(req, res);
-    if (!auth) return true;
-
-    const duplicates = db.findDuplicates();
-    sendJson(res, { success: true, duplicates });
-    return true;
-  }
 
   // POST /api/folders - 创建新文件夹
   if (pathname === '/api/folders' && method === 'POST') {

@@ -959,6 +959,132 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Tag Emoji ───────────────────────────────────────────────────────────
+  // GET /api/tags/emojis - get all tag→emoji mappings (bulk)
+  if (pathname === '/api/tags/emojis' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const rows = db.getAllTagColors(); // returns {tag, color, emoji}
+    const emojis = {};
+    for (const row of rows) { emojis[row.tag] = row.emoji || null; }
+    sendJson(res, { success: true, emojis });
+    return true;
+  }
+
+  // GET /api/tags/emoji/:tag - get emoji for one tag
+  if (pathname.match(/^\/api\/tags\/emoji\/[^/]+$/) && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const tag = decodeURIComponent(pathname.split('/')[4]);
+    const emoji = db.getTagEmoji(tag);
+    sendJson(res, { success: true, tag, emoji });
+    return true;
+  }
+
+  // PUT /api/tags/emoji/:tag - set emoji for a tag
+  if (pathname.match(/^\/api\/tags\/emoji\/[^/]+$/) && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const tag = decodeURIComponent(pathname.split('/')[4]);
+    const body = await readJsonBody(req);
+    if (typeof body.emoji !== 'string') {
+      sendJson(res, { success: false, error: 'emoji string required' }, 400);
+      return true;
+    }
+    const result = db.setTagEmoji(tag, body.emoji);
+    sendJson(res, { success: true, ...result });
+    return true;
+  }
+
+  // ── Popular Searches ────────────────────────────────────────────────────
+  // GET /api/search/popular - trending/popular search queries
+  if (pathname === '/api/search/popular' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const limit = parseInt(query.get('limit') || '10', 10);
+    const rows = db.getPopularSearches(limit);
+    sendJson(res, { success: true, popular: rows });
+    return true;
+  }
+
+  // ── File Versions ───────────────────────────────────────────────────────
+  // POST /api/files/:filename/version - manually save a file version checkpoint
+  if (pathname.match(/^\/api\/files\/[^/]+\/version$/) && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const filename = decodeURIComponent(pathname.split('/')[3]);
+    const file = db.getFileByName(filename);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    const row = db.saveFileVersion(file.id, filename, file.content || '', file.size, file.hash);
+    sendJson(res, { success: true, version: row }, 201);
+    return true;
+  }
+
+  // DELETE /api/files/:filename/versions/prune - prune old versions, keep N newest
+  if (pathname.match(/^\/api\/files\/[^/]+\/versions\/prune$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const filename = decodeURIComponent(pathname.split('/')[3]);
+    const file = db.getFileByName(filename);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    const body = await readJsonBody(req);
+    const keepCount = parseInt(body.keep_count || '10', 10);
+    const pruned = db.pruneFileVersions(file.id, keepCount);
+    sendJson(res, { success: true, pruned });
+    return true;
+  }
+
+  // DELETE /api/versions/prune-all - prune all versions across all files
+  if (pathname === '/api/versions/prune-all' && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const keepCount = parseInt(body.keep_count || '10', 10);
+    const totalPruned = db.pruneAllFileVersions(keepCount);
+    sendJson(res, { success: true, total_pruned: totalPruned });
+    return true;
+  }
+
+  // ── Permanent Delete ─────────────────────────────────────────────────────
+  // DELETE /api/files/permanent/:filename - permanently delete without trash
+  if (pathname.match(/^\/api\/files\/permanent\/[^/]+$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const filename = decodeURIComponent(pathname.split('/')[3]);
+    const ok = db.permanentlyDeleteFile(filename);
+    if (!ok) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    sendJson(res, { success: true });
+    return true;
+  }
+
+  // ── Admin / Maintenance ──────────────────────────────────────────────────
+  // POST /api/admin/vacuum - run SQLite VACUUM to reclaim disk space
+  if (pathname === '/api/admin/vacuum' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    db.runVacuum();
+    sendJson(res, { success: true, message: 'VACUUM completed' });
+    return true;
+  }
+
+  // DELETE /api/admin/search-history - clear all search history
+  if (pathname === '/api/admin/search-history' && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    db.clearSearchHistory();
+    sendJson(res, { success: true });
+    return true;
+  }
+
   return false;
 };
 function readJsonBody(req) {
