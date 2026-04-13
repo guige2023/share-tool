@@ -3297,25 +3297,25 @@ function renderPage() {
       const tags = window._folderTagDefinitions || [];
       if (!tags.length) { bar.style.display = 'none'; return; }
       const activeId = window._activeFolderTagFilter;
-      var html = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0;align-items:center">';
-      html += '<span style="font-size:11px;color:var(--muted);margin-right:4px">🏷️ 收藏夹标签:</span>';
+      var html = '<div style="display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:6px 0;align-items:center;-webkit-overflow-scrolling:touch;scrollbar-width:none">';
+      html += '<span style="font-size:11px;color:var(--muted);margin-right:4px;white-space:nowrap;flex-shrink:0">🏷️ 收藏夹:</span>';
       if (activeId) {
         const activeTag = tags.find(t => String(t.id) === String(activeId));
         const color = activeTag ? (activeTag.color || '#e0e7ff') : '#e0e7ff';
         const name = activeTag ? activeTag.name : '未知';
-        html += '<span style="background:' + escapeHtmlClient(color) + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit;cursor:pointer" onclick="clearFolderTagFilter()" title="点击清除">' + escapeHtmlClient(name) + ' ×</span>';
-        html += '<button onclick="clearFolderTagFilter()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px" title="清除筛选">✕清除</button>';
-        html += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px"></div>';
+        html += '<span style="background:' + escapeHtmlClient(color) + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0" onclick="clearFolderTagFilter()" title="点击清除">' + escapeHtmlClient(name) + ' ×</span>';
+        html += '<button onclick="clearFolderTagFilter()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px;white-space:nowrap;flex-shrink:0" title="清除筛选">✕</button>';
+        html += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px;flex-shrink:0"></div>';
       }
       html += tags.map(t => {
         if (String(t.id) === String(activeId)) return '';
         const color = t.color || '#e0e7ff';
         const name = escapeHtmlClient(t.name);
-        return '<span style="background:' + color + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;cursor:pointer;color:inherit;opacity:0.75" onclick="navigateVirtualFolderByFolderTag(' + t.id + ')" title="查看收藏夹: ' + name + '">' + name + '</span>';
+        return '<span style="background:' + color + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;cursor:pointer;color:inherit;opacity:0.8;white-space:nowrap;flex-shrink:0" onclick="navigateVirtualFolderByFolderTag(' + t.id + ')" title="查看收藏夹: ' + name + '">' + name + '</span>';
       }).join('');
       html += '</div>';
       bar.innerHTML = html;
-      bar.style.display = 'flex';
+      bar.style.display = 'block';
     }
 
     function clearFolderTagFilter() {
@@ -3350,32 +3350,32 @@ function renderPage() {
       if (!tags.length) { bar.style.display = 'none'; return; }
       // 显示最多8个，按使用频率排序
       const top = tags.slice(0, 8);
-      var inner = '<div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;align-items:center">';
+      var inner = '<div style="display:flex;flex-wrap:nowrap;overflow-x:auto;gap:6px;padding:8px 0;align-items:center;-webkit-overflow-scrolling:touch;scrollbar-width:none">';
       if (activeTag) {
         var activeColor = '#e0e7ff';
         for (var i = 0; i < tags.length; i++) { if (tags[i].tag === activeTag) { activeColor = tags[i].color || '#e0e7ff'; break; } }
-        inner += '<span style="font-size:11px;color:var(--muted);margin-right:4px">标签筛选:</span>';
-        inner += '<span class="tag-badge" style="background:' + activeColor + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit">' + escapeHtmlClient(activeTag) + ' <span style="opacity:.7">×</span></span>';
-        inner += '<button onclick="clearTagFilter()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px" title="清除筛选">✕清除</button>';
-        inner += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px"></div>';
+        inner += '<span style="font-size:11px;color:var(--muted);margin-right:4px;white-space:nowrap;flex-shrink:0">标签:</span>';
+        inner += '<span class="tag-badge" style="background:' + activeColor + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit;white-space:nowrap;flex-shrink:0"> ' + escapeHtmlClient(activeTag) + ' <span style="opacity:.7;cursor:pointer" onclick="clearTagFilter()">×</span></span>';
+        inner += '<button onclick="clearTagFilter()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px;white-space:nowrap;flex-shrink:0" title="清除筛选">✕</button>';
+        inner += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px;flex-shrink:0"></div>';
       }
       // Show active tag chips (multi-select filter) with individual remove buttons
       if (currentTagFilters.length > 0) {
-        inner += '<span style="font-size:11px;color:var(--muted);margin-right:4px">标签:</span>';
+        inner += '<span style="font-size:11px;color:var(--muted);margin-right:4px;white-space:nowrap;flex-shrink:0">标签:</span>';
         currentTagFilters.forEach(function(tag) {
           var tagColor = '#e0e7ff';
           for (var j = 0; j < tags.length; j++) { if (tags[j].tag === tag) { tagColor = tags[j].color || '#e0e7ff'; break; } }
           var escaped = escapeHtmlClient(tag);
-          inner += '<span class="tag-badge" style="background:' + tagColor + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit">' + escaped + ' <span style="opacity:.7;cursor:pointer" onclick="event.stopPropagation();toggleTagFilterChip(' + JSON.stringify(tag) + ')">×</span></span>';
+          inner += '<span class="tag-badge" style="background:' + tagColor + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit;white-space:nowrap;flex-shrink:0">' + escaped + ' <span style="opacity:.7;cursor:pointer" onclick="event.stopPropagation();toggleTagFilterChip(' + JSON.stringify(tag) + ')">×</span></span>';
         });
-        inner += '<button onclick="clearTagFilterChips()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px" title="清除标签筛选">✕清除</button>';
-        inner += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px"></div>';
+        inner += '<button onclick="clearTagFilterChips()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px;white-space:nowrap;flex-shrink:0" title="清除标签筛选">✕</button>';
+        inner += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px;flex-shrink:0"></div>';
       }
       inner += top.map(function(t) {
         if (t.tag === activeTag || currentTagFilters.indexOf(t.tag) !== -1) return ''; // skip active + chip-selected tags
         var tc = t.color || '#e0e7ff';
         var escaped = escapeHtmlClient(t.tag);
-        return '<span class="tag-badge" style="background:' + tc + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;cursor:pointer;color:inherit" onclick="filterBySingleTag(\'' + escaped.replace(/'/g, "\\'") + '\')" title="筛选: ' + escaped + '">' + escaped + ' <span style="opacity:.7">' + t.count + '</span></span>';
+        return '<span class="tag-badge" style="background:' + tc + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;cursor:pointer;color:inherit;white-space:nowrap;flex-shrink:0" onclick="filterBySingleTag(\'' + escaped.replace(/'/g, "\\'") + '\')" title="筛选: ' + escaped + '">' + escaped + ' <span style="opacity:.6">' + t.count + '</span></span>';
       }).join('');
       inner += '</div>';
       bar.innerHTML = inner;
