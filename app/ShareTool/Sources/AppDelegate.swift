@@ -16,9 +16,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let fileMgr = FileManager.default
         try? fileMgr.createDirectory(atPath: sharedDir, withIntermediateDirectories: true, attributes: nil)
 
+        // Log startup
+        let logDir = fileMgr.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/ShareTool")
+        try? fileMgr.createDirectory(at: logDir, withIntermediateDirectories: true)
+        let startupLog = logDir.appendingPathComponent("clipboard.log")
+        let startupMsg = "\(Date()) AppDelegate startup: instanceName=\(instanceName) sharedDir=\(sharedDir)\n"
+        if fileMgr.fileExists(atPath: startupLog.path) {
+            let handle = try? FileHandle(forWritingTo: startupLog)
+            handle?.seekToEndOfFile()
+            handle?.write(startupMsg.data(using: .utf8)!)
+            handle?.closeFile()
+        } else {
+            try? startupMsg.data(using: .utf8)?.write(to: startupLog)
+        }
+
         startShareToolService()
 
+        // Determine local IP for clipboard manager base URL
+        let localIP = getLocalIP() ?? "127.0.0.1"
+        let baseURL = "https://\(localIP):18793"
+
         statusBarController = StatusBarController(
+            baseURL: baseURL,
+            instanceName: instanceName,
             onStart: { [weak self] in self?.startShareToolService() },
             onStop: { [weak self] in self?.stopShareToolService() },
             onOpenWebUI: { [weak self] in self?.openWebUI() },

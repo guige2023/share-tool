@@ -29,7 +29,13 @@ coverage/
 /sharetool_windows_amd64.exe
 /ShareTool-macos.dmg
 /ShareTool-macos-app.dmg
+/sharetool_darwin_amd64_new
+/sharetool_darwin_arm64_new
+/sharetool_windows_amd64_new.exe
 app/build/
+app/.build/
 app/Package.swift
 app/ShareTool.xcodeproj/
 app/ShareTool/Resources/
+app/ShareTool/ClipboardSync/bin/
+app/ShareTool/ClipboardSync/obj/

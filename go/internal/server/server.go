@@ -193,6 +193,35 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		w.Write(png)
 	})
 
+	// Clipboard API
+	mux.HandleFunc("/api/clipboard", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handleClipboardHistory(w, r)
+		case http.MethodPost:
+			handleClipboardPost(w, r)
+		case http.MethodDelete:
+			handleClipboardDelete(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
+	// Clipboard receive (from peers - no forwarding)
+	mux.HandleFunc("/api/clipboard/receive", func(w http.ResponseWriter, r *http.Request) {
+		handleClipboardReceive(w, r)
+	})
+
+	// Clipboard latest
+	mux.HandleFunc("/api/clipboard/latest", func(w http.ResponseWriter, r *http.Request) {
+		handleClipboardLatest(w, r)
+	})
+
+	// Clipboard file (serve stored images/files)
+	mux.HandleFunc("/api/clipboard/file", func(w http.ResponseWriter, r *http.Request) {
+		handleClipboardFile(w, r)
+	})
+
 	// AI Integration endpoints
 	mux.HandleFunc("/openapi.json", HandleOpenAPI)
 	mux.HandleFunc("/tools.json", HandleTools)

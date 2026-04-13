@@ -637,4 +637,60 @@ func buildMdnsAnnounce(port int) []byte {
 2024/06/01 10:00:00 [mDNS] Announced sharetool on port 18790
 ```
 
-浏览器打开 `http://localhost:18790` 即可使用 Web UI。
+---
+
+## 11. 剪贴板同步功能开发进度
+
+### 已完成 ✅
+
+#### Go Server
+- [x] `clipboard_api.go` — 完整实现：POST/GET/DELETE /api/clipboard，历史存储到 `~/.sharetool/clipboard/history.json`
+- [x] 磁盘持久化 — 重启后历史不丢失
+- [x] 图片存储 — `~/.sharetool/clipboard/images/`
+- [x] 转发 count bug — `sync.Mutex` + `sync.WaitGroup` 等待所有 goroutine 完成
+- [x] `clipboard/receive` 端点 — peer 间转发
+- [x] `clipboard/file` 端点 — 下载历史图片
+
+#### macOS Python Helper
+- [x] `~/Library/Application Support/ShareTool/helpers/clipboard_helper.py`
+- [x] CGEvent Tap 热键监听（`Cmd+Shift+V`，后台线程 CFRunLoop）
+- [x] pbpaste/pbcopy subprocess 读写文字（修复 NSPasteboard 隔离 bug）
+- [x] NSPasteboard 读写图片/文件
+- [x] 轮询 `/api/clipboard` 检测新内容
+- [x] 收到内容写入本地剪贴板 + 弹通知
+- [x] 本地持久化（history.json + images/）
+- [x] LaunchAgent plist 自启
+- [x] **100 次热键稳定性测试通过（100/100，无遗漏，无异常）**
+
+#### macOS Swift App（热键已禁用）
+- [x] `StatusBarController.swift` — 菜单栏 UI（热键处理注释掉）
+- [x] `ClipboardManager.swift` — API 轮询 + 通知
+- [x] `HotkeyManager.swift` — Carbon 热键（已禁用，防止与 Python helper 竞态）
+
+### 进行中 🔄
+- [ ] macOS App 用 Xcode 重新编译（包含热键禁用修复）
+- [ ] Windows 剪贴板托盘 app 测试
+
+### 待开发 📋
+- [ ] macOS App Web UI 增加剪贴板历史页面
+- [ ] 剪贴板同步确认对话框（收到内容时可选是否写入）
+- [ ] Windows 端 Go + Wails 替代 C# 版本（更轻量）
+
+### 关键 Bug 修复记录（2026-04-13）
+
+1. **NSPasteboard 隔离 bug**
+   - 现象：Python `NSPasteboard.pasteboardWithName_('general')` 读不到 `pbcopy` 写入的内容
+   - 根因：Python NSPasteboard 实例与系统 pasteboard 完全隔离
+   - 修复：`read_clipboard()` 改用 `pbpaste` subprocess 读文字；`write_clipboard()` 改用 `pbcopy` subprocess 写文字
+
+2. **Carbon + CGEvent 热键竞态**
+   - 现象：100 次热键测试中有 24 次"Content unchanged"
+   - 根因：Carbon `RegisterEventHotKey`（Swift App）和 CGEvent tap（Python）并发监听，Swift 先读剪贴板修改 `LAST_SENT_CONTENT`，helper 后读发现未变
+   - 修复：`StatusBarController.swift` 注释掉 `hotkeyManager` 初始化，Python helper 独占热键
+   - 验证：禁用后 100/100 次全部成功
+
+3. **Go Server 转发响应过早返回**
+   - 现象：转发 count 始终为 0 或 -1
+   - 根因：HTTP handler 在所有 goroutine 转发完成前就返回了
+   - 修复：`sync.Mutex` + `sync.WaitGroup` 等待所有 goroutine 完成后才写入响应
+

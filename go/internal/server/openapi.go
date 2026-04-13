@@ -149,6 +149,58 @@ func openAPISchema() map[string]any {
 					},
 				},
 			},
+			"/api/clipboard": map[string]any{
+				"get": map[string]any{
+					"summary": "获取剪贴板历史",
+					"responses": map[string]any{
+						"200": map[string]string{"description": "剪贴板历史列表"},
+					},
+				},
+				"post": map[string]any{
+					"summary": "发送剪贴板（自动转发给所有在线设备）",
+					"requestBody": map[string]any{
+						"required": true,
+						"content": map[string]any{
+							"application/json": map[string]any{
+								"schema": map[string]any{
+									"type": "object",
+									"properties": map[string]any{
+										"type":      map[string]any{"type": "string", "enum": []any{"text", "image", "files"}},
+										"content":   map[string]any{"type": "string"},
+										"from":      map[string]any{"type": "string"},
+										"timestamp": map[string]any{"type": "integer"},
+									},
+								},
+							},
+						},
+					},
+					"responses": map[string]any{
+						"200": map[string]string{"description": "成功"},
+					},
+				},
+				"delete": map[string]any{
+					"summary": "清空剪贴板历史",
+					"responses": map[string]any{
+						"200": map[string]string{"description": "成功"},
+					},
+				},
+			},
+			"/api/clipboard/latest": map[string]any{
+				"get": map[string]any{
+					"summary": "获取最新剪贴板条目",
+					"responses": map[string]any{
+						"200": map[string]string{"description": "最新剪贴板条目"},
+					},
+				},
+			},
+			"/api/clipboard/receive": map[string]any{
+				"post": map[string]any{
+					"summary": "接收来自其他设备的剪贴板",
+					"responses": map[string]any{
+						"200": map[string]string{"description": "成功"},
+					},
+				},
+			},
 			"/api/peers": map[string]any{
 				"get": map[string]any{
 					"summary": "获取设备列表",

@@ -12,6 +12,13 @@ class StatusBarController: NSObject {
     private var autoStartMenuItem: NSMenuItem!
     private var quitMenuItem: NSMenuItem!
 
+    // Clipboard
+    private var clipboardManager: ClipboardManager!
+    // private var hotkeyManager: HotkeyManager! // DISABLED - Python helper handles hotkey
+    private var clipboardHistoryMenuItem: NSMenuItem!
+    private var clipboardHistory: [ClipboardEntry] = []
+    private var lastSentID: String = ""
+
     private let onStart: () -> Void
     private let onStop: () -> Void
     private let onOpenWebUI: () -> Void
@@ -19,8 +26,12 @@ class StatusBarController: NSObject {
     private let onQuit: () -> Void
     private let getStatus: () -> Bool
     private let getIP: () -> String
+    private let baseURL: String
+    private let instanceName: String
 
     init(
+        baseURL: String,
+        instanceName: String,
         onStart: @escaping () -> Void,
         onStop: @escaping () -> Void,
         onOpenWebUI: @escaping () -> Void,
@@ -29,6 +40,8 @@ class StatusBarController: NSObject {
         getStatus: @escaping () -> Bool,
         getIP: @escaping () -> String
     ) {
+        self.baseURL = baseURL
+        self.instanceName = instanceName
         self.onStart = onStart
         self.onStop = onStop
         self.onOpenWebUI = onOpenWebUI
@@ -39,6 +52,7 @@ class StatusBarController: NSObject {
 
         super.init()
 
+        setupClipboard()
         setupMenu()
         setupStatusItem()
         updateStatus()
@@ -48,59 +62,96 @@ class StatusBarController: NSObject {
         }
     }
 
+    // MARK: - Clipboard Setup
+
+    private func setupClipboard() {
+        clipboardManager = ClipboardManager(baseURL: baseURL, instanceName: instanceName)
+        clipboardManager.delegate = self
+        clipboardManager.startPolling(interval: 2.0)
+
+        // NOTE: Carbon RegisterEventHotKey is DISABLED to prevent race condition
+        // with the Python helper's CGEvent tap. The helper handles Cmd+Shift+V exclusively.
+        // hotkeyManager = HotkeyManager()
+        // hotkeyManager.delegate = self
+        // if !hotkeyManager.registerHotkey() { ... }
+    }
+
+    // MARK: - Menu Setup
+
     private func setupMenu() {
-        // Status (informational only)
+        // Status
         let sMI = NSMenuItem(title: "状态: 启动中...", action: nil, keyEquivalent: "")
         sMI.isEnabled = false
         self.statusMenuItem = sMI
 
-        // IP (informational only)
+        // IP
         let ipMI = NSMenuItem(title: "IP: 获取中...", action: nil, keyEquivalent: "")
         ipMI.isEnabled = false
         self.ipMenuItem = ipMI
 
-        // Copy IP - action set
+        // Copy IP
         let cIPMI = NSMenuItem(title: "复制 IP", action: #selector(copyIP), keyEquivalent: "c")
         cIPMI.target = self
 
-        // Open Web UI - action set
+        // Separator
+        let sep0 = NSMenuItem.separator()
+
+        // Open Web UI
         let owmMI = NSMenuItem(title: "打开 Web UI", action: #selector(openWeb), keyEquivalent: "o")
         owmMI.target = self
         self.openWebMenuItem = owmMI
 
-        // Open shared folder - action set
+        // Open shared folder
         let ofmMI = NSMenuItem(title: "打开共享文件夹", action: #selector(openFolder), keyEquivalent: "f")
         ofmMI.target = self
         self.openFolderMenuItem = ofmMI
 
-        // Start/Stop service - action set
+        // Clipboard History submenu
+        let historyMI = NSMenuItem(title: "剪贴板历史", action: nil, keyEquivalent: "")
+        let historySubmenu = NSMenu()
+        historyMI.submenu = historySubmenu
+        self.clipboardHistoryMenuItem = historyMI
+
+        // Send Clipboard
+        let sendClipMI = NSMenuItem(title: "发送剪贴板  ⌘⇧V", action: #selector(sendClipboard), keyEquivalent: "")
+        sendClipMI.target = self
+        sendClipMI.tag = 100
+
+        let sep2 = NSMenuItem.separator()
+
+        // Start/Stop
         let ssmMI = NSMenuItem(title: "停止服务", action: #selector(toggleService), keyEquivalent: "s")
         ssmMI.target = self
         self.startStopMenuItem = ssmMI
 
-        // Auto start - action set
+        // Auto start
         let asmMI = NSMenuItem(title: "开机自动启动", action: #selector(toggleAutoStart), keyEquivalent: "")
         asmMI.state = UserDefaults.standard.bool(forKey: "autoStart") ? .on : .off
         asmMI.target = self
         self.autoStartMenuItem = asmMI
 
-        // Quit - action set
+        let sep3 = NSMenuItem.separator()
+
+        // Quit
         let qMI = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
         qMI.target = self
         self.quitMenuItem = qMI
 
-        // Assemble menu
+        // Assemble
         self.menu.addItem(self.statusMenuItem)
         self.menu.addItem(NSMenuItem.separator())
         self.menu.addItem(self.ipMenuItem)
         self.menu.addItem(cIPMI)
-        self.menu.addItem(NSMenuItem.separator())
+        self.menu.addItem(sep0)
         self.menu.addItem(self.openWebMenuItem)
         self.menu.addItem(self.openFolderMenuItem)
         self.menu.addItem(NSMenuItem.separator())
+        self.menu.addItem(sendClipMI)
+        self.menu.addItem(self.clipboardHistoryMenuItem)
+        self.menu.addItem(sep2)
         self.menu.addItem(self.startStopMenuItem)
         self.menu.addItem(self.autoStartMenuItem)
-        self.menu.addItem(NSMenuItem.separator())
+        self.menu.addItem(sep3)
         self.menu.addItem(self.quitMenuItem)
     }
 
@@ -142,6 +193,8 @@ class StatusBarController: NSObject {
         }
     }
 
+    // MARK: - Actions
+
     @objc private func toggleService() {
         if getStatus() { onStop() } else { onStart() }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
@@ -164,6 +217,10 @@ class StatusBarController: NSObject {
         alert.alertStyle = .informational
         alert.addButton(withTitle: "好的")
         alert.runModal()
+    }
+
+    @objc private func sendClipboard() {
+        clipboardManager.sendClipboard()
     }
 
     @objc private func toggleAutoStart() {
@@ -195,4 +252,115 @@ class StatusBarController: NSObject {
     }
 
     @objc private func quit() { onQuit() }
+
+    @objc private func useHistoryItem(_ sender: NSMenuItem) {
+        let index = sender.tag
+        guard index >= 0 && index < clipboardHistory.count else { return }
+        let entry = clipboardHistory[index]
+        clipboardManager.writeClipboard(entry: entry)
+    }
+
+    private func refreshHistoryMenu() {
+        guard let submenu = clipboardHistoryMenuItem.submenu else { return }
+        submenu.removeAllItems()
+
+        if clipboardHistory.isEmpty {
+            let empty = NSMenuItem(title: "（无历史）", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            submenu.addItem(empty)
+            return
+        }
+
+        for (i, entry) in clipboardHistory.prefix(10).enumerated() {
+            let preview: String
+            switch entry.type {
+            case "text":
+                preview = truncate(entry.content, 40)
+            case "image":
+                preview = "📷 图片 (\(formatBytes(entry.content.utf8.count)))"
+            case "files":
+                preview = "📁 文件"
+            default:
+                preview = truncate(entry.content, 40)
+            }
+            let title = "来自 \(entry.from): \(preview)"
+            let item = NSMenuItem(title: title, action: #selector(useHistoryItem(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = i
+            submenu.addItem(item)
+        }
+
+        submenu.addItem(NSMenuItem.separator())
+        let clearItem = NSMenuItem(title: "清空历史", action: #selector(clearClipboardHistory), keyEquivalent: "")
+        clearItem.target = self
+        submenu.addItem(clearItem)
+    }
+
+    @objc private func clearClipboardHistory() {
+        clipboardHistory.removeAll()
+        refreshHistoryMenu()
+        // Also clear server-side
+        let url = URL(string: "\(baseURL)/api/clipboard")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        URLSession.shared.dataTask(with: req) { _, _, _ in }.resume()
+    }
+
+    private func truncate(_ s: String, _ max: Int) -> String {
+        let clean = s.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
+        if clean.count <= max { return clean }
+        return String(clean.prefix(max)) + "…"
+    }
+
+    private func formatBytes(_ n: Int) -> String {
+        if n < 1024 { return "\(n)B" }
+        if n < 1024 * 1024 { return "\(n/1024)KB" }
+        return "\(n/1024/1024)MB"
+    }
+}
+
+// MARK: - ClipboardManagerDelegate
+
+extension StatusBarController: ClipboardManagerDelegate {
+    func clipboardManager(_ manager: ClipboardManager, didReceiveClipboard entry: ClipboardEntry) {
+        // Add to local history (don't duplicate server's own history)
+        clipboardHistory.insert(entry, at: 0)
+        if clipboardHistory.count > 50 {
+            clipboardHistory = Array(clipboardHistory.prefix(50))
+        }
+        refreshHistoryMenu()
+    }
+
+    func clipboardManager(_ manager: ClipboardManager, didSendClipboard count: Int) {
+        let alert = NSAlert()
+        if count > 0 {
+            alert.messageText = "剪贴板已发送"
+            alert.informativeText = "已发送到 \(count) 个设备"
+        } else {
+            alert.messageText = "剪贴板已发送"
+            alert.informativeText = "当前无其他在线设备"
+        }
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "好的")
+        alert.runModal()
+    }
+
+    func clipboardManager(_ manager: ClipboardManager, didFailWithError error: Error) {
+        if (error as? ClipboardManager.ClipboardError) == .empty {
+            let alert = NSAlert()
+            alert.messageText = "剪贴板为空"
+            alert.informativeText = "没有可发送的内容"
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "好的")
+            alert.runModal()
+        }
+    }
+}
+
+// MARK: - HotkeyManagerDelegate
+
+extension StatusBarController: HotkeyManagerDelegate {
+    func hotkeyTriggered() {
+        sendClipboard()
+    }
 }

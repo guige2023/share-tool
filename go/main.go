@@ -74,6 +74,18 @@ func main() {
 	router := server.SetupRouter(*dir, *readonly)
 	wrappedHandler := server.SecurityMiddleware(server.WrapWithCORS(router))
 
+	// Set instance info for clipboard API
+	server.SetInstanceInfo(*name, localIP, *port)
+
+	// Set clipboard data directory for persistence
+	clipboardDir := filepath.Join(os.Getenv("HOME"), ".sharetool", "clipboard")
+	if err := os.MkdirAll(clipboardDir, 0755); err != nil {
+		log.Printf("[Clipboard] Warning: failed to create data dir: %v", err)
+	} else {
+		server.SetDataDir(clipboardDir)
+		log.Printf("[Clipboard] Data dir: %s", clipboardDir)
+	}
+
 	if *noHttps {
 		// Plain HTTP mode
 		addr := fmt.Sprintf(":%d", *port)
