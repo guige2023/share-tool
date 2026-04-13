@@ -3144,6 +3144,19 @@ function renderPage() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
           break;
         }
+        case 'd': {
+          // d: toggle dark mode (cycle: light → dark → system)
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          var themeEl = document.getElementById('themeSelect');
+          if (!themeEl) return;
+          var current = themeEl.value;
+          var next = current === 'light' ? 'dark' : current === 'dark' ? 'system' : 'light';
+          themeEl.value = next;
+          setThemeMode(next);
+          showToast('主题: ' + { light: '浅色', dark: '深色', system: '跟随系统' }[next], 'info');
+          break;
+        }
         case 'v': {
           // v: toggle grid/list view
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
@@ -3834,6 +3847,7 @@ function renderPage() {
         ['a', '跳转至首个文件'],
         ['s', '星标选中文件'],
         ['c', '清空选择'],
+        ['d', '切换主题'],
         ['v', '切换视图'],
         ['r', '刷新文件列表'],
         ['?', '显示此帮助'],
