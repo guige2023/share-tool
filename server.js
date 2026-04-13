@@ -1044,6 +1044,8 @@ function renderPage() {
       <div id="searchSuggestions" style="position:relative;z-index:100;display:none;background:var(--panel);border:1px solid var(--line);border-radius:10px;margin-bottom:10px;overflow:hidden;box-shadow:var(--shadow)"></div>
       <div id="batchBar" class="batch-bar" style="display:none">
         <span id="batchCount" style="font-size:13px;color:var(--muted)"></span>
+        <span id="batchInfo" style="font-size:12px;color:var(--muted);margin-left:8px"></span>
+        <div style="flex:1"></div>
         <button class="ghost" onclick="toggleInvertSelection()">反选</button>
         <button class="ghost" onclick="openBatchTagModal()">添加标签</button>
         <button class="ghost" onclick="openBatchRemoveTagModal()">移除标签</button>
@@ -1758,11 +1760,34 @@ function renderPage() {
       var names = checkedNames();
       var bar = document.getElementById('batchBar');
       var count = document.getElementById('batchCount');
+      var info = document.getElementById('batchInfo');
       var selectAll = document.getElementById('selectAll');
       if (!bar || !count) return;
       if (names.length > 0) {
         bar.style.display = 'flex';
         count.textContent = '已选择 ' + names.length + ' 个文件';
+        // Compute aggregate size and type breakdown for selected files
+        var selectedFiles = names.map(function(n) {
+          var decoded = decodeURIComponent(n);
+          return currentFiles.find(function(f) { return f.name === decoded; });
+        }).filter(Boolean);
+        if (selectedFiles.length > 0 && info) {
+          var totalSize = selectedFiles.reduce(function(s, f) { return s + (f.size || 0); }, 0);
+          var fmtSize = function(b) {
+            if (b < 1024) return b + ' B';
+            if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+            if (b < 1073741824) return (b/1048576).toFixed(1) + ' MB';
+            return (b/1073741824).toFixed(2) + ' GB';
+          };
+          var typeMap = {};
+          selectedFiles.forEach(function(f) {
+            var ext = (f.name || '').split('.').pop().toLowerCase();
+            typeMap[ext] = (typeMap[ext] || 0) + 1;
+          });
+          var topTypes = Object.entries(typeMap).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 3);
+          var typeStr = topTypes.map(function(t) { return (t[1] > 1 ? t[1] + '×' : '') + '.' + t[0]; }).join(', ');
+          info.textContent = '总计 ' + fmtSize(totalSize) + (typeStr ? ' · ' + typeStr : '');
+        }
         var selEl = document.getElementById('selectedCountDisplay');
         if (selEl) { selEl.style.display = 'inline'; selEl.innerHTML = '，已选 <strong>' + names.length + '</strong> 个'; }
         var total = document.querySelectorAll('.file-check').length;
