@@ -3320,18 +3320,20 @@ function renderPage() {
 
     async function clearRecentSearches() {
       recentSearchesCache = [];
+      saveToLocal();
+      renderRecentSearches();
       try {
         await fetch('/api/search/history', { method: 'DELETE' });
-      } catch (e) { /* non-critical */ }
-      renderRecentSearches();
+      } catch (e) { /* offline */ }
     }
 
     async function deleteRecentSearch(query) {
       recentSearchesCache = recentSearchesCache.filter(function (s) { return s !== query; });
+      saveToLocal();
+      renderRecentSearches();
       try {
         await fetch('/api/search/history?query=' + encodeURIComponent(query), { method: 'DELETE' });
-      } catch (e) { /* non-critical */ }
-      renderRecentSearches();
+      } catch (e) { /* offline */ }
     }
 
     // Keyboard shortcuts
