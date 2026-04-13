@@ -794,7 +794,7 @@ function renderPage() {
 
       <section class="panel" id="uploadSection">
         <h2>上传文件</h2>
-        <p class="muted">支持同时选择多个文件、整个文件夹（保留结构），也可拖拽文件到此处。</p>
+        <p class="muted">支持同时选择多个文件、整个文件夹（保留结构），也可拖拽文件到此处。Shift+N 新建文件夹。</p>
         <div id="dropZone" class="drop-zone" onclick="document.getElementById('fileInput').click()">
           <input id="fileInput" type="file" multiple webkitdirectory style="display:none" onchange="handleFileSelect(this.files)" title="支持选择文件夹">
           <div class="drop-zone-inner">
@@ -805,6 +805,7 @@ function renderPage() {
         <div id="fileList" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
         <div class="row" style="margin-top:12px">
           <button onclick="uploadFiles()">上传文件</button>
+          <button class="secondary" onclick="openNewFolderModal()">📁 新建文件夹</button>
           <button class="secondary" onclick="clearFileInput()">清空选择</button>
         </div>
         <div class="progress-bar-wrap" id="progressBarWrap">
@@ -1698,6 +1699,46 @@ function renderPage() {
       const names = checkedNames();
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
       openTagInputModal('remove', names.length);
+    }
+
+    // 新建文件夹 modal
+    function openNewFolderModal() {
+      var current = getCurrentFolder();
+      document.getElementById('modalTitle').textContent = i18n.newFolder || '新建文件夹';
+      document.getElementById('modalBody').innerHTML =
+        '<div style="padding:8px 0">' +
+          '<p style="color:var(--muted);font-size:13px;margin-bottom:12px">' +
+            (current ? '在当前文件夹下创建: ' + escapeHtmlClient(current) : '在根目录创建') +
+          '</p>' +
+          '<input id="newFolderName" type="text" placeholder="文件夹名称" ' +
+            'style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;box-sizing:border-box" ' +
+            'onkeydown="if(event.key===\'Enter\')confirmNewFolder();if(event.key===\'Escape\')forceCloseModal()">' +
+        '</div>';
+      var modal = document.getElementById('modal');
+      modal.querySelector('.modal-actions').innerHTML =
+        '<button class="secondary" onclick="forceCloseModal()">' + (i18n.cancel || '取消') + '</button>' +
+        '<button class="primary" onclick="confirmNewFolder()">' + (i18n.confirm || '确认') + '</button>';
+      modal.classList.add('open');
+      setTimeout(function() { document.getElementById('newFolderName').focus(); }, 50);
+    }
+
+    async function confirmNewFolder() {
+      var input = document.getElementById('newFolderName');
+      var name = input && input.value.trim();
+      if (!name) { showToast('请输入文件夹名称', 'error'); return; }
+      var current = getCurrentFolder();
+      try {
+        var body = { name: name };
+        if (current) body.parent = current;
+        var data = await request('/api/folders', { method: 'POST', body: JSON.stringify(body) });
+        if (data.success) {
+          showToast('已创建文件夹: ' + name, 'success');
+          forceCloseModal();
+          await loadFiles();
+        } else {
+          showToast(data.error || '创建失败', 'error');
+        }
+      } catch(e) { showToast('创建失败: ' + e.message, 'error'); }
     }
 
     // 批量重命名 modal
@@ -3332,6 +3373,14 @@ function renderPage() {
           setView(currentView === 'list' ? 'grid' : 'list');
           break;
         }
+        case 'N': {
+          // Shift+N: create new folder
+          if (!e.shiftKey) break;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          createNewFolder();
+          break;
+        }
         case 'e': {
           // e: rename selected file (inline edit)
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
@@ -4337,6 +4386,7 @@ function renderPage() {
         ['t', '回收站'],
         ['y', '复制文件名'],
         ['Del', '删除选中'],
+        ['Shift+N', '新建文件夹'],
         ['d', '删除选中'],
         ['v', '切换视图'],
         ['r', '刷新文件列表'],

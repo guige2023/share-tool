@@ -560,5 +560,31 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // POST /api/folders - 创建新文件夹
+  if (pathname === '/api/folders' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > 1024) { body = ''; } });
+    req.on('end', async () => {
+      try {
+        const { name, parent } = JSON.parse(body || '{}');
+        if (!name || typeof name !== 'string' || !name.trim()) {
+          sendJson(res, { success: false, error: '文件夹名称不能为空' }, 400);
+          return;
+        }
+        const safeName = name.trim().replace(/\//g, '_');
+        const folderPath = parent ? `${parent.trim()}/${safeName}` : safeName;
+        const absolutePath = path.join(ctx.storageDir, folderPath);
+        const fs2 = require('fs');
+        fs2.mkdirSync(absolutePath, { recursive: true });
+        sendJson(res, { success: true, path: folderPath });
+      } catch (err) {
+        sendJson(res, { success: false, error: err.message }, 400);
+      }
+    });
+    return true;
+  }
+
   return false;
 };
