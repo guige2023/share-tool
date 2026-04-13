@@ -1937,11 +1937,11 @@ function getStorageStats() {
   const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
   const byDay = db.prepare(`
     SELECT
-      date(timestamp, 'unixepoch') as day,
+      date(created_at, 'unixepoch') as day,
       COUNT(*) as file_count,
       COALESCE(SUM(size), 0) as total_size
     FROM files
-    WHERE timestamp >= ?
+    WHERE created_at >= ?
     GROUP BY day
     ORDER BY day ASC
   `).all(sevenDaysAgo);

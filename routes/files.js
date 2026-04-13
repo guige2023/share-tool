@@ -628,6 +628,88 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // POST /api/files/batch-move - 批量移动文件到目标文件夹
+  if (pathname === '/api/files/batch-move' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    try {
+      const body = await readJsonBody(req);
+      if (!body || !Array.isArray(body.filenames)) {
+        sendJson(res, { success: false, error: 'filenames array required' }, 400);
+        return true;
+      }
+      if (body.filenames.length === 0) {
+        sendJson(res, { success: false, error: 'filenames 不能为空' }, 400);
+        return true;
+      }
+      if (body.filenames.length > 500) {
+        sendJson(res, { success: false, error: '一次最多移动 500 个文件' }, 400);
+        return true;
+      }
+
+      const result = db.batchMove(body.filenames, body.destFolder || '');
+      if (result.error) {
+        sendJson(res, { success: false, error: result.error, results: result.results }, 400);
+        return true;
+      }
+
+      if (result.results.some(r => r.success)) {
+        global.broadcastSSE({ type: 'files_changed' });
+      }
+      sendJson(res, {
+        success: true,
+        moved: result.results.filter(r => r.success).length,
+        failed: result.results.filter(r => !r.success).length,
+        results: result.results
+      });
+    } catch (error) {
+      sendJson(res, { success: false, error: error.message }, 400);
+    }
+    return true;
+  }
+
+  // POST /api/files/batch-copy - 批量复制文件到目标文件夹
+  if (pathname === '/api/files/batch-copy' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    try {
+      const body = await readJsonBody(req);
+      if (!body || !Array.isArray(body.filenames)) {
+        sendJson(res, { success: false, error: 'filenames array required' }, 400);
+        return true;
+      }
+      if (body.filenames.length === 0) {
+        sendJson(res, { success: false, error: 'filenames 不能为空' }, 400);
+        return true;
+      }
+      if (body.filenames.length > 500) {
+        sendJson(res, { success: false, error: '一次最多复制 500 个文件' }, 400);
+        return true;
+      }
+
+      const result = db.batchCopy(body.filenames, body.destFolder || '');
+      if (result.error) {
+        sendJson(res, { success: false, error: result.error, results: result.results }, 400);
+        return true;
+      }
+
+      if (result.results.some(r => r.success)) {
+        global.broadcastSSE({ type: 'files_changed' });
+      }
+      sendJson(res, {
+        success: true,
+        copied: result.results.filter(r => r.success).length,
+        failed: result.results.filter(r => !r.success).length,
+        results: result.results
+      });
+    } catch (error) {
+      sendJson(res, { success: false, error: error.message }, 400);
+    }
+    return true;
+  }
+
   // GET /api/duplicates - 查找重复文件
   if (pathname === '/api/duplicates' && method === 'GET') {
     const auth = authRequired(req, res);
