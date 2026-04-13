@@ -2871,7 +2871,7 @@ function renderPage() {
         '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()" onclick="lastClickedIndex=' + file._index + '">' +
         '<div class="file-content">' +
           gridIcon +
-          '<div class="file-name"><span ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名">✏️</button></div>' +
+          '<div class="file-name"><span ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name)) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button></div>' +
           '<div class="file-meta">' + formatBytes(file.size) + ' · ' + formatTime(file.updatedAt || file.createdAt) + '</div>' +
           tagHtml +
         '</div>' +
