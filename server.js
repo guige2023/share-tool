@@ -3292,6 +3292,20 @@ function renderPage() {
           }
           break;
         }
+        case 'j': {
+          // j: move down in file list (like vim)
+          e.preventDefault();
+          updateGridColumns();
+          applyNavHighlight(keyboardNavIndex + 1);
+          break;
+        }
+        case 'k': {
+          // k: move up in file list (like vim)
+          e.preventDefault();
+          updateGridColumns();
+          applyNavHighlight(keyboardNavIndex - 1);
+          break;
+        }
         case ' ': {
           // Space: toggle selection of current file (without opening)
           e.preventDefault();
