@@ -654,6 +654,18 @@ function renderPage() {
       /* Mobile: drop zone is the primary upload affordance - make it prominent */
       .drop-zone{padding:24px 16px;font-size:14px}
       .drop-zone-inner p{margin:4px 0}
+      /* Mobile bottom nav: show on small screens, add bottom padding to avoid overlap */
+      #mobileNav{display:none!important}
+      @media(max-width:600px){
+        #mobileNav{display:flex!important}
+        .wrap{padding-bottom:calc(70px + env(safe-area-inset-bottom, 0px))}
+        .panel{margin-bottom:0}
+        /* Show/hide panels based on mobile nav state */
+        #filesPanel.mobile-hidden,
+        #uploadSection.mobile-hidden,
+        .shares.mobile-hidden,
+        .request-links.mobile-hidden{display:none!important}
+      }
       /* Prevent iOS from auto-zooming on inputs inside toolbar/search */
       .toolbar input{font-size:16px!important}
       #searchInput{min-height:44px;padding:8px 40px 8px 12px;border-radius:10px}
@@ -1126,6 +1138,32 @@ function renderPage() {
         <div id="shareEmpty" class="empty" style="display:none">还没有创建分享链接</div>
       </div>
     </section>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav id="mobileNav" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg-secondary);border-top:1px solid var(--line);z-index:900;padding:6px 0 env(safe-area-inset-bottom, 8px)">
+      <div style="display:flex;justify-content:space-around;align-items:center">
+        <button class="mobile-nav-btn active" data-panel="files" onclick="switchMobileNav('files')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--accent);font-size:10px;cursor:pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <span>文件</span>
+        </button>
+        <button class="mobile-nav-btn" data-panel="upload" onclick="switchMobileNav('upload')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--muted);font-size:10px;cursor:pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span>上传</span>
+        </button>
+        <button class="mobile-nav-btn" data-panel="shares" onclick="switchMobileNav('shares')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--muted);font-size:10px;cursor:pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <span>分享</span>
+        </button>
+        <button class="mobile-nav-btn" data-panel="rl" onclick="switchMobileNav('rl')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--muted);font-size:10px;cursor:pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          <span>收集</span>
+        </button>
+        <button class="mobile-nav-btn" data-panel="settings" onclick="switchMobileNav('settings')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--muted);font-size:10px;cursor:pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          <span>设置</span>
+        </button>
+      </div>
+    </nav>
 
     <section class="panel request-links" style="margin-top:18px">
       <h2>文件收集链接</h2>
@@ -8267,20 +8305,21 @@ function renderPage() {
               img.src = URL.createObjectURL(blob);
               img.alt = filename;
               img.style = 'width:100%;height:64px;object-fit:cover;border-radius:4px;display:block';
+              // Save original placeholder before replacing
+              wrap.dataset.origIcon = wrap.querySelector('.img-placeholder') ? wrap.querySelector('.img-placeholder').outerHTML : '';
+              wrap.innerHTML = '';
+              wrap.appendChild(img);
               img.onload = function () {
                 URL.revokeObjectURL(img.src);
-                wrap.innerHTML = '';
-                wrap.appendChild(img);
                 observer.unobserve(wrap);
               };
               img.onerror = function () {
                 URL.revokeObjectURL(img.src);
-                wrap.innerHTML = wrap.dataset.origIcon || '';
+                if (wrap.dataset.origIcon) {
+                  wrap.innerHTML = wrap.dataset.origIcon;
+                }
                 observer.unobserve(wrap);
               };
-              wrap.dataset.origIcon = wrap.querySelector('.img-placeholder') ? wrap.querySelector('.img-placeholder').outerHTML : '';
-              wrap.innerHTML = '';
-              wrap.appendChild(img);
             })
             .catch(function () {
               if (overlay) overlay.style.display = 'none';
@@ -8308,6 +8347,38 @@ function renderPage() {
         }, 100);
       };
     })();
+
+    // Mobile bottom navigation
+    function switchMobileNav(panel) {
+      document.querySelectorAll('.mobile-nav-btn').forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.panel === panel);
+        btn.style.color = btn.dataset.panel === panel ? 'var(--accent)' : 'var(--muted)';
+      });
+      var filesPanel = document.getElementById('filesPanel');
+      var uploadSection = document.getElementById('uploadSection');
+      var sharesSection = document.querySelector('.shares');
+      var rlSection = document.querySelector('.request-links');
+      var settingsPanel = document.getElementById('settingsPanel');
+      [filesPanel, uploadSection, sharesSection, rlSection].forEach(function(el) {
+        if (el) el.classList.add('mobile-hidden');
+      });
+      if (panel === 'files') {
+        if (filesPanel) filesPanel.classList.remove('mobile-hidden');
+      } else if (panel === 'upload') {
+        if (uploadSection) uploadSection.classList.remove('mobile-hidden');
+      } else if (panel === 'shares') {
+        if (filesPanel) filesPanel.classList.remove('mobile-hidden');
+        if (sharesSection) sharesSection.classList.remove('mobile-hidden');
+      } else if (panel === 'rl') {
+        if (filesPanel) filesPanel.classList.remove('mobile-hidden');
+        if (rlSection) rlSection.classList.remove('mobile-hidden');
+      } else if (panel === 'settings') {
+        if (filesPanel) filesPanel.classList.remove('mobile-hidden');
+        if (settingsPanel) { settingsPanel.classList.remove('mobile-hidden'); settingsPanel.style.display = 'block'; }
+      }
+      window.scrollTo(0, 0);
+    }
+    window.switchMobileNav = switchMobileNav;
 
     // Keyboard shortcuts
     document.addEventListener('keydown', function (e) {
