@@ -922,6 +922,40 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // PUT /api/request-links/:code - update a request link (auth required)
+  if (pathname.match(/^\/api\/request-links\/[^/]+$/) && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const code = pathname.split('/')[3];
+    const body = await readJsonBody(req);
+    const updates = [];
+    const values = [];
+
+    if (body.name !== undefined) { updates.push('name = ?'); values.push(body.name); }
+    if (body.target_folder !== undefined) { updates.push('target_folder = ?'); values.push(body.target_folder); }
+    if (body.max_uploads !== undefined) { updates.push('max_uploads = ?'); values.push(body.max_uploads); }
+    if (body.expires_in_days !== undefined) {
+      updates.push('expires_at = ?');
+      values.push(body.expires_in_days ? Math.floor(Date.now() / 1000) + body.expires_in_days * 86400 : null);
+    }
+    if (body.active !== undefined) { updates.push('active = ?'); values.push(body.active ? 1 : 0); }
+    if (body.password !== undefined) {
+      updates.push('password = ?');
+      values.push(body.password ? hashPassword(body.password) : null);
+    }
+
+    if (updates.length === 0) {
+      sendJson(res, { success: false, error: 'No fields to update' }, 400);
+      return true;
+    }
+
+    values.push(code);
+    db.prepare(`UPDATE request_links SET ${updates.join(', ')} WHERE code = ?`).run(...values);
+    const updated = db.getRequestLink(code);
+    sendJson(res, { success: true, request_link: updated });
+    return true;
+  }
+
   // POST /api/request-links/:code/verify - verify password (public)
   if (pathname.match(/^\/api\/request-links\/[^/]+\/verify$/) && method === 'POST') {
     const code = pathname.split('/')[3];

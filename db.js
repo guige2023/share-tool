@@ -2765,12 +2765,8 @@ function createRequestLink(opts = {}) {
 
 function getRequestLink(code) {
   const db = getDb();
-  const row = db.prepare('SELECT * FROM request_links WHERE code = ?').get(code);
+  const row = db.prepare('SELECT id, code, name, target_folder, max_uploads, upload_count, expires_at, active, created_at, created_by FROM request_links WHERE code = ?').get(code);
   if (!row) return null;
-  // 兼容旧明文密码
-  if (row.password && row.password.length !== 128) {
-    // plain-text fallback handled in verifyPassword
-  }
   return row;
 }
 
@@ -2785,6 +2781,8 @@ function verifyRequestLinkPassword(code, inputPwd) {
 function incrementRequestLinkUpload(code) {
   const db = getDb();
   db.prepare('UPDATE request_links SET upload_count = upload_count + 1 WHERE code = ?').run(code);
+  const row = db.prepare('SELECT upload_count FROM request_links WHERE code = ?').get(code);
+  return row ? row.upload_count : 0;
 }
 
 function toggleRequestLinkActive(code, active) {
@@ -2799,10 +2797,11 @@ function deleteRequestLink(code) {
 
 function listRequestLinks(createdBy = null) {
   const db = getDb();
+  const fields = 'id, code, name, target_folder, max_uploads, upload_count, expires_at, active, created_at, created_by';
   if (createdBy) {
-    return db.prepare('SELECT * FROM request_links WHERE created_by = ? ORDER BY created_at DESC').all(createdBy);
+    return db.prepare(`SELECT ${fields} FROM request_links WHERE created_by = ? ORDER BY created_at DESC`).all(createdBy);
   }
-  return db.prepare('SELECT * FROM request_links ORDER BY created_at DESC').all();
+  return db.prepare(`SELECT ${fields} FROM request_links ORDER BY created_at DESC`).all();
 }
 
 function cleanupExpiredRequestLinks() {
