@@ -2562,6 +2562,7 @@ function renderPage() {
 
     // Drag and drop handlers
     window._droppedFiles = null; // {files: FileList, count: int} — set on desktop drag-drop
+    window._uploadFolderPrefix = ''; // set when selecting a folder (webkitRelativePath strips filename)
 
     function handleFileSelect(files) {
       var list = document.getElementById('fileList');
@@ -2569,15 +2570,29 @@ function renderPage() {
         list.innerHTML = '';
         return;
       }
+      // Detect folder upload via webkitRelativePath (set when user selects a folder)
+      var firstWithPath = Array.from(files).find(function(f) { return f.webkitRelativePath && f.webkitRelativePath.length > 0; });
+      var folderPrefix = '';
+      if (firstWithPath) {
+        // e.g. webkitRelativePath = "my-folder/sub/nested/file.txt" → prefix = "my-folder/sub/nested"
+        var lastSlash = firstWithPath.webkitRelativePath.lastIndexOf('/');
+        folderPrefix = lastSlash > 0 ? firstWithPath.webkitRelativePath.substring(0, lastSlash) : '';
+        window._uploadFolderPrefix = folderPrefix;
+      } else {
+        window._uploadFolderPrefix = '';
+      }
       // Show a compact icon+name+size list for dropped/dragged files
       var html = '<div style="display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;padding:4px 0">';
-      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">已选 ' + files.length + ' 个文件:</div>';
+      var label = '已选 ' + files.length + ' 个文件';
+      if (folderPrefix) label += '（文件夹: ' + folderPrefix + '）';
+      html += '<div style="font-size:12px;color:var(--muted);margin-bottom:4px">' + label + '</div>';
       Array.from(files).slice(0, 20).forEach(function(f) {
         var icon = getFileIcon(f.name, '');
         var size = formatBytes(f.size);
+        var displayName = folderPrefix ? f.webkitRelativePath || f.name : f.name;
         html += '<div style="display:flex;align-items:center;gap:8px;font-size:13px">' +
           '<span>' + icon + '</span>' +
-          '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(f.name) + '">' + escapeHtmlClient(f.name) + '</span>' +
+          '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(displayName) + '">' + escapeHtmlClient(displayName) + '</span>' +
           '<span style="color:var(--muted);font-size:12px;white-space:nowrap">' + size + '</span></div>';
       });
       if (files.length > 20) html += '<div style="font-size:12px;color:var(--muted);text-align:center">... 还有 ' + (files.length - 20) + ' 个文件</div>';
@@ -2588,6 +2603,7 @@ function renderPage() {
     function clearFileInput() {
       document.getElementById('fileInput').value = '';
       document.getElementById('fileList').innerHTML = '';
+      window._uploadFolderPrefix = '';
     }
 
     function setupDragDrop() {
@@ -2952,8 +2968,11 @@ function renderPage() {
       }
 
       // Add to queue
+      var folderPrefix = window._uploadFolderPrefix || '';
+      window._uploadFolderPrefix = ''; // reset after consuming
       files.forEach(function(file) {
-        uploadQueue.push({ name: file.name, file: file, status: 'pending', pct: 0 });
+        var uploadName = folderPrefix ? folderPrefix + '/' + file.name : file.name;
+        uploadQueue.push({ name: uploadName, file: file, status: 'pending', pct: 0 });
       });
       renderUploadQueuePanel();
       input.value = '';
