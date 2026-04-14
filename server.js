@@ -6047,15 +6047,30 @@ function renderPage() {
       var container = document.getElementById('savedSearchesList') || null;
       if (!container) return;
       var list = getSavedSearches();
+      // Pinned first, then by ts desc
+      list.sort(function(a, b) {
+        if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
+        return (b.ts || 0) - (a.ts || 0);
+      });
       if (!list.length) { container.innerHTML = '<div style="padding:8px 12px;color:var(--muted);font-size:12px">暂无已保存的搜索</div>'; return; }
       var html = '';
+      // Export/Import bar
+      html += '<div style="display:flex;gap:6px;padding:6px 12px;border-bottom:1px solid var(--line);margin-bottom:4px">';
+      html += '<button onclick="exportSavedSearches()" style="flex:1;padding:4px 8px;font-size:11px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:var(--bg-secondary)">📤 导出全部</button>';
+      html += '<button onclick="importSavedSearches()" style="flex:1;padding:4px 8px;font-size:11px;border:1px solid var(--line);border-radius:6px;cursor:pointer;background:var(--bg-secondary)">📥 导入</button>';
+      html += '</div>';
       list.forEach(function(s, i) {
+        // Find original index for delete
+        var origIdx = getSavedSearches().findIndex(function(x) { return x.q === s.q && x.ts === s.ts; });
         var modeTag = s.mode === 'glob' ? '<span style="color:#f59e0b;font-size:10px">glob</span>' : (s.mode === 'regex' ? '<span style="color:#10b981;font-size:10px">regex</span>' : '');
+        var pinStyle = s.pinned ? 'color:#f59e0b' : 'color:var(--muted)';
         html += '<div class="suggestion-item" style="display:flex;align-items:center;padding:8px 12px;cursor:pointer" onmouseenter="this.style.background=\'var(--bg-secondary)\'" onmouseleave="this.style.background=\'\'" onclick="applySavedSearch(' + JSON.stringify(s) + ')">';
+        html += '<span onclick="event.stopPropagation();toggleSavedSearchPin(\'' + escapeHtmlClient(s.q).replace(/'/g, "\\'") + '\')" style="cursor:pointer;font-size:13px;' + pinStyle + ';margin-right:6px" title="固定">★</span>';
         html += '<span style="flex:1;font-size:13px;color:var(--text)">' + escapeHtmlClient(s.q) + '</span>';
         html += modeTag ? '<span style="margin:0 6px">' + modeTag + '</span>' : '';
         html += '<span style="color:var(--muted);font-size:11px;margin-right:8px">' + new Date(s.ts).toLocaleDateString('zh') + '</span>';
-        html += '<span onclick="event.stopPropagation();deleteSavedSearch(' + i + ')" style="cursor:pointer;color:var(--muted);font-size:14px;padding:2px 4px" title="删除">✕</span>';
+        html += '<span onclick="event.stopPropagation();renameSavedSearch(\'' + escapeHtmlClient(s.q).replace(/'/g, "\\'") + '\')" style="cursor:pointer;color:var(--muted);font-size:13px;padding:2px 4px" title="重命名">✎</span>';
+        html += '<span onclick="event.stopPropagation();deleteSavedSearch(' + origIdx + ')" style="cursor:pointer;color:var(--muted);font-size:14px;padding:2px 4px" title="删除">✕</span>';
         html += '</div>';
       });
       container.innerHTML = html;
