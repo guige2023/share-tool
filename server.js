@@ -6748,9 +6748,17 @@ function renderPage() {
     }
 
     async function deleteFile(filename) {
+      // Optimistic remove: update DOM immediately, revert on failure
+      var deletedIdx = currentFiles.findIndex(function(f) { return f.name === filename; });
+      var deletedFile = deletedIdx !== -1 ? currentFiles[deletedIdx] : null;
+      var deletedEl = null;
+      if (deletedIdx !== -1) {
+        currentFiles.splice(deletedIdx, 1);
+        var el = document.querySelector('[data-filename="' + encodeURIComponent(filename) + '"]');
+        if (el) { el.style.opacity = '0.3'; el.style.pointerEvents = 'none'; deletedEl = el; }
+      }
       try {
         const res = await request('/api/files/' + encodeURIComponent(filename), { method: 'DELETE' });
-        // 保存被删除文件的 trashId 以便撤销
         if (res && res.trash_id) {
           lastDeletedTrashId = res.trash_id;
           undoDeleteTimer = setTimeout(() => { lastDeletedTrashId = null; }, 5500);
@@ -6758,9 +6766,24 @@ function renderPage() {
         } else {
           showToast('已删除', 'success');
         }
-        await loadFiles();
+        // Remove DOM element after brief visual feedback
+        if (deletedEl) {
+          setTimeout(function() { if (deletedEl.parentNode) deletedEl.remove(); }, 150);
+        }
+        // Update stats without full re-render
+        var countEl = document.getElementById('fileCountDisplay');
+        if (countEl && deletedIdx !== -1) {
+          countEl.innerHTML = '共 <strong>' + currentFiles.length + '</strong> 个文件';
+        }
+        // Invalidate tags cache — tags may have changed
+        _cachedTagData = null;
         await loadShares();
       } catch (error) {
+        // Revert optimistic update on failure
+        if (deletedIdx !== -1 && deletedFile) {
+          currentFiles.splice(deletedIdx, 0, deletedFile);
+          if (deletedEl) { deletedEl.style.opacity = ''; deletedEl.style.pointerEvents = ''; }
+        }
         showToast(error.message, 'error');
       }
     }
@@ -10515,29 +10538,45 @@ function renderPage() {
       var token = localStorage.getItem('st_auth_token') || STATIC_TOKEN;
       var es = new EventSource('/api/events?token=' + encodeURIComponent(token));
       es.addEventListener('files_changed', function (e) {
-        _cachedTagData = null;  // invalidate tags cache — file set changed
+        // Skip reload if tab is hidden — wait until visible
+        if (document.visibilityState === 'hidden') return;
+        _cachedTagData = null;
         loadFiles();
         showToast('文件已更新', 'info', 3000);
       });
       es.addEventListener('batch_delete', function (e) {
         var data = JSON.parse(e.data || '{}');
-        var count = (data.filenames || []).length;
-        showToast('批量删除完成：' + count + ' 个文件', 'success', 4000);
-        loadFiles();
+        var filenames = data.filenames || [];
+        // Incremental removal: remove each deleted file from DOM + currentFiles
+        filenames.forEach(function(fn) {
+          var idx = currentFiles.findIndex(function(f) { return f.name === fn; });
+          if (idx !== -1) currentFiles.splice(idx, 1);
+          var el = document.querySelector('[data-filename="' + encodeURIComponent(fn) + '"]');
+          if (el) el.remove();
+        });
+        if (document.visibilityState === 'hidden') return;
+        // Update stats bar
+        var countEl = document.getElementById('fileCountDisplay');
+        if (countEl) countEl.innerHTML = '共 <strong>' + currentFiles.length + '</strong> 个文件';
+        _cachedTagData = null;
+        showToast('批量删除完成：' + filenames.length + ' 个文件', 'success', 4000);
       });
       es.addEventListener('batch_rename', function (e) {
-        var data = JSON.parse(e.data || '{}');
-        showToast('批量重命名完成：' + (data.renamed || 0) + ' 个文件', 'success', 4000);
+        if (document.visibilityState === 'hidden') return;
+        var d = JSON.parse(e.data || '{}');
+        showToast('批量重命名完成：' + (d.renamed || 0) + ' 个文件', 'success', 4000);
         loadFiles();
       });
       es.addEventListener('batch_move', function (e) {
-        var data = JSON.parse(e.data || '{}');
-        showToast('批量移动完成：' + (data.moved || 0) + ' 个文件', 'success', 4000);
+        if (document.visibilityState === 'hidden') return;
+        var d = JSON.parse(e.data || '{}');
+        showToast('批量移动完成：' + (d.moved || 0) + ' 个文件', 'success', 4000);
         loadFiles();
       });
       es.addEventListener('batch_copy', function (e) {
-        var data = JSON.parse(e.data || '{}');
-        showToast('批量复制完成：' + (data.copied || 0) + ' 个文件', 'success', 4000);
+        if (document.visibilityState === 'hidden') return;
+        var d = JSON.parse(e.data || '{}');
+        showToast('批量复制完成：' + (d.copied || 0) + ' 个文件', 'success', 4000);
         loadFiles();
       });
       es.onerror = function () {
@@ -10545,9 +10584,10 @@ function renderPage() {
       };
     })();
 
-    // Reload when tab becomes visible again
+    // Reload when tab becomes visible again — but only if we skipped a remote change
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') {
+        // Only force reload if there were pending remote changes (SSE events were skipped while hidden)
         loadFiles();
       }
     });

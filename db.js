@@ -2075,54 +2075,81 @@ function getTotalStorageSize() {
 // 文件类型分布统计
 function getStorageStats() {
   const db = getDb();
-  // Overall totals
-  const totals = db.prepare('SELECT COUNT(*) as totalFiles, COALESCE(SUM(size), 0) as totalSize FROM files').get();
-
-  // 按 MIME 类型主类分组
-  const byType = db.prepare(`
+  // Single query: totals + byType + byDay + sizeRanges all at once
+  const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
+  const rows = db.prepare(`
     SELECT
       CASE
-        WHEN mime LIKE 'image/%' THEN 'image'
-        WHEN mime LIKE 'video/%' THEN 'video'
-        WHEN mime LIKE 'audio/%' THEN 'audio'
-        WHEN mime LIKE 'application/pdf' THEN 'pdf'
-        WHEN mime LIKE 'application/vnd%' THEN 'document'
-        WHEN mime LIKE 'text/%' THEN 'text'
-        WHEN mime IS NULL OR mime = '' THEN 'other'
+        WHEN content_type LIKE 'image/%' THEN 'image'
+        WHEN content_type LIKE 'video/%' THEN 'video'
+        WHEN content_type LIKE 'audio/%' THEN 'audio'
+        WHEN content_type LIKE 'application/pdf' THEN 'pdf'
+        WHEN content_type LIKE 'application/vnd%' THEN 'document'
+        WHEN content_type LIKE 'text/%' THEN 'text'
+        WHEN content_type IS NULL OR content_type = '' THEN 'other'
         ELSE 'other'
       END as category,
       COUNT(*) as count,
-      COALESCE(SUM(size), 0) as size
-    FROM files
-    GROUP BY category
-    ORDER BY size DESC
-  `).all();
-
-  // 存储使用趋势（最近7天，每天新增文件数和大小）
-  const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
-  const byDay = db.prepare(`
-    SELECT
+      COALESCE(SUM(size), 0) as size,
+      -- totals aggregate (same value in every row, extracted client-side)
+      COUNT(*) OVER() as totalFiles,
+      COALESCE(SUM(size), 0) OVER() as totalSize,
+      -- 7-day trend flag
+      CASE WHEN created_at >= ? THEN 1 ELSE 0 END as in_seven_days,
       date(created_at, 'unixepoch') as day,
-      COUNT(*) as file_count,
-      COALESCE(SUM(size), 0) as total_size
+      -- size range flags
+      CASE WHEN size < 1048576 THEN 1 ELSE 0 END as sz_lt_1mb,
+      CASE WHEN size >= 1048576 AND size < 10485760 THEN 1 ELSE 0 END as sz_1_10mb,
+      CASE WHEN size >= 10485760 AND size < 104857600 THEN 1 ELSE 0 END as sz_10_100mb,
+      CASE WHEN size >= 104857600 THEN 1 ELSE 0 END as sz_ge_100mb
     FROM files
-    WHERE created_at >= ?
-    GROUP BY day
-    ORDER BY day ASC
+    ORDER BY category, day
   `).all(sevenDaysAgo);
 
-  // 文件大小分布
-  const sizeRanges = [
-    { label: '< 1MB',   cond: 'size < 1048576',              count: 0, size: 0 },
-    { label: '1-10MB',  cond: 'size >= 1048576 AND size < 10485760',      count: 0, size: 0 },
-    { label: '10-100MB', cond: 'size >= 10485760 AND size < 104857600',    count: 0, size: 0 },
-    { label: '>= 100MB', cond: 'size >= 104857600',                     count: 0, size: 0 }
-  ];
-  for (const r of sizeRanges) {
-    const row = db.prepare(`SELECT COUNT(*) as c, COALESCE(SUM(size),0) as s FROM files WHERE ${r.cond}`).get();
-    r.count = row.c;
-    r.size = row.s;
+  if (!rows || rows.length === 0) {
+    return { totalFiles: 0, totalSize: 0, byType: [], byDay: [], sizeRanges: [
+      { label: '< 1MB',   count: 0, size: 0 },
+      { label: '1-10MB',  count: 0, size: 0 },
+      { label: '10-100MB', count: 0, size: 0 },
+      { label: '>= 100MB', count: 0, size: 0 }
+    ]};
   }
+
+  const totals = { totalFiles: rows[0].totalFiles || 0, totalSize: rows[0].totalSize || 0 };
+
+  // Aggregate byType from rows
+  const byTypeMap = {};
+  rows.forEach(r => {
+    if (!byTypeMap[r.category]) byTypeMap[r.category] = { category: r.category, count: 0, size: 0 };
+    byTypeMap[r.category].count += r.count;
+    byTypeMap[r.category].size += r.size;
+  });
+  const byType = Object.values(byTypeMap).sort((a, b) => b.size - a.size);
+
+  // Aggregate byDay from rows
+  const byDayMap = {};
+  rows.forEach(r => {
+    if (r.in_seven_days) {
+      if (!byDayMap[r.day]) byDayMap[r.day] = { day: r.day, file_count: 0, total_size: 0 };
+      byDayMap[r.day].file_count += r.count;
+      byDayMap[r.day].total_size += r.size;
+    }
+  });
+  const byDay = Object.values(byDayMap).sort((a, b) => a.day.localeCompare(b.day));
+
+  // Aggregate size ranges from rows
+  const sizeRanges = [
+    { label: '< 1MB',    count: 0, size: 0 },
+    { label: '1-10MB',  count: 0, size: 0 },
+    { label: '10-100MB', count: 0, size: 0 },
+    { label: '>= 100MB', count: 0, size: 0 }
+  ];
+  rows.forEach(r => {
+    if (r.sz_lt_1mb)   { sizeRanges[0].count++; sizeRanges[0].size += r.size; }
+    if (r.sz_1_10mb)   { sizeRanges[1].count++; sizeRanges[1].size += r.size; }
+    if (r.sz_10_100mb) { sizeRanges[2].count++; sizeRanges[2].size += r.size; }
+    if (r.sz_ge_100mb) { sizeRanges[3].count++; sizeRanges[3].size += r.size; }
+  });
 
   return { totalSize: totals.totalSize, totalFiles: totals.totalFiles, byType, byDay, sizeRanges };
 }
