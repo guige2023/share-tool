@@ -983,6 +983,18 @@ function renderPage() {
       </div>
     </div>
 
+    <div id="versionBanner" style="display:none;margin:10px 0 0;padding:10px 16px;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);border:1px solid rgba(255,255,255,.12);border-radius:12px;display:flex;align-items:center;gap:12px;font-size:13px;color:#e2e8f0">
+      <span style="font-size:18px;flex-shrink:0">✨</span>
+      <div style="flex:1;min-width:0">
+        <div id="versionBannerTitle" style="font-weight:600;margin-bottom:2px"></div>
+        <div id="versionBannerDesc" style="font-size:12px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button onclick="openChangelogFromBanner()" style="padding:5px 12px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;color:#fff;font-size:12px;cursor:pointer">查看详情</button>
+        <button onclick="dismissVersionBanner()" style="padding:5px 8px;background:none;border:none;color:rgba(255,255,255,.5);font-size:16px;cursor:pointer;line-height:1">✕</button>
+      </div>
+    </div>
+
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
         <input id="searchInput" type="text" placeholder="搜索文件 (⌘K / 聚焦)" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:56px" onfocus="if(getRecentSearches().length>0){document.getElementById('recentSearches').style.display='block'}" oninput="document.getElementById('recentSearches').style.display='none'">
@@ -1673,6 +1685,7 @@ function renderPage() {
       restoreUploadQueue();
       setupInfiniteScroll();
       showWelcomeIfNeeded();
+      checkNewVersion();
       checkExpiringLinks();
 
       // URL param ?f=filename - highlight and scroll to specific file
@@ -1840,6 +1853,55 @@ function renderPage() {
           </div>\
         </div>';
       document.body.appendChild(modal);
+    }
+
+    // ── Version Update Banner ─────────────────────────────────────────────
+    function checkNewVersion() {
+      var LAST_KEY = 'st_last_version';
+      var last = localStorage.getItem(LAST_KEY) || '0';
+      if (last === VERSION) return;
+      localStorage.setItem(LAST_KEY, VERSION);
+      // Find this version in VERSIONS array
+      var entry = VERSIONS.find(function(v) { return v.ver === 'v' + VERSION; });
+      if (!entry) return;
+      var banner = document.getElementById('versionBanner');
+      if (!banner) return;
+      var titleEl = document.getElementById('versionBannerTitle');
+      var descEl = document.getElementById('versionBannerDesc');
+      if (titleEl) titleEl.textContent = '🎉 已更新到 v' + VERSION;
+      if (descEl) descEl.textContent = entry.desc;
+      banner.style.display = 'flex';
+    }
+
+    function dismissVersionBanner() {
+      var banner = document.getElementById('versionBanner');
+      if (banner) banner.style.display = 'none';
+    }
+
+    function openChangelogFromBanner() {
+      dismissVersionBanner();
+      // Show latest version changelog in modal
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '🎉 v' + VERSION + ' 更新日志';
+      var entries = VERSIONS.slice(0, 10);
+      var html = '<div style="max-height:60vh;overflow-y:auto;font-size:13px">';
+      entries.forEach(function(v) {
+        var isNew = v.ver === 'v' + VERSION;
+        html += '<div style="padding:10px 0;border-bottom:1px solid var(--line);' + (isNew ? 'opacity:1' : 'opacity:.6') + '">';
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">';
+        html += '<span style="font-weight:600;font-size:12px;color:var(--accent)">' + escapeHtmlClient(v.ver) + '</span>';
+        if (isNew) html += '<span style="background:var(--accent);color:white;font-size:10px;padding:1px 6px;border-radius:8px">NEW</span>';
+        html += '</div>';
+        html += '<div style="color:var(--text-secondary);line-height:1.6">' + escapeHtmlClient(v.desc) + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+      var actions = modal.querySelector('.modal-actions');
+      if (actions) actions.innerHTML = '<button class="secondary" onclick="forceCloseModal()">关闭</button>';
+      modal.classList.add('open');
     }
 
     function dismissWelcome() {
@@ -6468,6 +6530,34 @@ function renderPage() {
               showToast('已复制文件路径: /' + names[0], 'success');
             }).catch(function() { showToast('复制失败', 'error'); });
           }
+          break;
+        }
+        case 'Backspace': {
+          // Backspace: go to parent folder (vim-style h feel)
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          if (_batchTagChips.length) return; // don't intercept when tagging
+          e.preventDefault();
+          var currentPath = getCurrentVirtualFolder();
+          if (currentPath) {
+            var parent = currentPath.split('/').slice(0, -1).join('/');
+            navigateToVirtualFolder(parent || null);
+          } else {
+            // Already at root, try to go up via hash
+            var hash = location.hash;
+            if (hash.startsWith('#/')) {
+              var folderPart = decodeURIComponent(hash.substring(2).split('/')[0]);
+              if (folderPart) navigateToVirtualFolder(null);
+            }
+          }
+          showToast('↩ 返回上级', 'info', 1500);
+          break;
+        }
+        case '/': {
+          // /: vim-style focus search (same as f but '/')
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          document.getElementById('searchInput').focus();
+          document.getElementById('searchInput').select();
           break;
         }
         case 'j': {
