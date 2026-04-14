@@ -69,6 +69,7 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
       filename: item.filename,
       hasPassword: item.hasPassword,
       expiresAt: item.expiresAt,
+      createdAt: item.createdAt || null,
       maxDownloads: item.maxDownloads,
       downloadCount: item.downloadCount,
       viewCount: item.viewCount || 0,

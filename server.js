@@ -711,6 +711,11 @@ function renderPage() {
       #batchBar{overflow-x:auto;justify-content:flex-start!important;padding:8px 12px!important;gap:6px;flex-wrap:nowrap;white-space:nowrap}
       #batchBar button{min-height:36px;padding:7px 12px;font-size:12px;white-space:nowrap;flex-shrink:0}
       #batchCount{white-space:nowrap;font-size:12px;flex-shrink:0}
+      /* File batch bar */
+      #fileBatchBar{overflow-x:auto;justify-content:flex-start!important;padding:8px 12px!important;gap:6px;flex-wrap:nowrap;white-space:nowrap}
+      #fileBatchBar button{min-height:36px;padding:7px 12px;font-size:12px;white-space:nowrap;flex-shrink:0}
+      #fileBatchCount{white-space:nowrap;font-size:12px;flex-shrink:0}
+      .file-check{margin:0}
       /* Mobile: shares/request-links tables — horizontal scroll */
       .shares .list-scroll,.request-links .list-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
       .shares .list-scroll table,.request-links .list-scroll table{min-width:600px}
@@ -1094,6 +1099,13 @@ function renderPage() {
         <button class="ghost" onclick="batchDeleteSelected()">删除</button>
         <button class="ghost" onclick="clearSelection()">取消选择</button>
       </div>
+      <div id="fileBatchBar" class="batch-bar" style="display:none">
+        <input type="checkbox" id="fileSelectAllTop" onchange="toggleFileSelectAll(this.checked)" style="margin-right:4px">
+        <span id="fileBatchCount" style="font-size:13px;color:var(--muted)"></span>
+        <button class="ghost" onclick="batchMoveSelectedFiles()">移动</button>
+        <button class="ghost danger" onclick="batchDeleteSelectedFiles()">删除</button>
+        <button class="ghost" onclick="clearFileSelection()">取消</button>
+      </div>
       <div class="list-scroll">
         <table id="fileTable">
           <thead>
@@ -1151,8 +1163,10 @@ function renderPage() {
               <th data-label="链接">链接</th>
               <th data-label="二维码" style="width:110px">二维码</th>
               <th data-label="到期" style="cursor:pointer;user-select:none" onclick="setShareSort('expiresAt')">到期 <span class="share-sort-arrow" id="shareArrow-expiresAt"></span></th>
-              <th data-label="访问" style="cursor:pointer;user-select:none" onclick="setShareSort('viewCount')">访问 <span class="share-sort-arrow" id="shareArrow-viewCount"></span></th>
-              <th data-label="下载" style="cursor:pointer;user-select:none" onclick="setShareSort('downloadCount')">下载 <span class="share-sort-arrow" id="shareArrow-downloadCount"></span></th>
+              <th data-label="创建" style="cursor:pointer;user-select:none" onclick="setShareSort('createdAt')">创建 <span class="share-sort-arrow" id="shareArrow-createdAt"></span></th>
+              <th data-label="访问">访问</th>
+              <th data-label="下载">下载</th>
+              <th data-label="总计" style="cursor:pointer;user-select:none" onclick="setShareSort('totalActivity')">总计 <span class="share-sort-arrow" id="shareArrow-totalActivity"></span></th>
               <th data-label="操作" style="width:100px">操作</th>
             </tr>
           </thead>
@@ -8185,9 +8199,13 @@ function renderPage() {
         var va = a[field], vb = b[field];
         if (va == null) va = '';
         if (vb == null) vb = '';
-        if (field === 'expiresAt') {
+        if (field === 'expiresAt' || field === 'createdAt') {
           va = va ? new Date(va).getTime() : 0;
           vb = vb ? new Date(vb).getTime() : 0;
+        }
+        if (field === 'totalActivity') {
+          va = (a.viewCount || 0) + (a.downloadCount || 0);
+          vb = (b.viewCount || 0) + (b.downloadCount || 0);
         }
         if (typeof va === 'number' && typeof vb === 'number') {
           return order === 'asc' ? va - vb : vb - va;
@@ -8282,14 +8300,18 @@ function renderPage() {
       empty.style.display = 'none';
       body.innerHTML = shares.map(function (share) {
         const expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
+        const createdText = share.createdAt ? formatTime(share.createdAt) : '-';
+        const totalActivity = (share.viewCount || 0) + (share.downloadCount || 0);
         return '<tr>' +
           '<td data-label=""><input type="checkbox" class="share-check" data-code="' + escapeHtmlClient(share.code) + '" onchange="onShareCheckChange()"></td>' +
           '<td data-label="文件"><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
           '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank" style="word-break:break-all;font-size:12px">' + escapeHtmlClient(share.url) + '</a></td>' +
           '<td data-label="二维码"><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
           '<td data-label="到期">' + expireText + '</td>' +
+          '<td data-label="创建">' + createdText + '</td>' +
           '<td data-label="访问">' + (share.viewCount || 0) + '</td>' +
           '<td data-label="下载">' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</td>' +
+          '<td data-label="总计" style="font-weight:700;color:var(--accent)">' + totalActivity + '</td>' +
           '<td class="actions-cell" data-label="操作">' +
             '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
             '<button class="secondary" onclick=' + "'" + 'previewShare("' + escapeHtmlClient(share.code) + '")' + "'" + '>预览</button>' +
