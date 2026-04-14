@@ -8593,7 +8593,6 @@ function renderPage() {
       var filtered = q ? items.filter(function(item) {
         return (item.filename && item.filename.toLowerCase().includes(q));
       }) : items;
-      // Re-render filtered items with same sort
       var sortFn;
       if (sortBy === 'filename') {
         sortFn = function(a, b) { return (a.filename || '').localeCompare(b.filename || ''); };
@@ -8612,8 +8611,9 @@ function renderPage() {
           var deletedAt = new Date(item.deleted_at * 1000).toLocaleString('zh-CN');
           var sizeStr = formatFileSize(item.size || 0);
           var expiredInfo = item.expires_at ? ('（' + Math.max(0, Math.ceil((item.expires_at * 1000 - Date.now()) / 86400000)) + ' 天后永久删除）') : '';
+          var checked = selectedTrashItems.has(item.id) ? 'checked' : '';
           html += '<div id="' + fid + '" class="trash-item" style="display:flex;align-items:center;padding:10px 12px;gap:10px;border-bottom:1px solid var(--line)">';
-          html += '<input type="checkbox" class="trash-check" data-id="' + item.id + '" style="width:16px;height:16px;cursor:pointer;flex-shrink:0" onchange="updateTrashBatchBar()">';
+          html += '<input type="checkbox" class="trash-check" data-id="' + item.id + '" style="width:16px;height:16px;cursor:pointer;flex-shrink:0" ' + checked + ' onchange="toggleTrashItem(this)">';
           html += '<span style="font-size:18px;flex-shrink:0">' + getFileIcon(item.filename) + '</span>';
           html += '<div style="flex:1;min-width:0">';
           html += '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(item.filename) + '">' + escapeHtmlClient(item.filename) + '</div>';
@@ -8625,7 +8625,37 @@ function renderPage() {
         });
       }
       container.innerHTML = html;
-      updateTrashBatchBar();
+      updateTrashBatchButtons();
+    }
+
+    function toggleTrashItem(el) {
+      var id = parseInt(el.getAttribute('data-id'), 10);
+      if (!id) return;
+      if (el.checked) selectedTrashItems.add(id);
+      else selectedTrashItems.delete(id);
+      updateTrashBatchButtons();
+    }
+
+    function updateTrashBatchButtons() {
+      var count = selectedTrashItems.size;
+      var restoreBtn = document.getElementById('trashBatchRestore');
+      var deleteBtn = document.getElementById('trashBatchDelete');
+      var selectAll = document.getElementById('trashSelectAll');
+      if (restoreBtn) {
+        restoreBtn.disabled = count === 0;
+        restoreBtn.style.opacity = count === 0 ? '0.5' : '1';
+        var span = restoreBtn.querySelector('span');
+        if (span) span.textContent = count;
+      }
+      if (deleteBtn) {
+        deleteBtn.disabled = count === 0;
+        deleteBtn.style.opacity = count === 0 ? '0.5' : '1';
+        var span = deleteBtn.querySelector('span');
+        if (span) span.textContent = count;
+      }
+      var checkedCount = document.querySelectorAll('.trash-check:checked').length;
+      var totalCount = document.querySelectorAll('.trash-check').length;
+      if (selectAll) selectAll.checked = totalCount > 0 && checkedCount === totalCount;
     }
 
     function sortTrashItems() {
