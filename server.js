@@ -9454,6 +9454,7 @@ function renderPage() {
     // ── Request Link Files Modal ─────────────────────────────────────────────
 
     function openRequestLinkFilesModal(code) {
+      window._currentRlCode = code;
       var rl = currentRequestLinks.find(function(r) { return r.code === code; });
       if (!rl) return;
       var modal = document.createElement('div');
@@ -9483,6 +9484,7 @@ function renderPage() {
     }
 
     function closeRlFilesModal() {
+      window._currentRlCode = '';
       var m = document.getElementById('requestLinkFilesModal');
       if (m) m.remove();
     }
@@ -9570,7 +9572,46 @@ function renderPage() {
       }).catch(function() { showToast('下载失败', 'error'); });
     }
 
-    // ── Duplicates (重复文件清理) ───────────────────────────────────────────
+    function toggleRlFilesSelectAll(checked) {
+      document.querySelectorAll('.rl-file-check').forEach(function(el) { el.checked = checked; });
+      updateRlBatchDeleteBtn();
+    }
+
+    function updateRlBatchDeleteBtn() {
+      var checked = document.querySelectorAll('.rl-file-check:checked');
+      var btn = document.getElementById('rlBatchDeleteBtn');
+      if (!btn) return;
+      if (checked.length > 0) {
+        btn.style.display = '';
+        btn.textContent = '删除选中 (' + checked.length + ')';
+      } else {
+        btn.style.display = 'none';
+      }
+    }
+
+    async function batchDeleteRlFiles() {
+      var checked = document.querySelectorAll('.rl-file-check:checked');
+      if (!checked.length) { showToast('请先选择文件', 'error'); return; }
+      if (!confirm('确认删除 ' + checked.length + ' 个文件？')) return;
+      var code = _currentRlCode;
+      var ids = Array.from(checked).map(function(el) { return parseInt(el.dataset.id, 10); });
+      var btn = document.getElementById('rlBatchDeleteBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '删除中...'; }
+      var ok = 0, fail = 0;
+      for (var i = 0; i < ids.length; i++) {
+        try {
+          var res = await fetch('/api/request-links/' + encodeURIComponent(code) + '/files/' + ids[i], { method: 'DELETE', headers: headers() });
+          var data = await res.json();
+          if (data.success) ok++; else fail++;
+        } catch(e) { fail++; }
+      }
+      if (btn) { btn.disabled = false; updateRlBatchDeleteBtn(); }
+      showToast('已删除 ' + ok + ' 个文件' + (fail ? '，失败 ' + fail : ''), fail ? 'error' : 'success');
+      loadRequestLinkFiles(code);
+    }
+
+    // Store current RL code for batch operations
+    window._currentRlCode = '';
 
     var selectedDuplicates = new Set();
 
