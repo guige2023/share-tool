@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 17; // v17: file notes — notes column on files table
+const SCHEMA_VERSION = 18; // v18: share_links.label — custom display name for share links
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -682,6 +682,20 @@ function initSchemaV17(db) {
       console.log('[DB] Notes column already exists');
     } else {
       console.warn('[DB] Migration v17 failed:', e.message);
+    }
+  }
+}
+
+function initSchemaV18(db) {
+  // v18: share_links.label — custom display name
+  try {
+    db.exec(`ALTER TABLE share_links ADD COLUMN label TEXT DEFAULT ''`);
+    console.log('[DB] Migrated: share_links.label');
+  } catch (e) {
+    if (e.message.includes('duplicate column')) {
+      console.log('[DB] share_links.label already exists');
+    } else {
+      console.warn('[DB] Migration v18 failed:', e.message);
     }
   }
 }
