@@ -10259,18 +10259,20 @@ function renderPage() {
         onConfirm: function(name) {
           if (!name || !name.trim()) return;
           name = name.trim();
-      var expiryHours = document.getElementById('shareExpirySelect') ? parseInt(document.getElementById('shareExpirySelect').value, 10) : 168;
-      var password = document.getElementById('sharePasswordInput') ? document.getElementById('sharePasswordInput').value.trim() : '';
-      var maxDownloads = document.getElementById('shareMaxDlInput') ? document.getElementById('shareMaxDlInput').value.trim() : '';
-      var themeBg = document.getElementById('shareThemeBgHex') ? document.getElementById('shareThemeBgHex').value.trim() : '';
-      var themeColor = document.getElementById('shareThemeColorHex') ? document.getElementById('shareThemeColorHex').value.trim() : '';
-      var brandText = document.getElementById('shareBrandText') ? document.getElementById('shareBrandText').value.trim() : '';
-      var label = document.getElementById('shareLabelInput') ? document.getElementById('shareLabelInput').value.trim() : '';
-      var templates = getShareTemplates();
-      templates.push({ name: name, expiryHours: expiryHours, password: password, maxDownloads: maxDownloads, themeBg: themeBg, themeColor: themeColor, brandText: brandText, label: label });
-      saveShareTemplates(templates);
-      loadShareTemplates();
-      showToast('模板已保存: ' + name, 'success');
+          var expiryHours = document.getElementById('shareExpirySelect') ? parseInt(document.getElementById('shareExpirySelect').value, 10) : 168;
+          var password = document.getElementById('sharePasswordInput') ? document.getElementById('sharePasswordInput').value.trim() : '';
+          var maxDownloads = document.getElementById('shareMaxDlInput') ? document.getElementById('shareMaxDlInput').value.trim() : '';
+          var themeBg = document.getElementById('shareThemeBgHex') ? document.getElementById('shareThemeBgHex').value.trim() : '';
+          var themeColor = document.getElementById('shareThemeColorHex') ? document.getElementById('shareThemeColorHex').value.trim() : '';
+          var brandText = document.getElementById('shareBrandText') ? document.getElementById('shareBrandText').value.trim() : '';
+          var label = document.getElementById('shareLabelInput') ? document.getElementById('shareLabelInput').value.trim() : '';
+          var templates = getShareTemplates();
+          templates.push({ name: name, expiryHours: expiryHours, password: password, maxDownloads: maxDownloads, themeBg: themeBg, themeColor: themeColor, brandText: brandText, label: label });
+          saveShareTemplates(templates);
+          loadShareTemplates();
+          showToast('模板已保存: ' + name, 'success');
+        }
+      });
     }
 
     function loadShareTemplatesSettings() {
@@ -10621,20 +10623,27 @@ function renderPage() {
     }
 
     async function renewShareLink(code) {
-      var days = prompt('续期天数（默认7天）:', '7');
-      if (days === null) return;
-      days = parseInt(days, 10) || 7;
-      var data = await request('/api/share/renew/' + encodeURIComponent(code), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days: days })
+      openTextInputModal({
+        title: '续期分享链接',
+        type: 'number',
+        defaultValue: '7',
+        placeholder: '7',
+        onConfirm: async function(days) {
+          if (days === null || days === '') return;
+          days = parseInt(days, 10) || 7;
+          var data = await request('/api/share/renew/' + encodeURIComponent(code), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ days: days })
+          });
+          if (data && data.success) {
+            showToast('已续期 ' + data.days + ' 天', 'success');
+            await loadShares();
+          } else {
+            showToast('续期失败: ' + (data && data.error || '未知错误'), 'error');
+          }
+        }
       });
-      if (data && data.success) {
-        showToast('已续期 ' + data.days + ' 天', 'success');
-        await loadShares();
-      } else {
-        showToast('续期失败: ' + (data && data.error || '未知错误'), 'error');
-      }
     }
 
     async function openShareDetailModal(code) {
@@ -12029,32 +12038,46 @@ function renderPage() {
     }
 
     async function extendShareExpiry(code) {
-      var days = prompt('延长多少天？', '30');
-      if (!days || isNaN(parseInt(days))) return;
-      var newExpiry = Date.now() + parseInt(days) * 86400000;
-      try {
-        var data = await request('/api/share/update/' + encodeURIComponent(code), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ expiresAt: newExpiry })
-        });
-        if (data.success) { showToast('已续期', 'success'); openExpiringLinks(); }
-        else { showToast('续期失败', 'error'); }
-      } catch (e) { showToast('续期失败', 'error'); }
+      openTextInputModal({
+        title: '延长到期时间',
+        type: 'number',
+        defaultValue: '30',
+        placeholder: '30',
+        onConfirm: async function(days) {
+          if (!days || isNaN(parseInt(days))) return;
+          var newExpiry = Date.now() + parseInt(days) * 86400000;
+          try {
+            var data = await request('/api/share/update/' + encodeURIComponent(code), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ expiresAt: newExpiry })
+            });
+            if (data.success) { showToast('已续期', 'success'); openExpiringLinks(); }
+            else { showToast('续期失败', 'error'); }
+          } catch (e) { showToast('续期失败', 'error'); }
+        }
+      });
     }
 
     async function extendRlExpiry(code) {
-      var days = prompt('延长多少天？', '30');
-      if (!days || isNaN(parseInt(days))) return;
-      try {
-        var data = await request('/api/request-links/' + encodeURIComponent(code), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ expires_in_days: parseInt(days) })
-        });
-        if (data.success) { showToast('已续期', 'success'); openExpiringLinks(); }
-        else { showToast('续期失败', 'error'); }
-      } catch (e) { showToast('续期失败', 'error'); }
+      openTextInputModal({
+        title: '延长到期时间',
+        type: 'number',
+        defaultValue: '30',
+        placeholder: '30',
+        onConfirm: async function(days) {
+          if (!days || isNaN(parseInt(days))) return;
+          try {
+            var data = await request('/api/request-links/' + encodeURIComponent(code), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ expires_in_days: parseInt(days) })
+            });
+            if (data.success) { showToast('已续期', 'success'); openExpiringLinks(); }
+            else { showToast('续期失败', 'error'); }
+          } catch (e) { showToast('续期失败', 'error'); }
+        }
+      });
     }
 
     async function batchDeleteSelectedShares() {
