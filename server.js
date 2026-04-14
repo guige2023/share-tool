@@ -3542,12 +3542,12 @@ function renderPage() {
       var list = panel.querySelector('.uq-list');
       list.innerHTML = uploadQueue.map(function(item, i) {
         var isOfflineQueued = item.status === 'queued' && item.offline;
-        var color = item.status === 'done' ? '#22c55e' : item.status === 'failed' ? '#ef4444' : item.status === 'paused' ? '#f59e0b' : item.status === 'queued' ? '#8b5cf6' : '#3b82f6';
-        var icon = item.status === 'done' ? '✓' : item.status === 'failed' ? '✗' : item.status === 'paused' ? '⏸' : item.status === 'queued' ? (isOfflineQueued ? '⛂' : '⏳') : '↑';
+        var color = item.status === 'done' ? '#22c55e' : item.status === 'failed' ? '#ef4444' : item.status === 'paused' ? '#f59e0b' : item.status === 'queued' ? '#8b5cf6' : item.status === 'needs_file' ? '#f97316' : '#3b82f6';
+        var icon = item.status === 'done' ? '✓' : item.status === 'failed' ? '✗' : item.status === 'paused' ? '⏸' : item.status === 'queued' ? (isOfflineQueued ? '⛂' : '⏳') : item.status === 'needs_file' ? '📄' : '↑';
         var canRetry = item.status === 'failed';
         var canPause = item.status === 'uploading';
         var canResume = item.status === 'paused';
-        var canCancel = item.status === 'pending' || item.status === 'uploading' || item.status === 'paused' || item.status === 'queued';
+        var canCancel = item.status === 'pending' || item.status === 'uploading' || item.status === 'paused' || item.status === 'queued' || item.status === 'needs_file';
         var actions = '';
         if (canRetry) actions += '<button class="uq-btn uq-retry" data-i="' + i + '" title="重试">↻</button>';
         if (canPause) actions += '<button class="uq-btn uq-pause" data-i="' + i + '" title="暂停">⏸</button>';
@@ -3888,23 +3888,37 @@ function renderPage() {
       // Clear dropped state after consuming
       if (dropped) { window._droppedFiles = null; }
       if (!files.length) {
-        showToast('请先选择文件', 'error');
-        return;
+        // If queue has needs_file items, try to reconnect any selected file
+        var hasNeedsFile = uploadQueue.some(function(item) { return item.status === 'needs_file'; });
+        if (!hasNeedsFile) {
+          showToast('请先选择文件', 'error');
+          return;
+        }
       }
 
-      // Add to queue
+      // Try reconnecting selected files to needs_file items
+      var reconnected = 0;
+      files.forEach(function(file) {
+        if (reconnectQueueFile(file)) reconnected++;
+      });
+
+      // Add remaining files (not reconnected) to queue
       var folderPrefix = window._uploadFolderPrefix || '';
       window._uploadFolderPrefix = ''; // reset after consuming
       files.forEach(function(file) {
+        var key = _queueKey({ name: file.name, size: file.size, lastModified: file.lastModified });
+        // Skip if already reconnected to a needs_file item
+        if (_queueFileMap[key]) { delete _queueFileMap[key]; return; }
         var uploadName = folderPrefix ? folderPrefix + '/' + file.name : file.name;
         uploadQueue.push({ name: uploadName, file: file, status: 'pending', pct: 0 });
         _queueFileMap[_queueKey({ name: uploadName, size: file.size, lastModified: file.lastModified })] = file;
       });
-      saveUploadQueue();
+      if (reconnected > 0) saveUploadQueue();
       renderUploadQueuePanel();
       input.value = '';
       clearFileInput();
-      status('上传队列已添加 ' + files.length + ' 个文件');
+      var queued = reconnected + uploadQueue.filter(function(item) { return item.status === 'pending'; }).length;
+      if (queued > 0) status('上传队列: ' + reconnected + ' 个已恢复，' + (files.length - reconnected) + ' 个新增');
       processUploadQueue();
 
       // Watch for completion
@@ -3920,6 +3934,7 @@ function renderPage() {
           }
           uploadQueue = [];
           uploadPaused = false;
+          saveUploadQueue();
           renderUploadQueuePanel();
           loadFiles();
           _cachedTagData = null;  // uploaded files may have new tags
@@ -6732,22 +6747,89 @@ function renderPage() {
       modal.id = 'tagInputModal';
       modal.className = 'modal';
       var count = files.length;
+      var singleFile = count === 1 ? files[0] : null;
       var nameStr = count === 1 ? escapeHtmlClient(files[0]) : count + ' 个文件';
+      // Compute suggested tags from filename extension
+      var suggestedTags = [];
+      if (singleFile && action === 'add') {
+        var ext = (singleFile.split('.').pop() || '').toLowerCase();
+        var extMap = {
+          jpg:'📷 图片',jpeg:'📷 图片',png:'📷 图片',gif:'📷 图片',webp:'📷 图片',svg:'📷 图片',bmp:'📷 图片',
+          mp4:'🎬 视频',avi:'🎬 视频',mkv:'🎬 视频',mov:'🎬 视频',wmv:'🎬 视频',flv:'🎬 视频',
+          mp3:'🎵 音频',wav:'🎵 音频',flac:'🎵 音频',aac:'🎵 音频',ogg:'🎵 音频',m4a:'🎵 音频',
+          pdf:'📄 文档',doc:'📄 文档',docx:'📄 文档',txt:'📄 文本',md:'📝 Markdown',rtf:'📄 文档',
+          xls:'📊 表格',xlsx:'📊 表格',csv:'📊 表格',numbers:'📊 表格',
+          ppt:'📊 演示',pptx:'📊 演示',key:'📊 演示',
+          zip:'📦 压缩包',rar:'📦 压缩包',7z:'📦 压缩包',tar:'📦 压缩包',gz:'📦 压缩包',
+          js:'💻 代码',ts:'💻 代码',py:'💻 代码',java:'💻 代码',cpp:'💻 代码',c:'💻 代码',go:'💻 代码',rs:'💻 代码',rb:'💻 代码',php:'💻 代码',swift:'💻 代码',kt:'💻 代码',sh:'💻 代码',bash:'💻 代码',
+          json:'📋 配置',yaml:'📋 配置',yml:'📋 配置',xml:'📋 配置',toml:'📋 配置',ini:'📋 配置',conf:'📋 配置',
+          html:'🌐 网页',htm:'🌐 网页',css:'🎨 样式',scss:'🎨 样式',less:'🎨 样式'
+        };
+        var raw = extMap[ext] || null;
+        if (raw) {
+          var parts = raw.split(' ');
+          suggestedTags.push({ name: parts[1] || parts[0], icon: parts[0] || '', score: 10 });
+        }
+      }
+      var suggestHtml = '';
+      if (suggestedTags.length) {
+        suggestHtml = '<div style="margin-bottom:12px">' +
+          '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">猜你需要</div>' +
+          '<div id="suggestTagChips" style="display:flex;flex-wrap:wrap;gap:5px">' +
+          suggestedTags.map(function(s) {
+            return '<button onclick="addTagChipAndSuggest(\'' + s.name.replace(/'/g, "\\'") + '\')" style="font-size:11px;padding:3px 9px;border-radius:999px;cursor:pointer;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text)">' +
+              (s.icon ? s.icon + ' ' : '') + escapeHtmlClient(s.name) + '</button>';
+          }).join('') +
+          '</div></div>';
+      }
       modal.innerHTML = '\
-        <div class="modal-content" style="max-width:400px">\
+        <div class="modal-content" style="max-width:460px">\
           <h3 id="tagInputTitle">' + (action === 'add' ? '添加标签' : '移除标签') + '</h3>\
           <p style="color:var(--muted);font-size:13px;margin-bottom:12px;word-break:break-all">为 <strong>' + nameStr + '</strong>' + (action === 'add' ? '添加' : '移除') + '标签</p>\
-          <div id="tagChipInput" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px;border:1px solid var(--line);border-radius:8px;min-height:44px;cursor:text" onclick="document.getElementById(\'tagInputField\').focus()"></div>\
-          <input id="tagInputField" type="text" placeholder="输入标签后按 Enter 添加" \
-            style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;font-size:14px" \
-            onkeydown="handleTagInputKeydown(event, \'' + action + '\')">\
+          <div id="tagChipInput" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding:8px;border:1px solid var(--line);border-radius:8px;min-height:44px;cursor:text" onclick="document.getElementById(\'tagInputField\').focus()"></div>\
+          <div style="position:relative;margin-bottom:8px">\
+            <input id="tagInputField" type="text" placeholder="输入标签后按 Enter 添加" \
+              style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px" \
+              oninput="filterTagSuggestions(this.value)" \
+              onkeydown="handleTagInputKeydown(event, \'' + action + '\')">\
+            <div id="tagSuggestionDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--line);border-radius:8px;margin-top:4px;max-height:160px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.15)"></div>\
+          </div>\
+          ' + suggestHtml + '\
+          <div id="existingTagsSection" style="margin-bottom:14px">\
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px">已有标签（点击添加）</div>\
+            <div id="existingTagChips" style="display:flex;flex-wrap:wrap;gap:5px"><span style="font-size:12px;color:var(--muted)">加载中…</span></div>\
+          </div>\
           <div style="display:flex;gap:8px;justify-content:flex-end">\
             <button class="secondary" onclick="document.getElementById(\'tagInputModal\').remove()">取消</button>\
             <button onclick="confirmTagInputForFiles(\'' + action + '\', \'' + files.map(encodeURIComponent).join(',') + '\')">确定</button>\
           </div>\
         </div>';
       document.body.appendChild(modal);
+      // Fetch existing tags for the existing tags panel
+      fetch('/api/tags', { headers: headers() }).then(function(r) { return r.json(); }).then(function(data) {
+        if (!data.success) return;
+        var container = document.getElementById('existingTagChips');
+        if (!container) return;
+        var tags = data.tags || [];
+        if (!tags.length) { container.innerHTML = '<span style="font-size:12px;color:var(--muted)">暂无标签</span>'; return; }
+        container.innerHTML = tags.map(function(t) {
+          return '<button onclick="addTagChipAndSuggest(\'' + t.tag.replace(/'/g, "\\'") + '\')" style="font-size:11px;padding:3px 9px;border-radius:999px;cursor:pointer;font-weight:500;' +
+            'border:1px solid ' + (t.color || '#e0e7ff') + ';background:' + (t.color || '#e0e7ff') + ';color:inherit;opacity:0.85"' +
+            ' title="' + escapeHtmlClient(t.tag) + '">' + (t.icon ? escapeHtmlClient(t.icon) + ' ' : '') + escapeHtmlClient(t.tag) + '</button>';
+        }).join('');
+      }).catch(function() {});
       document.getElementById('tagInputField').focus();
+    }
+
+    function addTagChipAndSuggest(tagName) {
+      if (!_batchTagChips.includes(tagName)) {
+        _batchTagChips.push(tagName);
+        renderBatchTagChips();
+      }
+      var input = document.getElementById('tagInputField');
+      if (input) input.value = '';
+      var dropdown = document.getElementById('tagSuggestionDropdown');
+      if (dropdown) dropdown.style.display = 'none';
     }
 
     function confirmTagInputForFiles(action, filesEncoded) {
