@@ -130,7 +130,8 @@ function getLocalIp() {
 
 function loadConfig() {
   const defaults = {
-    uploadMaxSizeMB: 100
+    uploadMaxSizeMB: 100,
+    customCSS: ''
   };
 
   try {
@@ -15127,6 +15128,7 @@ function renderPage() {
     <!-- Back to top button -->
     <button id="backToTop" class="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="回到顶部" style="display:none">↑</button>
 
+${config.customCSS ? `<style id="custom-css-injected">${config.customCSS}</style>` : ''}
 </body>
 </html>`;
 }
@@ -15299,7 +15301,10 @@ function createApp() {
     }
 
     // Run trash auto-clean on startup (after a short delay to let server start)
-    setTimeout(runTrashAutoClean, 5000);
+    // Skip in Node.js (server) environment - client-side only
+    if (typeof window !== 'undefined') {
+      setTimeout(runTrashAutoClean, 5000);
+    }
 
 async function start() {
   const { key, cert } = await getOrCreateCertificate();
