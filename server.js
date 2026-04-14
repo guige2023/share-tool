@@ -6803,6 +6803,13 @@ function renderPage() {
           '</label>' +
         '</div>' +
 
+        // Keyboard shortcuts
+        '<div>' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">键盘快捷键</label>' +
+          '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="openKeyboardHelpFromSettings()">⌨️ 查看快捷键</button>' +
+          '<div style="font-size:11px;color:var(--muted);margin-top:6px">按 <kbd style="background:var(--bg-tertiary);padding:1px 5px;border-radius:3px;font-size:10px">?</kbd> 可随时查看</div>' +
+        '</div>' +
+
         // Server info
         '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
           '<label style="font-weight:600;display:block;margin-bottom:8px">' + (i18n.serverInfo || '服务器信息') + '</label>' +
@@ -7113,6 +7120,11 @@ function renderPage() {
         if (data.success) { showToast('设备已删除', 'success'); loadDeviceList(); }
         else showToast('删除失败: ' + (data.error || ''), 'error');
       } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+    }
+
+    function openKeyboardHelpFromSettings() {
+      closeModal();
+      setTimeout(openKeyboardHelp, 50);
     }
 
     function openKeyboardHelp() {
