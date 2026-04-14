@@ -1217,12 +1217,12 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
-  // GET /api/recent-files - list recently updated files
+  // GET /api/recent-files - list recently accessed files (via file_access_log)
   if (pathname === '/api/recent-files' && method === 'GET') {
     const auth = authRequired(req, res);
     if (!auth) return true;
     const limit = parseInt(query.get('limit')) || 100;
-    const files = db.getRecentFiles(limit);
+    const files = db.getRecentlyAccessedFiles(limit);
     sendJson(res, { success: true, files });
     return true;
   }

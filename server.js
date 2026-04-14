@@ -4033,6 +4033,7 @@ function renderPage() {
             <div id="vfTagSection">' + renderVFTagSection() + '</div>\
           </div>\
           <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">\
+            <button onclick="deleteVFFromDetail()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--error);background:transparent;color:var(--error);cursor:pointer;font-size:13px">删除收藏夹</button>\
             <button onclick="openVFFolderManagerFromDetail()" style="padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);cursor:pointer;font-size:13px">管理收藏夹</button>\
             <button onclick="closeVFFolderDetail()" style="padding:8px 16px;border-radius:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:13px">关闭</button>\
           </div>\
@@ -4110,6 +4111,16 @@ function renderPage() {
         if (nameEl) { nameEl.style.display = ''; nameEl.textContent = oldName; }
         showToast('重命名失败', 'error');
       }
+    };
+
+    window.deleteVFFromDetail = async function() {
+      var cache = window._vfDetailCache || {};
+      if (!cache.vfId) return;
+      if (!confirm('确定删除此收藏夹？')) return;
+      await fetch('/api/virtual-folders/' + cache.vfId, { method: 'DELETE', headers: headers() });
+      closeVFFolderDetail();
+      broadcastSSE({ type: 'files_changed' });
+      showToast('已删除', 'success');
     };
 
     window.removeVFTag = async function(vfId, vfName, tagId) {
