@@ -9089,6 +9089,13 @@ function renderPage() {
           <p style="margin:0 0 16px;font-size:12px;color:var(--muted)">将同时更新选中的 ' + count + ' 个链接。不修改的字段留空即可。</p>\
           <div style="margin-bottom:12px">\
             <label style="display:block;margin-bottom:4px;font-size:13px">到期时间</label>\
+            <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">\
+              <button onclick="setBatchShareExpiryDays(7)" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--text)">7天</button>\
+              <button onclick="setBatchShareExpiryDays(30)" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--text)">30天</button>\
+              <button onclick="setBatchShareExpiryDays(90)" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--text)">90天</button>\
+              <button onclick="setBatchShareExpiryDays(365)" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--text)">1年</button>\
+              <button onclick="clearBatchShareExpiry()" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--muted)">永不过期</button>\
+            </div>\
             <input id="batchShareExpiry" type="datetime-local" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
             <div style="font-size:11px;color:var(--muted);margin-top:3px">留空表示不修改；清空并保存表示永不过期</div>\
           </div>\
@@ -9109,6 +9116,18 @@ function renderPage() {
         </div>';
       document.body.appendChild(modal);
       modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+    }
+
+    function setBatchShareExpiryDays(days) {
+      var input = document.getElementById('batchShareExpiry');
+      if (!input) return;
+      var d = new Date(Date.now() + days * 86400000);
+      input.value = d.toISOString().slice(0, 16);
+    }
+    function clearBatchShareExpiry() {
+      var input = document.getElementById('batchShareExpiry');
+      if (!input) return;
+      input.value = '';
     }
 
     async function confirmBatchShareUpdate() {
