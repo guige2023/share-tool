@@ -7096,10 +7096,10 @@ function renderPage() {
         var newName = input.value.trim();
         if (newName && newName !== original) {
           // Call API
-          fetch('/api/file/rename', {
+          fetch('/api/file-rename/' + encodeURIComponent(original), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...headers() },
-            body: JSON.stringify({ filename: original, newFilename: newName })
+            body: JSON.stringify({ newFilename: newName })
           }).then(function(r) { return r.json(); }).then(function(data) {
             if (data.success) {
               // Update UI: restore display
