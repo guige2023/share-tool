@@ -5966,6 +5966,14 @@ function renderPage() {
         case 'copyLink': await copyShareLink(filename); break;
         case 'copyName': await navigator.clipboard.writeText(filename); showToast('已复制文件名: ' + filename, 'success'); break;
         case 'copyPath': await navigator.clipboard.writeText('/' + filename); showToast('已复制文件路径', 'success'); break;
+        case 'openInFinder': {
+          var enc = encodeURIComponent(filename);
+          var res2 = await fetch('/api/file-path/' + enc, { headers: headers() });
+          var data2 = await res2.json();
+          if (data2.success) showToast('已在 Finder 中定位', 'success');
+          else showToast('打开失败: ' + (data2.error || '未知错误'), 'error');
+          break;
+        }
         case 'rename': startInlineRename(filename); break;
         case 'delete': openDeleteConfirmModal([filename]); break;
         case 'history': openVersionHistory(filename); break;

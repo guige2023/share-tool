@@ -980,5 +980,26 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // GET /api/file-path/:filename - get full file path + open in Finder (macOS)
+  if (pathname.startsWith('/api/file-path/') && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    const filename = decodeURIComponent(pathname.slice('/api/file-path/'.length));
+    const file = db.getFileByName(filename);
+    if (!file) {
+      sendJson(res, { success: false, error: 'File not found' }, 404);
+      return true;
+    }
+    const fullPath = path.join(ctx.storageDir, file.virtual_folder || '', file.filename);
+    // Open containing folder in Finder (macOS only)
+    const { execSync } = require('child_process');
+    try {
+      execSync('open -R ' + JSON.stringify(fullPath), { stdio: 'ignore' });
+    } catch (e) { /* non-fatal */ }
+    sendJson(res, { success: true, path: fullPath });
+    return true;
+  }
+
   return false;
 };
