@@ -1067,7 +1067,7 @@ function renderPage() {
               <option value="audio">音频</option>
               <option value="text">文本</option>
               <option value="pdf">PDF</option>
-              <option value="doc">文档</option>
+              <option value="document">文档</option>
               <option value="archive">压缩包</option>
             </select>
           </div>
@@ -9459,10 +9459,13 @@ function renderPage() {
       modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
       modal.innerHTML = '\
         <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:580px;font-size:14px;max-height:85vh;overflow-y:auto">\
-          <h3 style="margin:0 0 4px">📁 已收集文件 — ' + escapeHtmlClient(rl.name) + '</h3>\
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">\
+            <h3 style="margin:0">📁 已收集文件 — ' + escapeHtmlClient(rl.name) + '</h3>\
+          </div>\
           <div style="font-size:12px;color:var(--muted);margin-bottom:16px">收集链接: /r/' + escapeHtmlClient(code) + '</div>\
           <div id="rlFilesBody" style="min-height:60px"><span style="color:var(--muted)">加载中...</span></div>\
-          <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">\
+          <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:8px">\
+            <button class="secondary" onclick="downloadRequestLinkZip(\'' + escapeHtmlClient(code) + '\', this)" id="rlZipBtn" style="font-size:13px">📦 打包下载</button>\
             <button class="secondary" onclick="closeRlFilesModal()">关闭</button>\
           </div>\
         </div>';
@@ -9494,9 +9497,10 @@ function renderPage() {
         html += '<div style="display:flex;align-items:center;padding:8px 10px;background:var(--bg);border-radius:8px;gap:10px;border:1px solid var(--line)">';
         html += '<span style="font-size:18px">' + getFileIcon(f.filename) + '</span>';
         html += '<div style="flex:1;min-width:0">';
-        html += '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(f.filename) + '</div>';
+        html += '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(f.filename) + '">' + escapeHtmlClient(f.filename) + '</div>';
         html += '<div style="font-size:11px;color:var(--muted)">' + size + ' · ' + time + '</div>';
         html += '</div>';
+        html += '<button onclick="downloadRlFile(\'' + escapeHtmlClient(code) + '\',\'' + escapeHtmlClient(f.filename) + '\')" style="padding:4px 10px;background:var(--bg-tertiary);color:var(--text);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:12px">下载</button>';
         html += '<button onclick="deleteRequestLinkFile(\'' + escapeHtmlClient(code) + '\',' + f.id + ',this)" style="padding:4px 10px;background:var(--error);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">删除</button>';
         html += '</div>';
       });

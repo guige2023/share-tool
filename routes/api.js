@@ -1325,6 +1325,41 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     }
   }
 
+  // GET /api/request-links/:code/files/zip - download all files as zip
+  if (pathname.match(/^\/api\/request-links\/[^/]+\/files\/zip$/) && method === 'GET') {
+    const match = pathname.match(/^\/api\/request-links\/([^/]+)\/files\/zip$/);
+    if (match) {
+      const code = match[1];
+      const auth = authRequired(req, res);
+      if (!auth) return true;
+      const rl = db.getRequestLink(code);
+      if (!rl) { sendJson(res, { error: 'Request link not found' }, 404); return true; }
+      const files = db.getRequestLinkFiles(rl.id);
+      if (!files.length) { sendJson(res, { error: 'No files' }, 400); return true; }
+
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': 'attachment; filename="request_link_' + code + '.zip"'
+      });
+
+      const archive = archiver('zip', { zlib: { level: 6 } });
+      archive.on('error', (err) => { try { res.destroy(err); } catch (_) {} });
+      archive.pipe(res);
+
+      const { decodeStoredFile } = ctx;
+      files.forEach((f) => {
+        try {
+          const content = decodeStoredFile(f);
+          archive.append(content || '', { name: f.filename });
+        } catch (_) {}
+      });
+
+      archive.finalize();
+      db.addAuditLog('request_link_zip', code + ': ' + files.length + ' files', getClientIp(req), auth.token);
+      return true;
+    }
+  }
+
   // ── Tag Emoji ───────────────────────────────────────────────────────────
   // GET /api/tags/emojis - get all tag→emoji mappings (bulk)
   if (pathname === '/api/tags/emojis' && method === 'GET') {
