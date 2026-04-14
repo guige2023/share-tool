@@ -102,6 +102,27 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
     return true;
   }
 
+  // POST /api/share/renew/:code - 续期分享链接（延长过期时间）
+  if (pathname.startsWith('/api/share/renew/') && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    const code = pathname.slice('/api/share/renew/'.length);
+    const body = await readJsonBody(req);
+    const days = parseInt(body && body.days, 10) || 7;
+
+    const link = db.getShareLink(code);
+    if (!link) { sendJson(res, { success: false, error: 'Link not found' }, 404); return true; }
+
+    const newExpiresAt = Math.floor(Date.now() / 1000) + days * 86400;
+    const ok = db.renewShareLink(code, newExpiresAt);
+    if (!ok) { sendJson(res, { success: false, error: 'Renew failed' }, 500); return true; }
+
+    db.addAuditLog('share_update', code, getClientIp(req), auth.token);
+    sendJson(res, { success: true, expiresAt: newExpiresAt * 1000, days });
+    return true;
+  }
+
   if (pathname.startsWith('/api/share/delete/') && method === 'DELETE') {
     const auth = authRequired(req, res);
     if (!auth) return true;

@@ -8525,6 +8525,10 @@ function renderPage() {
       empty.style.display = 'none';
       body.innerHTML = shares.map(function (share) {
         const expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
+        const expiresIn = share.expiresAt ? Math.ceil((share.expiresAt - Date.now()) / 86400000) : null;
+        const expiringBadge = (expiresIn !== null && expiresIn <= 7 && expiresIn > 0) ? ' <span style="background:#92400e;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap">⚠️ ' + expiresIn + '天后</span>' : '';
+        const expiredBadge = (expiresIn !== null && expiresIn <= 0) ? ' <span style="background:#991b1b;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px">已过期</span>' : '';
+        const renewBtn = (expiresIn !== null && expiresIn <= 30) ? '<button class="secondary" onclick="renewShareLink(\'' + escapeHtmlClient(share.code) + '\')" style="font-size:11px;padding:3px 8px">续期</button>' : '';
         const createdText = share.createdAt ? formatTime(share.createdAt) : '-';
         const totalActivity = (share.viewCount || 0) + (share.downloadCount || 0);
         return '<tr>' +
@@ -8532,12 +8536,13 @@ function renderPage() {
           '<td data-label="文件"><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
           '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank" style="word-break:break-all;font-size:12px">' + escapeHtmlClient(share.url) + '</a></td>' +
           '<td data-label="二维码"><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
-          '<td data-label="到期">' + expireText + '</td>' +
+          '<td data-label="到期">' + expireText + expiringBadge + expiredBadge + '</td>' +
           '<td data-label="创建">' + createdText + '</td>' +
           '<td data-label="访问">' + (share.viewCount || 0) + '</td>' +
           '<td data-label="下载">' + (share.downloadCount || 0) + (share.maxDownloads ? ' / ' + share.maxDownloads : '') + '</td>' +
           '<td data-label="总计" style="font-weight:700;color:var(--accent)">' + totalActivity + '</td>' +
           '<td class="actions-cell" data-label="操作">' +
+            (renewBtn || '') +
             '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
             '<button class="secondary" onclick=' + "'" + 'previewShare("' + escapeHtmlClient(share.code) + '")' + "'" + '>预览</button>' +
             '<button class="secondary" onclick=' + "'" + 'downloadQrCode(' + JSON.stringify(share.code) + ')' + "'" + '>二维码</button>' +
@@ -8583,6 +8588,23 @@ function renderPage() {
       if (!confirm('删除这个分享链接?')) return;
       await request('/api/share/delete/' + encodeURIComponent(code), { method: 'DELETE' });
       await loadShares();
+    }
+
+    async function renewShareLink(code) {
+      var days = prompt('续期天数（默认7天）:', '7');
+      if (days === null) return;
+      days = parseInt(days, 10) || 7;
+      var data = await request('/api/share/renew/' + encodeURIComponent(code), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: days })
+      });
+      if (data && data.success) {
+        showToast('已续期 ' + data.days + ' 天', 'success');
+        await loadShares();
+      } else {
+        showToast('续期失败: ' + (data && data.error || '未知错误'), 'error');
+      }
     }
 
     window.previewShare = function(code) {
