@@ -789,6 +789,19 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/trash/auto-clean?days=N — delete trash items older than N days
+  if (pathname === '/api/trash/auto-clean' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const query = new URLSearchParams(pathname.split('?')[1] || '');
+    const days = parseInt(query.get('days') || '0', 10);
+    if (!days) { sendJson(res, { success: true, deleted: 0 }); return true; }
+    const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
+    const result = db.emptyTrash(cutoff);
+    sendJson(res, result);
+    return true;
+  }
+
   // ── File Versions: List ────────────────────────────────────────────
   if (pathname === '/api/versions' && method === 'GET') {
     const auth = authRequired(req, res);

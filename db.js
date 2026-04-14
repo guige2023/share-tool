@@ -1319,14 +1319,24 @@ function permanentlyDeleteTrash(trashId) {
   return { success: true, filename: item.filename };
 }
 
-function emptyTrash() {
+function emptyTrash(cutoff) {
   const db = getDb();
-  const items = db.prepare('SELECT * FROM trash').all();
-  for (const item of items) {
-    if (item.tags) updateTagStats(item.tags, null);
+  let items;
+  if (cutoff) {
+    items = db.prepare('SELECT * FROM trash WHERE deleted_at <= ?').all(cutoff);
+    for (const item of items) {
+      if (item.tags) updateTagStats(item.tags, null);
+    }
+    const result = db.prepare('DELETE FROM trash WHERE deleted_at <= ?').run(cutoff);
+    return { success: true, deleted: result.changes };
+  } else {
+    items = db.prepare('SELECT * FROM trash').all();
+    for (const item of items) {
+      if (item.tags) updateTagStats(item.tags, null);
+    }
+    const result = db.prepare('DELETE FROM trash').run();
+    return { success: true, deleted: result.changes };
   }
-  const result = db.prepare('DELETE FROM trash').run();
-  return { success: true, deleted: result.changes };
 }
 
 function cleanupExpiredTrash() {
