@@ -960,7 +960,7 @@ function renderPage() {
 
     <section class="panel" style="margin-top:18px">
       <div class="toolbar">
-        <input id="searchInput" type="text" placeholder="按文件名搜索 (/ 聚焦)" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:56px" onfocus="if(getRecentSearches().length>0){document.getElementById('recentSearches').style.display='block'}" oninput="document.getElementById('recentSearches').style.display='none'">
+        <input id="searchInput" type="text" placeholder="搜索文件 (⌘K / 聚焦)" autocomplete="off" inputmode="search" autocorrect="off" spellcheck="false" aria-label="搜索文件" style="padding-right:56px" onfocus="if(getRecentSearches().length>0){document.getElementById('recentSearches').style.display='block'}" oninput="document.getElementById('recentSearches').style.display='none'">
         <span id="searchModeBadge" onclick="cycleSearchMode()" style="position:absolute;right:32px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--accent);font-size:11px;font-weight:700;user-select:none;display:none;padding:2px 5px;border:1px solid var(--accent);border-radius:5px;opacity:0.8" title="点击切换搜索模式 (普通/Glob/正则)">Aa</span>
         <span id="searchClear" onclick="clearSearchInput()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--muted);font-size:16px;line-height:1;display:none;user-select:none" title="清除搜索">✕</span>
         <div id="tagFilterWrapper" style="position:relative;max-width:160px">
@@ -5831,6 +5831,14 @@ function renderPage() {
       if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
         e.preventDefault();
         toggleAll(true);
+        return;
+      }
+
+      // Ctrl/Cmd+K → focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        var si = document.getElementById('searchInput');
+        if (si) { si.focus(); si.select(); }
         return;
       }
 

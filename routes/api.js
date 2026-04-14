@@ -710,11 +710,8 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const results = { files: [], shares: [], requestLinks: [] };
 
     if (type === 'all' || type === 'files') {
-      const allFiles = db.listFiles ? (db.listFiles(1000, 0).files || db.listFiles(1000, 0) || []) : [];
-      const matched = allFiles.filter(function(f) {
-        return (f.filename || '').toLowerCase().includes(ql) ||
-               (f.type || '').toLowerCase().includes(ql);
-      }).slice(0, limit);
+      // Use proper fuzzy search with FTS5 + BM25 scoring (falls back to in-memory if FTS5 unavailable)
+      const matched = db.searchFiles(q, null, { limit: limit, mode: 'normal' });
       results.files = matched.map(function(f) {
         return { id: f.id, filename: f.filename, size: f.size, type: f.type, created_at: f.created_at, updated_at: f.updated_at };
       });
