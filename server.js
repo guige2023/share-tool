@@ -7706,10 +7706,16 @@ function renderPage() {
     }
 
     async function deleteAllFiles() {
-      if (!confirm('确定删除所有文件?')) return;
-      await request('/api/delete-all', { method: 'DELETE' });
-      await loadFiles();
-      await loadShares();
+      openConfirmModal({
+        title: '确定删除所有文件？',
+        text: '所有文件将被永久删除，此操作不可恢复。',
+        danger: true,
+        onConfirm: async function() {
+          await request('/api/delete-all', { method: 'DELETE' });
+          await loadFiles();
+          await loadShares();
+        }
+      });
     }
 
     async function editFileTags(filename, currentTags) {
