@@ -996,7 +996,7 @@ function renderPage() {
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button class="ghost" onclick="openStorageStats()" title="存储统计">📊</button>
-        <button class="ghost" onclick="openSyncDashboard()" title="同步面板 (p)">🔄</button>
+        <button class="ghost" onclick="openSyncDashboard()" title="同步面板 (z)">🔄</button>
         <button class="ghost" onclick="toggleTheme()" title="切换主题" id="themeToggleBtn">🌙</button>
         <button class="ghost" onclick="openSettings()" title="设置 (Ctrl+,)">⚙</button>
         <button class="ghost" onclick="openKeyboardHelp()" title="键盘快捷键 (?)">?</button>
@@ -4426,6 +4426,7 @@ function renderPage() {
           '<button class="secondary" onclick=' + "'" + 'copyShareLink(' + JSON.stringify(file.name) + ')' + "'" + '>复制链接</button>' +
           '<button class="secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
           '<button class="secondary" onclick=' + "'" + 'renameFile(' + JSON.stringify(file.name) + ')' + "'" + '>重命名</button>' +
+          '<button class="secondary" onclick=' + "'" + 'openFileActivity(' + JSON.stringify(file.name) + ')' + "'" + '>📊</button>' +
           '<button class="danger" onclick=' + "'" + 'deleteFile(' + JSON.stringify(file.name) + ')' + "'" + '>删除</button>' +
         '</td>' +
       '</tr>';
@@ -4488,6 +4489,7 @@ function renderPage() {
           '<button class="btn secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'copyShareLink(' + JSON.stringify(file.name) + ')' + "'" + '>复制链接</button>' +
           '<button class="btn secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
+          '<button class="btn secondary" onclick=' + "'" + 'openFileActivity(' + JSON.stringify(file.name) + ')' + "'" + '>📊</button>' +
           '<button class="btn danger" onclick=' + "'" + 'deleteFile(' + JSON.stringify(file.name) + ')' + "'" + '>删除</button>' +
         '</div>' +
       '</div>';
@@ -5113,9 +5115,9 @@ function renderPage() {
           openDeleteConfirmModal(selected);
           break;
         }
-        case 'p':
-        case 'P': {
-          // p: open sync dashboard
+        case 'z':
+        case 'Z': {
+          // z: open sync dashboard
           if (e.ctrlKey || e.metaKey || e.altKey) return;
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           e.preventDefault();
@@ -7413,7 +7415,7 @@ function renderPage() {
         ['Enter', '打开/预览文件'],
         ['Space', '选中/取消选中'],
         ['s', '标记/取消收藏'],
-        ['p', '打开同步面板'],
+        ['z', '打开同步面板'],
         ['y', '复制文件名'],
         ['c', '复制分享链接'],
         ['v', '切换视图 (list↔grid)'],

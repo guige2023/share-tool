@@ -889,6 +889,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const folderId = parseInt(pathname.split('/')[3], 10);
     db.deleteVirtualFolder(folderId);
     sendJson(res, { success: true });
+    global.broadcastSSE({ type: 'files_changed' });
     return true;
   }
 
@@ -902,6 +903,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     if (!fileId) { sendJson(res, { success: false, error: 'fileId required' }, 400); return true; }
     db.addFileToVirtualFolder(folderId, fileId);
     sendJson(res, { success: true });
+    global.broadcastSSE({ type: 'files_changed' });
     return true;
   }
 
@@ -913,6 +915,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const fileId = parseInt(query.get('fileId'), 10);
     if (!fileId) { sendJson(res, { success: false, error: 'fileId required' }, 400); return true; }
     db.removeFileFromVirtualFolder(folderId, fileId);
+    global.broadcastSSE({ type: 'files_changed' });
     sendJson(res, { success: true });
     return true;
   }
