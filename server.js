@@ -8657,6 +8657,108 @@ function renderPage() {
       renderTextPreview(filename, content, null, false, lang, 'csv');
     }
 
+    function openHexViewer(filename, base64Content) {
+      var modalBody = document.getElementById('modalBody');
+      document.getElementById('modalTitle').textContent = '🔣 Hex: ' + escapeHtmlClient(filename);
+      var previewModal = document.getElementById('modal');
+      var actions = previewModal ? previewModal.querySelector('.modal-actions') : null;
+
+      // File signature detection
+      var signatures = {
+        '89504e47': 'PNG Image',
+        'ffd8ff': 'JPEG Image',
+        '25504446': 'PDF Document',
+        '504b0304': 'ZIP Archive',
+        '52617221': 'RAR Archive',
+        '7f454c46': 'ELF Executable',
+        '4d5a': 'Windows EXE/DLL',
+        'cf fa ed fe': 'macOS Mach-O',
+        '1f8b': 'GZIP Archive',
+        '424d': 'BMP Image',
+        '49492a00': 'TIFF Image (little-endian)',
+        '4d4d002a': 'TIFF Image (big-endian)',
+      };
+      var firstBytes = base64Content.slice(0, 8);
+      var sigDesc = '';
+      for (var sig in signatures) {
+        if (firstBytes.startsWith(sig)) { sigDesc = signatures[sig]; break; }
+      }
+      var sigNote = sigDesc ? '<div style="margin-bottom:10px;padding:6px 10px;background:var(--bg-tertiary);border-radius:6px;font-size:12px;color:var(--accent)">📄 文件签名: ' + sigDesc + '</div>' : '';
+
+      try {
+        var binaryStr = atob(base64Content);
+        var byteArray = new Uint8Array(binaryStr.length);
+        for (var i = 0; i < binaryStr.length; i++) byteArray[i] = binaryStr.charCodeAt(i);
+      } catch(e) {
+        modalBody.innerHTML = '<p class="muted">无法解码文件内容: ' + escapeHtmlClient(e.message) + '</p>';
+        return;
+      }
+
+      var maxBytes = Math.min(byteArray.length, 8192); // cap at 8KB display
+      var totalBytes = byteArray.length;
+      var pageSize = 256;
+      var currentPage = 0;
+      var maxPage = Math.ceil(maxBytes / pageSize) - 1;
+
+      var asciiMap = [];
+      for (var j = 0; j < 256; j++) {
+        if (j >= 32 && j <= 126) asciiMap[j] = String.fromCharCode(j);
+        else asciiMap[j] = '.';
+      }
+
+      function renderPage(page) {
+        var start = page * pageSize;
+        var end = Math.min(start + pageSize, maxBytes);
+        var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+        html += '<div style="font-size:12px;color:var(--muted)">显示前 ' + maxBytes + ' / ' + totalBytes + ' 字节</div>';
+        html += '<div style="display:flex;gap:6px;align-items:center">';
+        html += '<button onclick="hexViewerPage(' + (page - 1) + ')" ' + (page === 0 ? 'disabled' : '') + ' style="padding:4px 10px;border-radius:6px;cursor:pointer;background:var(--bg-secondary);border:1px solid var(--line);color:var(--text)">◀</button>';
+        html += '<span style="font-size:12px;color:var(--muted)">' + (page + 1) + ' / ' + (maxPage + 1) + '</span>';
+        html += '<button onclick="hexViewerPage(' + (page + 1) + ')" ' + (page >= maxPage ? 'disabled' : '') + ' style="padding:4px 10px;border-radius:6px;cursor:pointer;background:var(--bg-secondary);border:1px solid var(--line);color:var(--text)">▶</button>';
+        html += '</div></div>';
+        html += sigNote;
+        html += '<div id="hexDump" style="font-family:monospace;font-size:11px;background:var(--bg-tertiary);border-radius:8px;padding:12px;max-height:58vh;overflow:auto;line-height:1.8;white-space:pre">';
+        for (var k = start; k < end; k += 16) {
+          var hexRow = '';
+          var asciiRow = '';
+          for (var m = 0; m < 16; m++) {
+            var idx = k + m;
+            if (idx < end) {
+              var b = byteArray[idx];
+              hexRow += b.toString(16).padStart(2, '0').toUpperCase() + ' ';
+              asciiRow += asciiMap[b];
+            } else {
+              hexRow += '   ';
+              asciiRow += ' ';
+            }
+            if (m === 7) hexRow += ' ';
+          }
+          html += '<span style="color:var(--accent)">' + k.toString(16).padStart(8, '0').toUpperCase() + '</span>  ';
+          html += '<span style="color:var(--text-secondary)">' + hexRow + '</span> ';
+          html += '<span style="color:#10b981">' + escapeHtmlClient(asciiRow) + '</span>\n';
+        }
+        html += '</div>';
+        return html;
+      }
+
+      window._hexData = { byteArray: byteArray, maxBytes: maxBytes, totalBytes: totalBytes, pageSize: pageSize, maxPage: maxPage };
+      window._hexFilename = filename;
+
+      window.hexViewerPage = function(page) {
+        if (!document.getElementById('hexDump')) return;
+        document.getElementById('hexDump').parentElement.innerHTML = renderPage(page);
+      };
+
+      modalBody.innerHTML = renderPage(0);
+
+      if (actions) {
+        actions.innerHTML =
+          '<button class="secondary" onclick="previewFile(' + JSON.stringify(filename) + ');forceCloseModal()">← 预览</button>' +
+          '<button class="secondary" onclick="downloadFile(' + JSON.stringify(filename) + ')">下载</button>' +
+          '<button class="primary" onclick="downloadFile(' + JSON.stringify(filename) + ')">下载</button>';
+      }
+    }
+
     function switchToEditMode(filename) {
       var content = window._previewContent || '';
       var modalBody = document.getElementById('modalBody');

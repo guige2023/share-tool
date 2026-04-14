@@ -1713,6 +1713,32 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/request-links/:code/files - list files uploaded via a request link
+  if (pathname.match(/^\/api\/request-links\/[^/]+\/files$/) && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const code = pathname.split('/')[3];
+    const rl = db.getRequestLinkByCode(code);
+    if (!rl) { sendJson(res, { success: false, error: 'Request link not found' }, 404); return true; }
+    const files = db.getRequestLinkFiles(rl.id);
+    sendJson(res, { success: true, files });
+    return true;
+  }
+
+  // DELETE /api/request-links/:code/files/:fileId - delete a file from a request link
+  if (pathname.match(/^\/api\/request-links\/[^/]+\/files\/[0-9]+$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const parts = pathname.split('/');
+    const code = parts[3];
+    const fileId = parseInt(parts[5], 10);
+    const rl = db.getRequestLinkByCode(code);
+    if (!rl) { sendJson(res, { success: false, error: 'Request link not found' }, 404); return true; }
+    const ok = db.deleteRequestLinkFile(rl.id, fileId);
+    sendJson(res, { success: ok });
+    return true;
+  }
+
   // DELETE /api/request-links/:code - delete a request link
   if (pathname.match(/^\/api\/request-links\/[^/]+$/) && method === 'DELETE') {
     const auth = authRequired(req, res);
