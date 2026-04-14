@@ -2098,7 +2098,10 @@ function findDuplicates() {
   const db = getDb();
   // 找 hash 出现2次以上的文件（忽略 null hash）
   const dupes = db.prepare(`
-    SELECT hash, COUNT(*) as count, GROUP_CONCAT(filename, '|||') as filenames, GROUP_CONCAT(id, '|||') as ids
+    SELECT hash, COUNT(*) as count,
+      GROUP_CONCAT(filename, '|||') as filenames,
+      GROUP_CONCAT(id, '|||') as ids,
+      GROUP_CONCAT(COALESCE(size, 0), '|||') as sizes
     FROM files
     WHERE hash IS NOT NULL AND hash != ''
     GROUP BY hash
@@ -2109,10 +2112,14 @@ function findDuplicates() {
   return dupes.map(row => {
     const filenames = row.filenames.split('|||');
     const ids = row.ids.split('|||');
+    const sizes = (row.sizes || '').split('|||').map(Number);
+    const totalSize = sizes.reduce((a, b) => a + b, 0);
     return {
       hash: row.hash,
       count: row.count,
-      files: filenames.map((filename, i) => ({ id: parseInt(ids[i]), filename }))
+      totalSize,
+      wastedSpace: totalSize - (sizes[0] || 0),
+      files: filenames.map((filename, i) => ({ id: parseInt(ids[i]), filename, size: sizes[i] || 0 }))
     };
   });
 }
