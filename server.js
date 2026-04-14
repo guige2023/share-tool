@@ -1983,21 +1983,29 @@ function renderPage() {
     async function batchDeleteSelectedFiles() {
       if (selectedFileIds.size === 0) return;
       if (!confirm('确认删除 ' + selectedFileIds.size + ' 个文件？')) return;
-      var ids = Array.from(selectedFileIds);
       var btn = event.target;
       if (btn) { btn.disabled = true; }
       try {
-        var ok = true;
-        for (var i = 0; i < ids.length; i++) {
-          var res = await fetch('/api/files/' + ids[i], { method: 'DELETE', headers: headers() });
-          if (!res.ok) ok = false;
+        var filenames = [];
+        for (var i = 0; i < window._currentFiles.length; i++) {
+          var f = window._currentFiles[i];
+          if (selectedFileIds.has(String(f.id)) || selectedFileIds.has(f.id)) {
+            filenames.push(f.filename);
+          }
         }
-        if (ok) {
-          showToast('已删除 ' + ids.length + ' 个文件', 'success');
+        if (!filenames.length) { showToast('未找到文件', 'error'); return; }
+        var res = await fetch('/api/files/batch-delete', {
+          method: 'POST',
+          headers: Object.assign(headers(), { 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ filenames: filenames })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已删除 ' + (data.deleted || filenames.length) + ' 个文件', 'success');
           clearFileSelection();
           loadFiles();
         } else {
-          showToast('部分文件删除失败', 'error');
+          showToast(data.error || '删除失败', 'error');
         }
       } finally {
         if (btn) { btn.disabled = false; }
@@ -2011,22 +2019,26 @@ function renderPage() {
       var btn = event.target;
       if (btn) { btn.disabled = true; }
       try {
-        var ids = Array.from(selectedFileIds);
-        var ok = true;
-        for (var i = 0; i < ids.length; i++) {
-          var res = await fetch('/api/files/' + ids[i], {
-            method: 'PATCH',
-            headers: Object.assign(headers(), { 'Content-Type': 'application/json' }),
-            body: JSON.stringify({ virtual_folder: vf })
-          });
-          if (!res.ok) ok = false;
+        var filenames = [];
+        for (var i = 0; i < window._currentFiles.length; i++) {
+          var f = window._currentFiles[i];
+          if (selectedFileIds.has(String(f.id)) || selectedFileIds.has(f.id)) {
+            filenames.push(f.filename);
+          }
         }
-        if (ok) {
-          showToast('已移动 ' + ids.length + ' 个文件到 ' + vf, 'success');
+        if (!filenames.length) { showToast('未找到文件', 'error'); return; }
+        var res = await fetch('/api/files/batch-move', {
+          method: 'POST',
+          headers: Object.assign(headers(), { 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ filenames: filenames, destFolder: vf })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已移动 ' + filenames.length + ' 个文件到 ' + vf, 'success');
           clearFileSelection();
           loadFiles();
         } else {
-          showToast('部分文件移动失败', 'error');
+          showToast(data.error || '移动失败', 'error');
         }
       } finally {
         if (btn) { btn.disabled = false; }
@@ -3167,6 +3179,8 @@ function renderPage() {
         currentFiles = incoming;
       }
       currentOffset = currentFiles.length;
+      // Expose raw file list for batch operations (ID→filename lookup)
+      window._currentFiles = currentFiles;
       // Update image gallery file list for prev/next navigation
       setGalleryFiles(currentFiles.filter(function(f) { return (f.content_type || f.mime || '').startsWith('image/'); }));
       const tagColorMap = {};
@@ -6765,6 +6779,28 @@ function renderPage() {
             '<button id="viewListBtn2" class="' + (savedView === 'list' ? 'primary' : 'secondary') + '" onclick="setDefaultView(\'list\')">☰ ' + (i18n.listView || '列表视图') + '</button>' +
             '<button id="viewGridBtn2" class="' + (savedView === 'grid' ? 'primary' : 'secondary') + '" onclick="setDefaultView(\'grid\')">⊞ ' + (i18n.gridView || '网格视图') + '</button>' +
           '</div>' +
+        '</div>' +
+
+        // Default sort
+        '<div>' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">默认排序</label>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+            '<button class="secondary" style="font-size:12px;padding:5px 10px" onclick="setDefaultSort(\'filename\',\'asc\')">名称 ↑</button>' +
+            '<button class="secondary" style="font-size:12px;padding:5px 10px" onclick="setDefaultSort(\'filename\',\'desc\')">名称 ↓</button>' +
+            '<button class="secondary" style="font-size:12px;padding:5px 10px" onclick="setDefaultSort(\'size\',\'desc\')">大小 ↓</button>' +
+            '<button class="secondary" style="font-size:12px;padding:5px 10px" onclick="setDefaultSort(\'updated_at\',\'desc\')">更新时间 ↓</button>' +
+            '<button class="secondary" style="font-size:12px;padding:5px 10px" onclick="setDefaultSort(\'created_at\',\'desc\')">创建时间 ↓</button>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted);margin-top:6px">当前: <span id="settingsCurrentSort"></span></div>' +
+        '</div>' +
+
+        // Confirm before delete
+        '<div>' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">安全确认</label>' +
+          '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">' +
+            '<input type="checkbox" id="settingsConfirmDelete" onchange="setConfirmDelete(this.checked)" style="width:16px;height:16px">' +
+            '<span>删除前显示确认对话框</span>' +
+          '</label>' +
         '</div>' +
 
         // Server info
@@ -10593,6 +10629,10 @@ function renderPage() {
                     deviceName: navigator.userAgent.slice(0, 50)
                   }
                 }));
+                // Pull any missed changes since last sync on reconnect
+                if (lastSyncTs > 0) {
+                  ws.send(JSON.stringify({ type: 'sync_request', payload: { since: Math.floor(lastSyncTs / 1000) } }));
+                }
               };
 
               ws.onmessage = function(ev) {
@@ -10644,6 +10684,51 @@ function renderPage() {
                     // Devices changed — no UI needed yet
                   } else if (msg.type === 'pong') {
                     // Keepalive response
+                  } else if (msg.type === 'sync_response') {
+                    // Server pushed changes in response to our sync_request or sync_nudge
+                    var syncLogs = (msg.payload && msg.payload.logs) || [];
+                    if (syncLogs.length > 0) {
+                      // Apply changes locally and mark synced
+                      var idsToMark = [];
+                      (function processNext(i) {
+                        if (i >= syncLogs.length) {
+                          // All processed: mark synced and update timestamp
+                          if (idsToMark.length > 0) {
+                            fetch('/api/sync/mark', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json', ...headers() },
+                              body: JSON.stringify({ ids: idsToMark })
+                            }).catch(function() {});
+                          }
+                          lastSyncTs = Date.now();
+                          localStorage.setItem('ws_lastSync', lastSyncTs);
+                          return;
+                        }
+                        var log = syncLogs[i];
+                        if (log.action === 'create' || log.action === 'update') {
+                          if (log.filename && log.content !== undefined) {
+                            var formData = new FormData();
+                            formData.append('file', new Blob([log.content || ''], { type: 'text/plain' }), log.filename);
+                            fetch('/api/upload', { method: 'POST', headers: headers(), body: formData })
+                              .then(function(r) { return r.json(); })
+                              .then(function(data) {
+                                if (data.id) idsToMark.push(log.id);
+                                processNext(i + 1);
+                              }).catch(function() { processNext(i + 1); });
+                          } else {
+                            processNext(i + 1);
+                          }
+                        } else if (log.action === 'delete' && log.filename) {
+                          fetch('/api/files/' + encodeURIComponent(log.filename), { method: 'DELETE', headers: headers() })
+                            .then(function() { processNext(i + 1); }).catch(function() { processNext(i + 1); });
+                        } else if (log.action === 'rename' && log.filename) {
+                          processNext(i + 1);
+                        } else {
+                          idsToMark.push(log.id);
+                          processNext(i + 1);
+                        }
+                      })(0);
+                    }
                   }
                 } catch(e) {}
               };
