@@ -2074,6 +2074,16 @@ function findDuplicates() {
   });
 }
 
+function getRecentFiles(limit = 100) {
+  const db = getDb();
+  const safeLimit = Math.min(Math.max(1, parseInt(limit) || 100), 500);
+  return db.prepare(`
+    SELECT ${FILE_LIST_FIELDS} FROM files
+    ORDER BY updated_at DESC
+    LIMIT ?
+  `).all(safeLimit);
+}
+
 function getFilesByHashSince(hash, timestamp) {
   const db = getDb();
   return db.prepare(`
@@ -2146,11 +2156,20 @@ function getStorageStats() {
     FROM files
   `).get();
 
+  const topFiles = db.prepare(`
+    SELECT id, filename, size, content_type, virtual_folder
+    FROM files
+    WHERE deleted = 0
+    ORDER BY size DESC
+    LIMIT 5
+  `).all();
+
   return {
     totalFiles: totals.totalFiles || 0,
     totalSize: totals.totalSize || 0,
     byType,
     byDay,
+    topFiles,
     sizeRanges: [
       { label: '< 1MB',   count: sr.lt_1mb_count || 0,       size: sr.lt_1mb_size || 0 },
       { label: '1-10MB',  count: sr.sz_1_10mb_count || 0,     size: sr.sz_1_10mb_size || 0 },
@@ -4164,7 +4183,7 @@ module.exports = {
   deleteFile, deleteFileByName, deleteFiles, renameFile, batchRenameFiles, parseRenamePattern, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
   setFilePositions,
-  searchFiles, searchFilesFTS, getFilesByHashSince, getFileCount, getTotalStorageSize, getStorageStats, getFolderSize, getAllFolderSizes, findDuplicates,
+  searchFiles, searchFilesFTS, getFilesByHashSince, getFileCount, getTotalStorageSize, getStorageStats, getFolderSize, getAllFolderSizes, findDuplicates, getRecentFiles,
   // 设备
   registerDevice, getDevice, listDevices, setDeviceOffline, setDeviceOnline,
   touchDevice, getOnlineDevices, deleteDevice, cleanupStaleDevices,

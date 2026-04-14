@@ -1217,6 +1217,16 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/recent-files - list recently updated files
+  if (pathname === '/api/recent-files' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const limit = parseInt(query.get('limit')) || 100;
+    const files = db.getRecentFiles(limit);
+    sendJson(res, { success: true, files });
+    return true;
+  }
+
   // ── Request Links (文件收集链接) ───────────────────────────────────────────
   // POST /api/request-links - create a new request link
   if (pathname === '/api/request-links' && method === 'POST') {

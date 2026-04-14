@@ -2116,28 +2116,137 @@ function renderPage() {
       }).catch(function () { showToast('删除失败', 'error'); });
     }
 
-    async function batchCopyShareLinks() {
-      const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
+    // ── Batch Create Share Links ─────────────────────────────────────────────
+
+    function openBatchCreateShareModal() {
+      var names = checkedNames().map(function(n) { return decodeURIComponent(n); });
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
-      var links = [];
+      var count = names.length;
+      var modal = document.createElement('div');
+      modal.id = 'batchShareCreateModal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:520px;font-size:14px;max-height:90vh;overflow-y:auto">\
+          <h3 style="margin:0 0 4px">🔗 批量创建分享链接</h3>\
+          <p style="margin:0 0 16px;font-size:12px;color:var(--muted)">为 <strong>' + count + '</strong> 个文件创建分享链接</p>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">到期时间</label>\
+            <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">\
+              <button onclick="setBscExpiry(7)" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--text)">7天</button>\
+              <button onclick="setBscExpiry(30)" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--text)">30天</button>\
+              <button onclick="setBscExpiry(90)" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--text)">90天</button>\
+              <button onclick="setBscExpiry(365)" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--text)">1年</button>\
+              <button onclick="clearBscExpiry()" style="padding:4px 10px;font-size:12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--muted)">永不过期</button>\
+            </div>\
+            <input id="bscExpiry" type="datetime-local" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">密码保护</label>\
+            <input id="bscPwd" type="text" placeholder="留空表示无密码" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="margin-bottom:16px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">下载次数限制</label>\
+            <input id="bscMaxDl" type="number" min="0" placeholder="不限制" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:16px">\
+            <button class="secondary" onclick="document.getElementById(\'batchShareCreateModal\').remove()">取消</button>\
+            <button id="bscCreateBtn" onclick="confirmBatchCreateShare()">创建 ' + count + ' 个链接</button>\
+          </div>\
+          <div id="batchShareResults" style="display:none"></div>\
+        </div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+    }
+
+    function setBscExpiry(days) {
+      var input = document.getElementById('bscExpiry');
+      if (!input) return;
+      var d = new Date(Date.now() + days * 86400000);
+      input.value = d.toISOString().slice(0, 16);
+    }
+
+    function clearBscExpiry() {
+      var input = document.getElementById('bscExpiry');
+      if (input) input.value = '';
+    }
+
+    async function confirmBatchCreateShare() {
+      var names = checkedNames().map(function(n) { return decodeURIComponent(n); });
+      if (!names.length) return;
+      var btn = document.getElementById('bscCreateBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '创建中...'; }
+      var expiryInput = document.getElementById('bscExpiry');
+      var pwdInput = document.getElementById('bscPwd');
+      var maxDlInput = document.getElementById('bscMaxDl');
+      var expiresTs = expiryInput && expiryInput.value ? Math.floor(new Date(expiryInput.value).getTime() / 1000) : null;
+      var pwd = pwdInput && pwdInput.value.trim() ? pwdInput.value.trim() : null;
+      var maxDl = maxDlInput && maxDlInput.value ? parseInt(maxDlInput.value, 10) : null;
+      var results = [];
+      var failed = 0;
       for (var i = 0; i < names.length; i++) {
         try {
+          var body = { filename: names[i] };
+          if (expiresTs !== null) body.customExpiry = expiresTs * 1000;
+          if (pwd !== null) body.password = pwd;
+          if (maxDl !== null) body.maxDownloads = maxDl;
           var resp = await fetch('/api/share/create', {
             method: 'POST', headers: headers(),
-            body: JSON.stringify({ filename: names[i], expires: 7 * 86400 })
+            body: JSON.stringify(body)
           });
-          if (resp.ok) {
-            var data = await resp.json();
-            if (data.success && data.share && data.share.url) links.push(data.share.url);
+          var data = await resp.json();
+          if (data.success && data.share) {
+            results.push({ filename: names[i], url: data.share.url, code: data.share.code });
+          } else {
+            failed++;
+            results.push({ filename: names[i], error: data.error || '创建失败' });
           }
-        } catch(e) {}
+        } catch(e) { failed++; results.push({ filename: names[i], error: '网络错误' }); }
       }
-      if (links.length) {
-        showToast('已复制 ' + links.length + ' 个分享链接', 'success');
-        if (navigator.clipboard) navigator.clipboard.writeText(links.join('\n'));
-      } else {
-        showToast('创建链接失败', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '创建 ' + names.length + ' 个链接'; }
+      var container = document.getElementById('batchShareResults');
+      if (!container) return;
+      container.style.display = 'block';
+      var ok = results.filter(function(r) { return !r.error; });
+      var fail = failed;
+      var html = '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">';
+      html += '<span style="color:var(--success)">✅ 成功: ' + ok.length + '</span>';
+      if (fail > 0) html += ' · <span style="color:var(--error)">失败: ' + fail + '</span>';
+      html += '</div>';
+      if (ok.length) {
+        html += '<div style="margin-bottom:8px"><button onclick="copyAllBscLinks()" style="padding:5px 12px;font-size:12px;background:var(--accent);border:none;border-radius:6px;cursor:pointer;color:#fff">📋 复制全部链接</button></div>';
       }
+      html += '<div style="max-height:260px;overflow-y:auto">';
+      results.forEach(function(r) {
+        if (r.error) {
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:4px;opacity:0.7">';
+          html += '<span style="color:var(--error);font-size:12px">❌</span>';
+          html += '<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(r.filename) + '">' + escapeHtmlClient(r.filename) + '</span>';
+          html += '<span style="font-size:11px;color:var(--error)">' + escapeHtmlClient(r.error) + '</span>';
+          html += '</div>';
+        } else {
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);border-radius:6px;margin-bottom:4px">';
+          html += '<span style="color:var(--success);font-size:12px">✅</span>';
+          html += '<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(r.filename) + '">' + escapeHtmlClient(r.filename) + '</span>';
+          html += '<button onclick="copyBscLink(\'' + escapeHtmlClient(r.url).replace(/'/g, "\\'") + '\')" style="padding:3px 8px;font-size:11px;background:var(--accent);border:none;border-radius:5px;cursor:pointer;color:#fff;flex-shrink:0">复制</button>';
+          html += '</div>';
+        }
+      });
+      html += '</div>';
+      html += '<div style="margin-top:10px;display:flex;justify-content:flex-end"><button class="secondary" onclick="document.getElementById(\'batchShareCreateModal\').remove()" style="font-size:12px">关闭</button></div>';
+      container.innerHTML = html;
+      window._bscUrls = ok.map(function(r) { return r.url; });
+    }
+
+    function copyBscLink(url) {
+      if (navigator.clipboard) navigator.clipboard.writeText(url);
+      showToast('链接已复制', 'success');
+    }
+
+    function copyAllBscLinks() {
+      var urls = window._bscUrls || [];
+      if (!urls.length) return;
+      if (navigator.clipboard) navigator.clipboard.writeText(urls.join('\n'));
+      showToast('已复制 ' + urls.length + ' 个链接', 'success');
     }
 
     function openBatchMoveModal() {
@@ -7106,8 +7215,27 @@ function renderPage() {
           html += '<div style="margin-bottom:16px">';
           html += '<div style="font-weight:600;margin-bottom:10px;font-size:13px">📐 文件大小分布</div>';
           stats.sizeRanges.forEach(function(r) {
-            html += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--text-secondary)">';
-            html += '<span>' + r.label + '</span><span>' + r.count + '个</span></div>';
+            var sizeStr = r.size > 1024 * 1024 * 1024 ? (Math.round(r.size / 1024 / 1024 / 1024 * 10) / 10 + ' GB') : r.size > 1024 * 1024 ? (Math.round(r.size / 1024 / 1024) + ' MB') : (Math.round(r.size / 1024) + ' KB');
+            html += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;color:var(--text-secondary);border-bottom:1px solid var(--line)">';
+            html += '<span>' + r.label + '</span><span style="color:var(--muted)">' + r.count + '个 · ' + sizeStr + '</span></div>';
+          });
+          html += '</div>';
+        }
+
+        // Top 5 largest files
+        if (stats.topFiles && stats.topFiles.length) {
+          html += '<div style="margin-bottom:16px">';
+          html += '<div style="font-weight:600;margin-bottom:10px;font-size:13px">🔍 最大文件 Top5</div>';
+          stats.topFiles.forEach(function(f, i) {
+            var sizeStr = f.size > 1024 * 1024 * 1024 ? (Math.round(f.size / 1024 / 1024 / 1024 * 10) / 10 + ' GB') : f.size > 1024 * 1024 ? (Math.round(f.size / 1024 / 1024) + ' MB') : (Math.round(f.size / 1024) + ' KB');
+            html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">';
+            html += '<span style="color:var(--muted);font-size:12px;width:16px;text-align:center">' + (i + 1) + '</span>';
+            html += '<span style="font-size:16px;flex-shrink:0">' + getFileIcon(f.filename) + '</span>';
+            html += '<div style="flex:1;min-width:0">';
+            html += '<div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(f.filename) + '">' + escapeHtmlClient(f.filename) + '</div>';
+            html += '</div>';
+            html += '<span style="font-size:12px;color:var(--accent);font-weight:600;flex-shrink:0">' + sizeStr + '</span>';
+            html += '</div>';
           });
           html += '</div>';
         }
