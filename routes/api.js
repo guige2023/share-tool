@@ -1260,6 +1260,17 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Share Links Management ───────────────────────────────────────────────
+  // GET /api/share-links - list all share links
+  if (pathname === '/api/share-links' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const db = require('./db');
+    const links = db.listShareLinks();
+    sendJson(res, { success: true, links });
+    return true;
+  }
+
   // ── Notifications ────────────────────────────────────────────────────────
   // GET /api/notifications - list notifications
   if (pathname === '/api/notifications' && method === 'GET') {

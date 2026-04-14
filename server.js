@@ -5303,6 +5303,7 @@ function renderPage() {
         '<td class="actions-cell" data-label="操作">' +
           '<button onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
           '<button class="secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
+          '<button class="secondary" onclick=' + "'" + 'mobileShare(' + JSON.stringify(file.name) + ')' + "'" + '>📱</button>' +
           '<button class="secondary" onclick=' + "'" + 'copyShareLink(' + JSON.stringify(file.name) + ')' + "'" + '>复制链接</button>' +
           '<button class="secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
           '<button class="secondary" onclick=' + "'" + 'renameFile(' + JSON.stringify(file.name) + ')' + "'" + '>重命名</button>' +
@@ -6370,7 +6371,20 @@ function renderPage() {
       switch (action) {
         case 'open': previewFile(filename); break;
         case 'download': downloadFile(filename); break;
-        case 'share': createShare(filename); break;
+        case 'share': {
+          // Use native share on mobile if available, otherwise create a share link
+          if (typeof navigator !== 'undefined' && navigator.share) {
+            var shareUrl = location.origin + '/s/' + filename;
+            if (navigator.canShare && navigator.canShare({ url: shareUrl })) {
+              navigator.share({ title: filename, url: shareUrl }).catch(function(e) { if (e.name !== 'AbortError') createShare(filename); });
+            } else {
+              navigator.share({ title: filename, text: '分享文件: ' + filename, url: shareUrl }).then(function() {}).catch(function(e) { if (e.name !== 'AbortError') createShare(filename); });
+            }
+          } else {
+            createShare(filename);
+          }
+          break;
+        }
         case 'copyLink': await copyShareLink(filename); break;
         case 'copyName': await navigator.clipboard.writeText(filename); showToast('已复制文件名: ' + filename, 'success'); break;
         case 'copyPath': await navigator.clipboard.writeText('/' + filename); showToast('已复制文件路径', 'success'); break;
@@ -8193,6 +8207,15 @@ function renderPage() {
           '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
             '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="openActivityLog()">📊 查看活动日志</button>' +
           '</div>' +
+        '</div>' +
+
+        // Share link manager
+        '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">🔗 分享链接管理</label>' +
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">查看、撤销和批量管理所有分享链接。</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="openShareLinkManager()">🔗 管理分享链接</button>' +
+          '</div>' +
         '</div>';
 
         // Database backup
@@ -8619,6 +8642,72 @@ function renderPage() {
       // Uptime from global if available
       var up = document.getElementById('settingsUptime');
       if (up && typeof _serverUptime !== 'undefined') up.textContent = 'Uptime: ' + _serverUptime;
+    }
+
+    async function openShareLinkManager() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '🔗 分享链接管理';
+      body.innerHTML = '<div id="shareLinkManagerContent" style="padding:8px 0"><div style="text-align:center;color:var(--muted);padding:30px">加载中…</div></div>';
+      modal.classList.add('open');
+      loadShareLinkManager();
+    }
+
+    function loadShareLinkManager() {
+      fetch('/api/share-links', { headers: headers() }).then(function(res) { return res.json(); }).then(function(data) {
+        var el = document.getElementById('shareLinkManagerContent');
+        if (!data.success) { el.innerHTML = '<div style="color:var(--error);padding:12px">加载失败</div>'; return; }
+        var links = data.links || [];
+        if (!links.length) {
+          el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">暂无分享链接</div>';
+          return;
+        }
+        var html = '<div style="display:flex;flex-direction:column;gap:6px">';
+        links.forEach(function(link) {
+          var expired = link.expired;
+          var expStr = link.expires_at > 0 ? new Date(link.expires_at * 1000).toLocaleString('zh-CN') : '永不过期';
+          var expClass = expired ? 'color:var(--error)' : (link.expires_at > 0 && link.expires_at - Date.now()/1000 < 86400*3 ? 'color:var(--warn)' : 'color:var(--muted)');
+          var bgStyle = expired ? 'opacity:0.6' : '';
+          html += '<div style="display:flex;align-items:center;padding:10px 12px;background:var(--bg-secondary);border-radius:8px;gap:10px;' + bgStyle + '">' +
+            '<span style="font-size:18px">' + (link.is_text ? '📝' : getFileIcon(link.filename)) + '</span>' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(link.filename) + '</div>' +
+              '<div style="font-size:11px;color:var(--muted)">' +
+                '<span style="color:var(--accent)">/' + escapeHtmlClient(link.code) + '</span>' +
+                ' · ' + expStr +
+                ' · ' + link.view_count + '次浏览' +
+                (link.max_downloads > 0 ? ' · ' + link.download_count + '/' + link.max_downloads + '次下载' : ' · ' + link.download_count + '次下载') +
+              '</div>' +
+            '</div>' +
+            '<button onclick="copyShareLink(' + JSON.stringify(link.code).replace(/"/g, '&quot;') + ')" style="padding:4px 10px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:12px">复制</button>' +
+            '<button onclick="revokeShareLink(\'' + escapeHtmlClient(link.code) + '\')" style="padding:4px 10px;background:var(--error);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">撤销</button>' +
+          '</div>';
+        });
+        html += '</div>';
+        el.innerHTML = html;
+      }).catch(function(e) {
+        document.getElementById('shareLinkManagerContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      });
+    }
+
+    function copyShareLink(code) {
+      var url = location.origin + '/s/' + code;
+      navigator.clipboard.writeText(url).then(function() { showToast('链接已复制', 'success'); }).catch(function() { showToast('复制失败', 'error'); });
+    }
+
+    async function revokeShareLink(code) {
+      if (!confirm('确认撤销此分享链接？')) return;
+      try {
+        var res = await fetch('/api/share/' + encodeURIComponent(code), { method: 'DELETE', headers: headers() });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已撤销', 'success');
+          loadShareLinkManager();
+        } else {
+          showToast(data.error || '撤销失败', 'error');
+        }
+      } catch(e) { showToast('撤销失败', 'error'); }
     }
 
     async function rotateToken() {
@@ -10391,6 +10480,22 @@ function renderPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+    }
+
+    async function mobileShare(filename) {
+      // Use native Web Share API on mobile, fallback to share link creation
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        var shareUrl = location.origin + '/s/' + encodeURIComponent(filename);
+        var shareApiSupported = typeof navigator.canShare !== 'undefined';
+        if (shareApiSupported && !navigator.canShare({ url: shareUrl })) {
+          // URL share not supported, fall back to text
+          await navigator.share({ title: filename, text: '分享文件: ' + filename + ' ' + shareUrl }).catch(function(e) { if (e.name !== 'AbortError') createShare(filename); });
+        } else {
+          await navigator.share({ title: filename, url: shareUrl }).catch(function(e) { if (e.name !== 'AbortError') createShare(filename); });
+        }
+      } else {
+        createShare(filename);
+      }
     }
 
     async function createShare(filename) {
