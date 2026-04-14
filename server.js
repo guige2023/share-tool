@@ -6597,6 +6597,14 @@ function renderPage() {
 
         const f = data.file;
         const s = data.stats;
+
+        // Load notes separately
+        var fileNotes = '';
+        try {
+          const notesRes = await fetch('/api/file-notes/' + encoded, { headers: headers() });
+          const notesData = await notesRes.json();
+          if (notesData && notesData.success) fileNotes = notesData.notes || '';
+        } catch (_) {}
         const fmtSize = formatSize ? formatSize(f.size) : (f.size || 0) + ' B';
         const fmtDate = ts => ts ? new Date(ts).toLocaleString('zh-CN') : '--';
         const fmtTs = ts => ts ? new Date(ts).toLocaleString('zh-CN') : '--';
@@ -6679,6 +6687,29 @@ function renderPage() {
                 '</div>' +
               '</div>' +
             '</div>' +
+            // 备注
+            '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+                '<div style="font-size:12px;color:var(--text-muted)">备注</div>' +
+                '<div id="infoNotesSaveStatus" style="font-size:11px;color:var(--muted)"></div>' +
+              '</div>' +
+              '<div id="infoNotesDisplay" style="font-size:13px;min-height:40px;padding:8px;background:var(--bg);border-radius:8px;border:1px solid var(--line);cursor:pointer;white-space:pre-wrap;word-break:break-word" onclick="startInfoNotesEdit()">' +
+                (fileNotes
+                  ? '<span id="infoNotesText">' + escapeHtmlClient(fileNotes) + '</span>'
+                  : '<span id="infoNotesText" style="color:var(--text-muted);font-style:italic">点击添加备注...</span>') +
+              '</div>' +
+              '<div id="infoNotesEdit" style="display:none">' +
+                '<textarea id="infoNotesInput" rows="3" ' +
+                  'placeholder="输入备注内容..." ' +
+                  'style="width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;resize:vertical;font-family:inherit;margin-bottom:6px"></textarea> ' +
+                '<div style="display:flex;gap:6px">' +
+                  '<button onclick="saveInfoNotes()" ' +
+                    'style="background:var(--accent);border:none;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;color:#fff">保存</button>' +
+                  '<button onclick="cancelInfoNotesEdit()" ' +
+                    'style="background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer">取消</button>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
             // 访问统计
             '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
               '<div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">统计（近7天）</div>' +
@@ -6732,6 +6763,60 @@ function renderPage() {
     function cancelInfoPanelTags() {
       document.getElementById('infoTagsDisplay').style.display = 'block';
       document.getElementById('infoTagsEdit').style.display = 'none';
+    }
+
+    function startInfoNotesEdit() {
+      var notesText = document.getElementById('infoNotesText');
+      var currentNotes = (notesText && notesText.style.fontStyle !== 'italic') ? notesText.textContent : '';
+      document.getElementById('infoNotesDisplay').style.display = 'none';
+      var editDiv = document.getElementById('infoNotesEdit');
+      editDiv.style.display = 'block';
+      var textarea = document.getElementById('infoNotesInput');
+      textarea.value = currentNotes;
+      textarea.focus();
+    }
+
+    function cancelInfoNotesEdit() {
+      document.getElementById('infoNotesEdit').style.display = 'none';
+      document.getElementById('infoNotesDisplay').style.display = 'block';
+    }
+
+    async function saveInfoNotes() {
+      var textarea = document.getElementById('infoNotesInput');
+      var notes = textarea.value;
+      var filename = window._infoOriginalFilename;
+      var status = document.getElementById('infoNotesSaveStatus');
+      if (status) { status.textContent = '保存中...'; status.style.color = 'var(--muted)'; }
+      try {
+        var res = await fetch('/api/file-notes/' + encodeURIComponent(filename), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...headers() },
+          body: JSON.stringify({ notes: notes })
+        });
+        var data = await res.json();
+        if (data && data.success) {
+          var display = document.getElementById('infoNotesDisplay');
+          var textEl = document.getElementById('infoNotesText');
+          if (textEl) {
+            if (notes.trim()) {
+              textEl.textContent = notes;
+              textEl.style.fontStyle = 'normal';
+              textEl.style.color = 'var(--text)';
+            } else {
+              textEl.textContent = '点击添加备注...';
+              textEl.style.fontStyle = 'italic';
+              textEl.style.color = 'var(--text-muted)';
+            }
+          }
+          document.getElementById('infoNotesEdit').style.display = 'none';
+          display.style.display = 'block';
+          if (status) { status.textContent = '已保存'; status.style.color = 'var(--success)'; setTimeout(function() { if (status) status.textContent = ''; }, 2000); }
+        } else {
+          if (status) { status.textContent = '保存失败'; status.style.color = 'var(--error)'; }
+        }
+      } catch(e) {
+        if (status) { status.textContent = '保存失败'; status.style.color = 'var(--error)'; }
+      }
     }
 
     async function toggleFileStarred(filename, willStar) {
@@ -8803,15 +8888,21 @@ function renderPage() {
     async function confirmCleanupOrphans() {
       const section = document.getElementById('orphanTagSection');
       if (!section) return;
-      if (!confirm('确定删除所有孤立标签？此操作不可撤销。')) return;
-      const res = await fetch('/api/tags/orphans', { method: 'DELETE', headers: headers() });
-      const data = await res.json();
-      if (data.success) {
-        showToast('已清理 ' + data.deleted + ' 个孤立标签', 'success');
-        openTagManager();
-      } else {
-        showToast('清理失败: ' + (data.error || '未知错误'), 'error');
-      }
+      openConfirmModal({
+        title: '确定删除所有孤立标签？',
+        text: '此操作不可撤销。',
+        danger: true,
+        onConfirm: async function() {
+          const res = await fetch('/api/tags/orphans', { method: 'DELETE', headers: headers() });
+          const data = await res.json();
+          if (data.success) {
+            showToast('已清理 ' + data.deleted + ' 个孤立标签', 'success');
+            openTagManager();
+          } else {
+            showToast('清理失败: ' + (data.error || '未知错误'), 'error');
+          }
+        }
+      });
     }
 
     async function createNewTag() {
