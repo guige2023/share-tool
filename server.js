@@ -6522,11 +6522,60 @@ function renderPage() {
       }
     }
 
+    window.startInfoRename = function() {
+      var disp = document.getElementById('infoFilenameDisplay');
+      var edit = document.getElementById('infoFilenameEdit');
+      if (!disp || !edit) return;
+      disp.style.display = 'none';
+      edit.style.display = 'block';
+      var inp = document.getElementById('infoFilenameInput');
+      if (inp) { inp.focus(); inp.select(); }
+    };
+
+    window.saveInfoRename = async function() {
+      var inp = document.getElementById('infoFilenameInput');
+      if (!inp) return;
+      var newName = inp.value.trim();
+      if (!newName || newName === window._infoOriginalFilename) {
+        cancelInfoRename();
+        return;
+      }
+      var btn = document.getElementById('infoRenameBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+      try {
+        var res = await fetch('/api/file-rename/' + encodeURIComponent(window._infoOriginalFilename), {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ newFilename: newName })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已重命名为: ' + newName, 'success');
+          closeModal();
+          loadFiles();
+        } else {
+          showToast(data.error || '重命名失败', 'error');
+          if (btn) { btn.disabled = false; btn.textContent = '保存'; }
+        }
+      } catch (e) {
+        showToast('重命名失败: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '保存'; }
+      }
+    };
+
+    window.cancelInfoRename = function() {
+      var disp = document.getElementById('infoFilenameDisplay');
+      var edit = document.getElementById('infoFilenameEdit');
+      if (disp) disp.style.display = 'flex';
+      if (edit) edit.style.display = 'none';
+    };
+
     async function showFileInfo(filename) {
       const modalBody = document.getElementById('modalBody');
       document.getElementById('modalTitle').textContent = '文件属性: ' + escapeHtmlClient(filename);
       modalBody.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
       document.getElementById('modal').classList.add('open');
+      window._infoOriginalFilename = filename;
 
       // Ensure tag definitions are loaded for colored chip display
       if (!window._folderTagDefinitions) {
@@ -6584,7 +6633,16 @@ function renderPage() {
             '<div style="background:var(--bg-secondary);border-radius:12px;padding:16px">' +
               '<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">基本信息</div>' +
               '<div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center">' +
-                '<div style="color:var(--text-muted)">文件名</div><div style="word-break:break-all;font-weight:500">' + escapeHtmlClient(f.name) + '</div>' +
+                '<div style="color:var(--text-muted)">文件名</div>' +
+                '<div id="infoFilenameDisplay" style="word-break:break-all;font-weight:500;display:flex;align-items:center;gap:6px">' +
+                  '<span id="infoFilenameText">' + escapeHtmlClient(f.name) + '</span>' +
+                  '<button onclick="startInfoRename()" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--muted);padding:0" title="重命名">✏️</button>' +
+                '</div>' +
+                '<div id="infoFilenameEdit" style="word-break:break-all;font-weight:500;display:none;grid-column:2">' +
+                  '<input id="infoFilenameInput" value="' + escapeHtmlClient(f.name) + '" ' +
+                    'style="width:100%;padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:13px;box-sizing:border-box" ' +
+                    'onkeydown="if(event.key===\'Enter\')saveInfoRename();if(event.key===\'Escape\')cancelInfoRename()">' +
+                '</div>' +
                 '<div style="color:var(--text-muted)">类型</div><div>' + escapeHtmlClient(f.type || 'file') + '</div>' +
                 '<div style="color:var(--text-muted)">大小</div><div>' + fmtSize + '</div>' +
                 '<div style="color:var(--text-muted)">MIME</div><div style="font-family:monospace;font-size:12px;word-break:break-all">' + escapeHtmlClient(f.contentType || '--') + '</div>' +
@@ -10177,6 +10235,76 @@ function renderPage() {
       } else {
         showToast('续期失败: ' + (data && data.error || '未知错误'), 'error');
       }
+    }
+
+    async function openShareDetailModal(code) {
+      var share = currentShares.find(function(s) { return s.code === code; });
+      if (!share) return;
+      var expireText = share.expiresAt ? formatTime(share.expiresAt) : '永不过期';
+      var expiresIn = share.expiresAt ? Math.ceil((share.expiresAt - Date.now()) / 86400000) : null;
+      var createdText = share.createdAt ? formatTime(share.createdAt) : '—';
+      var expiryInfo = '永不过期';
+      if (share.expiresAt) {
+        var days = Math.ceil((share.expiresAt - Date.now()) / 86400000);
+        if (days > 0) expiryInfo = '还有 ' + days + ' 天';
+        else if (days === 0) expiryInfo = '今天过期';
+        else expiryInfo = '已过期 ' + Math.abs(days) + ' 天';
+      }
+      var stats = '\
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">\
+          <div style="background:var(--bg-tertiary);border-radius:10px;padding:14px;text-align:center">\
+            <div style="font-size:24px;font-weight:700;color:var(--accent)">' + (share.viewCount || 0) + '</div>\
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">浏览</div>\
+          </div>\
+          <div style="background:var(--bg-tertiary);border-radius:10px;padding:14px;text-align:center">\
+            <div style="font-size:24px;font-weight:700;color:var(--accent)">' + (share.downloadCount || 0) + '</div>\
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">下载</div>\
+          </div>\
+          <div style="background:var(--bg-tertiary);border-radius:10px;padding:14px;text-align:center">\
+            <div style="font-size:24px;font-weight:700">' + (share.maxDownloads ? share.maxDownloads : '∞') + '</div>\
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">最大下载</div>\
+          </div>\
+          <div style="background:var(--bg-tertiary);border-radius:10px;padding:14px;text-align:center">\
+            <div style="font-size:14px;font-weight:700">' + expiryInfo + '</div>\
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">到期时间</div>\
+          </div>\
+        </div>';
+      var infoRows = '\
+        <table style="width:100%;font-size:13px;border-collapse:collapse">\
+          <tr style="border-bottom:1px solid var(--line)">\
+            <td style="padding:7px 4px;color:var(--muted);width:90px">文件名</td>\
+            <td style="padding:7px 4px;font-weight:500;word-break:break-all">' + escapeHtmlClient(share.filename) + '</td>\
+          </tr>\
+          <tr style="border-bottom:1px solid var(--line)">\
+            <td style="padding:7px 4px;color:var(--muted)">分享码</td>\
+            <td style="padding:7px 4px;font-family:monospace;font-size:12px;color:var(--accent)">' + escapeHtmlClient(share.code) + '</td>\
+          </tr>\
+          <tr style="border-bottom:1px solid var(--line)">\
+            <td style="padding:7px 4px;color:var(--muted)">创建时间</td>\
+            <td style="padding:7px 4px">' + createdText + '</td>\
+          </tr>\
+          <tr style="border-bottom:1px solid var(--line)">\
+            <td style="padding:7px 4px;color:var(--muted)">到期时间</td>\
+            <td style="padding:7px 4px">' + expireText + '</td>\
+          </tr>\
+          <tr style="border-bottom:1px solid var(--line)">\
+            <td style="padding:7px 4px;color:var(--muted)">密码</td>\
+            <td style="padding:7px 4px">' + (share.hasPassword ? '🔒 有密码' : '无') + '</td>\
+          </tr>\
+        </table>';
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📋 ' + escapeHtmlClient(share.filename);
+      body.innerHTML = '<div style="max-width:480px">' + stats + infoRows +
+        '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">\
+          <button class="secondary" onclick="closeModal();copyShare(\'' + escapeHtmlClient(share.url || '').replace(/'/g, "\\'") + '\')" style="font-size:13px">📋 复制链接</button>\
+          <button class="secondary" onclick="closeModal();openQrLightbox(\'' + escapeHtmlClient(code) + '\')" style="font-size:13px">🔳 查看二维码</button>\
+          <button class="secondary" onclick="closeModal();previewShare(\'' + escapeHtmlClient(code) + '\')" style="font-size:13px">👁 预览</button>\
+          <button class="secondary" onclick="closeModal();openShareEditModal(\'' + escapeHtmlClient(code) + '\')" style="font-size:13px">✏ 编辑</button>\
+          <button class="danger" onclick="closeModal();deleteShare(\'' + escapeHtmlClient(code) + '\')" style="font-size:13px">🗑 删除</button>\
+        </div></div>';
+      modal.classList.add('open');
     }
 
     window.previewShare = function(code) {
