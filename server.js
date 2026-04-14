@@ -1462,21 +1462,21 @@ function renderPage() {
 
     function setThemeMode(mode) {
       // mode: 'light' | 'dark' | 'system'
-      localStorage.setItem(STORAGE_KEY_THEME_MODE, mode);
+      localStorage.setItem(STORAGE_KEY_THEME, mode);
       const resolved = resolveTheme(mode);
       applyTheme(resolved);
     }
 
     function initTheme() {
       // Restore saved mode, default to 'system'
-      const savedMode = localStorage.getItem(STORAGE_KEY_THEME_MODE) || 'system';
+      const savedMode = localStorage.getItem(STORAGE_KEY_THEME) || 'system';
       const themeSelect = document.getElementById('themeSelect');
       if (themeSelect) themeSelect.value = savedMode;
       applyTheme(resolveTheme(savedMode));
 
       // Listen for system preference changes
       window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        const currentMode = localStorage.getItem(STORAGE_KEY_THEME_MODE) || 'system';
+        const currentMode = localStorage.getItem(STORAGE_KEY_THEME) || 'system';
         if (currentMode === 'system') {
           applyTheme(getSystemTheme());
         }
@@ -1881,7 +1881,7 @@ function renderPage() {
     // ── Theme Toggle ────────────────────────────────────────────────────
     function setTheme(theme) {
       document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : '');
-      localStorage.setItem(STORAGE_KEY_THEME_MODE, theme === 'dark' ? 'dark' : (theme === 'light' ? 'light' : 'system'));
+      localStorage.setItem(STORAGE_KEY_THEME, theme === 'dark' ? 'dark' : (theme === 'light' ? 'light' : 'system'));
       localStorage.setItem(STORAGE_KEY_THEME_RESOLVED, theme === 'dark' ? 'dark' : 'light');
       var btn = document.getElementById('themeToggleBtn');
       if (btn) btn.textContent = (theme === 'dark' || (theme !== 'light' && document.documentElement.getAttribute('data-theme') === 'dark')) ? '☀️' : '🌙';
@@ -1895,7 +1895,7 @@ function renderPage() {
 
     // Apply saved theme on load
     (function() {
-      var saved = localStorage.getItem(THEME_KEY);
+      var saved = localStorage.getItem(STORAGE_KEY_THEME);
       if (saved) setTheme(saved);
     })();
 
@@ -6784,6 +6784,23 @@ function renderPage() {
           loadFiles();
           break;
         }
+        case 'q':
+        case 'Q': {
+          // q: quick share selected file — instant share + copy link
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          var qNames = checkedNames();
+          if (qNames.length === 0 && keyboardNavIndex >= 0) {
+            var qItem = getFileAtIndex(keyboardNavIndex);
+            if (qItem) qNames = [qItem.getAttribute('data-name')];
+          }
+          if (qNames.length === 0) { showToast('请先选择一个文件', 'error'); return; }
+          if (qNames.length > 1) { showToast('快速分享仅支持单个文件', 'error'); return; }
+          quickShare(qNames[0]);
+          break;
+        }
+
         case 's':
         case 'S': {
           if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -9971,6 +9988,29 @@ function renderPage() {
       showToast('已撤销 ' + ok + ' 条' + (fail ? '，失败 ' + fail : ''), fail ? 'error' : 'success');
       loadShareLinkManager();
     }
+
+    // Quick Share: instant share + copy link in one shot (no modal)
+    async function quickShare(filename) {
+      try {
+        var res = await fetch('/api/share/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers() },
+          body: JSON.stringify({ filename: filename, expiryHours: 168 })
+        });
+        var data = await res.json();
+        if (!data || !data.success || !data.share) {
+          showToast('分享失败', 'error');
+          return;
+        }
+        await copyToClipboard(data.share.url);
+        showToast('已创建并复制分享链接', 'success');
+        loadShareLinkManager(); // refresh the share link list
+      } catch(e) {
+        showToast('分享失败: ' + (e.message || ''), 'error');
+      }
+    }
+
+    window.quickShare = quickShare;
 
     function copyShareLink(code) {
       var url = location.origin + '/s/' + code;
