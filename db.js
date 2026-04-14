@@ -1037,11 +1037,13 @@ function createVirtualFolder(name, description = '', color = '#667eea') {
 function listVirtualFolders() {
   const db = getDb();
   const folders = db.prepare('SELECT * FROM virtual_folders ORDER BY position ASC, created_at DESC').all();
-  // 附加每个文件夹的文件数量
-  const countStmt = db.prepare('SELECT COUNT(*) as count FROM virtual_folder_files WHERE folder_id = ?');
+  // Batch count: single query with GROUP BY instead of N separate COUNT queries
+  const counts = db.prepare('SELECT folder_id, COUNT(*) as count FROM virtual_folder_files GROUP BY folder_id').all();
+  const countMap = {};
+  counts.forEach(c => { countMap[c.folder_id] = c.count; });
   return folders.map(f => ({
     ...f,
-    fileCount: countStmt.get(f.id).count
+    fileCount: countMap[f.id] || 0
   }));
 }
 
