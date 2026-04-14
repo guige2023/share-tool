@@ -1524,6 +1524,7 @@ function renderPage() {
     let currentFiles = [];
     var _loadSeq = 0;  // sequence counter for stale response protection
     var _activeController = null;  // AbortController for in-flight requests
+    var _cachedTagData = null;  // tags cache — invalidated on file create/update/delete
 
     function headers(extra) {
       return Object.assign({ 'x-auth-token': getToken() }, extra || {});
@@ -3033,6 +3034,7 @@ function renderPage() {
           uploadQueue = [];
           renderUploadQueuePanel();
           loadFiles();
+          _cachedTagData = null;  // uploaded files may have new tags
           loadStorageStats();
         }
       }, 500);
@@ -3242,13 +3244,16 @@ function renderPage() {
       if (_activeController) { _activeController.abort(); }
       _activeController = new AbortController();
       var mySeq = ++_loadSeq;
-      // Only fetch tags on first load, not on append/pagination
-      const [data, tagData] = append
-        ? [await request(url, { signal: _activeController.signal }), null]
-        : await Promise.all([
-            request(url, { signal: _activeController.signal }),
-            request('/api/tags', { signal: _activeController.signal })
-          ]);
+      // Only fetch tags on first load, not on append/pagination; use cache when available
+      var tagData = null;
+      if (!append) {
+        tagData = _cachedTagData || null;
+        if (!tagData) {
+          tagData = await request('/api/tags', { signal: _activeController.signal });
+          if (tagData) _cachedTagData = tagData;
+        }
+      }
+      const data = await request(url, { signal: _activeController.signal });
       // Ignore stale responses (response came back after a newer request)
       if (mySeq !== _loadSeq) return;
       // data is null if request was aborted
@@ -10509,6 +10514,7 @@ function renderPage() {
       var token = localStorage.getItem('st_auth_token') || STATIC_TOKEN;
       var es = new EventSource('/api/events?token=' + encodeURIComponent(token));
       es.addEventListener('files_changed', function (e) {
+        _cachedTagData = null;  // invalidate tags cache — file set changed
         loadFiles();
         showToast('文件已更新', 'info', 3000);
       });
