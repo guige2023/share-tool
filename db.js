@@ -1039,14 +1039,31 @@ function createVirtualFolder(name, description = '', color = '#667eea') {
 function listVirtualFolders() {
   const db = getDb();
   const folders = db.prepare('SELECT * FROM virtual_folders ORDER BY position ASC, created_at DESC').all();
-  // Batch count: single query with GROUP BY instead of N separate COUNT queries
-  const counts = db.prepare('SELECT folder_id, COUNT(*) as count FROM virtual_folder_files GROUP BY folder_id').all();
-  const countMap = {};
-  counts.forEach(c => { countMap[c.folder_id] = c.count; });
+  // Batch count + total size: single query with GROUP BY instead of N separate queries
+  const stats = db.prepare(`
+    SELECT vff.folder_id, COUNT(*) as count, COALESCE(SUM(f.size), 0) as totalSize
+    FROM virtual_folder_files vff
+    JOIN files f ON f.id = vff.file_id
+    GROUP BY vff.folder_id
+  `).all();
+  const statsMap = {};
+  stats.forEach(s => { statsMap[s.folder_id] = { count: s.count, totalSize: s.totalSize }; });
   return folders.map(f => ({
     ...f,
-    fileCount: countMap[f.id] || 0
+    file_count: statsMap[f.id] ? statsMap[f.id].count : 0,
+    total_size: statsMap[f.id] ? statsMap[f.id].totalSize : 0
   }));
+}
+
+function getVirtualFolderSize(folderId) {
+  const db = getDb();
+  const row = db.prepare(`
+    SELECT COUNT(*) as count, COALESCE(SUM(f.size), 0) as totalSize
+    FROM virtual_folder_files vff
+    JOIN files f ON f.id = vff.file_id
+    WHERE vff.folder_id = ?
+  `).get(folderId);
+  return { count: row ? row.count : 0, totalSize: row ? row.totalSize : 0 };
 }
 
 function getVirtualFolder(id) {
@@ -4141,7 +4158,7 @@ module.exports = {
   saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload, incrementShareLinkViewCount,
   listShareLinks, cleanupExpiredShareLinks, getShareStats, getExpiringShares, renewShareLink, getExpiringShareLinks,
   // 虚拟文件夹
-  createVirtualFolder, listVirtualFolders, getVirtualFolder, deleteVirtualFolder, updateVirtualFolder,
+  createVirtualFolder, listVirtualFolders, getVirtualFolder, deleteVirtualFolder, updateVirtualFolder, getVirtualFolderSize,
   addFileToVirtualFolder, removeFileFromVirtualFolder, getVirtualFolderFiles, isFileInVirtualFolder,
   // 文件收集链接
   createRequestLink, getRequestLink, verifyRequestLinkPassword,

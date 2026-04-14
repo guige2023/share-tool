@@ -9485,11 +9485,15 @@ function renderPage() {
       var body = document.getElementById('rlFilesBody');
       if (!data.success) { body.innerHTML = '<div style="color:var(--error);padding:10px">加载失败: ' + (data.error || '') + '</div>'; return; }
       var files = data.files || [];
+      var zipBtn = document.getElementById('rlZipBtn');
+      if (zipBtn) zipBtn.disabled = !files.length;
       if (!files.length) {
         body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px">暂无文件</div>';
         return;
       }
-      var html = '<div style="margin-bottom:10px"><strong>' + files.length + '</strong> 个文件</div>';
+      var totalSize = files.reduce(function(s, f) { return s + (f.size || 0); }, 0);
+      var totalSizeStr = totalSize > 0 ? ' · <span style="color:var(--muted)">' + formatFileSize(totalSize) + '</span>' : '';
+      var html = '<div style="margin-bottom:10px"><strong>' + files.length + '</strong> 个文件' + totalSizeStr + '</div>';
       html += '<div style="display:flex;flex-direction:column;gap:6px">';
       files.forEach(function(f) {
         var size = formatFileSize(f.size);
@@ -9541,12 +9545,20 @@ function renderPage() {
     }
 
     function downloadRlFile(code, filename) {
-      var a = document.createElement('a');
-      a.href = '/download/' + encodeURIComponent(filename);
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      fetch('/download/' + encodeURIComponent(filename), { headers: headers() }).then(function(resp) {
+        if (!resp.ok) { showToast('下载失败', 'error'); return; }
+        return resp.blob();
+      }).then(function(blob) {
+        if (!blob) return;
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }).catch(function() { showToast('下载失败', 'error'); });
     }
 
     // ── Duplicates (重复文件清理) ───────────────────────────────────────────
