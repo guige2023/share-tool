@@ -7317,7 +7317,31 @@ function renderPage() {
     renderFiles = function() {
       _origRenderFiles.apply(this, arguments);
       attachHoverCard();
+      updateTypeFilterCounts();
     };
+
+    function updateTypeFilterCounts() {
+      var chips = document.querySelectorAll('.type-chip[data-type]');
+      if (!chips.length || !currentFiles.length) return;
+      var counts = { '': currentFiles.length, starred: 0, image: 0, video: 0, audio: 0, pdf: 0, document: 0, archive: 0, text: 0 };
+      currentFiles.forEach(function(f) {
+        if (f.starred) counts.starred++;
+        var t = (f.type || '').toLowerCase();
+        if (t.startsWith('image/')) counts.image++;
+        else if (t.startsWith('video/')) counts.video++;
+        else if (t.startsWith('audio/')) counts.audio++;
+        else if (t === 'application/pdf') counts.pdf++;
+        else if (t.includes('document') || t.includes('word') || t.includes('text') || t.includes('sheet') || t.includes('presentation')) counts.document++;
+        else if (t.includes('zip') || t.includes('tar') || t.includes('rar') || t.includes('gz') || t.includes('7z')) counts.archive++;
+        else if (t.startsWith('text/') || /\.(txt|md|json|xml|html|css|js|ts|py|sh|yaml|yml|ini|conf|csv|log)$/i.test(f.filename || '')) counts.text++;
+      });
+      chips.forEach(function(c) {
+        var t = c.getAttribute('data-type');
+        var n = counts[t] !== undefined ? counts[t] : 0;
+        var label = c.textContent.replace(/\s*\(\d+\)$/, '');
+        c.textContent = label + ' (' + n + ')';
+      });
+    }
 
     function renderTextPreview(filename, content, origSize, isTruncated, lang, ext) {
       const modalBody = document.getElementById('modalBody');
@@ -10007,6 +10031,10 @@ function renderPage() {
             <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">最大下载次数（可选）</label>\
             <input id="shareMaxDlInput" type="number" min="1" placeholder="无限制" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;box-sizing:border-box">\
           </div>\
+          <div style="margin-bottom:12px">\
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">链接名称（可选，替代文件名显示）</label>\
+            <input id="shareLabelInput" type="text" placeholder="例如：产品介绍文档" maxlength="80" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;box-sizing:border-box">\
+          </div>\
           <details style="margin-bottom:12px;border:1px solid var(--line);border-radius:10px;padding:10px 12px">\
             <summary style="cursor:pointer;font-size:13px;color:var(--muted);user-select:none">🎨 自定义外观（可选）</summary>\
             <div style="margin-top:10px">\
@@ -10169,7 +10197,8 @@ function renderPage() {
           maxDownloads: maxDownloads ? parseInt(maxDownloads, 10) : null,
           themeBg: document.getElementById('shareThemeBgHex').value.trim() || null,
           themeColor: document.getElementById('shareThemeColorHex').value.trim() || null,
-          brandText: document.getElementById('shareBrandText').value.trim() || null
+          brandText: document.getElementById('shareBrandText').value.trim() || null,
+          label: document.getElementById('shareLabelInput').value.trim() || ''
         };
         if (customExpiry) {
           body.customExpiry = new Date(customExpiry).getTime();
