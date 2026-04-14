@@ -929,7 +929,8 @@ function renderPage() {
         </div>
         <div id="fileList" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
         <div class="row" style="margin-top:12px">
-          <button onclick="uploadFiles()">上传文件</button>
+            <button onclick="uploadFiles()">上传文件</button>
+            <button class="secondary" onclick="openUploadFromUrlModal()">🌐 URL上传</button>
           <button class="secondary" onclick="openNewFolderModal()">📁 新建文件夹</button>
           <button class="secondary" onclick="openNewTextFileModal()">📝 新建文本</button>
           <button class="secondary" onclick="clearFileInput()">清空选择</button>
@@ -1235,7 +1236,11 @@ function renderPage() {
       <h2>文件收集链接</h2>
       <div class="toolbar" style="margin-bottom:12px;flex-wrap:wrap;gap:6px">
         <input id="requestLinkSearchInput" type="text" placeholder="搜索收集链接" oninput="filterRequestLinks()" style="flex:1 1 180px">
-        <button class="secondary" onclick="filterRequestLinks()">过滤</button>
+        <select id="rlStatusFilter" onchange="filterRequestLinks()" style="padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+          <option value="">全部</option>
+          <option value="active">● 有效</option>
+          <option value="inactive">○ 已停用</option>
+        </select>
         <button class="primary" onclick="openRequestLinkCreateModal()">+ 新建收集链接</button>
       </div>
       <div id="rlBatchBar" class="batch-bar" style="display:none">
@@ -2044,6 +2049,12 @@ function renderPage() {
     }
 
     function batchDeleteSelected() {
+      const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      openDeleteConfirmModal(checkedNames());
+    }
+
+    async function batchMoveSelectedFiles() {
       if (selectedFileIds.size === 0) return;
       const names = checkedNames().map(function(n) { return decodeURIComponent(n); });
       if (!names.length) { showToast('未找到文件', 'error'); return; }
@@ -2097,12 +2108,6 @@ function renderPage() {
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = '确定移动'; }
       }
-    }
-
-    function batchDeleteSelected() {
-      const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
-      if (!names.length) { showToast('请先选择文件', 'error'); return; }
-      openDeleteConfirmModal(checkedNames());
     }
 
     async function batchDeleteConfirmed(names) {
@@ -10109,11 +10114,15 @@ function renderPage() {
 
     function filterRequestLinks() {
       var q = document.getElementById('requestLinkSearchInput').value.trim().toLowerCase();
+      var statusFilter = document.getElementById('rlStatusFilter') && document.getElementById('rlStatusFilter').value;
+      var base = currentRequestLinks;
+      if (statusFilter === 'active') base = base.filter(function(rl) { return rl.active; });
+      else if (statusFilter === 'inactive') base = base.filter(function(rl) { return !rl.active; });
       if (!q) {
-        renderRequestLinkTable(applyRlSort(currentRequestLinks));
+        renderRequestLinkTable(applyRlSort(base));
         return;
       }
-      var filtered = currentRequestLinks.filter(function(rl) {
+      var filtered = base.filter(function(rl) {
         return rl.name.toLowerCase().includes(q) || (rl.code || '').toLowerCase().includes(q);
       });
       renderRequestLinkTable(applyRlSort(filtered));

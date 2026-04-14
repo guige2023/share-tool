@@ -410,6 +410,83 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // POST /api/upload-from-url - download a file from a URL and save it
+  if (pathname === '/api/upload-from-url' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+
+    try {
+      const body = await readJsonBody(req);
+      const url = (body.url || '').trim();
+      if (!url) { sendJson(res, { success: false, error: 'url required' }, 400); return true; }
+
+      // Validate URL
+      let parsedUrl;
+      try { parsedUrl = new URL(url); } catch (e) { sendJson(res, { success: false, error: 'Invalid URL' }, 400); return true; }
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) { sendJson(res, { success: false, error: 'Only HTTP(S) URLs supported' }, 400); return true; }
+
+      // Extract filename from Content-Disposition header or URL path
+      const https = require('https');
+      const http = require('http');
+      const filenameFromUrl = decodeURIComponent(parsedUrl.pathname.split('/').pop().split('?')[0]) || 'downloaded_file';
+      const filename = body.filename ? body.filename.trim() : filenameFromUrl;
+
+      // Stream the file download
+      const protocol = parsedUrl.protocol === 'https:' ? https : http;
+      const filenameFinal = filename;
+      let downloadedBytes = 0;
+      const maxBytes = maxUploadBytes;
+
+      await new Promise(function(resolve, reject) {
+        const req2 = protocol.get(parsedUrl, { headers: { 'User-Agent': 'ShareTool/1.0' } }, function(res2) {
+          // Handle redirects
+          if ([301, 302, 303, 307, 308].includes(res2.statusCode) && res2.headers.location) {
+            req2.destroy();
+            const redirectUrl = new URL(res2.headers.location, url);
+            const proto2 = redirectUrl.protocol === 'https:' ? https : http;
+            proto2.get(redirectUrl, { headers: { 'User-Agent': 'ShareTool/1.0' } }, function(res3) {
+              if ([301, 302, 303, 307, 308].includes(res3.statusCode) && res3.headers.location) {
+                reject(new Error('Too many redirects')); return;
+              }
+              doDownload(res3, resolve, reject);
+            }).on('error', reject);
+            return;
+          }
+          doDownload(res2, resolve, reject);
+        }).on('error', reject);
+
+        function doDownload(res2, resolve, reject) {
+          const contentLength = parseInt(res2.headers['content-length'] || '0', 10);
+          if (contentLength > maxBytes) { sendJson(res, { success: false, error: 'File too large (max ' + Math.round(maxBytes / 1024 / 1024) + 'MB)' }, 400); req2.destroy(); reject(new Error('too large')); return; }
+
+          const chunks = [];
+          res2.on('data', function(chunk) {
+            downloadedBytes += chunk.length;
+            if (downloadedBytes > maxBytes) { req2.destroy(); sendJson(res, { success: false, error: 'File too large' }, 400); reject(new Error('too large')); return; }
+            chunks.push(chunk);
+          });
+          res2.on('end', function() {
+            if (downloadedBytes > maxBytes) { reject(new Error('too large')); return; }
+            const content = Buffer.concat(chunks);
+            const hash = require('crypto').createHash('md5').update(content).digest('hex');
+            const type = filenameFinal.split('.').pop() || '';
+            const saved = db.addFile(filenameFinal, content, type, hash);
+            if (saved && saved.id) {
+              sendJson(res, { success: true, file: { id: saved.id, name: filenameFinal, size: content.length, hash: hash } });
+            } else {
+              sendJson(res, { success: false, error: 'Failed to save file' }, 500);
+            }
+            resolve();
+          });
+          res2.on('error', reject);
+        }
+      });
+    } catch (err) {
+      if (err.message !== 'too large') sendJson(res, { success: false, error: err.message }, 500);
+    }
+    return true;
+  }
+
   if (pathname.startsWith('/api/file-rename/') && method === 'POST') {
     const auth = authRequired(req, res);
     if (!auth) return true;
