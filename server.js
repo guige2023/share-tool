@@ -659,6 +659,7 @@ function renderPage() {
       .drop-zone-inner p{margin:4px 0}
       /* Mobile bottom nav: show on small screens, add bottom padding to avoid overlap */
       #mobileNav{display:none!important}
+      .mobile-nav-btn.active{background:var(--bg-tertiary)!important;border-radius:10px}
       @media(max-width:600px){
         #mobileNav{display:flex!important}
         .wrap{padding-bottom:calc(70px + env(safe-area-inset-bottom, 0px))}
@@ -995,7 +996,7 @@ function renderPage() {
         <button id="trashBtn" class="ghost" onclick="openTrash()">回收站</button>
         <button id="deleteAllFiles" class="danger" onclick="deleteAllFiles()">删除全部</button>
         <div class="view-toggle">
-          <input type="checkbox" id="gridSelectAll" onchange="toggleAll(this.checked)" style="display:none;margin-right:6px;cursor:pointer" title="全选">
+          <input type="checkbox" id="gridSelectAll" onchange="toggleFileSelectAll(this.checked)" style="display:none;margin-right:6px;cursor:pointer" title="全选">
           <button id="viewListBtn" class="active" onclick="setView('list')" title="列表视图">☰</button>
           <button id="viewGridBtn" onclick="setView('grid')" title="网格视图">⊞</button>
         </div>
@@ -1110,7 +1111,7 @@ function renderPage() {
         <table id="fileTable">
           <thead>
             <tr>
-              <th style="width:42px"><input type="checkbox" id="selectAll" onchange="toggleAll(this.checked)"></th>
+              <th style="width:42px"><input type="checkbox" id="selectAll" onchange="toggleFileSelectAll(this.checked)"></th>
               <th style="cursor:pointer;user-select:none" onclick="setSort('filename')">文件 <span class="sort-arrow" id="arrow-filename"></span></th>
               <th style="width:140px">标签</th>
               <th style="width:60px;cursor:pointer;user-select:none" onclick="setSort('position')" title="手动排序，拖拽调整顺序">📌 <span class="sort-arrow" id="arrow-position"></span></th>
@@ -1179,7 +1180,7 @@ function renderPage() {
     <!-- Mobile Bottom Navigation Bar -->
     <nav id="mobileNav" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg-secondary);border-top:1px solid var(--line);z-index:900;padding:6px 0 env(safe-area-inset-bottom, 8px)">
       <div style="display:flex;justify-content:space-around;align-items:center">
-        <button class="mobile-nav-btn active" data-panel="files" onclick="switchMobileNav('files')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--accent);font-size:10px;cursor:pointer">
+        <button class="mobile-nav-btn active" data-panel="files" onclick="switchMobileNav('files')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--accent);font-size:10px;cursor:pointer;border-radius:10px"
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
           <span>文件</span>
         </button>
@@ -1933,6 +1934,102 @@ function renderPage() {
       document.getElementById('selectAll').checked = false;
       document.getElementById('gridSelectAll').checked = false;
       updateBatchBar();
+      clearFileSelection();
+    }
+
+    // File batch operations
+    var selectedFileIds = new Set();
+
+    function onFileCheckChange() {
+      var checks = document.querySelectorAll('.file-check:checked');
+      selectedFileIds.clear();
+      checks.forEach(function(c) { selectedFileIds.add(c.dataset.id); });
+      updateFileBatchBar();
+    }
+
+    function toggleFileSelectAll(checked) {
+      document.querySelectorAll('.file-check').forEach(function(c) { c.checked = checked; });
+      var topCb = document.getElementById('fileSelectAllTop');
+      if (topCb) topCb.checked = checked;
+      var headerCb = document.getElementById('selectAll');
+      if (headerCb) headerCb.checked = checked;
+      var gridCb = document.getElementById('gridSelectAll');
+      if (gridCb) gridCb.checked = checked;
+      onFileCheckChange();
+    }
+
+    function updateFileBatchBar() {
+      var bar = document.getElementById('fileBatchBar');
+      var count = document.getElementById('fileBatchCount');
+      if (!bar) return;
+      var n = selectedFileIds.size;
+      bar.style.display = n > 0 ? 'flex' : 'none';
+      if (count) count.textContent = '已选 ' + n + ' 个文件';
+    }
+
+    function clearFileSelection() {
+      selectedFileIds.clear();
+      document.querySelectorAll('.file-check').forEach(function(c) { c.checked = false; });
+      var topCb = document.getElementById('fileSelectAllTop');
+      if (topCb) topCb.checked = false;
+      var headerCb = document.getElementById('selectAll');
+      if (headerCb) headerCb.checked = false;
+      var gridCb = document.getElementById('gridSelectAll');
+      if (gridCb) gridCb.checked = false;
+      updateFileBatchBar();
+    }
+
+    async function batchDeleteSelectedFiles() {
+      if (selectedFileIds.size === 0) return;
+      if (!confirm('确认删除 ' + selectedFileIds.size + ' 个文件？')) return;
+      var ids = Array.from(selectedFileIds);
+      var btn = event.target;
+      if (btn) { btn.disabled = true; }
+      try {
+        var ok = true;
+        for (var i = 0; i < ids.length; i++) {
+          var res = await fetch('/api/files/' + ids[i], { method: 'DELETE', headers: headers() });
+          if (!res.ok) ok = false;
+        }
+        if (ok) {
+          showToast('已删除 ' + ids.length + ' 个文件', 'success');
+          clearFileSelection();
+          loadFiles();
+        } else {
+          showToast('部分文件删除失败', 'error');
+        }
+      } finally {
+        if (btn) { btn.disabled = false; }
+      }
+    }
+
+    async function batchMoveSelectedFiles() {
+      if (selectedFileIds.size === 0) return;
+      var vf = prompt('输入目标虚拟文件夹路径（如 uploads/backup）：');
+      if (!vf) return;
+      var btn = event.target;
+      if (btn) { btn.disabled = true; }
+      try {
+        var ids = Array.from(selectedFileIds);
+        var ok = true;
+        for (var i = 0; i < ids.length; i++) {
+          var res = await fetch('/api/files/' + ids[i], {
+            method: 'PATCH',
+            headers: Object.assign(headers(), { 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ virtual_folder: vf })
+          });
+          if (!res.ok) ok = false;
+        }
+        if (ok) {
+          showToast('已移动 ' + ids.length + ' 个文件到 ' + vf, 'success');
+          clearFileSelection();
+          loadFiles();
+        } else {
+          showToast('部分文件移动失败', 'error');
+        }
+      } finally {
+        if (btn) { btn.disabled = false; }
+      }
     }
 
     function batchDeleteSelected() {
@@ -4149,7 +4246,7 @@ function renderPage() {
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
       return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" onmousedown="handleItemClick(event, ' + file._index + ')" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
-        '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()" onclick="lastClickedIndex=' + file._index + '"></td>' +
+        '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-id="' + (file.id || '') + '" onchange="onFileCheckChange()" onclick="lastClickedIndex=' + file._index + '"></td>' +
         '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (file.highlightedName || (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name))) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><div class="muted">' + formatFileType(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
         '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
@@ -4210,7 +4307,7 @@ function renderPage() {
       }
 
       return '<div class="file-item" data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" tabindex="0" draggable="true" onmousedown="handleItemClick(event, ' + file._index + ')" ondblclick="previewFile(' + JSON.stringify(file.name) + ')">' +
-        '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-file-id="' + (file.id || '') + '" onchange="updateBatchBar()" onclick="lastClickedIndex=' + file._index + '">' +
+        '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-id="' + (file.id || '') + '" onchange="onFileCheckChange()" onclick="lastClickedIndex=' + file._index + '">' +
         '<div class="file-content">' +
           gridIcon +
           '<div class="file-name"><span ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (file.highlightedName || (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name))) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button></div>' +
