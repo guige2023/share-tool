@@ -1295,6 +1295,36 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/request-links/:code/files - list files uploaded to a request link
+  if (pathname.match(/^\/api\/request-links\/[^/]+\/files$/) && method === 'GET') {
+    const match = pathname.match(/^\/api\/request-links\/([^/]+)\/files$/);
+    if (match) {
+      const code = match[1];
+      const auth = authRequired(req, res);
+      if (!auth) return true;
+      const rl = db.getRequestLink(code);
+      if (!rl) { sendJson(res, { success: false, error: 'Request link not found' }, 404); return true; }
+      const files = db.getRequestLinkFiles(rl.id);
+      sendJson(res, { success: true, files });
+      return true;
+    }
+  }
+
+  // DELETE /api/request-links/:code/files/:fileId - delete a file from a request link
+  if (pathname.match(/^\/api\/request-links\/[^/]+\/files\/[0-9]+$/) && method === 'DELETE') {
+    const match = pathname.match(/^\/api\/request-links\/([^/]+)\/files\/([0-9]+)$/);
+    if (match) {
+      const code = match[1], fileId = parseInt(match[2], 10);
+      const auth = authRequired(req, res);
+      if (!auth) return true;
+      const rl = db.getRequestLink(code);
+      if (!rl) { sendJson(res, { success: false, error: 'Request link not found' }, 404); return true; }
+      const ok = db.deleteRequestLinkFile(rl.id, fileId);
+      sendJson(res, { success: ok });
+      return true;
+    }
+  }
+
   // ── Tag Emoji ───────────────────────────────────────────────────────────
   // GET /api/tags/emojis - get all tag→emoji mappings (bulk)
   if (pathname === '/api/tags/emojis' && method === 'GET') {

@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 14; // v14: folder_tags + tag_definitions tables
+const SCHEMA_VERSION = 15; // v15: request_link_files table for tracking uploaded files
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -93,8 +93,9 @@ function initDatabase() {
     initSchemaV12(db); // v12: files.starred
     initSchemaV13(db); // v13: share_links theme columns
     initSchemaV14(db); // v14: folder_tags + tag_definitions
+    initSchemaV15(db); // v15: request_link_files table
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
-    console.log('[DB] Fresh database initialized (v1-v14 schema)');
+    console.log('[DB] Fresh database initialized (v1-v15 schema)');
     return;
   }
 
@@ -648,6 +649,26 @@ function initSchemaV14(db) {
   }
 }
 
+function initSchemaV15(db) {
+  // v15: request_link_files table for tracking which files were uploaded via request links
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS request_link_files (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        request_link_id INTEGER NOT NULL,
+        file_id INTEGER NOT NULL,
+        uploaded_at INTEGER DEFAULT (strftime('%s', 'now')),
+        FOREIGN KEY (request_link_id) REFERENCES request_links(id) ON DELETE CASCADE,
+        FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+      )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_rlf_request_link ON request_link_files(request_link_id)`);
+    console.log('[DB] Migrated: request_link_files table');
+  } catch (e) {
+    console.warn('[DB] Migration v15 failed:', e.message);
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {
@@ -730,6 +751,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV13(db);
     } else if (v === 14) {
       initSchemaV14(db);
+    } else if (v === 15) {
+      initSchemaV15(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -875,7 +898,7 @@ function validateFilename(filename) {
   return true;
 }
 
-function addFile(filename, content, type = 'file', hash = null, encrypted = false) {
+function addFile(filename, content, type = 'file', hash = null, encrypted = false, requestLinkId = null) {
   // Security: reject path traversal attempts
   if (!validateFilename(filename)) throw new Error('Invalid filename');
   const db = getDb();
@@ -896,6 +919,11 @@ function addFile(filename, content, type = 'file', hash = null, encrypted = fals
 
     // 记录同步日志（使用真实的 fileId）
     addSyncLog(fileId, filename, 'create', hash, null, size);
+
+    // Track file in request_link_files if uploaded via a request link
+    if (requestLinkId !== null) {
+      db.prepare(`INSERT INTO request_link_files (request_link_id, file_id) VALUES (?, ?)`).run(requestLinkId, fileId);
+    }
 
     return { id: fileId, filename, hash, size, encrypted };
   } catch (e) {
@@ -3090,6 +3118,29 @@ function incrementRequestLinkUpload(code) {
   return row ? row.upload_count : 0;
 }
 
+function getRequestLinkFiles(requestLinkId) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT f.*, rlf.uploaded_at
+    FROM files f
+    JOIN request_link_files rlf ON f.id = rlf.file_id
+    WHERE rlf.request_link_id = ?
+    ORDER BY rlf.uploaded_at DESC
+  `).all(requestLinkId);
+}
+
+function deleteRequestLinkFile(requestLinkId, fileId) {
+  const db = getDb();
+  // Verify the file belongs to this request link
+  const file = db.prepare(`SELECT f.* FROM request_link_files rlf JOIN files f ON f.id = rlf.file_id WHERE rlf.request_link_id = ? AND rlf.file_id = ?`).get(requestLinkId, fileId);
+  if (!file) return false;
+  // Delete from request_link_files first (FK constraint)
+  db.prepare(`DELETE FROM request_link_files WHERE request_link_id = ? AND file_id = ?`).run(requestLinkId, fileId);
+  // Delete the actual file (soft-delete to trash)
+  deleteFile(fileId);
+  return true;
+}
+
 function toggleRequestLinkActive(code, active) {
   const db = getDb();
   db.prepare('UPDATE request_links SET active = ? WHERE code = ?').run(active ? 1 : 0, code);
@@ -4078,6 +4129,7 @@ module.exports = {
   createRequestLink, getRequestLink, verifyRequestLinkPassword,
   toggleRequestLinkActive, updateRequestLink, deleteRequestLink, listRequestLinks,
   incrementRequestLinkUpload, cleanupExpiredRequestLinks,
+  getRequestLinkFiles, deleteRequestLinkFile,
   // 迁移
   migrateFromFileSystem,
   // 清理

@@ -949,7 +949,7 @@ async function uploadAll() {
           targetName = (row.target_folder + '/' + filename).replace(/\/+/g, '/');
         }
         // content may be a Buffer (from base64 decode) — keep as binary
-        db.addFile(targetName, decoded, 'file');
+        db.addFile(targetName, decoded, 'file', null, false, row.id);
         const uploadCount = db.incrementRequestLinkUpload(code);
         db.addAuditLog('request_link_upload', targetName, getClientIp(req));
         sendJson(res, { success: true, filename: targetName, upload_count: uploadCount });
