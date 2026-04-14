@@ -3561,13 +3561,8 @@ function backupDb() {
   }
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const backupPath = path.join(backupDir, `share-tool-${timestamp}.db`);
-  const walPath = DB_PATH + '-wal';
-  const shmPath = DB_PATH + '-shm';
 
-  // Use better-sqlite3's backup() API — synchronous, single call
-  const backupDbInstance = new (require('better-sqlite3'))(backupPath);
-  backupDbInstance.close();
-  // Reopen as backup target
+  // Use better-sqlite3's backup() API
   const dest = new (require('better-sqlite3'))(backupPath);
   db.backup(dest, (err) => {
     dest.close();

@@ -7160,6 +7160,18 @@ function renderPage() {
       }
     }
 
+    function backupDatabase() {
+      showToast('正在创建备份...', 'info', 2000);
+      var a = document.createElement('a');
+      a.href = '/api/db/backup';
+      a.download = '';
+      var h = headers();
+      Object.keys(h).forEach(function(k) { a.setAttribute(k, h[k]); });
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
     function openAuditLog() {
       var modal = document.getElementById('modal');
       var title = document.getElementById('modalTitle');
