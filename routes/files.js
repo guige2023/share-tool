@@ -930,6 +930,41 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     return true;
   }
 
+  // POST /api/files/move - 批量移动文件到目标文件夹
+  if (pathname === '/api/files/move' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > 1024 * 1024) { body = ''; } });
+    req.on('end', async () => {
+      try {
+        const { filenames, destFolder } = JSON.parse(body || '{}');
+        if (!Array.isArray(filenames) || filenames.length === 0) {
+          sendJson(res, { success: false, error: '没有文件' }, 400);
+          return;
+        }
+        const result = db.batchMove(filenames, destFolder || '');
+        if (result.error) {
+          sendJson(res, { success: false, error: result.error, results: result.results }, 400);
+          return;
+        }
+        if (result.results.some(r => r.success)) {
+          global.broadcastSSE({ type: 'files_changed' });
+        }
+        global.broadcastSSE({ type: 'batch_move', moved: result.results.filter(r => r.success).length });
+        sendJson(res, {
+          success: true,
+          moved: result.results.filter(r => r.success).length,
+          failed: result.results.filter(r => !r.success).length,
+          results: result.results
+        });
+      } catch (error) {
+        sendJson(res, { success: false, error: error.message }, 400);
+      }
+    });
+    return true;
+  }
+
 
   // POST /api/folders - 创建新文件夹
   if (pathname === '/api/folders' && method === 'POST') {

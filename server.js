@@ -1175,7 +1175,7 @@ function renderPage() {
         <button class="secondary" onclick="filterShares()">过滤</button>
         <button class="ghost" onclick="copyAllShares()">复制全部</button>
         <button class="ghost" onclick="openShareAnalytics()">📈 分析</button>
-        <button class="ghost" onclick="openExpiringShares()">⏰ 过期提醒</button>
+        <button class="ghost" onclick="openExpiringLinks()">⏰ 过期提醒</button>
         <button class="danger" onclick="batchDeleteExpiredShares()">删除过期</button>
         <input id="shareSearchInput" type="text" placeholder="搜索分享链接..." oninput="filterShareTable()" style="margin-left:auto;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:180px"> <span id="shareResultCount" style="font-size:12px;color:var(--muted);white-space:nowrap"></span>
       </div>
@@ -2741,13 +2741,21 @@ function renderPage() {
               <option value="prefix">添加前缀</option>\
               <option value="suffix">添加后缀</option>\
               <option value="replace">替换文本</option>\
+              <option value="regex">正则替换</option>\
+              <option value="case">大小写转换</option>\
+              <option value="ext">修改扩展名</option>\
               <option value="pattern">使用模式 {name}_{n}</option>\
             </select>\
           </div>\
           <div id="batchRenameFields"></div>\
           <div style="margin-bottom:12px">\
-            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">预览</label>\
-            <div id="batchRenamePreview" style="max-height:200px;overflow:auto;background:var(--bg-secondary);border-radius:8px;padding:8px;font-size:12px;font-family:monospace"></div>\
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:6px">预览 <span id="batchRenameCount" style="font-weight:400"></span></label>\
+            <div id="batchRenamePreview" style="max-height:240px;overflow:auto;background:var(--bg-secondary);border-radius:8px;font-size:12px">\
+              <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:0;font-size:11px;font-weight:600;color:var(--muted);padding:4px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg-secondary)">\
+                <span></span><span style="color:var(--muted)">原文件名</span><span style="color:var(--accent)">新文件名</span>\
+              </div>\
+              <div id="batchRenamePreviewRows"></div>\
+            </div>\
           </div>\
           <div style="display:flex;gap:8px;justify-content:flex-end">\
             <button class="secondary" onclick="document.getElementById(\'batchRenameModal\').remove()">取消</button>\
@@ -2762,14 +2770,23 @@ function renderPage() {
     function updateBatchRenamePreview() {
       const type = document.getElementById('batchRenameType').value;
       const fields = document.getElementById('batchRenameFields');
-      const preview = document.getElementById('batchRenamePreview');
+      const rows = document.getElementById('batchRenamePreviewRows');
+      const count = document.getElementById('batchRenameCount');
       const names = window._batchRenameFiles || [];
 
       let html = '';
+      let changed = 0;
       if (type === 'prefix') {
         fields.innerHTML = '<input id="batchRenamePrefix" type="text" placeholder="输入前缀" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()">';
         const prefix = document.getElementById('batchRenamePrefix').value;
-        names.forEach(function(n) { html += '<div>' + escapeHtmlClient(prefix + n) + '</div>'; });
+        names.forEach(function(n) {
+          const nn = prefix + n;
+          const ch = nn !== n; if (ch) changed++;
+          html += '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:0;padding:4px 10px;border-bottom:1px solid rgba(0,0,0,.05)">' +
+            '<span style="color:var(--muted);font-size:14px;padding-right:8px">' + (ch ? '→' : '=') + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">' + escapeHtmlClient(n) + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (ch ? 'var(--accent)' : 'var(--muted)') + ';font-weight:' + (ch ? '500' : '400') + '">' + escapeHtmlClient(nn) + '</span></div>';
+        });
       } else if (type === 'suffix') {
         fields.innerHTML = '<input id="batchRenameSuffix" type="text" placeholder="输入后缀（不含扩展名）" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()">';
         const suffix = document.getElementById('batchRenameSuffix').value;
@@ -2777,13 +2794,75 @@ function renderPage() {
           const lastDot = n.lastIndexOf('.');
           const base = lastDot > 0 ? n.slice(0, lastDot) : n;
           const ext = lastDot > 0 ? n.slice(lastDot) : '';
-          html += '<div>' + escapeHtmlClient(base + suffix + ext) + '</div>';
+          const nn = base + suffix + ext;
+          const ch = nn !== n; if (ch) changed++;
+          html += '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:0;padding:4px 10px;border-bottom:1px solid rgba(0,0,0,.05)">' +
+            '<span style="color:var(--muted);font-size:14px;padding-right:8px">' + (ch ? '→' : '=') + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">' + escapeHtmlClient(n) + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (ch ? 'var(--accent)' : 'var(--muted)') + ';font-weight:' + (ch ? '500' : '400') + '">' + escapeHtmlClient(nn) + '</span></div>';
         });
       } else if (type === 'replace') {
         fields.innerHTML = '<input id="batchRenameFrom" type="text" placeholder="要替换的文本" style="width:48%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-right:4px" oninput="updateBatchRenamePreview()"><input id="batchRenameTo" type="text" placeholder="替换为" style="width:48%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()">';
         const from = (document.getElementById('batchRenameFrom') || {value:''}).value;
         const to = (document.getElementById('batchRenameTo') || {value:''}).value;
-        names.forEach(function(n) { html += '<div>' + escapeHtmlClient(from ? n.replace(from, to) : n) + '</div>'; });
+        names.forEach(function(n) {
+          const nn = from ? n.replace(from, to) : n;
+          const ch = nn !== n; if (ch) changed++;
+          html += '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:0;padding:4px 10px;border-bottom:1px solid rgba(0,0,0,.05)">' +
+            '<span style="color:var(--muted);font-size:14px;padding-right:8px">' + (ch ? '→' : '=') + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">' + escapeHtmlClient(n) + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (ch ? 'var(--accent)' : 'var(--muted)') + ';font-weight:' + (ch ? '500' : '400') + '">' + escapeHtmlClient(nn) + '</span></div>';
+        });
+      } else if (type === 'regex') {
+        fields.innerHTML = '<div style="display:flex;gap:6px;margin-bottom:6px"><input id="batchRenameRegex" type="text" placeholder="正则表达式，如 IMG_(\d+)" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()"><input id="batchRenameRegexReplace" type="text" placeholder="替换为，如 photo_$1" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()"></div><label style="font-size:11px;color:var(--muted)"><input type="checkbox" id="batchRenameRegexIgnore" onchange="updateBatchRenamePreview()" style="width:auto"> 忽略大小写</label>';
+        const regexStr = (document.getElementById('batchRenameRegex') || {value:''}).value;
+        const replaceStr = (document.getElementById('batchRenameRegexReplace') || {value:''}).value;
+        const ignoreCase = document.getElementById('batchRenameRegexIgnore') && document.getElementById('batchRenameRegexIgnore').checked;
+        names.forEach(function(n) {
+          let nn = n;
+          if (regexStr) {
+            try {
+              nn = n.replace(new RegExp(regexStr, ignoreCase ? 'gi' : 'g'), replaceStr);
+            } catch(e) { /* invalid regex, skip */ }
+          }
+          const ch = nn !== n; if (ch) changed++;
+          html += '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:0;padding:4px 10px;border-bottom:1px solid rgba(0,0,0,.05)">' +
+            '<span style="color:var(--muted);font-size:14px;padding-right:8px">' + (ch ? '→' : '=') + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">' + escapeHtmlClient(n) + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (ch ? 'var(--accent)' : 'var(--muted)') + ';font-weight:' + (ch ? '500' : '400') + '">' + escapeHtmlClient(nn) + '</span></div>';
+        });
+      } else if (type === 'case') {
+        fields.innerHTML = '<select id="batchRenameCaseType" onchange="updateBatchRenamePreview()" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg)"><option value="">选择转换方式</option><option value="lower">全部小写 (a→z)</option><option value="upper">全部大写 (A→Z)</option><option value="title">首字母大写 (Title Case)</option><option value="sentence">句首大写 (Sentence case)</option></select>';
+        const caseType = (document.getElementById('batchRenameCaseType') || {value:''}).value;
+        names.forEach(function(n) {
+          const lastDot = n.lastIndexOf('.');
+          const base = lastDot > 0 ? n.slice(0, lastDot) : n;
+          const ext = lastDot > 0 ? n.slice(lastDot) : '';
+          let newBase = base;
+          if (caseType === 'lower') newBase = base.toLowerCase();
+          else if (caseType === 'upper') newBase = base.toUpperCase();
+          else if (caseType === 'title') newBase = base.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+          else if (caseType === 'sentence') newBase = base.charAt(0).toUpperCase() + base.slice(1).toLowerCase();
+          const nn = newBase + ext;
+          const ch = nn !== n; if (ch) changed++;
+          html += '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:0;padding:4px 10px;border-bottom:1px solid rgba(0,0,0,.05)">' +
+            '<span style="color:var(--muted);font-size:14px;padding-right:8px">' + (ch ? '→' : '=') + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">' + escapeHtmlClient(n) + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (ch ? 'var(--accent)' : 'var(--muted)') + ';font-weight:' + (ch ? '500' : '400') + '">' + escapeHtmlClient(nn) + '</span></div>';
+        });
+      } else if (type === 'ext') {
+        fields.innerHTML = '<input id="batchRenameNewExt" type="text" placeholder="新扩展名，如 jpg（不含点）" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()">';
+        const newExt = (document.getElementById('batchRenameNewExt') || {value:''}).value.replace(/^\./, '');
+        names.forEach(function(n) {
+          const lastDot = n.lastIndexOf('.');
+          const base = lastDot > 0 ? n.slice(0, lastDot) : n;
+          const nn = newExt ? base + '.' + newExt : base;
+          const ch = nn !== n; if (ch) changed++;
+          html += '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:0;padding:4px 10px;border-bottom:1px solid rgba(0,0,0,.05)">' +
+            '<span style="color:var(--muted);font-size:14px;padding-right:8px">' + (ch ? '→' : '=') + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">' + escapeHtmlClient(n) + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (ch ? 'var(--accent)' : 'var(--muted)') + ';font-weight:' + (ch ? '500' : '400') + '">' + escapeHtmlClient(nn) + '</span></div>';
+        });
       } else if (type === 'pattern') {
         fields.innerHTML = '<input id="batchRenamePattern" type="text" placeholder="{name}_{n}，支持 {name} {ext} {n} {n2} {n3} {date}" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px" oninput="updateBatchRenamePreview()">';
         const pattern = (document.getElementById('batchRenamePattern') || {value:'{name}_{n}'}).value || '{name}_{n}';
@@ -2801,7 +2880,13 @@ function renderPage() {
             .replace(/\{n2\}/g, pad(i+1, 2))
             .replace(/\{n3\}/g, pad(i+1, 3))
             .replace(/\{date\}/g, dateStr);
-          html += '<div>' + escapeHtmlClient(newName) + '</div>';
+          const ch = newName !== n; if (ch) changed++;
+          html += '<div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:0;padding:4px 10px;border-bottom:1px solid rgba(0,0,0,.05)">' +
+            '<span style="color:var(--muted);font-size:14px;padding-right:8px">' + (ch ? '→' : '=') + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)">' + escapeHtmlClient(n) + '</span>' +
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (ch ? 'var(--accent)' : 'var(--muted)') + ';font-weight:' + (ch ? '500' : '400') + '">' + escapeHtmlClient(newName) + '</span></div>';
+        });
+      }
         });
       }
 
@@ -7538,6 +7623,33 @@ function renderPage() {
       document.getElementById('modal').classList.add('open');
     }
 
+    function openTextInputModal(opts) {
+      var type = opts.type || 'text';
+      var defaultVal = (opts.defaultValue || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      var placeholder = (opts.placeholder || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      var inputHtml = type === 'textarea'
+        ? '<textarea id="timInput" style="width:100%;min-height:100px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:14px;resize:vertical;box-sizing:border-box" placeholder="'+placeholder+'">'+defaultVal+'</textarea>'
+        : '<input id="timInput" type="'+type+'" value="'+defaultVal+'" placeholder="'+placeholder+'" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg-secondary);color:var(--text);font-size:14px;box-sizing:border-box">';
+      document.getElementById('modalTitle').textContent = opts.title;
+      document.getElementById('modalBody').innerHTML =
+        '<div style="padding:8px 0">' +
+        (opts.text ? '<p style="margin-bottom:12px;color:var(--muted);font-size:13px">'+opts.text+'</p>' : '') +
+        inputHtml +
+        '</div>';
+      var modal = document.getElementById('modal');
+      var dangerStyle = opts.danger ? 'background:#dc2626;color:#fff' : '';
+      modal.querySelector('.modal-actions').innerHTML =
+        '<button class="secondary" onclick="forceCloseModal()">取消</button>' +
+        '<button style="'+dangerStyle+'" id="timConfirmBtn">确认</button>';
+      document.getElementById('timConfirmBtn').onclick = function() {
+        var val = document.getElementById('timInput').value;
+        forceCloseModal();
+        opts.onConfirm(val);
+      };
+      modal.classList.add('open');
+      setTimeout(function() { var inp = document.getElementById('timInput'); if (inp) inp.focus(); }, 50);
+    }
+
     async function loadLatestText() {
       const data = await request('/api/latest/text');
       document.getElementById('textFilename').value = data.filename || '';
@@ -8328,20 +8440,33 @@ function renderPage() {
     }
 
     function openAddAuditNote() {
-      var note = prompt('输入备注内容（最多500字）:');
-      if (!note || !note.trim()) return;
-      request('/api/audit/logs', { method: 'POST', body: { note: note.trim() } }).then(function(data) {
-        if (data.success) { showToast('备注已添加'); loadAuditLogs(); loadAuditStats(); }
-        else showToast('添加失败: ' + (data.error || ''), 'error');
-      }).catch(function(e) { showToast('添加失败: ' + e.message, 'error'); });
+      openTextInputModal({
+        title: '添加审计备注',
+        text: '最多500字',
+        type: 'textarea',
+        placeholder: '输入备注内容…',
+        onConfirm: function(note) {
+          if (!note || !note.trim()) return;
+          request('/api/audit/logs', { method: 'POST', body: { note: note.trim() } }).then(function(data) {
+            if (data.success) { showToast('备注已添加'); loadAuditLogs(); loadAuditStats(); }
+            else showToast('添加失败: ' + (data.error || ''), 'error');
+          }).catch(function(e) { showToast('添加失败: ' + e.message, 'error'); });
+        }
+      });
     }
 
     function openClearAuditLogs() {
-      var days = prompt('清理多少天之前的日志？（默认90天）:', '90');
-      if (days === null) return;
-      var d = parseInt(days, 10);
-      if (!days || isNaN(d) || d < 1) { showToast('请输入有效天数', 'error'); return; }
-      openConfirmModal({
+      openTextInputModal({
+        title: '清理审计日志',
+        text: '清理多少天之前的日志？（默认90天）',
+        type: 'number',
+        defaultValue: '90',
+        placeholder: '90',
+        onConfirm: function(days) {
+          if (days === null || days === '') return;
+          var d = parseInt(days, 10);
+          if (!days || isNaN(d) || d < 1) { showToast('请输入有效天数', 'error'); return; }
+          openConfirmModal({
         title: '确认清理 ' + d + ' 天之前的日志？',
         text: '此操作不可撤销。',
         danger: true,
@@ -10121,21 +10246,28 @@ function renderPage() {
       if (document.getElementById('shareThemeColorHex')) document.getElementById('shareThemeColorHex').value = t.themeColor || '';
       if (document.getElementById('shareThemeColor')) document.getElementById('shareThemeColor').value = t.themeColor || '#111827';
       if (document.getElementById('shareBrandText')) document.getElementById('shareBrandText').value = t.brandText || '';
+      if (document.getElementById('shareLabelInput')) document.getElementById('shareLabelInput').value = t.label || '';
       showToast('已应用模板: ' + t.name, 'success');
     }
 
     function openSaveShareTemplateModal() {
-      var name = prompt('输入模板名称:', '我的模板');
-      if (!name || !name.trim()) return;
-      name = name.trim();
+      openTextInputModal({
+        title: '保存为模板',
+        type: 'text',
+        defaultValue: '我的模板',
+        placeholder: '模板名称',
+        onConfirm: function(name) {
+          if (!name || !name.trim()) return;
+          name = name.trim();
       var expiryHours = document.getElementById('shareExpirySelect') ? parseInt(document.getElementById('shareExpirySelect').value, 10) : 168;
       var password = document.getElementById('sharePasswordInput') ? document.getElementById('sharePasswordInput').value.trim() : '';
       var maxDownloads = document.getElementById('shareMaxDlInput') ? document.getElementById('shareMaxDlInput').value.trim() : '';
       var themeBg = document.getElementById('shareThemeBgHex') ? document.getElementById('shareThemeBgHex').value.trim() : '';
       var themeColor = document.getElementById('shareThemeColorHex') ? document.getElementById('shareThemeColorHex').value.trim() : '';
       var brandText = document.getElementById('shareBrandText') ? document.getElementById('shareBrandText').value.trim() : '';
+      var label = document.getElementById('shareLabelInput') ? document.getElementById('shareLabelInput').value.trim() : '';
       var templates = getShareTemplates();
-      templates.push({ name: name, expiryHours: expiryHours, password: password, maxDownloads: maxDownloads, themeBg: themeBg, themeColor: themeColor, brandText: brandText });
+      templates.push({ name: name, expiryHours: expiryHours, password: password, maxDownloads: maxDownloads, themeBg: themeBg, themeColor: themeColor, brandText: brandText, label: label });
       saveShareTemplates(templates);
       loadShareTemplates();
       showToast('模板已保存: ' + name, 'success');
@@ -10543,6 +10675,20 @@ function renderPage() {
             <div style="font-size:11px;color:var(--muted);margin-top:2px">到期时间</div>\
           </div>\
         </div>';
+      var timelineChart = '\
+        <div id="shareTimelineChart" style="margin-bottom:16px">\
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\
+            <span style="font-weight:600;font-size:13px">📈 近30天趋势</span>\
+            <span id="shareTimelineSummary" style="font-size:11px;color:var(--muted)">加载中…</span>\
+          </div>\
+          <div id="shareTimelineBars" style="display:flex;align-items:flex-end;gap:2px;height:56px">\
+            <div style="flex:1;background:var(--bg-tertiary);border-radius:3px;min-height:4px"></div>\
+          </div>\
+          <div style="display:flex;justify-content:space-between;margin-top:4px">\
+            <span style="font-size:9px;color:var(--muted)">' + (function(){var d=new Date();d.setDate(d.getDate()-29);return d.toLocaleDateString("zh-CN",{month:"short",day:"numeric"});})() + '</span>\
+            <span style="font-size:9px;color:var(--muted)">' + (new Date().toLocaleDateString("zh-CN",{month:"short",day:"numeric"})) + '</span>\
+          </div>\
+        </div>';
       var infoRows = '\
         <table style="width:100%;font-size:13px;border-collapse:collapse">\
           <tr style="border-bottom:1px solid var(--line)">\
@@ -10575,7 +10721,7 @@ function renderPage() {
       var title = document.getElementById('modalTitle');
       var body = document.getElementById('modalBody');
       title.textContent = '📋 ' + escapeHtmlClient(share.filename);
-      body.innerHTML = '<div style="max-width:480px">' + stats + infoRows +
+      body.innerHTML = '<div style="max-width:480px">' + stats + timelineChart + infoRows +
         '<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">\
           <button class="secondary" onclick="closeModal();copyShare(\'' + escapeHtmlClient(share.url || '').replace(/'/g, "\\'") + '\')" style="font-size:13px">📋 复制链接</button>\
           <button class="secondary" onclick="closeModal();openQrLightbox(\'' + escapeHtmlClient(code) + '\')" style="font-size:13px">🔳 查看二维码</button>\
@@ -10584,6 +10730,32 @@ function renderPage() {
           <button class="danger" onclick="closeModal();deleteShare(\'' + escapeHtmlClient(code) + '\')" style="font-size:13px">🗑 删除</button>\
         </div></div>';
       modal.classList.add('open');
+      // Load and render share link timeline chart
+      loadShareTimelineChart(code);
+    }
+
+    async function loadShareTimelineChart(code) {
+      try {
+        var res = await fetch('/api/shares/' + encodeURIComponent(code) + '/timeline', { headers: headers() });
+        var data = await res.json();
+        if (!data.success) return;
+        var tl = data.timeline || [];
+        var totalViews = data.totalViews || 0;
+        var totalDownloads = data.totalDownloads || 0;
+        document.getElementById('shareTimelineSummary').textContent =
+          '浏览 ' + totalViews + ' · 下载 ' + totalDownloads;
+        var maxVal = Math.max(1, ...tl.map(function(d) { return d.views + d.downloads; }));
+        var barsHtml = tl.map(function(d) {
+          var total = d.views + d.downloads;
+          var pct = Math.round((total / maxVal) * 100);
+          var h = Math.max(4, Math.round((total / maxVal) * 54));
+          var title = d.day + '\n浏览:' + d.views + ' 下载:' + d.downloads;
+          return '<div style="flex:1;background:var(--accent);border-radius:2px;min-height:4px;height:' + h + 'px;cursor:default;opacity:' + (total > 0 ? '0.75' : '0.1') + '" title="' + title + '"></div>';
+        }).join('');
+        document.getElementById('shareTimelineBars').innerHTML = barsHtml;
+      } catch (e) {
+        document.getElementById('shareTimelineSummary').textContent = '无法加载';
+      }
     }
 
     window.previewShare = function(code) {
@@ -11786,7 +11958,7 @@ function renderPage() {
       }
     }
 
-    async function openExpiringShares() {
+    async function openExpiringLinks() {
       var modal = document.getElementById('modal');
       var title = document.getElementById('modalTitle');
       var body = document.getElementById('modalBody');
@@ -11795,41 +11967,59 @@ function renderPage() {
       modal.classList.add('active');
 
       try {
-        var data = await request('/api/share/expiring?days=30');
+        var data = await request('/api/expiring-links');
         if (!data.success) throw new Error(data.error || '获取失败');
-        var rows = data.shares || [];
+        var rows = data.items || [];
 
         if (!rows.length) {
-          body.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">未来30天内没有即将过期的分享链接</div>';
+          body.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted)">未来7天内没有即将过期的链接</div>';
           return;
         }
 
-        var urgentRows = rows.filter(function(r) { return r.daysLeft <= 3; });
-        var soonRows = rows.filter(function(r) { return r.daysLeft > 3; });
+        var urgentRows = rows.filter(function(r) { return r.hoursLeft <= 24; });
+        var soonRows = rows.filter(function(r) { return r.hoursLeft > 24; });
 
-        var makeRows = function(items) {
-          var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">' +
-            '<thead><tr style="border-bottom:1px solid var(--line);color:var(--muted)">' +
-            '<th style="text-align:left;padding:6px 8px">文件</th><th style="text-align:center;padding:6px 8px">剩余</th><th style="text-align:right;padding:6px 8px">浏览</th><th style="text-align:right;padding:6px 8px">下载</th><th style="text-align:right;padding:6px 8px">操作</th></tr></thead><tbody>';
+        var makeShareRows = function(items) {
+          var h = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="border-bottom:1px solid var(--line);color:var(--muted)"><th style="text-align:left;padding:6px 8px">文件</th><th style="text-align:center;padding:6px 8px">剩余</th><th style="text-align:right;padding:6px 8px">操作</th></tr></thead><tbody>';
           items.forEach(function(r) {
-            var color = r.daysLeft <= 1 ? '#ef4444' : r.daysLeft <= 3 ? '#f59e0b' : '#94a3b8';
+            var color = r.hoursLeft <= 6 ? '#ef4444' : r.hoursLeft <= 24 ? '#f59e0b' : '#94a3b8';
             h += '<tr style="border-bottom:1px solid var(--line)">' +
-              '<td style="padding:6px 8px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(r.filename) + '">' + escapeHtmlClient(r.filename) + '</td>' +
-              '<td style="padding:6px 8px;text-align:center;color:' + color + ';font-weight:600">' + r.daysLeft + '天</td>' +
-              '<td style="padding:6px 8px;text-align:right;color:var(--muted)">' + (r.views || 0) + '</td>' +
-              '<td style="padding:6px 8px;text-align:right;color:var(--muted)">' + (r.downloads || 0) + '</td>' +
+              '<td style="padding:6px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(r.filename || '') + '">' + escapeHtmlClient(r.filename || '') + '</td>' +
+              '<td style="padding:6px 8px;text-align:center;color:' + color + ';font-weight:600">' + (r.hoursLeft <= 24 ? r.hoursLeft + '小时' : Math.ceil(r.hoursLeft / 24) + '天') + '</td>' +
               '<td style="padding:6px 8px;text-align:right"><button onclick="extendShareExpiry(\'' + escapeHtmlClient(r.code).replace(/'/g, "\\'") + '\')" class="secondary" style="font-size:11px;padding:3px 8px">续期</button></td></tr>';
           });
-          h += '</tbody></table>';
-          return h;
+          return h + '</tbody></table>';
+        };
+
+        var makeRlRows = function(items) {
+          var h = '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="border-bottom:1px solid var(--line);color:var(--muted)"><th style="text-align:left;padding:6px 8px">名称</th><th style="text-align:center;padding:6px 8px">剩余</th><th style="text-align:right;padding:6px 8px">操作</th></tr></thead><tbody>';
+          items.forEach(function(r) {
+            var color = r.hoursLeft <= 6 ? '#ef4444' : r.hoursLeft <= 24 ? '#f59e0b' : '#94a3b8';
+            h += '<tr style="border-bottom:1px solid var(--line)">' +
+              '<td style="padding:6px 8px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(r.name || '') + '">' + escapeHtmlClient(r.name || '') + '</td>' +
+              '<td style="padding:6px 8px;text-align:center;color:' + color + ';font-weight:600">' + (r.hoursLeft <= 24 ? r.hoursLeft + '小时' : Math.ceil(r.hoursLeft / 24) + '天') + '</td>' +
+              '<td style="padding:6px 8px;text-align:right"><button onclick="extendRlExpiry(\'' + escapeHtmlClient(r.code).replace(/'/g, "\\'") + '\')" class="secondary" style="font-size:11px;padding:3px 8px">续期</button></td></tr>';
+          });
+          return h + '</tbody></table>';
         };
 
         var html = '<div style="max-height:500px;overflow-y:auto">';
-        if (urgentRows.length) {
-          html += '<div style="margin-bottom:16px"><div style="font-weight:600;margin-bottom:8px;font-size:13px;color:#ef4444">🔥 紧急（3天内）' + urgentRows.length + '个</div>' + makeRows(urgentRows) + '</div>';
+        var shareUrgent = urgentRows.filter(function(r) { return r.type === 'share'; });
+        var shareSoon = soonRows.filter(function(r) { return r.type === 'share'; });
+        var rlUrgent = urgentRows.filter(function(r) { return r.type === 'request'; });
+        var rlSoon = soonRows.filter(function(r) { return r.type === 'request'; });
+
+        if (shareUrgent.length || shareSoon.length) {
+          html += '<div style="margin-bottom:20px"><div style="font-weight:600;margin-bottom:8px;font-size:13px">🔗 分享链接</div>';
+          if (shareUrgent.length) html += '<div style="margin-bottom:12px"><div style="font-weight:600;margin-bottom:6px;font-size:12px;color:#ef4444">🔥 紧急 ' + shareUrgent.length + '个</div>' + makeShareRows(shareUrgent) + '</div>';
+          if (shareSoon.length) html += '<div><div style="font-weight:600;margin-bottom:6px;font-size:12px;color:var(--muted)">📅 近期 ' + shareSoon.length + '个</div>' + makeShareRows(shareSoon) + '</div>';
+          html += '</div>';
         }
-        if (soonRows.length) {
-          html += '<div><div style="font-weight:600;margin-bottom:8px;font-size:13px;color:var(--muted)">📅 近期（4-30天）' + soonRows.length + '个</div>' + makeRows(soonRows) + '</div>';
+        if (rlUrgent.length || rlSoon.length) {
+          html += '<div><div style="font-weight:600;margin-bottom:8px;font-size:13px">📥 收集链接</div>';
+          if (rlUrgent.length) html += '<div style="margin-bottom:12px"><div style="font-weight:600;margin-bottom:6px;font-size:12px;color:#ef4444">🔥 紧急 ' + rlUrgent.length + '个</div>' + makeRlRows(rlUrgent) + '</div>';
+          if (rlSoon.length) html += '<div><div style="font-weight:600;margin-bottom:6px;font-size:12px;color:var(--muted)">📅 近期 ' + rlSoon.length + '个</div>' + makeRlRows(rlSoon) + '</div>';
+          html += '</div>';
         }
         html += '</div>';
         body.innerHTML = html;
@@ -11848,9 +12038,23 @@ function renderPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ expiresAt: newExpiry })
         });
-        if (data.success) { showToast('已续期', 'success'); openExpiringShares(); }
-        else showToast('续期失败: ' + (data.error || ''), 'error');
-      } catch (e) { showToast('续期失败: ' + e.message, 'error'); }
+        if (data.success) { showToast('已续期', 'success'); openExpiringLinks(); }
+        else { showToast('续期失败', 'error'); }
+      } catch (e) { showToast('续期失败', 'error'); }
+    }
+
+    async function extendRlExpiry(code) {
+      var days = prompt('延长多少天？', '30');
+      if (!days || isNaN(parseInt(days))) return;
+      try {
+        var data = await request('/api/request-links/' + encodeURIComponent(code), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ expires_in_days: parseInt(days) })
+        });
+        if (data.success) { showToast('已续期', 'success'); openExpiringLinks(); }
+        else { showToast('续期失败', 'error'); }
+      } catch (e) { showToast('续期失败', 'error'); }
     }
 
     async function batchDeleteSelectedShares() {
