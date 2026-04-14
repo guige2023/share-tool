@@ -708,6 +708,30 @@ function initSchemaV18(db) {
   }
 }
 
+function initSchemaV19(db) {
+  // v19: share_link_stats — daily view/download counts per share link
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS share_link_stats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        share_code TEXT NOT NULL,
+        day TEXT NOT NULL,
+        views INTEGER DEFAULT 0,
+        downloads INTEGER DEFAULT 0,
+        UNIQUE(share_code, day)
+      )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sls_share_day ON share_link_stats(share_code, day)`);
+    console.log('[DB] Migrated: share_link_stats table');
+  } catch (e) {
+    if (e.message.includes('already exists')) {
+      console.log('[DB] share_link_stats already exists');
+    } else {
+      console.warn('[DB] Migration v19 failed:', e.message);
+    }
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {

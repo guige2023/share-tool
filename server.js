@@ -5249,12 +5249,11 @@ function renderPage() {
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-id="' + (file.id || '') + '" onchange="onFileCheckChange()" onclick="lastClickedIndex=' + file._index + '"></td>' +
         '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (file.starred ? '<span title="已收藏" style="color:#f59e0b">⭐</span> ' : '') + (file.highlightedName || (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name))) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><button class="inline-star-btn" onclick="event.stopPropagation();toggleStar(' + JSON.stringify(file.name) + ')" title="' + (file.starred ? '取消收藏' : '收藏') + '" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:' + (file.starred ? '#f59e0b' : 'var(--muted)') + '">' + (file.starred ? '★' : '☆') + '</button><div class="muted">' + formatFileType(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
-        '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
         '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
         '<td data-label="更新时间">' + formatTime(file.updatedAt || file.createdAt) + '</td>' +
         '<td data-label="创建时间">' + formatTime(file.createdAt) + '</td>' +
-        '<td class="actions-cell" data-label="操作">' +
-          '<button onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
+        '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
+        '<td data-label="路径" style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(file.virtual_folder || '') + '">' + (file.virtual_folder ? escapeHtmlClient(file.virtual_folder) : '<span style="color:var(--border)">—</span>') + '</td>' +
           '<button class="secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
           '<button class="secondary" onclick=' + "'" + 'copyShareLink(' + JSON.stringify(file.name) + ')' + "'" + '>复制链接</button>' +
           '<button class="secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
