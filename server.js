@@ -8702,13 +8702,18 @@ function renderPage() {
     };
 
     window.deleteVersion = async function(filename, versionId) {
-      if (!confirm('确认删除此版本？')) return;
-      try {
-        var res = await fetch('/api/file-versions/' + encodeURIComponent(filename) + '/version/' + versionId, { method: 'DELETE', headers: headers() });
-        var data = await res.json();
-        if (data.success) { showToast('版本已删除', 'success'); openFileVersions(filename); }
-        else { showToast(data.error || '删除失败', 'error'); }
-      } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+      openConfirmModal({
+        title: '确认删除此版本？',
+        danger: true,
+        onConfirm: async function() {
+          try {
+            var res = await fetch('/api/file-versions/' + encodeURIComponent(filename) + '/version/' + versionId, { method: 'DELETE', headers: headers() });
+            var data = await res.json();
+            if (data.success) { showToast('版本已删除', 'success'); openFileVersions(filename); }
+            else { showToast(data.error || '删除失败', 'error'); }
+          } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+        }
+      });
     };
 
     async function openTagManager() {
