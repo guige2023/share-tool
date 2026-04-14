@@ -856,9 +856,9 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     }
 
     const mime = file.content_type || guessMimeType(filename);
-    if (!mime.startsWith('image/')) {
+    if (!mime.startsWith('image/') && !mime.startsWith('video/')) {
       res.writeHead(415, { 'Content-Type': 'text/plain' });
-      res.end('Not an image');
+      res.end('Unsupported media type');
       return true;
     }
 
@@ -866,23 +866,69 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       const content = file.content || '';
       if (!content) throw new Error('no content');
 
-      // Try sharp resize first
-      const buf = Buffer.from(content, 'base64');
-      const thumb = await sharp(buf)
-        .resize(128, 128, { fit: 'cover', position: 'centre' })
-        .jpeg({ quality: 75 })
-        .toBuffer();
+      // ── IMAGE THUMBNAIL ───────────────────────────────────────────────────────
+      if (mime.startsWith('image/')) {
+        const buf = Buffer.from(content, 'base64');
+        const thumb = await sharp(buf)
+          .resize(128, 128, { fit: 'cover', position: 'centre' })
+          .jpeg({ quality: 75 })
+          .toBuffer();
+        res.writeHead(200, {
+          'Content-Type': 'image/jpeg',
+          'Content-Length': thumb.length,
+          'Cache-Control': 'public, max-age=86400'
+        });
+        res.end(thumb);
+        return true;
+      }
 
-      res.writeHead(200, {
-        'Content-Type': 'image/jpeg',
-        'Content-Length': thumb.length,
-        'Cache-Control': 'public, max-age=86400'
-      });
-      res.end(thumb);
+      // ── VIDEO THUMBNAIL via ffmpeg ───────────────────────────────────────────
+      if (mime.startsWith('video/')) {
+        const { execSync } = require('child_process');
+        const path = require('path');
+        const fs = require('fs');
+        const crypto = require('crypto');
+
+        // Decode base64 to binary and write temp file
+        const buf = Buffer.from(content, 'base64');
+        const ext = path.extname(filename) || '.mp4';
+        const tmpIn = '/tmp/video_thumb_in_' + crypto.randomUUID() + ext;
+        const tmpOut = '/tmp/video_thumb_out_' + crypto.randomUUID() + '.jpg';
+        fs.writeFileSync(tmpIn, buf);
+
+        try {
+          // Extract frame at 10% of video duration using ffmpeg
+          execSync(
+            'ffmpeg -y -ss 00:00:01 -i "' + tmpIn + '" -vframes 1 -vf "scale=128:128:force_original_aspect_ratio=decrease,pad=128:128:(ow-iw)/2:(oh-ih)/2" -q:v 2 "' + tmpOut + '" 2>/dev/null',
+            { timeout: 15000, stdio: 'ignore' }
+          );
+
+          if (!fs.existsSync(tmpOut) || fs.statSync(tmpOut).size === 0) {
+            throw new Error('ffmpeg produced no output');
+          }
+
+          // Resize to ensure consistent 128x128 output with sharp
+          const thumb = await sharp(tmpOut)
+            .resize(128, 128, { fit: 'cover', position: 'centre' })
+            .jpeg({ quality: 75 })
+            .toBuffer();
+
+          res.writeHead(200, {
+            'Content-Type': 'image/jpeg',
+            'Content-Length': thumb.length,
+            'Cache-Control': 'public, max-age=86400'
+          });
+          res.end(thumb);
+        } finally {
+          try { fs.unlinkSync(tmpIn); } catch (_) {}
+          try { fs.unlinkSync(tmpOut); } catch (_) {}
+        }
+        return true;
+      }
     } catch (err) {
-      // Fallback: serve original as JPEG if sharp fails (e.g. corrupted, unsupported format)
+      console.error('Thumbnail generation failed for', filename, err.message);
       const content = file.content || '';
-      if (content) {
+      if (content && mime.startsWith('image/')) {
         res.writeHead(200, {
           'Content-Type': mime,
           'Cache-Control': 'public, max-age=3600'

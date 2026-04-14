@@ -1520,7 +1520,6 @@ function copyFile(sourceFilename, newFilename) {
   );
 
   const newId = result.lastInsertRowid;
-
   // 记录同步日志
   addSyncLog(newId, newFilename, 'create', source.hash, null, source.size);
 
@@ -1623,7 +1622,7 @@ function batchCopy(filenames, destFolder) {
       const source = getFileByName(filename);
       const basename = filename.split('/').pop();
       const destFilename = (destFolder ? destFolder + '/' : '') + basename;
-      db.prepare(`
+      const result = db.prepare(`
         INSERT INTO files (filename, content, type, size, hash, created_at, updated_at, tags, encrypted, content_type)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
@@ -1638,6 +1637,9 @@ function batchCopy(filenames, destFolder) {
         source.encrypted || 0,
         source.content_type || 'application/octet-stream'
       );
+      const newId = result.lastInsertRowid;
+      // 记录同步日志
+      addSyncLog(newId, destFilename, 'create', source.hash, null, source.size);
       results.push({ filename, destFilename, success: true });
     }
     db.exec('COMMIT');
