@@ -2075,9 +2075,11 @@ function getTotalStorageSize() {
 // 文件类型分布统计
 function getStorageStats() {
   const db = getDb();
-  // Single query: totals + byType + byDay + sizeRanges all at once
-  const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
-  const rows = db.prepare(`
+  // 3 queries: totals (1 row), byType (1 row per type), byDay (1 row per day)
+  // Total: 3 queries (was 7 — eliminated 4 per-range COUNT queries)
+  const totals = db.prepare('SELECT COUNT(*) as totalFiles, COALESCE(SUM(size), 0) as totalSize FROM files').get();
+
+  const byType = db.prepare(`
     SELECT
       CASE
         WHEN content_type LIKE 'image/%' THEN 'image'
@@ -2090,68 +2092,50 @@ function getStorageStats() {
         ELSE 'other'
       END as category,
       COUNT(*) as count,
-      COALESCE(SUM(size), 0) as size,
-      -- totals aggregate (same value in every row, extracted client-side)
-      COUNT(*) OVER() as totalFiles,
-      COALESCE(SUM(size), 0) OVER() as totalSize,
-      -- 7-day trend flag
-      CASE WHEN created_at >= ? THEN 1 ELSE 0 END as in_seven_days,
-      date(created_at, 'unixepoch') as day,
-      -- size range flags
-      CASE WHEN size < 1048576 THEN 1 ELSE 0 END as sz_lt_1mb,
-      CASE WHEN size >= 1048576 AND size < 10485760 THEN 1 ELSE 0 END as sz_1_10mb,
-      CASE WHEN size >= 10485760 AND size < 104857600 THEN 1 ELSE 0 END as sz_10_100mb,
-      CASE WHEN size >= 104857600 THEN 1 ELSE 0 END as sz_ge_100mb
+      COALESCE(SUM(size), 0) as size
     FROM files
-    ORDER BY category, day
+    GROUP BY category
+    ORDER BY size DESC
+  `).all();
+
+  const sevenDaysAgo = Math.floor(Date.now() / 1000) - 7 * 86400;
+  const byDay = db.prepare(`
+    SELECT
+      date(created_at, 'unixepoch') as day,
+      COUNT(*) as file_count,
+      COALESCE(SUM(size), 0) as total_size
+    FROM files
+    WHERE created_at >= ?
+    GROUP BY day
+    ORDER BY day ASC
   `).all(sevenDaysAgo);
 
-  if (!rows || rows.length === 0) {
-    return { totalFiles: 0, totalSize: 0, byType: [], byDay: [], sizeRanges: [
-      { label: '< 1MB',   count: 0, size: 0 },
-      { label: '1-10MB',  count: 0, size: 0 },
-      { label: '10-100MB', count: 0, size: 0 },
-      { label: '>= 100MB', count: 0, size: 0 }
-    ]};
-  }
+  // Single query for all size ranges (replaces 4 separate COUNT queries)
+  const sr = db.prepare(`
+    SELECT
+      SUM(CASE WHEN size < 1048576 THEN 1 ELSE 0 END) as lt_1mb_count,
+      SUM(CASE WHEN size < 1048576 THEN COALESCE(size,0) ELSE 0 END) as lt_1mb_size,
+      SUM(CASE WHEN size >= 1048576 AND size < 10485760 THEN 1 ELSE 0 END) as sz_1_10mb_count,
+      SUM(CASE WHEN size >= 1048576 AND size < 10485760 THEN COALESCE(size,0) ELSE 0 END) as sz_1_10mb_size,
+      SUM(CASE WHEN size >= 10485760 AND size < 104857600 THEN 1 ELSE 0 END) as sz_10_100mb_count,
+      SUM(CASE WHEN size >= 10485760 AND size < 104857600 THEN COALESCE(size,0) ELSE 0 END) as sz_10_100mb_size,
+      SUM(CASE WHEN size >= 104857600 THEN 1 ELSE 0 END) as ge_100mb_count,
+      SUM(CASE WHEN size >= 104857600 THEN COALESCE(size,0) ELSE 0 END) as ge_100mb_size
+    FROM files
+  `).get();
 
-  const totals = { totalFiles: rows[0].totalFiles || 0, totalSize: rows[0].totalSize || 0 };
-
-  // Aggregate byType from rows
-  const byTypeMap = {};
-  rows.forEach(r => {
-    if (!byTypeMap[r.category]) byTypeMap[r.category] = { category: r.category, count: 0, size: 0 };
-    byTypeMap[r.category].count += r.count;
-    byTypeMap[r.category].size += r.size;
-  });
-  const byType = Object.values(byTypeMap).sort((a, b) => b.size - a.size);
-
-  // Aggregate byDay from rows
-  const byDayMap = {};
-  rows.forEach(r => {
-    if (r.in_seven_days) {
-      if (!byDayMap[r.day]) byDayMap[r.day] = { day: r.day, file_count: 0, total_size: 0 };
-      byDayMap[r.day].file_count += r.count;
-      byDayMap[r.day].total_size += r.size;
-    }
-  });
-  const byDay = Object.values(byDayMap).sort((a, b) => a.day.localeCompare(b.day));
-
-  // Aggregate size ranges from rows
-  const sizeRanges = [
-    { label: '< 1MB',    count: 0, size: 0 },
-    { label: '1-10MB',  count: 0, size: 0 },
-    { label: '10-100MB', count: 0, size: 0 },
-    { label: '>= 100MB', count: 0, size: 0 }
-  ];
-  rows.forEach(r => {
-    if (r.sz_lt_1mb)   { sizeRanges[0].count++; sizeRanges[0].size += r.size; }
-    if (r.sz_1_10mb)   { sizeRanges[1].count++; sizeRanges[1].size += r.size; }
-    if (r.sz_10_100mb) { sizeRanges[2].count++; sizeRanges[2].size += r.size; }
-    if (r.sz_ge_100mb) { sizeRanges[3].count++; sizeRanges[3].size += r.size; }
-  });
-
-  return { totalSize: totals.totalSize, totalFiles: totals.totalFiles, byType, byDay, sizeRanges };
+  return {
+    totalFiles: totals.totalFiles || 0,
+    totalSize: totals.totalSize || 0,
+    byType,
+    byDay,
+    sizeRanges: [
+      { label: '< 1MB',   count: sr.lt_1mb_count || 0,       size: sr.lt_1mb_size || 0 },
+      { label: '1-10MB',  count: sr.sz_1_10mb_count || 0,     size: sr.sz_1_10mb_size || 0 },
+      { label: '10-100MB', count: sr.sz_10_100mb_count || 0,   size: sr.sz_10_100mb_size || 0 },
+      { label: '>= 100MB', count: sr.ge_100mb_count || 0,     size: sr.ge_100mb_size || 0 }
+    ]
+  };
 }
 
 // 获取虚拟文件夹大小（所有前缀匹配的文件累计大小）
