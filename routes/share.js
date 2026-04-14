@@ -569,6 +569,7 @@ module.exports = async function handleShareRoutes(req, res, pathname, query, ctx
       return true;
     }
     db.addAuditLog('share_access', `${code}:${file.filename}`, getClientIp(req));
+    db.addFileAccessLog(file.id, 'download', getClientIp(req));
 
     const payload = decodeStoredFile(file);
     res.writeHead(200, {
