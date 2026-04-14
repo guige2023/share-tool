@@ -9135,31 +9135,41 @@ function renderPage() {
     }
 
     async function deleteDupe(filename) {
-      if (!confirm('删除 ' + filename + '？')) return;
-      const res = await fetch('/api/files/' + encodeURIComponent(filename), { method: 'DELETE', headers: headers() });
-      if (res.ok) {
-        showToast('已删除', 'success');
-        openDuplicates(); // refresh
-      } else {
-        showToast('删除失败', 'error');
-      }
+      openConfirmModal({
+        title: '删除 ' + filename + '？',
+        danger: true,
+        onConfirm: async function() {
+          const res = await fetch('/api/files/' + encodeURIComponent(filename), { method: 'DELETE', headers: headers() });
+          if (res.ok) {
+            showToast('已删除', 'success');
+            openDuplicates(); // refresh
+          } else {
+            showToast('删除失败', 'error');
+          }
+        }
+      });
     }
 
     async function deleteSelectedDupes() {
-      var names = Array.from(document.querySelectorAll('.dupe-check:checked')).map(function(cb) { return cb.value; });
+      var names = Array.from(document.querySelectorAll('.dupe-check:checked')).map(function(el) { return el.getAttribute('data-name'); });
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
-      if (!confirm('删除 ' + names.length + ' 个重复文件？')) return;
-      const res = await fetch('/api/files/batch-delete', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', ...headers() },
-        body: JSON.stringify({ filenames: names })
+      openConfirmModal({
+        title: '删除 ' + names.length + ' 个重复文件？',
+        danger: true,
+        onConfirm: async function() {
+          const res = await fetch('/api/files/batch-delete', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', ...headers() },
+            body: JSON.stringify({ filenames: names })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('已删除 ' + data.deleted + ' 个文件', 'success');
+            openDuplicates(); // refresh
+          } else {
+            showToast(data.error || '删除失败', 'error');
+          }
+        }
       });
-      const data = await res.json();
-      if (data.success) {
-        showToast('已删除 ' + data.deleted + ' 个文件', 'success');
-        openDuplicates(); // refresh
-      } else {
-        showToast(data.error || '删除失败', 'error');
-      }
     }
 
     async function openFileActivity(filename) {
@@ -10330,7 +10340,7 @@ function renderPage() {
         const totalActivity = (share.viewCount || 0) + (share.downloadCount || 0);
         return '<tr>' +
           '<td data-label=""><input type="checkbox" class="share-check" data-code="' + escapeHtmlClient(share.code) + '" onchange="onShareCheckChange()"></td>' +
-          '<td data-label="文件"><strong style="cursor:pointer;color:var(--accent)" onclick="openShareDetailModal(\'' + escapeHtmlClient(share.code) + '\')">' + escapeHtmlClient(share.filename) + '</strong></td>' +
+          '<td data-label="文件"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (share.themeColor || 'var(--line)') + ';margin-right:5px;vertical-align:middle;flex-shrink:0"></span><strong style="cursor:pointer;color:var(--accent)" onclick="openShareDetailModal(\'' + escapeHtmlClient(share.code) + '\')">' + escapeHtmlClient(share.filename) + '</strong></td>' +
           '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank" style="word-break:break-all;font-size:12px">' + escapeHtmlClient(share.url) + '</a></td>' +
           '<td data-label="二维码"><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
           '<td data-label="到期">' + expireText + expiringBadge + expiredBadge + '</td>' +
