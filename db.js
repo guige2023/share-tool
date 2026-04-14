@@ -3270,6 +3270,19 @@ function getDashboardStats() {
   const totalShares = db.prepare('SELECT COUNT(*) as c FROM share_links').get().c;
   const sharesWithPwd = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE password_hash IS NOT NULL').get().c;
 
+  // 分享链接分析
+  const totalViews = db.prepare('SELECT COALESCE(SUM(view_count), 0) as c FROM share_links').get().c;
+  const totalDownloads = db.prepare('SELECT COALESCE(SUM(download_count), 0) as c FROM share_links').get().c;
+  const todayViews = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE created_at >= ?').get(today).c;
+  const weekDownloads = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE created_at >= ?').get(thisWeek).c;
+  const topLinks = db.prepare(`
+    SELECT code, filename, view_count, download_count, expires_at,
+           (view_count + download_count) as total_count
+    FROM share_links
+    ORDER BY total_count DESC
+    LIMIT 10
+  `).all();
+
   // 设备
   const totalDevices = db.prepare('SELECT COUNT(*) as c FROM devices').get().c;
   const onlineDevices = db.prepare('SELECT COUNT(*) as c FROM devices WHERE is_online=1').get().c;
@@ -3353,6 +3366,7 @@ function getDashboardStats() {
     topLargest,
     activity: { today: filesToday, week: filesThisWeek, month: filesThisMonth, dailyNew },
     shares: { active: activeShares, total: totalShares, withPassword: sharesWithPwd },
+    shareAnalytics: { totalViews, totalDownloads, todayViews, weekDownloads, topLinks },
     devices: { total: totalDevices, online: onlineDevices },
     tokens: { total: totalTokens, active: activeTokens },
     audit: { total: auditTotal, today: auditToday },

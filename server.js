@@ -7717,6 +7717,41 @@ function renderPage() {
         }
         html += '</div></div></div>';
 
+        // Row 6: Share link analytics
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:20px">';
+        html += '<div style="font-weight:600;margin-bottom:14px;font-size:13px">📊 分享分析</div>';
+        var shareMetricItems = [
+          { label: '总浏览', value: shareAnalytics.totalViews },
+          { label: '总下载', value: shareAnalytics.totalDownloads },
+          { label: '今日浏览', value: shareAnalytics.todayViews },
+          { label: '本周下载', value: shareAnalytics.weekDownloads },
+        ];
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:16px">';
+        for (var smi = 0; smi < shareMetricItems.length; smi++) {
+          var sm = shareMetricItems[smi];
+          html += '<div style="background:var(--bg-tertiary);padding:10px 12px;border-radius:8px;text-align:center">';
+          html += '<div style="font-size:18px;font-weight:700;color:var(--text)">' + escapeHtmlClient('' + (sm.value || 0)) + '</div>';
+          html += '<div style="font-size:11px;color:var(--muted);margin-top:2px">' + escapeHtmlClient(sm.label) + '</div></div>';
+        }
+        html += '</div>';
+        html += '<div style="font-weight:600;margin-bottom:10px;font-size:12px">🔥 热门分享 TOP 10</div>';
+        if (shareAnalytics.topLinks && shareAnalytics.topLinks.length) {
+          html += '<div style="display:grid;grid-template-columns:1fr 60px 60px 80px;gap:4px;font-size:11px;color:var(--muted);padding:0 4px 6px;border-bottom:1px solid var(--bg-tertiary);margin-bottom:4px">';
+          html += '<div>文件名</div><div style="text-align:right">浏览</div><div style="text-align:right">下载</div><div style="text-align:right">总计</div></div>';
+          for (var sli = 0; sli < shareAnalytics.topLinks.length; sli++) {
+            var sl = shareAnalytics.topLinks[sli];
+            var slTotal = (sl.view_count || 0) + (sl.download_count || 0);
+            html += '<div style="display:grid;grid-template-columns:1fr 60px 60px 80px;gap:4px;font-size:12px;padding:5px 4px;align-items:center;border-bottom:1px solid var(--bg-tertiary)">';
+            html += '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-secondary)" title="' + escapeHtmlClient(sl.filename || '') + '">' + escapeHtmlClient(sl.filename || '') + '</div>';
+            html += '<div style="text-align:right;color:var(--muted)">' + (sl.view_count || 0) + '</div>';
+            html += '<div style="text-align:right;color:var(--muted)">' + (sl.download_count || 0) + '</div>';
+            html += '<div style="text-align:right;font-weight:600;color:var(--text)">' + slTotal + '</div></div>';
+          }
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px">暂无分享数据</div>';
+        }
+        html += '</div>';
+
         var targetEl = document.getElementById('dashboardContent');
         if (targetEl) targetEl.innerHTML = html;
       } catch (e) {
