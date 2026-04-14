@@ -1000,6 +1000,7 @@ function renderPage() {
           <span style="cursor:pointer;color:var(--accent);font-weight:500" onclick="exitVirtualFolder()" title="返回全部文件">全部文件</span>
         </nav>
         <button onclick="loadFiles()">刷新</button>
+        <button id="autoRefreshBtn" class="ghost" onclick="toggleAutoRefresh()" title="自动刷新 (每30秒)" style="font-size:12px">🔁</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button class="ghost" onclick="openStorageStats()" title="存储统计">📊</button>
         <button class="ghost" onclick="openSyncDashboard()" title="同步面板 (z)">🔄</button>
@@ -1126,7 +1127,7 @@ function renderPage() {
         <span id="fileBatchCount" style="font-size:13px;color:var(--muted)"></span>
         <button class="ghost" onclick="batchMoveSelectedFiles()">移动</button>
         <button class="ghost" onclick="openBatchCopyModal()">复制</button>
-        <button class="ghost danger" onclick="batchDeleteSelectedFiles()">删除</button>
+        <button class="ghost danger" onclick="batchDeleteSelected()">删除</button>
         <button class="ghost" onclick="clearFileSelection()">取消</button>
       </div>
       <div class="list-scroll">
@@ -1167,7 +1168,7 @@ function renderPage() {
         <button class="ghost" onclick="openShareAnalytics()">📈 分析</button>
         <button class="ghost" onclick="openExpiringShares()">⏰ 过期提醒</button>
         <button class="danger" onclick="batchDeleteExpiredShares()">删除过期</button>
-        <input id="shareSearchInput" type="text" placeholder="搜索分享链接..." oninput="filterShareTable()" style="margin-left:auto;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:180px">
+        <input id="shareSearchInput" type="text" placeholder="搜索分享链接..." oninput="filterShareTable()" style="margin-left:auto;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:180px"> <span id="shareResultCount" style="font-size:12px;color:var(--muted);white-space:nowrap"></span>
       </div>
       <div id="shareBatchBar" class="batch-bar" style="display:none">
         <input type="checkbox" id="shareSelectAll" onchange="toggleShareSelectAll(this.checked)" style="margin-right:4px">
@@ -1178,6 +1179,7 @@ function renderPage() {
         <button class="ghost" onclick="batchDeleteSelectedShares()">删除选中</button>
         <button class="ghost" onclick="clearShareSelection()">取消选择</button>
       </div>
+      <div id="shareQuickFilters" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center"></div>
       <div class="list-scroll">
         <table>
           <thead>
@@ -3474,6 +3476,32 @@ function renderPage() {
       }
       loadFiles();
     }
+
+    var _autoRefreshInterval = null;
+    window.toggleAutoRefresh = function() {
+      if (_autoRefreshInterval) {
+        clearInterval(_autoRefreshInterval);
+        _autoRefreshInterval = null;
+        updateAutoRefreshBtn(false);
+        showToast('已关闭自动刷新', 'info');
+      } else {
+        _autoRefreshInterval = setInterval(function() {
+          if (!_autoRefreshInterval) return;
+          var modal = document.getElementById('modal');
+          var isOpen = modal && modal.classList.contains('open');
+          if (!isOpen) loadFiles();
+        }, 30000);
+        updateAutoRefreshBtn(true);
+        showToast('已开启自动刷新（每30秒）', 'success');
+      }
+    };
+
+    window.updateAutoRefreshBtn = function(active) {
+      var btn = document.getElementById('autoRefreshBtn');
+      if (!btn) return;
+      btn.style.color = active ? 'var(--accent)' : '';
+      btn.style.opacity = active ? '1' : '';
+    };
 
     async function loadFiles() {
       if (isRecentFilesMode) {
@@ -9485,12 +9513,49 @@ function renderPage() {
       const shares = data.shares || [];
       currentShares = shares;
       updateShareSortArrows();
+      renderShareQuickFilters();
       renderShareTable(applyShareSort(shares));
+    }
+
+    var _shareQuickFilter = null; // 'active', 'expired', 'password', or null for all
+
+    function renderShareQuickFilters() {
+      var container = document.getElementById('shareQuickFilters');
+      if (!container) return;
+      var now = Date.now() / 1000;
+      var all = currentShares.length;
+      var active = currentShares.filter(function(s) { return !s.expiresAt || s.expiresAt > now; }).length;
+      var expired = currentShares.filter(function(s) { return s.expiresAt && s.expiresAt <= now; }).length;
+      var pwd = currentShares.filter(function(s) { return s.password; }).length;
+      var filters = [
+        { key: null, label: '全部', count: all },
+        { key: 'active', label: '有效', count: active },
+        { key: 'expired', label: '已过期', count: expired },
+        { key: 'password', label: '有密码', count: pwd }
+      ];
+      var activeFilter = _shareQuickFilter;
+      container.innerHTML = filters.map(function(f) {
+        var isActive = f.key === activeFilter;
+        return '<button onclick="setShareQuickFilter(\'' + (f.key || '') + '\')" style="padding:3px 10px;font-size:12px;border-radius:999px;border:none;cursor:pointer;font-weight:' + (isActive ? '600' : '400') + ';background:' + (isActive ? 'var(--accent)' : 'var(--bg-tertiary)') + ';color:' + (isActive ? '#fff' : 'var(--muted)') + '">' + f.label + ' (' + f.count + ')</button>';
+      }).join('');
+    }
+
+    function setShareQuickFilter(key) {
+      _shareQuickFilter = key === '' ? null : key;
+      var now = Date.now() / 1000;
+      var filtered = currentShares;
+      if (key === 'active') filtered = currentShares.filter(function(s) { return !s.expiresAt || s.expiresAt > now; });
+      else if (key === 'expired') filtered = currentShares.filter(function(s) { return s.expiresAt && s.expiresAt <= now; });
+      else if (key === 'password') filtered = currentShares.filter(function(s) { return s.password; });
+      renderShareQuickFilters();
+      renderShareTable(applyShareSort(filtered));
     }
 
     function filterShareTable() {
       var q = document.getElementById('shareSearchInput').value.trim().toLowerCase();
+      var countEl = document.getElementById('shareResultCount');
       if (!q) {
+        if (countEl) countEl.textContent = '';
         renderShareTable(applyShareSort(currentShares));
         return;
       }
@@ -9499,6 +9564,7 @@ function renderPage() {
                (s.code && s.code.toLowerCase().includes(q)) ||
                (s.url && s.url.toLowerCase().includes(q));
       });
+      if (countEl) countEl.textContent = ' (' + filtered.length + '/' + currentShares.length + ')';
       renderShareTable(applyShareSort(filtered));
     }
 
