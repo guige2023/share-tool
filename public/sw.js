@@ -108,6 +108,28 @@ async function syncPendingUploads(client) {
   return { success, failed, syncedFilenames };
 }
 
+// Background Sync: process queued uploads when network reconnects
+self.addEventListener('sync', function(event) {
+  if (event.tag === 'upload-queue') {
+    event.waitUntil(syncPendingUploads());
+  }
+});
+
+// Register background sync (call when items are queued)
+async function registerUploadSync() {
+  if ('sync' in self.registration) {
+    try {
+      await self.registration.sync.register('upload-queue');
+    } catch (e) {
+      // Fallback: process immediately if sync not available
+      syncPendingUploads();
+    }
+  } else {
+    // Background Sync not supported — process immediately
+    syncPendingUploads();
+  }
+}
+
 // Install: cache static assets
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -181,5 +203,29 @@ self.addEventListener('message', event => {
   // Sync pending uploads (called by browser when back online)
   if (data.type === 'SYNC_UPLOADS') {
     syncPendingUploads(event.source).catch(() => {});
+  }
+
+  // Trigger background sync for upload queue
+  if (data.type === 'TRIGGER_UPLOAD_SYNC') {
+    registerUploadSync();
+  }
+
+  // Return count of pending offline uploads (via MessageChannel port if provided)
+  if (data.type === 'GET_PENDING_COUNT') {
+    getPendingUploads().then(pending => {
+      const msg = { type: 'PENDING_COUNT', count: pending.length };
+      if (event.ports && event.ports.length) {
+        event.ports[0].postMessage(msg);
+      } else {
+        event.source.postMessage(msg);
+      }
+    }).catch(() => {
+      const msg = { type: 'PENDING_COUNT', count: 0 };
+      if (event.ports && event.ports.length) {
+        event.ports[0].postMessage(msg);
+      } else {
+        event.source.postMessage(msg);
+      }
+    });
   }
 });

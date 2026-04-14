@@ -2759,8 +2759,9 @@ function renderPage() {
 
       var list = panel.querySelector('.uq-list');
       list.innerHTML = uploadQueue.map(function(item, i) {
+        var isOfflineQueued = item.status === 'queued' && item.offline;
         var color = item.status === 'done' ? '#22c55e' : item.status === 'failed' ? '#ef4444' : item.status === 'paused' ? '#f59e0b' : item.status === 'queued' ? '#8b5cf6' : '#3b82f6';
-        var icon = item.status === 'done' ? '✓' : item.status === 'failed' ? '✗' : item.status === 'paused' ? '⏸' : item.status === 'queued' ? '⏳' : '↑';
+        var icon = item.status === 'done' ? '✓' : item.status === 'failed' ? '✗' : item.status === 'paused' ? '⏸' : item.status === 'queued' ? (isOfflineQueued ? '⛂' : '⏳') : '↑';
         var canRetry = item.status === 'failed';
         var canPause = item.status === 'uploading';
         var canResume = item.status === 'paused';
@@ -2770,7 +2771,11 @@ function renderPage() {
         if (canPause) actions += '<button class="uq-btn uq-pause" data-i="' + i + '" title="暂停">⏸</button>';
         if (canResume) actions += '<button class="uq-btn uq-resume" data-i="' + i + '" title="继续">▶</button>';
         if (canCancel) actions += '<button class="uq-btn uq-cancel" data-i="' + i + '" title="取消">✕</button>';
-        return '<div class="uq-item" data-i="' + i + '" style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)">' +
+        var itemStyle = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)';
+        if (isOfflineQueued) {
+          itemStyle += ';background:rgba(139,92,246,0.15);border-left:3px solid #8b5cf6;padding-left:8px;margin-left:-8px';
+        }
+        return '<div class="uq-item" data-i="' + i + '" style="' + itemStyle + '">' +
           '<span style="color:' + color + ';font-size:14px;width:18px;text-align:center">' + icon + '</span>' +
           '<div style="flex:1;min-width:0">' +
             '<div style="font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escapeHtmlClient(item.name) + '">' + escapeHtmlClient(item.name) + '</div>' +
@@ -2923,8 +2928,12 @@ function renderPage() {
               token: (localStorage.getItem('st_auth_token') || STATIC_TOKEN)
             });
             if (queued) {
-              updateQueueItem(uploadQueue.indexOf(item), { status: 'queued', pct: 0 });
+              updateQueueItem(uploadQueue.indexOf(item), { status: 'queued', pct: 0, offline: true });
               showToast('文件已加入离线队列，网络恢复后将自动上传', 'info', 4000);
+              // Trigger background sync so SW processes the queue when online
+              if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'TRIGGER_UPLOAD_SYNC' });
+              }
             } else {
               updateQueueItem(uploadQueue.indexOf(item), { status: 'failed' });
             }
@@ -10470,6 +10479,18 @@ function renderPage() {
               }
             }
             if (removed > 0) renderUploadQueuePanel();
+          }
+        }
+        // Update offline pending count badge when SW reports it
+        if (data.type === 'PENDING_COUNT') {
+          var badge = document.getElementById('offlinePendingBadge');
+          if (badge) {
+            if (data.count > 0) {
+              badge.textContent = data.count > 99 ? '99+' : data.count;
+              badge.style.display = 'inline-block';
+            } else {
+              badge.style.display = 'none';
+            }
           }
         }
       });
