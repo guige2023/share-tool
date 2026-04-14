@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 16; // v16: SQLite durability hardening — auto_vacuum=INCREMENTAL, busy_timeout=5000, synchronous=NORMAL
+const SCHEMA_VERSION = 17; // v17: file notes — notes column on files table
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -672,6 +672,20 @@ function initSchemaV15(db) {
   }
 }
 
+function initSchemaV17(db) {
+  // v17: file notes column
+  try {
+    db.exec(`ALTER TABLE files ADD COLUMN notes TEXT DEFAULT ''`);
+    console.log('[DB] Migrated: notes column on files');
+  } catch (e) {
+    if (e.message.includes('duplicate column')) {
+      console.log('[DB] Notes column already exists');
+    } else {
+      console.warn('[DB] Migration v17 failed:', e.message);
+    }
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {
@@ -756,6 +770,10 @@ function runMigrations(db, fromVersion) {
       initSchemaV14(db);
     } else if (v === 15) {
       initSchemaV15(db);
+    } else if (v === 16) {
+      // v16: no schema change (SQLite durability hardening was applied in initDb)
+    } else if (v === 17) {
+      initSchemaV17(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -1161,6 +1179,7 @@ function updateFileByName(filename, updates) {
   }
   if (updates.encrypted !== undefined) { fields.push('encrypted = ?'); values.push(updates.encrypted ? 1 : 0); }
   if (updates.starred !== undefined) { fields.push('starred = ?'); values.push(updates.starred ? 1 : 0); }
+  if (updates.notes !== undefined) { fields.push('notes = ?'); values.push(updates.notes || ''); }
 
   fields.push('updated_at = unixepoch()');
   values.push(filename);
@@ -1170,6 +1189,17 @@ function updateFileByName(filename, updates) {
   const updated = getFileByName(filename);
   addSyncLog(updated.id, filename, 'update', updated.hash, null, updated.size);
   return updated;
+}
+
+function getFileNotes(filename) {
+  const file = getFileByName(filename);
+  return file ? (file.notes || '') : '';
+}
+
+function updateFileNotes(filename, notes) {
+  const db = getDb();
+  db.prepare(`UPDATE files SET notes = ?, updated_at = unixepoch() WHERE filename = ?`).run(notes || '', filename);
+  return { success: true, notes: notes || '' };
 }
 
 function updateFile(id, updates) {
@@ -1196,6 +1226,7 @@ function updateFile(id, updates) {
   if (updates.filename !== undefined) { fields.push('filename = ?'); values.push(updates.filename); }
   if (updates.encrypted !== undefined) { fields.push('encrypted = ?'); values.push(updates.encrypted ? 1 : 0); }
   if (updates.starred !== undefined) { fields.push('starred = ?'); values.push(updates.starred ? 1 : 0); }
+  if (updates.notes !== undefined) { fields.push('notes = ?'); values.push(updates.notes || ''); }
 
   fields.push('updated_at = unixepoch()');
   values.push(id);

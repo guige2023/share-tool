@@ -7896,12 +7896,64 @@ function renderPage() {
           '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">管理保存的分享链接预设模板。</div>' +
           '<div id="shareTemplatesList" style="margin-bottom:10px"></div>' +
           '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="openManageShareTemplates()">管理模板</button>' +
+        '</div>' +
+
+        // Version history
+        '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">📋 版本历史</label>' +
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">查看 ShareTool 所有已发布的功能更新记录。</div>' +
+          '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="openVersionHistory()">查看版本历史</button>' +
         '</div>';
 
       modal.classList.add('open');
       loadSettingsInfo();
       loadShareTemplatesSettings();
       loadTrashAutoCleanSetting();
+    }
+
+    function openVersionHistory() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📋 版本历史';
+
+      var versions = [
+        { ver: 'v6.186.0', desc: '🔍 全屏搜索 — Ctrl+K 打开统一搜索，覆盖文件/分享/收集链接，带类型过滤芯片和分组结果' },
+        { ver: 'v6.185.0', desc: '📊 分享链接详情弹窗 — 点击分享文件名查看访问/下载/过期统计，快捷操作按钮；虚拟文件夹管理器显示大小' },
+        { ver: 'v6.184.0', desc: '🔽 收集链接状态过滤器 — 下拉筛选全部/有效/已停用' },
+        { ver: 'v6.183.0', desc: '🗂️ 批量操作弹窗化 — 删除、重命名等操作全面替换为样式弹窗替代浏览器 confirm/prompt' },
+        { ver: 'v6.182.0', desc: '🌐 URL 上传 — 支持从远程 HTTP(S) URL 直接下载文件保存到存储' },
+        { ver: 'v6.181.0', desc: '🗑️ 回收站自动清理 — 可配置 7/30/90 天自动清空；修复 SQL 占位符 bug' },
+        { ver: 'v6.180.0', desc: '📁 在 Finder 中打开 — 右键菜单支持"在 Finder 中打开"，使用 open -R 定位文件' },
+        { ver: 'v6.179.0', desc: '📊 批量统计弹窗 — 批量操作栏新增"统计"按钮，显示选中文件的总大小、类型分布、扩展名分布、创建日期分布' },
+        { ver: 'v6.178.0', desc: '🔧 批量 UI 优化 — 批量移动改为弹窗输入框，删除改为样式弹窗确认' },
+        { ver: 'v6.177.0', desc: '🔢 快速排序按钮 — 文件列表头部新增 4 个一键排序按钮（更新时间/A-Z/大小/类型），当前排序高亮显示' },
+        { ver: 'v6.176.0', desc: '📋 收集链接复制 — 复制现有收集链接的配置到新链接，默认 30 天有效期' },
+        { ver: 'v6.175.0', desc: '✏️ 虚拟文件夹双击重命名 — 双击文件夹名称可直接编辑，Enter 确认，Escape 取消' },
+        { ver: 'v6.174.0', desc: '🏷️ 批量标签改进 — 标签输入弹窗新增已有标签面板（点击添加）和实时标签建议下拉' },
+        { ver: 'v6.173.0', desc: '🎨 虚拟文件夹颜色选择器 — 文件夹详情弹窗中点击颜色圆点可打开颜色选择器' },
+        { ver: 'v6.172.0', desc: 'ℹ️ 批量文件详情查看器 — 批量操作栏"i"按钮显示所有选中文件的元数据（名称/大小/类型/上传时间/标签）' },
+        { ver: 'v6.171.0', desc: '🐛 修复批量分享复选框 bug — 修复批量复制/删除/移动/编辑时 data-code 属性读取错误' },
+        { ver: 'v6.170.0', desc: '⏱️ 批量分享快捷过期 — 批量分享弹窗新增 7天/30天/90天/1年快捷按钮和"永不过期"清除按钮' },
+        { ver: 'v6.169.0', desc: '📝 分享链接模板 — 保存/加载/删除分享预设（有效期/密码/下载限制/主题），在设置面板管理' },
+      ];
+
+      var html = '<div style="max-height:500px;overflow-y:auto;padding:4px 0">';
+      html += '<div style="text-align:center;padding:8px 0 16px;border-bottom:1px solid var(--line);margin-bottom:12px">';
+      html += '<div style="font-size:18px;font-weight:700;margin-bottom:4px">ShareTool</div>';
+      html += '<div style="font-size:12px;color:var(--muted)">持续迭代中 · 已发布 ' + versions.length + ' 个版本</div>';
+      html += '</div>';
+      versions.forEach(function(v) {
+        html += '<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);align-items:flex-start">';
+        html += '<div style="min-width:70px;font-weight:600;color:var(--accent);font-size:12px;padding-top:1px">' + v.ver + '</div>';
+        html += '<div style="font-size:13px;line-height:1.6;color:var(--text-secondary)">' + v.desc + '</div>';
+        html += '</div>';
+      });
+      html += '<div style="text-align:center;padding:16px 0 4px;font-size:12px;color:var(--muted)">';
+      html += '更早版本请查看 <a href="https://github.com/guige2023/share-tool/releases" target="_blank" style="color:var(--accent)">GitHub Releases</a>';
+      html += '</div></div>';
+      body.innerHTML = html;
+      modal.classList.add('open');
     }
 
     async function openStorageStats() {
@@ -8052,19 +8104,25 @@ function renderPage() {
     }
 
     async function rotateToken() {
-      if (!confirm('确定要更换 Token 吗？更换后需要重新扫码或手动输入新 Token。')) return;
-      try {
-        var data = await request('/api/settings/rotate-token', { method: 'POST' });
-        if (data.success && data.token) {
-          var tok = document.getElementById('settingsCurrentToken');
-          if (tok) tok.textContent = data.token;
-          showToast('Token 已更换，请刷新页面并更新客户端', 'success', 4000);
-        } else {
-          showToast(data.error || '更换 Token 失败', 'error');
+      openConfirmModal({
+        title: '确定要更换 Token 吗？',
+        text: '更换后需要重新扫码或手动输入新 Token。',
+        danger: false,
+        onConfirm: async function() {
+          try {
+            var data = await request('/api/settings/rotate-token', { method: 'POST' });
+            if (data.success && data.token) {
+              var tok = document.getElementById('settingsCurrentToken');
+              if (tok) tok.textContent = data.token;
+              showToast('Token 已更换，请刷新页面并更新客户端', 'success', 4000);
+            } else {
+              showToast(data.error || '更换 Token 失败', 'error');
+            }
+          } catch (e) {
+            showToast('更换 Token 失败: ' + e.message, 'error');
+          }
         }
-      } catch (e) {
-        showToast('更换 Token 失败: ' + e.message, 'error');
-      }
+      });
     }
 
     function backupDatabase() {
@@ -10221,9 +10279,15 @@ function renderPage() {
     }
 
     async function deleteShare(code) {
-      if (!confirm('删除这个分享链接?')) return;
-      await request('/api/share/delete/' + encodeURIComponent(code), { method: 'DELETE' });
-      await loadShares();
+      openConfirmModal({
+        title: '删除分享链接？',
+        text: '此操作不可撤销。',
+        danger: true,
+        onConfirm: async function() {
+          await request('/api/share/delete/' + encodeURIComponent(code), { method: 'DELETE' });
+          await loadShares();
+        }
+      });
     }
 
     async function renewShareLink(code) {
@@ -10910,9 +10974,15 @@ function renderPage() {
     }
 
     async function deleteRequestLink(code) {
-      if (!confirm('删除这个收集链接?')) return;
-      await request('/api/request-links/' + encodeURIComponent(code), { method: 'DELETE' });
-      await loadRequestLinks();
+      openConfirmModal({
+        title: '删除收集链接？',
+        text: '此操作不可撤销。',
+        danger: true,
+        onConfirm: async function() {
+          await request('/api/request-links/' + encodeURIComponent(code), { method: 'DELETE' });
+          await loadRequestLinks();
+        }
+      });
     }
 
     async function batchDeleteSelectedRl() {
@@ -11259,9 +11329,15 @@ function renderPage() {
     }
 
     async function clearAllNotifications() {
-      if (!confirm('清空所有通知?')) return;
-      await request('/api/notifications', { method: 'DELETE' });
-      await loadNotifications();
+      openConfirmModal({
+        title: '清空所有通知？',
+        text: '此操作不可撤销。',
+        danger: true,
+        onConfirm: async function() {
+          await request('/api/notifications', { method: 'DELETE' });
+          await loadNotifications();
+        }
+      });
     }
 
     function toggleShareSelectAll(checked) {
