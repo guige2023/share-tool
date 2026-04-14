@@ -5678,6 +5678,17 @@ function renderPage() {
       }
     }
 
+    // --- Star / Unstar ---
+    async function toggleStar(filename) {
+      try {
+        var res = await fetch('/api/files/' + encodeURIComponent(filename) + '/star', { method: 'POST', headers: headers() });
+        var data = await res.json();
+        if (data.success !== undefined && !data.success) { showToast(data.error || '操作失败', 'error'); return; }
+        showToast(data.starred ? '已收藏' : '已取消收藏', 'success');
+        loadFiles();
+      } catch(e) { showToast('收藏操作失败', 'error'); }
+    }
+
     // --- Keyboard Navigation ---
     var keyboardNavIndex = -1;
     var gridColumns = 1;
@@ -8306,11 +8317,17 @@ function renderPage() {
       if (days === null) return;
       var d = parseInt(days, 10);
       if (!days || isNaN(d) || d < 1) { showToast('请输入有效天数', 'error'); return; }
-      if (!confirm('确认清理 ' + d + ' 天之前的日志？此操作不可撤销。')) return;
-      request('/api/audit/clear', { method: 'POST', body: { confirm: true, olderThanDays: d } }).then(function(data) {
-        if (data.success) { showToast('已清理 ' + (data.deleted || 0) + ' 条日志'); loadAuditLogs(); loadAuditStats(); }
-        else showToast('清理失败: ' + (data.error || ''), 'error');
-      }).catch(function(e) { showToast('清理失败: ' + e.message, 'error'); });
+      openConfirmModal({
+        title: '确认清理 ' + d + ' 天之前的日志？',
+        text: '此操作不可撤销。',
+        danger: true,
+        onConfirm: function() {
+          request('/api/audit/clear', { method: 'POST', body: { confirm: true, olderThanDays: d } }).then(function(data) {
+            if (data.success) { showToast('已清理 ' + (data.deleted || 0) + ' 条日志'); loadAuditLogs(); loadAuditStats(); }
+            else showToast('清理失败: ' + (data.error || ''), 'error');
+          }).catch(function(e) { showToast('清理失败: ' + e.message, 'error'); });
+        }
+      });
     }
 
     // ── Device Manager ────────────────────────────────────────────────
@@ -9755,19 +9772,25 @@ function renderPage() {
     }
 
     async function emptyTrash() {
-      if (!confirm('确定清空回收站？所有文件将被永久删除。')) return;
-      try {
-        const res = await fetch('/api/trash/empty', { method: 'POST', headers: headers() });
-        const data = await res.json();
-        if (data.success) {
-          showToast('回收站已清空', 'success');
-          openTrash();
-        } else {
-          showToast('清空失败: ' + (data.error || '未知错误'), 'error');
+      openConfirmModal({
+        title: '确定清空回收站？',
+        text: '所有文件将被永久删除，此操作不可恢复。',
+        danger: true,
+        onConfirm: async function() {
+          try {
+            const res = await fetch('/api/trash/empty', { method: 'POST', headers: headers() });
+            const data = await res.json();
+            if (data.success) {
+              showToast('回收站已清空', 'success');
+              openTrash();
+            } else {
+              showToast('清空失败: ' + (data.error || '未知错误'), 'error');
+            }
+          } catch (e) {
+            showToast('清空失败: ' + e.message, 'error');
+          }
         }
-      } catch (e) {
-        showToast('清空失败: ' + e.message, 'error');
-      }
+      });
     }
 
     async function confirmEmptyTrash() {
@@ -10111,12 +10134,17 @@ function renderPage() {
     }
 
     function deleteShareTemplate(idx) {
-      if (!confirm('确认删除此模板？')) return;
-      var templates = getShareTemplates();
-      templates.splice(parseInt(idx, 10), 1);
-      saveShareTemplates(templates);
-      loadShareTemplatesSettings();
-      showToast('模板已删除', 'success');
+      openConfirmModal({
+        title: '删除此模板？',
+        danger: true,
+        onConfirm: function() {
+          var templates = getShareTemplates();
+          templates.splice(parseInt(idx, 10), 1);
+          saveShareTemplates(templates);
+          loadShareTemplatesSettings();
+          showToast('模板已删除', 'success');
+        }
+      });
     }
 
     async function confirmShareCreate(filename) {
@@ -10771,6 +10799,9 @@ function renderPage() {
       body.innerHTML = links.map(function(rl) {
         var url = (location.origin || '') + '/r/' + rl.code;
         var statusLabel = rl.active ? '<span style="color:#22c55e">● 有效</span>' : '<span style="color:#94a3b8">○ 已停用</span>';
+        var expiresIn = rl.expires_at ? Math.ceil((rl.expires_at * 1000 - Date.now()) / 86400000) : null;
+        var expiringBadge = (expiresIn !== null && expiresIn <= 7 && expiresIn > 0) ? ' <span style="background:#92400e;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;white-space:nowrap">⚠️ ' + expiresIn + '天后</span>' : '';
+        var expiredBadge = (expiresIn !== null && expiresIn <= 0) ? ' <span style="background:#991b1b;color:#fff;font-size:10px;padding:1px 6px;border-radius:10px">已过期</span>' : '';
         var info = [];
         if (rl.upload_count) info.push('已收: ' + rl.upload_count + (rl.max_uploads ? '/' + rl.max_uploads : ''));
         if (rl.has_password) info.push('🔒 有密码');
@@ -10778,7 +10809,7 @@ function renderPage() {
         if (rl.target_folder) info.push('目录: ' + escapeHtmlClient(rl.target_folder));
         return '<tr>' +
           '<td data-label=""><input type="checkbox" class="rl-check" value="' + encodeURIComponent(rl.code) + '" onchange="updateRlBatchBar()" style="margin:0"></td>' +
-          '<td data-label="名称"><strong>' + escapeHtmlClient(rl.name) + '</strong></td>' +
+          '<td data-label="名称"><strong>' + escapeHtmlClient(rl.name) + expiringBadge + expiredBadge + '</strong></td>' +
           '<td data-label="链接"><a href="' + escapeHtmlClient(url) + '" target="_blank" style="word-break:break-all;font-size:12px">' + escapeHtmlClient('/r/' + rl.code) + '</a></td>' +
           '<td data-label="创建时间">' + (rl.created_at ? formatTime(rl.created_at * 1000) : '—') + '</td>' +
           '<td data-label="已收">' + (rl.upload_count || 0) + (rl.max_uploads ? ' / ' + rl.max_uploads : '') + '</td>' +
@@ -11134,15 +11165,20 @@ function renderPage() {
     async function batchDeleteSelectedRl() {
       const codes = Array.from(document.querySelectorAll('.rl-check:checked')).map(el => el.value);
       if (!codes.length) { showToast('请先选择收集链接', 'error'); return; }
-      if (!confirm('删除选中的 ' + codes.length + ' 个收集链接?')) return;
-      var failed = 0;
-      for (var i = 0; i < codes.length; i++) {
-        var resp = await fetch('/api/request-links/' + encodeURIComponent(codes[i]), { method: 'DELETE', headers: headers() });
-        if (!resp.ok) failed++;
-      }
-      showToast(failed ? codes.length - failed + '/' + codes.length + ' 已删除，' + failed + ' 失败' : codes.length + ' 个已删除', failed ? 'warn' : 'success');
-      clearRlSelection();
-      await loadRequestLinks();
+      openConfirmModal({
+        title: '删除选中的 ' + codes.length + ' 个收集链接？',
+        danger: true,
+        onConfirm: async function() {
+          var failed = 0;
+          for (var i = 0; i < codes.length; i++) {
+            var resp = await fetch('/api/request-links/' + encodeURIComponent(codes[i]), { method: 'DELETE', headers: headers() });
+            if (!resp.ok) failed++;
+          }
+          showToast(failed ? codes.length - failed + '/' + codes.length + ' 已删除，' + failed + ' 失败' : codes.length + ' 个已删除', failed ? 'warn' : 'success');
+          clearRlSelection();
+          await loadRequestLinks();
+        }
+      });
     }
 
     // ── Request Link Files Modal ─────────────────────────────────────────────
@@ -11218,22 +11254,27 @@ function renderPage() {
     }
 
     async function deleteRequestLinkFile(code, fileId, btn) {
-      if (!confirm('确认删除此文件？')) return;
-      btn.disabled = true;
-      try {
-        var res = await fetch('/api/request-links/' + encodeURIComponent(code) + '/files/' + fileId, { method: 'DELETE', headers: headers() });
-        var data = await res.json();
-        if (data.success) {
-          showToast('已删除', 'success');
-          loadRequestLinkFiles(code);
-        } else {
-          showToast(data.error || '删除失败', 'error');
-          btn.disabled = false;
+      openConfirmModal({
+        title: '确认删除此文件？',
+        danger: true,
+        onConfirm: async function() {
+          btn.disabled = true;
+          try {
+            var res = await fetch('/api/request-links/' + encodeURIComponent(code) + '/files/' + fileId, { method: 'DELETE', headers: headers() });
+            var data = await res.json();
+            if (data.success) {
+              showToast('已删除', 'success');
+              loadRequestLinkFiles(code);
+            } else {
+              showToast(data.error || '删除失败', 'error');
+              btn.disabled = false;
+            }
+          } catch(e) {
+            showToast('删除失败', 'error');
+            btn.disabled = false;
+          }
         }
-      } catch(e) {
-        showToast('删除失败', 'error');
-        btn.disabled = false;
-      }
+      });
     }
 
     function downloadRequestLinkZip(code, btn) {
@@ -11286,22 +11327,28 @@ function renderPage() {
     async function batchDeleteRlFiles() {
       var checked = document.querySelectorAll('.rl-file-check:checked');
       if (!checked.length) { showToast('请先选择文件', 'error'); return; }
-      if (!confirm('确认删除 ' + checked.length + ' 个文件？')) return;
-      var code = _currentRlCode;
-      var ids = Array.from(checked).map(function(el) { return parseInt(el.dataset.id, 10); });
-      var btn = document.getElementById('rlBatchDeleteBtn');
-      if (btn) { btn.disabled = true; btn.textContent = '删除中...'; }
-      var ok = 0, fail = 0;
-      for (var i = 0; i < ids.length; i++) {
-        try {
-          var res = await fetch('/api/request-links/' + encodeURIComponent(code) + '/files/' + ids[i], { method: 'DELETE', headers: headers() });
-          var data = await res.json();
-          if (data.success) ok++; else fail++;
-        } catch(e) { fail++; }
-      }
-      if (btn) { btn.disabled = false; updateRlBatchDeleteBtn(); }
-      showToast('已删除 ' + ok + ' 个文件' + (fail ? '，失败 ' + fail : ''), fail ? 'error' : 'success');
-      loadRequestLinkFiles(code);
+      var count = checked.length;
+      openConfirmModal({
+        title: '确认删除 ' + count + ' 个文件？',
+        danger: true,
+        onConfirm: async function() {
+          var code = _currentRlCode;
+          var ids = Array.from(checked).map(function(el) { return parseInt(el.dataset.id, 10); });
+          var btn = document.getElementById('rlBatchDeleteBtn');
+          if (btn) { btn.disabled = true; btn.textContent = '删除中...'; }
+          var ok = 0, fail = 0;
+          for (var i = 0; i < ids.length; i++) {
+            try {
+              var res = await fetch('/api/request-links/' + encodeURIComponent(code) + '/files/' + ids[i], { method: 'DELETE', headers: headers() });
+              var data = await res.json();
+              if (data.success) ok++; else fail++;
+            } catch(e) { fail++; }
+          }
+          if (btn) { btn.disabled = false; updateRlBatchDeleteBtn(); }
+          showToast('已删除 ' + ok + ' 个文件' + (fail ? '，失败 ' + fail : ''), fail ? 'error' : 'success');
+          loadRequestLinkFiles(code);
+        }
+      });
     }
 
     // Store current RL code for batch operations
@@ -11378,16 +11425,22 @@ function renderPage() {
 
     async function deleteSelectedDuplicates() {
       if (selectedDuplicates.size === 0) return;
-      if (!confirm('删除选中的 ' + selectedDuplicates.size + ' 个文件?')) return;
-      var ids = Array.from(selectedDuplicates);
-      var promises = ids.map(function(id) {
-        return request('/api/files/' + encodeURIComponent(id), { method: 'DELETE' });
+      var count = selectedDuplicates.size;
+      openConfirmModal({
+        title: '删除选中的 ' + count + ' 个文件？',
+        danger: true,
+        onConfirm: async function() {
+          var ids = Array.from(selectedDuplicates);
+          var promises = ids.map(function(id) {
+            return request('/api/files/' + encodeURIComponent(id), { method: 'DELETE' });
+          });
+          await Promise.all(promises);
+          showToast('已删除 ' + ids.length + ' 个重复文件', 'success');
+          selectedDuplicates.clear();
+          await loadDuplicates();
+          await loadFiles();
+        }
       });
-      await Promise.all(promises);
-      showToast('已删除 ' + ids.length + ' 个重复文件', 'success');
-      selectedDuplicates.clear();
-      await loadDuplicates();
-      await loadFiles();
     }
 
     // ── Notifications ───────────────────────────────────────────────────────
@@ -11769,17 +11822,22 @@ function renderPage() {
       var checked = document.querySelectorAll('.share-check:checked');
       var codes = Array.from(checked).map(function(el) { return el.getAttribute('data-code'); });
       if (!codes.length) { showToast('请先选择链接', 'error'); return; }
-      if (!confirm('删除 ' + codes.length + ' 个分享链接?')) return;
-      var count = 0;
-      for (var i = 0; i < codes.length; i++) {
-        try {
-          await request('/api/share/delete/' + encodeURIComponent(codes[i]), { method: 'DELETE' });
-          count++;
-        } catch (e) {}
-      }
-      showToast('已删除 ' + count + ' 个链接', 'success');
-      clearShareSelection();
-      await loadShares();
+      openConfirmModal({
+        title: '删除 ' + codes.length + ' 个分享链接？',
+        danger: true,
+        onConfirm: async function() {
+          var count = 0;
+          for (var i = 0; i < codes.length; i++) {
+            try {
+              await request('/api/share/delete/' + encodeURIComponent(codes[i]), { method: 'DELETE' });
+              count++;
+            } catch (e) {}
+          }
+          showToast('已删除 ' + count + ' 个链接', 'success');
+          clearShareSelection();
+          await loadShares();
+        }
+      });
     }
 
     async function batchDeleteExpiredShares() {
@@ -11788,16 +11846,21 @@ function renderPage() {
         return s.expiresAt && new Date(s.expiresAt).getTime() < now;
       });
       if (!expired.length) { showToast('没有已过期的分享链接', 'info'); return; }
-      if (!confirm('删除 ' + expired.length + ' 个已过期分享链接?')) return;
-      var count = 0;
-      for (var i = 0; i < expired.length; i++) {
-        try {
-          await request('/api/share/delete/' + encodeURIComponent(expired[i].code), { method: 'DELETE' });
-          count++;
-        } catch (e) {}
-      }
-      showToast('已删除 ' + count + ' 个过期链接', 'success');
-      await loadShares();
+      openConfirmModal({
+        title: '删除 ' + expired.length + ' 个已过期分享链接？',
+        danger: true,
+        onConfirm: async function() {
+          var count = 0;
+          for (var i = 0; i < expired.length; i++) {
+            try {
+              await request('/api/share/delete/' + encodeURIComponent(expired[i].code), { method: 'DELETE' });
+              count++;
+            } catch (e) {}
+          }
+          showToast('已删除 ' + count + ' 个过期链接', 'success');
+          await loadShares();
+        }
+      });
     }
 
     document.getElementById('searchInput').addEventListener('keydown', function (event) {
