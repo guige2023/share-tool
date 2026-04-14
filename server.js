@@ -9904,7 +9904,7 @@ function renderPage() {
     async function batchCopySelectedShares() {
       var checked = document.querySelectorAll('.share-check:checked');
       var shares = Array.from(checked).map(function(el) {
-        return currentShares.find(function(s) { return s.code === decodeURIComponent(el.value); });
+        return currentShares.find(function(s) { return s.code === el.getAttribute('data-code'); });
       }).filter(Boolean);
       if (!shares.length) { showToast('请先选择链接', 'error'); return; }
       var urls = shares.map(function(s) { return s.url; }).join('\n');
@@ -9914,7 +9914,7 @@ function renderPage() {
 
     async function batchDownloadSelectedQrs() {
       var checked = document.querySelectorAll('.share-check:checked');
-      var codes = Array.from(checked).map(function(el) { return decodeURIComponent(el.value); });
+      var codes = Array.from(checked).map(function(el) { return el.getAttribute('data-code'); });
       if (!codes.length) { showToast('请先选择链接', 'error'); return; }
       showToast('开始下载 ' + codes.length + ' 个二维码...');
       var count = 0;
@@ -9978,7 +9978,7 @@ function renderPage() {
 
     async function confirmBatchShareUpdate(count) {
       var checked = document.querySelectorAll('.share-check:checked');
-      var codes = Array.from(checked).map(function(el) { return decodeURIComponent(el.value); });
+      var codes = Array.from(checked).map(function(el) { return el.getAttribute('data-code'); });
       if (!codes.length) return;
       var expiry = document.getElementById('batchShareExpiry').value;
       var maxDl = document.getElementById('batchShareMaxDl').value;
@@ -10152,7 +10152,7 @@ function renderPage() {
 
     async function batchDeleteSelectedShares() {
       var checked = document.querySelectorAll('.share-check:checked');
-      var codes = Array.from(checked).map(function(el) { return decodeURIComponent(el.value); });
+      var codes = Array.from(checked).map(function(el) { return el.getAttribute('data-code'); });
       if (!codes.length) { showToast('请先选择链接', 'error'); return; }
       if (!confirm('删除 ' + codes.length + ' 个分享链接?')) return;
       var count = 0;
