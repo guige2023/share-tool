@@ -756,6 +756,7 @@ function renderPage() {
     @keyframes ptr-spin{to{transform:rotate(360deg)}}
     .file-tags{display:flex;flex-wrap:wrap;gap:3px;max-width:110px}
     .tag-badge{background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500}
+    .type-chip.active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
     .tag-edit-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:10px;padding:2px 4px;border-radius:4px;transition:color .2s,background .2s}
     .tag-edit-btn:hover{color:var(--primary);background:rgba(99,102,241,.1)}
     /* Inline rename */
