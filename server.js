@@ -2126,6 +2126,154 @@ function renderPage() {
       }).catch(function () { showToast('删除失败', 'error'); });
     }
 
+    // ── Unified Search Overlay ───────────────────────────────────────────────
+
+    var _searchOverlayTimer = null;
+    function openUnifiedSearchOverlay() {
+      var existing = document.getElementById('unifiedSearchOverlay');
+      if (existing) { existing.remove(); }
+      var overlay = document.createElement('div');
+      overlay.id = 'unifiedSearchOverlay';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9998;display:flex;align-items:flex-start;justify-content:center;padding-top:80px';
+      overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+      overlay.innerHTML = '\
+        <div style="background:var(--bg-primary);border:1px solid var(--line);border-radius:14px;width:100%;max-width:640px;box-shadow:0 8px 32px rgba(0,0,0,.2);overflow:hidden;font-size:13px">\
+          <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);gap:8px">\
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted);flex-shrink:0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>\
+            <input id="unifiedSearchInput" type="text" placeholder="搜索文件、分享链接、收集链接..." autofocus \
+              style="flex:1;border:none;outline:none;background:transparent;font-size:15px;color:var(--text);padding:0" \
+              oninput="handleUnifiedSearchInput(this.value)" onkeydown="handleUnifiedSearchKeydown(event)">\
+            <button onclick="document.getElementById(\'unifiedSearchOverlay\').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:2px 6px">✕</button>\
+          </div>\
+          <div id="unifiedSearchFilters" style="display:flex;gap:4px;padding:8px 14px;border-bottom:1px solid var(--line)"></div>\
+          <div id="unifiedSearchResults" style="max-height:420px;overflow-y:auto;padding:8px 0"></div>\
+          <div id="unifiedSearchLoading" style="display:none;text-align:center;padding:24px;color:var(--muted);font-size:13px">搜索中...</div>\
+          <div id="unifiedSearchEmpty" style="display:none;text-align:center;padding:32px;color:var(--muted);font-size:13px">未找到结果</div>\
+        </div>';
+      document.body.appendChild(overlay);
+      renderUnifiedSearchFilters('all');
+      setTimeout(function() { document.getElementById('unifiedSearchInput').focus(); }, 50);
+    }
+
+    var _usFilter = 'all';
+    function renderUnifiedSearchFilters(active) {
+      _usFilter = active;
+      var container = document.getElementById('unifiedSearchFilters');
+      if (!container) return;
+      var filters = [
+        { key: 'all', label: '全部' },
+        { key: 'files', label: '📄 文件' },
+        { key: 'shares', label: '🔗 分享' },
+        { key: 'request-links', label: '📥 收集链接' }
+      ];
+      container.innerHTML = filters.map(function(f) {
+        var isActive = f.key === active;
+        return '<button onclick="renderUnifiedSearchFilters(\'' + f.key + '\'); var q=document.getElementById(\'unifiedSearchInput\').value;if(q)handleUnifiedSearchInput(q);" ' +
+          'style="padding:3px 10px;font-size:12px;border-radius:999px;border:none;cursor:pointer;font-weight:' + (isActive ? '600' : '400') + ';background:' + (isActive ? 'var(--accent)' : 'transparent') + ';color:' + (isActive ? '#fff' : 'var(--muted)') + '">' + f.label + '</button>';
+      }).join('');
+    }
+
+    function handleUnifiedSearchInput(q) {
+      clearTimeout(_searchOverlayTimer);
+      if (!q || !q.trim()) {
+        document.getElementById('unifiedSearchResults').innerHTML = '<div style="padding:20px 16px;color:var(--muted);font-size:12px;text-align:center">输入关键词开始搜索</div>';
+        document.getElementById('unifiedSearchLoading').style.display = 'none';
+        document.getElementById('unifiedSearchEmpty').style.display = 'none';
+        return;
+      }
+      document.getElementById('unifiedSearchLoading').style.display = 'block';
+      document.getElementById('unifiedSearchResults').innerHTML = '';
+      document.getElementById('unifiedSearchEmpty').style.display = 'none';
+      _searchOverlayTimer = setTimeout(function() {
+        doUnifiedSearch(q.trim());
+      }, 200);
+    }
+
+    function doUnifiedSearch(q) {
+      var type = _usFilter || 'all';
+      var url = '/api/search?q=' + encodeURIComponent(q) + '&type=' + encodeURIComponent(type) + '&limit=30';
+      var myHeaders = {};
+      var token = localStorage.getItem('token');
+      if (token) myHeaders['Authorization'] = 'Bearer ' + token;
+      fetch(url, { headers: myHeaders }).then(function(res) { return res.json(); }).then(function(data) {
+        document.getElementById('unifiedSearchLoading').style.display = 'none';
+        if (!data.success) { showToast(data.error || '搜索失败', 'error'); return; }
+        var r = data.results || { files: [], shares: [], requestLinks: [] };
+        var total = r.files.length + r.shares.length + r.requestLinks.length;
+        if (!total) { document.getElementById('unifiedSearchEmpty').style.display = 'block'; return; }
+        var html = '';
+        if (r.files.length) {
+          html += '<div style="padding:6px 16px 4px;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">📄 文件 (' + r.files.length + ')</div>';
+          r.files.forEach(function(f) {
+            html += '<div onclick="openUnifiedSearchGoTo(\'file\',' + f.id + ')" style="display:flex;align-items:center;padding:8px 16px;cursor:pointer" onmouseenter="this.style.background=\'var(--bg-secondary)\'" onmouseleave="this.style.background=\'\'">';
+            html += '<span style="font-size:16px;margin-right:10px;flex-shrink:0">' + getFileIcon(f.filename) + '</span>';
+            html += '<div style="flex:1;min-width:0"><div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(f.filename) + '</div>';
+            html += '<div style="font-size:11px;color:var(--muted)">' + formatFileSize(f.size) + '</div></div></div>';
+          });
+        }
+        if (r.shares.length) {
+          html += '<div style="padding:6px 16px 4px;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">🔗 分享链接 (' + r.shares.length + ')</div>';
+          r.shares.forEach(function(s) {
+            html += '<div onclick="openUnifiedSearchGoTo(\'share\',\'' + escapeHtmlClient(s.code) + '\')" style="display:flex;align-items:center;padding:8px 16px;cursor:pointer" onmouseenter="this.style.background=\'var(--bg-secondary)\'" onmouseleave="this.style.background=\'\'">';
+            html += '<span style="font-size:16px;margin-right:10px;flex-shrink:0">🔗</span>';
+            html += '<div style="flex:1;min-width:0"><div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(s.filename || s.code) + '</div>';
+            html += '<div style="font-size:11px;color:var(--muted)">' + escapeHtmlClient(s.code) + (s.password ? ' · 🔒' : '') + '</div></div></div>';
+          });
+        }
+        if (r.requestLinks.length) {
+          html += '<div style="padding:6px 16px 4px;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px">📥 收集链接 (' + r.requestLinks.length + ')</div>';
+          r.requestLinks.forEach(function(rl) {
+            html += '<div onclick="openUnifiedSearchGoTo(\'requestLink\',\'' + escapeHtmlClient(rl.code) + '\')" style="display:flex;align-items:center;padding:8px 16px;cursor:pointer" onmouseenter="this.style.background=\'var(--bg-secondary)\'" onmouseleave="this.style.background=\'\'">';
+            html += '<span style="font-size:16px;margin-right:10px;flex-shrink:0">📥</span>';
+            html += '<div style="flex:1;min-width:0"><div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(rl.name) + '</div>';
+            html += '<div style="font-size:11px;color:var(--muted)">' + (rl.active ? '● 有效' : '○ 已停用') + ' · ' + (rl.uploadCount || 0) + ' 个文件</div></div></div>';
+          });
+        }
+        document.getElementById('unifiedSearchResults').innerHTML = html;
+      }).catch(function() {
+        document.getElementById('unifiedSearchLoading').style.display = 'none';
+        showToast('搜索失败', 'error');
+      });
+    }
+
+    function openUnifiedSearchGoTo(type, id) {
+      var overlay = document.getElementById('unifiedSearchOverlay');
+      if (overlay) overlay.remove();
+      if (type === 'file') {
+        navigateToFile(id);
+      } else if (type === 'share') {
+        switchSection('shares');
+        setTimeout(function() {
+          var input = document.getElementById('shareSearchInput');
+          if (input) { input.value = id; filterShareTable(); }
+        }, 100);
+      } else if (type === 'requestLink') {
+        switchSection('request-links');
+        setTimeout(function() {
+          var input = document.getElementById('requestLinkSearchInput');
+          if (input) { input.value = id; filterRequestLinks(); }
+        }, 100);
+      }
+    }
+
+    function handleUnifiedSearchKeydown(e) {
+      if (e.key === 'Escape') {
+        var overlay = document.getElementById('unifiedSearchOverlay');
+        if (overlay) overlay.remove();
+      }
+    }
+
+    function navigateToFile(id) {
+      // Switch to files section and highlight the file
+      switchSection('files');
+      var fileEl = document.querySelector('[data-id="' + id + '"]');
+      if (fileEl) {
+        fileEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        fileEl.style.boxShadow = '0 0 0 3px var(--accent)';
+        setTimeout(function() { if (fileEl) fileEl.style.boxShadow = ''; }, 2000);
+      }
+    }
+
     // ── Batch Create Share Links ─────────────────────────────────────────────
 
     function openBatchCreateShareModal() {
@@ -9957,7 +10105,7 @@ function renderPage() {
         const totalActivity = (share.viewCount || 0) + (share.downloadCount || 0);
         return '<tr>' +
           '<td data-label=""><input type="checkbox" class="share-check" data-code="' + escapeHtmlClient(share.code) + '" onchange="onShareCheckChange()"></td>' +
-          '<td data-label="文件"><strong>' + escapeHtmlClient(share.filename) + '</strong></td>' +
+          '<td data-label="文件"><strong style="cursor:pointer;color:var(--accent)" onclick="openShareDetailModal(\'' + escapeHtmlClient(share.code) + '\')">' + escapeHtmlClient(share.filename) + '</strong></td>' +
           '<td data-label="链接"><a href="' + escapeHtmlClient(share.url) + '" target="_blank" style="word-break:break-all;font-size:12px">' + escapeHtmlClient(share.url) + '</a></td>' +
           '<td data-label="二维码"><img alt="QR" src="/api/share/qr/' + encodeURIComponent(share.code) + '" style="cursor:pointer;border-radius:6px;max-width:48px;height:auto" onclick="openQrLightbox(\'' + escapeHtmlClient(share.code) + '\')" title="点击查看大图"></td>' +
           '<td data-label="到期">' + expireText + expiringBadge + expiredBadge + '</td>' +
