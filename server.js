@@ -9527,6 +9527,28 @@ function renderPage() {
       }
     }
 
+    function downloadRequestLinkZip(code, btn) {
+      var a = document.createElement('a');
+      a.href = '/api/request-links/' + encodeURIComponent(code) + '/files/zip';
+      a.download = 'request_link_' + code + '.zip';
+      var orig = btn.textContent;
+      btn.textContent = '生成中...';
+      btn.disabled = true;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function() { btn.textContent = orig; btn.disabled = false; }, 3000);
+    }
+
+    function downloadRlFile(code, filename) {
+      var a = document.createElement('a');
+      a.href = '/download/' + encodeURIComponent(filename);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
     // ── Duplicates (重复文件清理) ───────────────────────────────────────────
 
     var selectedDuplicates = new Set();
