@@ -2525,6 +2525,61 @@ function getSyncStatus() {
 }
 
 // ============================================================
+// Sync Conflict Management
+// ============================================================
+
+function addSyncConflict(filename, localHash, remoteHash, localContent, remoteContent, localDeviceId, remoteDeviceId) {
+  const db = getDb();
+  const stmt = db.prepare(`
+    INSERT INTO sync_conflicts (filename, local_hash, remote_hash, local_content, remote_content, local_device_id, remote_device_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  stmt.run(filename, localHash, remoteHash, localContent, remoteContent, localDeviceId, remoteDeviceId);
+  return db.prepare('SELECT * FROM sync_conflicts WHERE id = last_insert_rowid()').get();
+}
+
+function getUnresolvedConflicts() {
+  const db = getDb();
+  return db.prepare(`
+    SELECT * FROM sync_conflicts WHERE resolved = 0 ORDER BY detected_at DESC
+  `).all();
+}
+
+function getConflicts(limit = 20) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT * FROM sync_conflicts ORDER BY detected_at DESC LIMIT ?
+  `).all(limit);
+}
+
+function resolveConflict(conflictId, resolution, winningContent) {
+  const db = getDb();
+  // resolution: 'keep_local' | 'keep_remote' | 'keep_both'
+  db.prepare(`
+    UPDATE sync_conflicts SET resolved = 1, resolution = ?, resolved_at = unixepoch() WHERE id = ?
+  `).run(resolution, conflictId);
+
+  // Apply the winning content to the file
+  if (winningContent !== null && winningContent !== undefined) {
+    const conflict = db.prepare('SELECT filename FROM sync_conflicts WHERE id = ?').get(conflictId);
+    if (conflict) {
+      const existing = db.getFileByName(conflict.filename);
+      if (existing) {
+        db.updateFileByName(conflict.filename, { content: winningContent });
+      } else {
+        db.addFile(conflict.filename, winningContent, 'text');
+      }
+    }
+  }
+  return { success: true };
+}
+
+function dismissConflict(conflictId) {
+  const db = getDb();
+  db.prepare('DELETE FROM sync_conflicts WHERE id = ?').run(conflictId);
+}
+
+// ============================================================
 // Token 管理
 // ============================================================
 function generateToken(deviceId = null, expiresInSeconds = 86400) {

@@ -1052,6 +1052,7 @@ function renderPage() {
           <input type="checkbox" id="gridSelectAll" onchange="toggleFileSelectAll(this.checked)" style="display:none;margin-right:6px;cursor:pointer" title="全选">
           <button id="viewListBtn" class="active" onclick="setView('list')" title="列表视图">☰</button>
           <button id="viewGridBtn" onclick="setView('grid')" title="网格视图">⊞</button>
+          <button id="dateGroupToggle" onclick="toggleDateGroup()" title="按日期分组" style="padding:5px 8px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:13px;color:var(--text-muted)">📅</button>
         </div>
       </div>
       <div id="recentSearches" style="display:none;margin-bottom:10px;flex-wrap:wrap;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch"></div>
@@ -3075,63 +3076,6 @@ function renderPage() {
       }
     }
 
-    // ── Keyboard Shortcuts Modal ─────────────────────────────────────────
-    function openKeyboardShortcutsModal() {
-      var modal = document.getElementById('modal');
-      var title = document.getElementById('modalTitle');
-      var body = document.getElementById('modalBody');
-      title.textContent = '⌨️ 键盘快捷键';
-      body.innerHTML = '\
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;font-size:13px;max-height:70vh;overflow-y:auto">\
-\
-<div style="padding:10px 12px;border-bottom:1px solid var(--line)">\
-<div style="font-weight:600;color:var(--accent);margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">导航</div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>↑ ↓ ← →</span><span style="color:var(--muted)">导航文件</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>j / k</span><span style="color:var(--muted)">Vim 风格下/上</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>g / G</span><span style="color:var(--muted)">跳到顶部/底部</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Home / End</span><span style="color:var(--muted)">首/末页</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>/</span><span style="color:var(--muted)">聚焦搜索框</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Esc</span><span style="color:var(--muted)">关闭弹窗 / 清除搜索</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>?</span><span style="color:var(--muted)">显示此面板</span></div>\
-</div>\
-\
-<div style="padding:10px 12px;border-bottom:1px solid var(--line);border-left:1px solid var(--line)">\
-<div style="font-weight:600;color:var(--accent);margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">文件操作</div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Enter</span><span style="color:var(--muted)">预览文件</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Space</span><span style="color:var(--muted)">选中/取消选中</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>a</span><span style="color:var(--muted)">全选</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Ctrl+A</span><span style="color:var(--muted)">全选 (macOS)</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>e</span><span style="color:var(--muted)">重命名</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Delete</span><span style="color:var(--muted)">删除选中</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>s</span><span style="color:var(--muted)">收藏/取消收藏</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>b</span><span style="color:var(--muted)">批量下载 zip</span></div>\
-</div>\
-\
-<div style="padding:10px 12px;border-bottom:1px solid var(--line)">\
-<div style="font-weight:600;color:var(--accent);margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">分享</div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>c / l</span><span style="color:var(--muted)">复制分享链接</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>y</span><span style="color:var(--muted)">复制文件名</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Shift+Y</span><span style="color:var(--muted)">复制文件路径</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>p</span><span style="color:var(--muted)">预览文件</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>i</span><span style="color:var(--muted)">显示文件信息</span></div>\
-</div>\
-\
-<div style="padding:10px 12px;border-bottom:1px solid var(--line);border-left:1px solid var(--line)">\
-<div style="font-weight:600;color:var(--accent);margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">其他</div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Ctrl+K</span><span style="color:var(--muted)">聚焦搜索 (macOS)</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>n</span><span style="color:var(--muted)">新建文本文件</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Shift+N</span><span style="color:var(--muted)">新建文件夹</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>v</span><span style="color:var(--muted)">切换视图 (列表/网格)</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>r</span><span style="color:var(--muted)">刷新文件列表</span></div>\
-<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>z</span><span style="color:var(--muted)">打开同步面板</span></div>\
-</div>\
-\
-</div>';
-      var actions = modal.querySelector('.modal-actions');
-      if (actions) actions.innerHTML = '<button class="secondary" onclick="forceCloseModal()">关闭</button>';
-      modal.classList.add('open');
-    }
-
     function openTagInputModal(action, fileCount) {
       const existingModal = document.getElementById('tagInputModal');
       if (existingModal) existingModal.remove();
@@ -4735,6 +4679,8 @@ function renderPage() {
 
       list.innerHTML = '<div class="ctx-item" onclick="setTypeFilter(' + "'starred'" + ');document.getElementById(' + "'vfMenu'" + ').style.display=' + "'none'" + '" style="display:flex;justify-content:space-between;align-items:center">' +
         '<span>⭐ 星标文件</span><span id="vfMenuStarredCount" style="font-size:11px;color:var(--muted)"></span></div>' +
+        '<div class="ctx-item" onclick="setTypeFilter(' + "'recent'" + ');document.getElementById(' + "'vfMenu'" + ').style.display=' + "'none'" + '" style="display:flex;justify-content:space-between;align-items:center">' +
+        '<span>🕐 最近文件</span><span id="vfMenuRecentCount" style="font-size:11px;color:var(--muted)"></span></div>' +
         '<div style="border-top:1px solid var(--line);margin:4px 0"></div>' +
         data.folders.map(f => {
         const tags = tagMap[f.id] || [];
@@ -4756,6 +4702,12 @@ function renderPage() {
       // Load starred count into VF menu badge
       fetch('/api/files/starred', { headers: headers() }).then(function(r) { return r.json(); }).then(function(d) {
         var badge = document.getElementById('vfMenuStarredCount');
+        var n = (d.files || []).length;
+        if (badge) badge.textContent = n > 0 ? '(' + n + ')' : '';
+      });
+      // Load recent files count into VF menu badge
+      fetch('/api/recent-files?limit=100', { headers: headers() }).then(function(r) { return r.json(); }).then(function(d) {
+        var badge = document.getElementById('vfMenuRecentCount');
         var n = (d.files || []).length;
         if (badge) badge.textContent = n > 0 ? '(' + n + ')' : '';
       });

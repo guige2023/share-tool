@@ -115,14 +115,49 @@ function handleMessage(ws, msg, reply, broadcast, getWsForDevice) {
     }
 
     case 'sync_push': {
-      // { changes: [{action, filename, content, hash, type}] }
+      // { changes: [{action, filename, content, hash, type, base_hash}] }
+      // base_hash: the hash the device last saw (used for conflict detection)
       const { changes = [] } = payload;
       const processed = [];
+      const conflicts = [];
 
       for (const change of changes) {
         if (change.action === 'create' || change.action === 'update') {
           const existing = db.getFileByName(change.filename);
           let result;
+
+          // Conflict detection: if file exists and base_hash is provided,
+          // check if server has a newer version the device hasn't seen
+          if (existing && change.base_hash) {
+            if (change.base_hash !== existing.hash) {
+              // Server has a different version than what device saw — potential conflict
+              // Only flag as conflict if the incoming change also differs from what server has
+              // (i.e., both sides independently modified the same file)
+              if (change.hash !== existing.hash) {
+                // CONFLICT: both remote server and local device modified the file
+                const conflict = db.addSyncConflict(
+                  change.filename,
+                  change.hash,           // local_hash: what device is trying to push
+                  existing.hash,         // remote_hash: what server currently has
+                  change.content,        // local_content
+                  existing.content,      // remote_content
+                  ws.deviceId,          // local_device_id
+                  null                   // remote_device_id (unknown)
+                );
+                conflicts.push({
+                  action: change.action,
+                  filename: change.filename,
+                  conflictId: conflict.id,
+                  localHash: change.hash,
+                  remoteHash: existing.hash,
+                  localContent: change.content ? '(binary)' : null,  // Don't send full content in ack
+                  remoteContent: existing.content ? '(binary)' : null,
+                });
+                continue; // Skip processing this change until conflict is resolved
+              }
+            }
+          }
+
           if (existing) {
             db.updateFileByName(change.filename, { content: change.content, type: change.type || existing.type });
             result = db.getFileByName(change.filename);
@@ -139,7 +174,7 @@ function handleMessage(ws, msg, reply, broadcast, getWsForDevice) {
           if (existing) {
             db.deleteFileByName(change.filename);
             processed.push({ action: 'delete', id: existing.id, filename: change.filename });
-            db.addSyncLog(existing.id, change.filename, 'delete', existing.hash, ws.deviceId, existing.size || 0);
+            db.addSyncLog(existing.id, existing.filename, 'delete', existing.hash, ws.deviceId, existing.size || 0);
           }
         } else if (change.action === 'rename') {
           const { oldFilename, newFilename } = change;
@@ -152,7 +187,10 @@ function handleMessage(ws, msg, reply, broadcast, getWsForDevice) {
         }
       }
 
-      reply({ type: 'sync_ack', processed });
+      const response = { type: 'sync_ack', processed, conflicts };
+      if (conflicts.length > 0) response.warning = 'Conflicts detected — resolve before retry';
+      reply(response);
+
       // Broadcast to other WebSocket devices
       for (const p of processed) {
         broadcast({
