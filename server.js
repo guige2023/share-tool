@@ -1116,6 +1116,7 @@ function renderPage() {
         <button class="ghost" onclick="openBatchRenameModal()">批量重命名</button>
         <button class="ghost" onclick="openBatchCreateShareModal()">🔗 分享链接</button>
         <button class="ghost" onclick="openBatchMoveModal()">📁 移动</button>
+        <button class="ghost" onclick="openBatchCopyModal()">📋 复制</button>
         <button class="ghost" onclick="batchDownloadSelected()">📦 下载 ZIP</button>
         <button class="ghost" onclick="batchDeleteSelected()">删除</button>
         <button class="ghost" onclick="clearSelection()">取消选择</button>
