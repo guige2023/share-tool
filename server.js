@@ -15,6 +15,7 @@ const handleApiRoutes = require('./routes/api');
 const handleFileRoutes = require('./routes/files');
 const handleShareRoutes = require('./routes/share');
 const { initWebSocketServer } = require('./routes/sync');
+const { handleWebDAV } = require('./routes/webdav');
 
 const VERSION = require('./package.json').version;
 const PORT = parseInt(process.env.SHARE_TOOL_PORT || '18790', 10);
@@ -2777,6 +2778,7 @@ function renderPage() {
       openTagInputModal('remove', names.length);
     }
 
+    var _batchTagChips = [];  // initialized early so confirmSearchBatchTag can use it before the main tag module
     function openTagInputModalForSearchResults() {
       if (!currentSearchQuery) { showToast('无搜索关键词', 'info'); return; }
       var count = currentTotal > 0 ? currentTotal : (currentFiles ? currentFiles.length : 0);
@@ -3430,7 +3432,7 @@ function renderPage() {
       if (dropdown) dropdown.style.display = 'none';
     }
 
-    var _batchTagChips = [];
+    var _batchTagChips = [];  // hoisted: tag chips for batch tag modal (declared early so earlier patches can use it)
 
     function handleTagInputKeydown(e, action) {
       if (e.key === 'Enter' || e.key === ',') {
@@ -15218,6 +15220,7 @@ async function requestHandler(req, res) {
     if (await handleApiRoutes(req, res, pathname, query, ctx)) return;
     if (await handleFileRoutes(req, res, pathname, query, ctx)) return;
     if (await handleShareRoutes(req, res, pathname, query, ctx)) return;
+    if (await handleWebDAV(req, res, pathname, query, ctx)) return;
     sendJson(res, { success: false, error: 'Not found' }, 404);
   } catch (error) {
     console.error('[ShareTool] Request failed:', error);
