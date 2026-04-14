@@ -4772,27 +4772,25 @@ function renderPage() {
       if (!vfData.success || !vfData.folder) { showToast('文件夹不存在', 'error'); return; }
       const vf = vfData.folder;
       if (vf.has_password && !storedPwd) {
-        // Show password prompt
-        openConfirmModal({
-          title: '🔒 受保护的收藏夹',
-          text: '请输入密码才能访问「' + escapeHtmlClient(vf.name) + '」',
-          password: true,
-          onConfirm: async function(pwd) {
-            if (!pwd) { showToast('请输入密码', 'error'); return; }
-            const vr = await fetch('/api/virtual-folders/' + folderId + '/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ password: pwd })
-            });
-            const vd = await vr.json();
-            if (vd.success) {
-              sessionStorage.setItem('vf_unlocked_' + folderId, '1');
-              _doNavigateVF(folderId, vf.name, vf.color);
-            } else {
-              showToast('密码错误', 'error');
-            }
-          }
-        });
+        // Show password prompt (inline modal, same pattern as deleteVFFromDetail)
+        var m = document.getElementById('vfPwdModal');
+        if (m) m.remove();
+        m = document.createElement('div');
+        m.id = 'vfPwdModal';
+        m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
+        m.innerHTML = '\
+          <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:380px;font-size:14px;text-align:center">\
+            <h3 style="margin:0 0 8px">🔒 受保护的收藏夹</h3>\
+            <p style="margin:0 0 16px;font-size:13px;color:var(--muted)">请输入密码才能访问「' + escapeHtmlClient(vf.name) + '」</p>\
+            <input id="vfPwdInput" type="password" placeholder="输入密码" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;box-sizing:border-box;outline:none;margin-bottom:14px"/>\
+            <div style="display:flex;gap:10px;justify-content:center">\
+              <button class="secondary" onclick="document.getElementById(\'vfPwdModal\').remove()">取消</button>\
+              <button class="primary" onclick="(async function(){var pwd=document.getElementById(\'vfPwdInput\').value;if(!pwd){showToast(\'请输入密码\',\'error\');return;}var vr=await fetch(\'/api/virtual-folders/' + folderId + '/verify\',{method:\'POST\',headers:{\'Content-Type\':\'application/json\'},body:JSON.stringify({password:pwd})});var vd=await vr.json();if(vd.success){sessionStorage.setItem(\'vf_unlocked_' + folderId + '\',\'1\');document.getElementById(\'vfPwdModal\').remove();_doNavigateVF(' + folderId + ',\'' + escapeHtmlClient(vf.name) + '\',\'' + escapeHtmlClient(vf.color || '') + '\');}else{showToast(\'密码错误\',\'error\');}})()">确认</button>\
+            </div>\
+          </div>';
+        document.body.appendChild(m);
+        document.getElementById('vfPwdInput').focus();
+        m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
         return;
       }
 
@@ -4878,9 +4876,9 @@ function renderPage() {
         return '<div style="display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:8px;background:var(--bg-tertiary);margin-bottom:6px">' +
           '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + ';font-size:16px;margin-top:2px">●</span>' +
           '<div style="flex:1;min-width:0">' +
-            '<div style="font-size:13px;font-weight:500;margin-bottom:4px">' + escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ' 文件' + ((f.total_size || 0) > 0 ? ', ' + formatFileSize(f.total_size) : '') + ')</span></div>' +
+            '<div style="font-size:13px;font-weight:500;margin-bottom:4px">' + escapeHtmlClient(f.name) + (f.has_password ? ' <span title="已设置密码" style="color:var(--warning)">🔒</span>' : '') + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ' 文件' + ((f.total_size || 0) > 0 ? ', ' + formatFileSize(f.total_size) : '') + ')</span></div>' +
             '<div style="margin-bottom:6px" id="vfTagChips_' + f.id + '">' + tagChips + '</div>' +
-            '<div style="display:flex;gap:6px;flex-wrap:wrap" id="vfTagEdit_' + f.id + '">' +
+            '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center" id="vfTagEdit_' + f.id + '">' +
               allTags.map(t => {
                 const active = tags.some(ft => ft.id === t.id);
                 return '<span onclick="toggleVFFolderTag(' + f.id + ',' + t.id + ')" ' +
@@ -4890,7 +4888,8 @@ function renderPage() {
               (allTags.length === 0 ? '<span style="color:var(--muted);font-size:11px">先创建标签</span>' : '') +
             '</div>' +
           '</div>' +
-          '<button class="ghost" style="font-size:11px;padding:3px 8px;white-space:nowrap;margin-top:2px" onclick="deleteVirtualFolder(' + f.id + ')">删除</button>' +
+'<button class="ghost" style="font-size:11px;padding:3px 8px;white-space:nowrap;margin-top:2px" onclick="deleteVirtualFolder(' + f.id + ')">删除</button>' +
+          '<button class="ghost" style="font-size:11px;padding:3px 8px;white-space:nowrap;margin-top:2px" onclick="setVFPassword(' + f.id + ',\'' + escapeHtmlClient(f.name) + '\',' + f.has_password + ')" title="' + (f.has_password ? '修改密码' : '设置密码') + '">' + (f.has_password ? '🔑 修改密码' : '🔒 设置密码') + '</button>' +
         '</div>';
       }
 
@@ -8693,41 +8692,111 @@ function renderPage() {
       loadShareLinkManager();
     }
 
+    var _slmLinks = [];
+    var _slmFilter = 'all';
+
     function loadShareLinkManager() {
       fetch('/api/share-links', { headers: headers() }).then(function(res) { return res.json(); }).then(function(data) {
         var el = document.getElementById('shareLinkManagerContent');
         if (!data.success) { el.innerHTML = '<div style="color:var(--error);padding:12px">加载失败</div>'; return; }
-        var links = data.links || [];
-        if (!links.length) {
-          el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">暂无分享链接</div>';
-          return;
-        }
-        var html = '<div style="display:flex;flex-direction:column;gap:6px">';
-        links.forEach(function(link) {
-          var expired = link.expired;
-          var expStr = link.expires_at > 0 ? new Date(link.expires_at * 1000).toLocaleString('zh-CN') : '永不过期';
-          var expClass = expired ? 'color:var(--error)' : (link.expires_at > 0 && link.expires_at - Date.now()/1000 < 86400*3 ? 'color:var(--warn)' : 'color:var(--muted)');
-          var bgStyle = expired ? 'opacity:0.6' : '';
-          html += '<div style="display:flex;align-items:center;padding:10px 12px;background:var(--bg-secondary);border-radius:8px;gap:10px;' + bgStyle + '">' +
-            '<span style="font-size:18px">' + (link.is_text ? '📝' : getFileIcon(link.filename)) + '</span>' +
-            '<div style="flex:1;min-width:0">' +
-              '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(link.filename) + '</div>' +
-              '<div style="font-size:11px;color:var(--muted)">' +
-                '<span style="color:var(--accent)">/' + escapeHtmlClient(link.code) + '</span>' +
-                ' · ' + expStr +
-                ' · ' + link.view_count + '次浏览' +
-                (link.max_downloads > 0 ? ' · ' + link.download_count + '/' + link.max_downloads + '次下载' : ' · ' + link.download_count + '次下载') +
-              '</div>' +
-            '</div>' +
-            '<button onclick="copyShareLink(' + JSON.stringify(link.code).replace(/"/g, '&quot;') + ')" style="padding:4px 10px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:12px">复制</button>' +
-            '<button onclick="revokeShareLink(\'' + escapeHtmlClient(link.code) + '\')" style="padding:4px 10px;background:var(--error);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">撤销</button>' +
-          '</div>';
-        });
-        html += '</div>';
-        el.innerHTML = html;
+        _slmLinks = data.links || [];
+        renderShareLinkManager();
       }).catch(function(e) {
         document.getElementById('shareLinkManagerContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
       });
+    }
+
+    function renderShareLinkManager() {
+      var el = document.getElementById('shareLinkManagerContent');
+      if (!_slmLinks.length) {
+        el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">暂无分享链接</div>';
+        return;
+      }
+
+      // Filter
+      var now = Date.now() / 1000;
+      var filtered = _slmLinks.filter(function(link) {
+        if (_slmFilter === 'active') return !link.expired;
+        if (_slmFilter === 'expiring') return !link.expired && link.expires_at > 0 && link.expires_at - now < 86400 * 3;
+        if (_slmFilter === 'expired') return link.expired;
+        return true;
+      });
+
+      // Header with filter chips + count
+      var html = '<div style="margin-bottom:12px">';
+      var filters = [['all', '全部 (' + _slmLinks.length + ')'], ['active', '有效'], ['expiring', '⚠️ 即将过期'], ['expired', '❌ 已过期 (' + _slmLinks.filter(function(l) { return l.expired; }).length + ')']];
+      filters.forEach(function(f) {
+        var active = f[0] === _slmFilter ? 'background:var(--accent);color:white;border-color:var(--accent)' : '';
+        html += '<button onclick="setSlmFilter(\'' + f[0] + '\')" style="padding:5px 12px;margin-right:6px;margin-bottom:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);cursor:pointer;font-size:12px;' + active + '">' + f[1] + '</button>';
+      });
+      html += '<span style="float:right;font-size:12px;color:var(--muted);padding:5px 0">' + filtered.length + ' 条链接</span>';
+      html += '</div>';
+
+      // Bulk action bar (show when any checked)
+      html += '<div id="slmBulkBar" style="display:none;margin-bottom:10px;padding:8px 12px;background:var(--accent);color:white;border-radius:8px;font-size:13px;align-items:center;gap:8px">' +
+        '<span id="slmSelectedCount">0</span> 条已选' +
+        '<button onclick="slmBulkCopy()" style="margin-left:auto;padding:4px 12px;background:white;color:var(--accent);border:none;border-radius:6px;cursor:pointer;font-size:12px">复制链接</button>' +
+        '<button onclick="slmBulkRevoke()" style="padding:4px 12px;background:var(--error);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">批量撤销</button>' +
+      '</div>';
+
+      html += '<div style="display:flex;flex-direction:column;gap:6px">';
+      filtered.forEach(function(link) {
+        var expired = link.expired;
+        var expStr = link.expires_at > 0 ? new Date(link.expires_at * 1000).toLocaleString('zh-CN') : '永不过期';
+        var bgStyle = expired ? 'opacity:0.6' : '';
+        html += '<div style="display:flex;align-items:center;padding:10px 12px;background:var(--bg-secondary);border-radius:8px;gap:10px;' + bgStyle + '">' +
+          '<input type="checkbox" class="slm-check" data-code="' + escapeHtmlClient(link.code) + '" onchange="onSlmCheckChange()" style="width:16px;height:16px;cursor:pointer;flex-shrink:0">' +
+          '<span style="font-size:18px;flex-shrink:0">' + (link.is_text ? '📝' : getFileIcon(link.filename)) + '</span>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(link.filename) + '</div>' +
+            '<div style="font-size:11px;color:var(--muted)">' +
+              '<span style="color:var(--accent)">/' + escapeHtmlClient(link.code) + '</span>' +
+              ' · ' + expStr +
+              ' · ' + link.view_count + '次浏览' +
+              (link.max_downloads > 0 ? ' · ' + link.download_count + '/' + link.max_downloads + '次下载' : ' · ' + link.download_count + '次下载') +
+            '</div>' +
+          '</div>' +
+          '<button onclick="copyShareLink(\'' + escapeHtmlClient(link.code) + '\')" style="padding:4px 10px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:12px">复制</button>' +
+          '<button onclick="revokeShareLink(\'' + escapeHtmlClient(link.code) + '\')" style="padding:4px 10px;background:var(--error);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">撤销</button>' +
+        '</div>';
+      });
+      html += '</div>';
+      el.innerHTML = html;
+    }
+
+    function setSlmFilter(f) { _slmFilter = f; renderShareLinkManager(); }
+
+    function onSlmCheckChange() {
+      var checked = document.querySelectorAll('.slm-check:checked');
+      var bar = document.getElementById('slmBulkBar');
+      var count = document.getElementById('slmSelectedCount');
+      if (bar) bar.style.display = checked.length ? 'flex' : 'none';
+      if (count) count.textContent = checked.length;
+    }
+
+    async function slmBulkCopy() {
+      var checked = document.querySelectorAll('.slm-check:checked');
+      var urls = Array.from(checked).map(function(cb) { return location.origin + '/s/' + cb.dataset.code; });
+      if (!urls.length) return;
+      await navigator.clipboard.writeText(urls.join('\n'));
+      showToast('已复制 ' + urls.length + ' 条链接', 'success');
+    }
+
+    async function slmBulkRevoke() {
+      var checked = document.querySelectorAll('.slm-check:checked');
+      var codes = Array.from(checked).map(function(cb) { return cb.dataset.code; });
+      if (!codes.length) return;
+      if (!confirm('确认撤销 ' + codes.length + ' 条链接？')) return;
+      var ok = 0, fail = 0;
+      for (var i = 0; i < codes.length; i++) {
+        try {
+          var res = await fetch('/api/share/' + encodeURIComponent(codes[i]), { method: 'DELETE', headers: headers() });
+          var data = await res.json();
+          if (data.success) ok++; else fail++;
+        } catch(e) { fail++; }
+      }
+      showToast('已撤销 ' + ok + ' 条' + (fail ? '，失败 ' + fail : ''), fail ? 'error' : 'success');
+      loadShareLinkManager();
     }
 
     function copyShareLink(code) {
