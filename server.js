@@ -1108,7 +1108,7 @@ function renderPage() {
         <button class="ghost" onclick="openBatchRemoveTagModal()">移除标签</button>
         <button class="ghost" onclick="batchToggleStar()">⭐ 收藏</button>
         <button class="ghost" onclick="openBatchRenameModal()">批量重命名</button>
-        <button class="ghost" onclick="batchCopyShareLinks()">🔗 复制链接</button>
+        <button class="ghost" onclick="openBatchCreateShareModal()">🔗 分享链接</button>
         <button class="ghost" onclick="openBatchMoveModal()">📁 移动</button>
         <button class="ghost" onclick="batchDownloadSelected()">📦 下载 ZIP</button>
         <button class="ghost" onclick="batchDeleteSelected()">删除</button>
@@ -7011,10 +7011,19 @@ function renderPage() {
           '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
             '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="backupDatabase()">📦 下载备份</button>' +
           '</div>' +
+        '</div>' +
+
+        // Share templates management
+        '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">🔗 分享模板管理</label>' +
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">管理保存的分享链接预设模板。</div>' +
+          '<div id="shareTemplatesList" style="margin-bottom:10px"></div>' +
+          '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="openManageShareTemplates()">管理模板</button>' +
         '</div>';
 
       modal.classList.add('open');
       loadSettingsInfo();
+      loadShareTemplatesSettings();
     }
 
     async function openStorageStats() {
@@ -8381,11 +8390,13 @@ function renderPage() {
         html += '</select>';
         html += '</div>';
         html += '<div style="display:flex;gap:8px;align-items:center">';
+        html += '<input id="trashSearchInput" type="text" placeholder="搜索回收站文件..." oninput="filterTrashItems()" style="flex:1;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:200px">';
         html += '<button id="trashBatchRestore" onclick="batchRestoreTrash()" disabled style="padding:6px 14px;font-size:12px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;opacity:0.5">恢复(<span id="trashRestoreCount">0</span>)</button>';
         html += '<button id="trashBatchDelete" onclick="batchPermanentDeleteTrash()" disabled style="padding:6px 14px;font-size:12px;background:var(--error);color:#fff;border:none;border-radius:6px;cursor:pointer;opacity:0.5">彻底删除(<span id="trashDeleteCount">0</span>)</button>';
         html += '<button class="danger" onclick="confirmEmptyTrash()" style="padding:6px 14px;font-size:12px;font-weight:600" ' + (items.length === 0 ? 'disabled' : '') + '>🗑️ 清空回收站</button>';
         html += '</div>';
         html += '</div>';
+        window._trashItems = items;
 
         html += '<div id="trashItemsContainer">';
         if (items.length === 0) {
@@ -8573,6 +8584,50 @@ function renderPage() {
       }
     }
 
+    function filterTrashItems() {
+      var q = (document.getElementById('trashSearchInput') && document.getElementById('trashSearchInput').value || '').trim().toLowerCase();
+      var sortBy = document.getElementById('trashSortSelect') && document.getElementById('trashSortSelect').value;
+      var container = document.getElementById('trashItemsContainer');
+      if (!container) return;
+      var items = window._trashItems || [];
+      var filtered = q ? items.filter(function(item) {
+        return (item.filename && item.filename.toLowerCase().includes(q));
+      }) : items;
+      // Re-render filtered items with same sort
+      var sortFn;
+      if (sortBy === 'filename') {
+        sortFn = function(a, b) { return (a.filename || '').localeCompare(b.filename || ''); };
+      } else if (sortBy === 'size') {
+        sortFn = function(a, b) { return (b.size || 0) - (a.size || 0); };
+      } else {
+        sortFn = function(a, b) { return (b.deleted_at || 0) - (a.deleted_at || 0); };
+      }
+      filtered.sort(sortFn);
+      var html = '';
+      if (filtered.length === 0) {
+        html = '<div style="text-align:center;color:var(--muted);padding:30px">没有找到匹配的文件</div>';
+      } else {
+        filtered.forEach(function(item) {
+          var fid = 'trash-item-' + item.id;
+          var deletedAt = new Date(item.deleted_at * 1000).toLocaleString('zh-CN');
+          var sizeStr = formatFileSize(item.size || 0);
+          var expiredInfo = item.expires_at ? ('（' + Math.max(0, Math.ceil((item.expires_at * 1000 - Date.now()) / 86400000)) + ' 天后永久删除）') : '';
+          html += '<div id="' + fid + '" class="trash-item" style="display:flex;align-items:center;padding:10px 12px;gap:10px;border-bottom:1px solid var(--line)">';
+          html += '<input type="checkbox" class="trash-check" data-id="' + item.id + '" style="width:16px;height:16px;cursor:pointer;flex-shrink:0" onchange="updateTrashBatchBar()">';
+          html += '<span style="font-size:18px;flex-shrink:0">' + getFileIcon(item.filename) + '</span>';
+          html += '<div style="flex:1;min-width:0">';
+          html += '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(item.filename) + '">' + escapeHtmlClient(item.filename) + '</div>';
+          html += '<div style="font-size:11px;color:var(--muted)">' + sizeStr + ' · ' + deletedAt + ' ' + expiredInfo + '</div>';
+          html += '</div>';
+          html += '<button onclick="restoreTrashItem(' + item.id + ')" style="padding:4px 10px;background:var(--primary);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">恢复</button>';
+          html += '<button onclick="permanentDeleteTrashItem(' + item.id + ')" style="padding:4px 10px;background:var(--error);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">删除</button>';
+          html += '</div>';
+        });
+      }
+      container.innerHTML = html;
+      updateTrashBatchBar();
+    }
+
     function sortTrashItems() {
       var container = document.getElementById('trashItemsContainer');
       var sortBy = document.getElementById('trashSortSelect') && document.getElementById('trashSortSelect').value;
@@ -8636,7 +8691,15 @@ function renderPage() {
       modal.innerHTML = '\
         <div class="modal-content" style="max-width:460px">\
           <h3>创建分享链接</h3>\
-          <p id="shareCreateFileName" style="font-size:13px;color:var(--muted);margin-bottom:16px;word-break:break-all"></p>\
+          <p id="shareCreateFileName" style="font-size:13px;color:var(--muted);margin-bottom:12px;word-break:break-all"></p>\
+          <div id="shareTemplateRow" style="margin-bottom:12px;display:none">\
+            <div style="display:flex;gap:6px;align-items:center">\
+              <select id="shareTemplateSelect" onchange="applyShareTemplate(this.value)" style="flex:1;padding:7px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg)">\
+                <option value="">— 选择模板（可选）—</option>\
+              </select>\
+              <button type="button" onclick="openSaveShareTemplateModal()" style="padding:6px 12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:12px;white-space:nowrap">💾 保存模板</button>\
+            </div>\
+          </div>\
           <div style="margin-bottom:12px">\
             <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">有效期</label>\
             <div style="display:flex;gap:6px;align-items:center">\
@@ -8687,6 +8750,8 @@ function renderPage() {
         </div>';
       document.body.appendChild(modal);
       document.getElementById('shareCreateFileName').textContent = filename;
+      // Load share templates into dropdown
+      loadShareTemplates();
       // Focus password field for quick entry
       document.getElementById('sharePasswordInput').focus();
     }
@@ -8696,6 +8761,107 @@ function renderPage() {
       if (!input) return;
       input.style.display = val === 'custom' ? 'block' : 'none';
       if (val === 'custom') setTimeout(function() { input.focus(); }, 50);
+    }
+
+    // Share Link Templates
+    var _shareTemplates = null;
+
+    function getShareTemplates() {
+      try {
+        return JSON.parse(localStorage.getItem('st_share_templates') || '[]');
+      } catch(e) { return []; }
+    }
+
+    function saveShareTemplates(templates) {
+      localStorage.setItem('st_share_templates', JSON.stringify(templates));
+      _shareTemplates = templates;
+    }
+
+    function loadShareTemplates() {
+      var sel = document.getElementById('shareTemplateSelect');
+      if (!sel) return;
+      _shareTemplates = getShareTemplates();
+      var currentExpiry = document.getElementById('shareExpirySelect') ? document.getElementById('shareExpirySelect').value : '';
+      var currentPwd = document.getElementById('sharePasswordInput') ? document.getElementById('sharePasswordInput').value.trim() : '';
+      var currentMaxDl = document.getElementById('shareMaxDlInput') ? document.getElementById('shareMaxDlInput').value.trim() : '';
+      var currentBg = document.getElementById('shareThemeBgHex') ? document.getElementById('shareThemeBgHex').value.trim() : '';
+      var currentColor = document.getElementById('shareThemeColorHex') ? document.getElementById('shareThemeColorHex').value.trim() : '';
+      var currentBrand = document.getElementById('shareBrandText') ? document.getElementById('shareBrandText').value.trim() : '';
+      sel.innerHTML = '<option value="">— 选择模板（可选）—</option>';
+      _shareTemplates.forEach(function(t, i) {
+        var label = t.name + (t.expiryHours ? ' · ' + t.expiryHours + 'h' : '') + (t.password ? ' · 🔒' : '');
+        sel.innerHTML += '<option value="' + i + '">' + label + '</option>';
+      });
+    }
+
+    function applyShareTemplate(idx) {
+      if (idx === '' || _shareTemplates === null) return;
+      var t = _shareTemplates[parseInt(idx, 10)];
+      if (!t) return;
+      if (document.getElementById('shareExpirySelect')) {
+        document.getElementById('shareExpirySelect').value = t.expiryHours !== undefined ? String(t.expiryHours) : '0';
+        toggleShareCustomExpiry(String(t.expiryHours || 0));
+      }
+      if (document.getElementById('sharePasswordInput')) document.getElementById('sharePasswordInput').value = t.password || '';
+      if (document.getElementById('shareMaxDlInput')) document.getElementById('shareMaxDlInput').value = t.maxDownloads || '';
+      if (document.getElementById('shareThemeBgHex')) document.getElementById('shareThemeBgHex').value = t.themeBg || '';
+      if (document.getElementById('shareThemeBg')) document.getElementById('shareThemeBg').value = t.themeBg || '#f6f7fb';
+      if (document.getElementById('shareThemeColorHex')) document.getElementById('shareThemeColorHex').value = t.themeColor || '';
+      if (document.getElementById('shareThemeColor')) document.getElementById('shareThemeColor').value = t.themeColor || '#111827';
+      if (document.getElementById('shareBrandText')) document.getElementById('shareBrandText').value = t.brandText || '';
+      showToast('已应用模板: ' + t.name, 'success');
+    }
+
+    function openSaveShareTemplateModal() {
+      var name = prompt('输入模板名称:', '我的模板');
+      if (!name || !name.trim()) return;
+      name = name.trim();
+      var expiryHours = document.getElementById('shareExpirySelect') ? parseInt(document.getElementById('shareExpirySelect').value, 10) : 168;
+      var password = document.getElementById('sharePasswordInput') ? document.getElementById('sharePasswordInput').value.trim() : '';
+      var maxDownloads = document.getElementById('shareMaxDlInput') ? document.getElementById('shareMaxDlInput').value.trim() : '';
+      var themeBg = document.getElementById('shareThemeBgHex') ? document.getElementById('shareThemeBgHex').value.trim() : '';
+      var themeColor = document.getElementById('shareThemeColorHex') ? document.getElementById('shareThemeColorHex').value.trim() : '';
+      var brandText = document.getElementById('shareBrandText') ? document.getElementById('shareBrandText').value.trim() : '';
+      var templates = getShareTemplates();
+      templates.push({ name: name, expiryHours: expiryHours, password: password, maxDownloads: maxDownloads, themeBg: themeBg, themeColor: themeColor, brandText: brandText });
+      saveShareTemplates(templates);
+      loadShareTemplates();
+      showToast('模板已保存: ' + name, 'success');
+    }
+
+    function loadShareTemplatesSettings() {
+      var container = document.getElementById('shareTemplatesList');
+      if (!container) return;
+      var templates = getShareTemplates();
+      if (!templates.length) {
+        container.innerHTML = '<span style="font-size:12px;color:var(--muted)">暂无模板，在创建分享时💾保存模板</span>';
+        return;
+      }
+      var html = '<div style="display:flex;flex-direction:column;gap:4px">';
+      templates.forEach(function(t, i) {
+        var expiryStr = t.expiryHours > 0 ? t.expiryHours + '小时' : '永不过期';
+        var pwdStr = t.password ? ' · 🔒' : '';
+        html += '<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 0;border-bottom:1px solid var(--line)">' +
+          '<span style="flex:1">' + escapeHtmlClient(t.name) + ' <span style="color:var(--muted)">(' + expiryStr + pwdStr + ')</span></span>' +
+          '<button onclick="deleteShareTemplate(' + i + ')" style="padding:2px 8px;background:var(--error);color:white;border:none;border-radius:4px;cursor:pointer;font-size:11px">删除</button>' +
+          '</div>';
+      });
+      html += '</div>';
+      container.innerHTML = html;
+    }
+
+    function openManageShareTemplates() {
+      loadShareTemplatesSettings();
+      showToast('已在设置面板中显示模板列表', 'success');
+    }
+
+    function deleteShareTemplate(idx) {
+      if (!confirm('确认删除此模板？')) return;
+      var templates = getShareTemplates();
+      templates.splice(parseInt(idx, 10), 1);
+      saveShareTemplates(templates);
+      loadShareTemplatesSettings();
+      showToast('模板已删除', 'success');
     }
 
     async function confirmShareCreate(filename) {
