@@ -931,9 +931,9 @@ function renderPage() {
         <div class="row" style="margin-top:12px">
             <button onclick="uploadFiles()">上传文件</button>
             <button class="secondary" onclick="openUploadFromUrlModal()">🌐 URL上传</button>
-          <button class="secondary" onclick="openNewFolderModal()">📁 新建文件夹</button>
-          <button class="secondary" onclick="openNewTextFileModal()">📝 新建文本</button>
-          <button class="secondary" onclick="clearFileInput()">清空选择</button>
+            <button class="secondary" onclick="openNewFolderModal()">📁 新建文件夹</button>
+            <button class="secondary" onclick="openNewTextFileModal()">📝 新建文本</button>
+            <button class="secondary" onclick="clearFileInput()">清空选择</button>
         </div>
         <div class="progress-bar-wrap" id="progressBarWrap">
           <div class="progress-bar" id="progressBar" style="width:0%;background:var(--accent)"></div>
@@ -3364,6 +3364,63 @@ function renderPage() {
         });
       }
       renderUploadQueuePanel();
+    }
+
+    function openUploadFromUrlModal() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '🌐 URL上传';
+      body.innerHTML = '\
+        <div style="display:flex;flex-direction:column;gap:12px">\
+          <div>\
+            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--text-secondary)">文件URL</label>\
+            <input id="urlUploadInput" type="text" placeholder="https://example.com/file.pdf" \
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box;font-size:14px">\
+          </div>\
+          <div>\
+            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--text-secondary)">保存为文件名（可选）</label>\
+            <input id="urlUploadFilename" type="text" placeholder="留空则使用URL中的文件名" \
+              style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);box-sizing:border-box;font-size:14px">\
+          </div>\
+          <div id="urlUploadStatus" style="font-size:13px;color:var(--text-muted);text-align:center;display:none"></div>\
+        </div>';
+      var actions = modal.querySelector('.modal-actions');
+      if (actions) actions.innerHTML = '<button class="secondary" onclick="closeModal()">取消</button><button id="urlUploadConfirmBtn" onclick="confirmUploadFromUrl()">下载并保存</button>';
+      modal.classList.add('open');
+      setTimeout(function() { var inp = document.getElementById('urlUploadInput'); if (inp) inp.focus(); }, 50);
+    }
+
+    async function confirmUploadFromUrl() {
+      var url = document.getElementById('urlUploadInput').value.trim();
+      if (!url) { showToast('请输入URL', 'error'); return; }
+      var filename = document.getElementById('urlUploadFilename').value.trim();
+      var status = document.getElementById('urlUploadStatus');
+      var btn = document.getElementById('urlUploadConfirmBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '下载中...'; }
+      if (status) { status.style.display = 'block'; status.textContent = '正在下载...'; }
+      try {
+        var res = await fetch('/api/upload-from-url', {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ url: url, filename: filename || undefined })
+        });
+        var data = await res.json();
+        if (data.success) {
+          if (status) status.textContent = '✓ 下载成功！';
+          showToast('文件已保存: ' + data.file.name, 'success');
+          closeModal();
+          loadFiles();
+        } else {
+          if (status) status.style.display = 'none';
+          showToast(data.error || '下载失败', 'error');
+          if (btn) { btn.disabled = false; btn.textContent = '下载并保存'; }
+        }
+      } catch (e) {
+        if (status) status.style.display = 'none';
+        showToast('下载失败: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = '下载并保存'; }
+      }
     }
 
     async function uploadFiles() {
@@ -9088,7 +9145,31 @@ function renderPage() {
     async function batchPermanentDeleteTrash() {
       const ids = Array.from(selectedTrashItems);
       if (ids.length === 0) return;
-      if (!confirm('彻底删除 ' + ids.length + ' 个文件后无法恢复，确定？')) return;
+      var m = document.getElementById('confirmBatchDeleteModal');
+      if (m) m.remove();
+      m = document.createElement('div');
+      m.id = 'confirmBatchDeleteModal';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
+      m.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:380px;font-size:14px;text-align:center">\
+          <div style="font-size:40px;margin-bottom:12px">⚠️</div>\
+          <h3 style="margin:0 0 8px">彻底删除 ' + ids.length + ' 个文件？</h3>\
+          <p style="margin:0 0 20px;font-size:13px;color:var(--muted)">此操作不可恢复，确定要彻底删除吗？</p>\
+          <div style="display:flex;gap:10px;justify-content:center">\
+            <button class="secondary" onclick="document.getElementById(\'confirmBatchDeleteModal\').remove()">取消</button>\
+            <button class="danger" onclick="doBatchPermanentDeleteTrash()">确认删除</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(m);
+      m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
+      window._pendingBatchDeleteTrash = ids;
+    }
+
+    async function doBatchPermanentDeleteTrash() {
+      var ids = window._pendingBatchDeleteTrash || [];
+      if (!ids.length) return;
+      var m = document.getElementById('confirmBatchDeleteModal');
+      if (m) m.remove();
       try {
         const res = await fetch('/api/trash/delete-batch', {
           method: 'POST',
