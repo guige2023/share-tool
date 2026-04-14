@@ -1244,6 +1244,18 @@ function getFileCategoryFromExt(ext) {
   return '其他';
 }
 
+function getVirtualFolderFiles(folderId, limit = 100) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT f.${FILE_LIST_FIELDS}, v.added_at
+    FROM virtual_folder_files v
+    JOIN files f ON f.id = v.file_id
+    WHERE v.folder_id = ?
+    ORDER BY v.added_at DESC
+    LIMIT ?
+  `).all(folderId, limit);
+}
+
 function deleteVirtualFolder(id) {
   const db = getDb();
   db.prepare('DELETE FROM virtual_folders WHERE id = ?').run(id);
