@@ -7677,6 +7677,39 @@ function renderPage() {
           // Fallback: show plain text with escaping
           mdDiv.innerHTML = '<pre style="white-space:pre-wrap">' + escapeHtmlClient(content) + '</pre>';
         }
+      } else if (ext === 'csv') {
+        // CSV rendered as a sortable/filterable table
+        const rows = content.split('\n').filter(r => r.trim());
+        const delimiter = (rows[0] || '').includes('\t') ? '\t' : ',';
+        const headers = rows[0] ? rows[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, '')) : [];
+        const dataRows = rows.slice(1);
+        bodyContent = '<div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+          '<input id="csvSearch" type="text" placeholder="🔍 搜索表格…" oninput="filterCsvTable(this.value)" style="padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg-secondary);color:var(--text);font-size:12px;max-width:200px">' +
+          '<span style="font-size:11px;color:var(--muted)">' + dataRows.length + ' 行</span>' +
+          '<button onclick="switchCsvMode()" id="csvModeBtn" style="margin-left:auto;padding:4px 10px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:11px">📄 纯文本</button>' +
+          '</div>' +
+          '<div id="csvTableWrap" style="overflow:auto;max-height:62vh;border-radius:8px;border:1px solid var(--line)">' +
+          '<table id="csvTable" style="width:100%;border-collapse:collapse;font-size:13px">';
+        // Header
+        bodyContent += '<thead><tr style="background:var(--bg-secondary);position:sticky;top:0;z-index:1">' +
+          '<th style="padding:8px 12px;text-align:left;border-bottom:2px solid var(--line);white-space:nowrap;font-weight:600;cursor:pointer;user-select:none" onclick="sortCsvTable(this,0)">#</th>';
+        headers.forEach(function(h, i) {
+          bodyContent += '<th style="padding:8px 12px;text-align:left;border-bottom:2px solid var(--line);white-space:nowrap;font-weight:600;cursor:pointer;user-select:none" onclick="sortCsvTable(this,' + (i+1) + ')">' + escapeHtmlClient(h) + ' <span style="opacity:.4">↕</span></th>';
+        });
+        bodyContent += '</tr></thead><tbody id="csvBody">';
+        dataRows.forEach(function(row, ri) {
+          const cells = row.split(delimiter).map(c => c.trim().replace(/^"|"$/g, ''));
+          bodyContent += '<tr class="csv-row" data-rownum="' + ri + '" style="border-bottom:1px solid var(--line);background:var(--bg-secondary)">';
+          bodyContent += '<td style="padding:6px 12px;color:var(--muted);font-size:12px">' + (ri + 1) + '</td>';
+          cells.forEach(function(cell) {
+            bodyContent += '<td style="padding:6px 12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(cell) + '">' + escapeHtmlClient(cell) + '</td>';
+          });
+          bodyContent += '</tr>';
+        });
+        bodyContent += '</tbody></table></div>';
+        modalBody.innerHTML = truncatedNote + bodyContent;
+        // Store raw content for text switch
+        window._previewContent = content;
       } else if (lang) {
         // Syntax highlighted code view with line numbers
         const lines = content.split('\n');
@@ -7688,14 +7721,10 @@ function renderPage() {
         modalBody.innerHTML = truncatedNote + bodyContent;
         const codeEl = document.getElementById('codeContent');
         codeEl.textContent = content;
-        // Sync scroll between line numbers and code
         const codeScroll = document.getElementById('codeScroll');
         const lineNumbersEl = document.getElementById('lineNumbers');
         codeScroll.addEventListener('scroll', () => { lineNumbersEl.scrollTop = codeScroll.scrollTop; });
-        if (typeof hljs !== 'undefined') {
-          hljs.highlightElement(codeEl);
-        }
-        // Add copy button
+        if (typeof hljs !== 'undefined') { hljs.highlightElement(codeEl); }
         const wrapper = document.getElementById('codeWrapper');
         const btn = document.createElement('button');
         btn.textContent = '📋 复制';
@@ -7732,6 +7761,43 @@ function renderPage() {
             '<button class="primary" onclick="downloadFile(' + JSON.stringify(filename) + ')">' + dlLabel + '</button>';
         }
       }
+    }
+
+    var _csvSortCol = -1;
+    var _csvSortDir = 1;
+
+    function sortCsvTable(th, colIdx) {
+      var tbody = document.getElementById('csvBody');
+      if (!tbody) return;
+      var rows = Array.from(tbody.querySelectorAll('tr'));
+      if (colIdx === _csvSortCol) { _csvSortDir *= -1; } else { _csvSortCol = colIdx; _csvSortDir = 1; }
+      rows.sort(function(a, b) {
+        var aVal = a.cells[colIdx] ? a.cells[colIdx].textContent.trim() : '';
+        var bVal = b.cells[colIdx] ? b.cells[colIdx].textContent.trim() : '';
+        var aNum = parseFloat(aVal.replace(/[^0-9.-]/g, ''));
+        var bNum = parseFloat(bVal.replace(/[^0-9.-]/g, ''));
+        if (!isNaN(aNum) && !isNaN(bNum)) return (aNum - bNum) * _csvSortDir;
+        return aVal.localeCompare(bVal, 'zh-CN') * _csvSortDir;
+      });
+      rows.forEach(function(r) { tbody.appendChild(r); });
+    }
+
+    function filterCsvTable(q) {
+      var rows = document.querySelectorAll('.csv-row');
+      var lc = q.toLowerCase();
+      rows.forEach(function(r) {
+        r.style.display = Array.from(r.cells).some(function(c) { return c.textContent.toLowerCase().includes(lc); }) ? '' : 'none';
+      });
+    }
+
+    function switchCsvMode() {
+      // Switch between table view and plain text view for CSV
+      var modalBody = document.getElementById('modalBody');
+      var filename = document.getElementById('modalTitle').textContent;
+      var content = window._previewContent || '';
+      var lang = 'csv'; // treat as text
+      modalBody.innerHTML = '';
+      renderTextPreview(filename, content, null, false, lang, 'csv');
     }
 
     function switchToEditMode(filename) {
