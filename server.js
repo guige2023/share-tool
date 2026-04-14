@@ -1150,7 +1150,6 @@ function renderPage() {
               <th style="width:100px;cursor:pointer;user-select:none" onclick="setSort('size')">大小 <span class="sort-arrow" id="arrow-size"></span></th>
               <th style="width:170px;cursor:pointer;user-select:none" onclick="setSort('updated_at')">更新时间 <span class="sort-arrow" id="arrow-updated_at"></span></th>
               <th style="width:140px;cursor:pointer;user-select:none" onclick="setSort('created_at')">创建时间 <span class="sort-arrow" id="arrow-created_at"></span></th>
-              <th style="width:60px;cursor:pointer;user-select:none" onclick="setSort('position')" title="手动排序，拖拽调整顺序">📌 <span class="sort-arrow" id="arrow-position"></span></th>
               <th style="width:160px">路径</th>
               <th style="width:240px">操作</th>
             </tr>
@@ -5254,6 +5253,8 @@ function renderPage() {
         '<td data-label="创建时间">' + formatTime(file.createdAt) + '</td>' +
         '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
         '<td data-label="路径" style="font-size:11px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(file.virtual_folder || '') + '">' + (file.virtual_folder ? escapeHtmlClient(file.virtual_folder) : '<span style="color:var(--border)">—</span>') + '</td>' +
+        '<td class="actions-cell" data-label="操作">' +
+          '<button onclick=' + "'" + 'previewFile(' + JSON.stringify(file.name) + ')' + "'" + '>查看</button>' +
           '<button class="secondary" onclick=' + "'" + 'downloadFile(' + JSON.stringify(file.name) + ')' + "'" + '>下载</button>' +
           '<button class="secondary" onclick=' + "'" + 'copyShareLink(' + JSON.stringify(file.name) + ')' + "'" + '>复制链接</button>' +
           '<button class="secondary" onclick=' + "'" + 'createShare(' + JSON.stringify(file.name) + ')' + "'" + '>分享</button>' +
@@ -8117,6 +8118,15 @@ function renderPage() {
             '<button class="ghost" style="font-size:13px;padding:6px 14px" onclick="openDeviceManager()">📱 设备管理</button>' +
             '<button class="ghost" style="font-size:13px;padding:6px 14px" onclick="openSyncDashboard()">📡 同步面板</button>' +
             '</div>' +
+          '</div>' +
+        '</div>' +
+
+        // Duplicate file finder
+        '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">🔍 重复文件查找</label>' +
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">扫描并清理重复文件（相同内容的文件，保留一份删除其余）。</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="openDuplicateFinder()">🔍 扫描重复文件</button>' +
           '</div>' +
         '</div>' +
 

@@ -65,6 +65,28 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/duplicates - find duplicate files (same hash)
+  if (pathname === '/api/duplicates' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const groups = db.findDuplicates();
+    sendJson(res, { success: true, groups });
+    return true;
+  }
+
+  // DELETE /api/files/:id - delete a file by id (used by duplicate finder)
+  if (pathname.match(/^\/api\/files\/(\d+)$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const fileId = parseInt(pathname.match(/^\/api\/files\/(\d+)$/)[1], 10);
+    const file = db.prepare('SELECT filename FROM files WHERE id = ?').get(fileId);
+    if (!file) { sendJson(res, { success: false, error: '文件不存在' }, 404); return true; }
+    db.deleteFile(file.filename);
+    global.broadcastSSE({ type: 'files_changed' });
+    sendJson(res, { success: true });
+    return true;
+  }
+
   // ── Device Management ──────────────────────────────────────────────
   if (pathname === '/api/devices' && method === 'GET') {
     const auth = authRequired(req, res);
