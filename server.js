@@ -2611,20 +2611,72 @@ function renderPage() {
       modal.id = 'tagInputModal';
       modal.className = 'modal';
       modal.innerHTML = '\
-        <div class="modal-content" style="max-width:400px">\
+        <div class="modal-content" style="max-width:460px">\
           <h3 id="tagInputTitle">' + (action === 'add' ? '添加标签' : '移除标签') + '</h3>\
           <p style="color:var(--muted);font-size:13px;margin-bottom:12px">为 ' + fileCount + ' 个文件' + (action === 'add' ? '添加' : '移除') + '标签</p>\
-          <div id="tagChipInput" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;padding:8px;border:1px solid var(--line);border-radius:8px;min-height:44px;cursor:text" onclick="document.getElementById(\'tagInputField\').focus()"></div>\
-          <input id="tagInputField" type="text" placeholder="输入标签后按 Enter 添加" \
-            style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:14px;font-size:14px" \
-            onkeydown="handleTagInputKeydown(event, \'' + action + '\')">\
+          <div id="tagChipInput" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding:8px;border:1px solid var(--line);border-radius:8px;min-height:44px;cursor:text" onclick="document.getElementById(\'tagInputField\').focus()"></div>\
+          <div style="position:relative;margin-bottom:8px">\
+            <input id="tagInputField" type="text" placeholder="输入或选择标签后按 Enter 添加" \
+              style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px" \
+              oninput="filterTagSuggestions(this.value)" \
+              onkeydown="handleTagInputKeydown(event, \'' + action + '\')">\
+            <div id="tagSuggestionDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--line);border-radius:8px;margin-top:4px;max-height:160px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.15)"></div>\
+          </div>\
+          <div id="existingTagsSection" style="margin-bottom:14px">\
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px">已有标签（点击添加）</div>\
+            <div id="existingTagChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>\
+          </div>\
           <div style="display:flex;gap:8px;justify-content:flex-end">\
             <button class="secondary" onclick="document.getElementById(\'tagInputModal\').remove()">取消</button>\
             <button onclick="confirmBatchTagInput(\'' + action + '\')">确定</button>\
           </div>\
         </div>';
       document.body.appendChild(modal);
+      renderExistingTagChips();
       document.getElementById('tagInputField').focus();
+    }
+
+    function renderExistingTagChips() {
+      var container = document.getElementById('existingTagChips');
+      if (!container) return;
+      var allTags = window._allTags || [];
+      if (!allTags.length) { container.innerHTML = '<span style="font-size:12px;color:var(--muted)">暂无标签</span>'; return; }
+      container.innerHTML = allTags.map(function(t) {
+        return '<button onclick="addBatchTagChip(\'' + escapeHtmlClient(t.name) + '\')" style="font-size:11px;padding:3px 9px;border-radius:999px;cursor:pointer;font-weight:500;' +
+          'border:1px solid ' + escapeHtmlClient(t.color || '#e0e7ff') + ';background:' + (t.color || '#e0e7ff') + ';color:inherit;opacity:0.85" ' +
+          'title="' + escapeHtmlClient(t.name) + '">' + (t.icon ? escapeHtmlClient(t.icon) + ' ' : '') + escapeHtmlClient(t.name) + '</button>';
+      }).join('');
+    }
+
+    function addBatchTagChip(tagName) {
+      if (!_batchTagChips.includes(tagName)) {
+        _batchTagChips.push(tagName);
+        renderBatchTagChips();
+      }
+      var input = document.getElementById('tagInputField');
+      if (input) { input.value = ''; filterTagSuggestions(''); }
+    }
+
+    function filterTagSuggestions(query) {
+      var dropdown = document.getElementById('tagSuggestionDropdown');
+      if (!dropdown) return;
+      var allTags = window._allTags || [];
+      var q = query.trim().toLowerCase();
+      var filtered = allTags.filter(function(t) { return t.name.toLowerCase().includes(q); });
+      if (!filtered.length || !q) { dropdown.style.display = 'none'; return; }
+      dropdown.innerHTML = filtered.slice(0, 8).map(function(t) {
+        return '<div onclick="selectTagSuggestion(\'' + escapeHtmlClient(t.name) + '\')" ' +
+          'style="padding:8px 12px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line)">' +
+          '<span style="width:10px;height:10px;border-radius:50%;background:' + escapeHtmlClient(t.color || '#667eea') + ';flex-shrink:0"></span>' +
+          '<span>' + escapeHtmlClient(t.name) + '</span></div>';
+      }).join('');
+      dropdown.style.display = 'block';
+    }
+
+    function selectTagSuggestion(tagName) {
+      addBatchTagChip(tagName);
+      var dropdown = document.getElementById('tagSuggestionDropdown');
+      if (dropdown) dropdown.style.display = 'none';
     }
 
     var _batchTagChips = [];
