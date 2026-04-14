@@ -1035,6 +1035,8 @@ function renderPage() {
             <div class="ctx-item" onclick="setSortFromDropdown('type','asc')" id="sortItem-type-asc">📂 类型</div>\
             <div style="border-top:1px solid var(--line);margin:4px 0"></div>\
             <div class="ctx-item" onclick="setSortFromDropdown('position','asc')" id="sortItem-position-asc">📌 手动排序</div>\
+            <div id="sortPresetsMenu" style="border-top:1px solid var(--line);margin:4px 0;padding-top:4px"></div>\
+            <div class="ctx-item" onclick="openSaveSortPresetModal()" style="color:var(--accent)">⭐ 保存当前排序</div>
             <div style="border-top:1px solid var(--line);margin:4px 0"></div>\
             <div class="ctx-item" onclick="showRecentFiles()" id="sortItem-recent" style="color:var(--accent);font-weight:500">🕐 最近访问</div>\
           </div>\
@@ -4763,6 +4765,76 @@ function renderPage() {
       items.forEach(function(item) { item.style.fontWeight = ''; item.style.color = ''; });
       var active = document.getElementById('sortItem-' + currentSort + '-' + currentOrder);
       if (active) { active.style.fontWeight = '600'; active.style.color = 'var(--accent)'; }
+      // Also highlight active preset
+      renderSortPresetsInMenu();
+    }
+
+    function getSortPresets() {
+      try { return JSON.parse(localStorage.getItem('sortPresets') || '[]'); } catch(_) { return []; }
+    }
+
+    function saveSortPresets(presets) {
+      localStorage.setItem('sortPresets', JSON.stringify(presets));
+    }
+
+    function renderSortPresetsInMenu() {
+      var container = document.getElementById('sortPresetsMenu');
+      if (!container) return;
+      var presets = getSortPresets();
+      if (!presets.length) { container.innerHTML = ''; return; }
+      container.innerHTML = presets.map(function(p) {
+        var active = p.sort === currentSort && p.order === currentOrder;
+        return '<div class="ctx-item" onclick="applySortPreset(' + presets.indexOf(p) + ')" ' +
+          'style="' + (active ? 'font-weight:600;color:var(--accent)' : '') + '" ' +
+          'title="删除" ondblclick="deleteSortPreset(' + presets.indexOf(p) + ')">' +
+          (active ? '⭐ ' : '☆ ') + escapeHtmlClient(p.name) + ' <span style="font-size:10px;color:var(--muted)">' +
+          (p.sortLabel || '') + '</span></div>';
+      }).join('');
+    }
+
+    function openSaveSortPresetModal() {
+      closeAllDropdowns();
+      var name = prompt('输入排序预设名称：');
+      if (!name || !name.trim()) return;
+      name = name.trim();
+      var presets = getSortPresets();
+      var sortLabels = {
+        'updated_at-desc': '最新优先', 'updated_at-asc': '最旧优先',
+        'filename-asc': '名称A-Z', 'filename-desc': '名称Z-A',
+        'size-desc': '最大优先', 'size-asc': '最小优先',
+        'created_at-desc': '最新创建', 'created_at-asc': '最旧创建',
+        'type-asc': '类型', 'position-asc': '手动排序'
+      };
+      presets.push({ name: name, sort: currentSort, order: currentOrder, sortLabel: sortLabels[currentSort + '-' + currentOrder] || '' });
+      saveSortPresets(presets);
+      renderSortPresetsInMenu();
+      showToast('已保存排序预设: ' + name, 'success');
+    }
+
+    function applySortPreset(idx) {
+      var presets = getSortPresets();
+      var p = presets[idx];
+      if (!p) return;
+      closeAllDropdowns();
+      setSortFromDropdown(p.sort, p.order);
+    }
+
+    function deleteSortPreset(idx, e) {
+      if (e) e.stopPropagation();
+      var presets = getSortPresets();
+      if (!presets[idx]) return;
+      var name = presets[idx].name;
+      presets.splice(idx, 1);
+      saveSortPresets(presets);
+      renderSortPresetsInMenu();
+      showToast('已删除: ' + name, 'info');
+    }
+
+    function clearAllSortPresets() {
+      if (!confirm('确定删除所有排序预设？')) return;
+      saveSortPresets([]);
+      renderSortPresetsInMenu();
+      showToast('已清空所有排序预设', 'info');
     }
 
     function updateQuickSortButtons() {
