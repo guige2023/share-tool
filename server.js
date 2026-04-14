@@ -994,6 +994,7 @@ function renderPage() {
         <button onclick="loadFiles()">刷新</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button class="ghost" onclick="openStorageStats()" title="存储统计">📊</button>
+        <button class="ghost" onclick="openSyncDashboard()" title="同步面板 (p)">🔄</button>
         <button class="ghost" onclick="toggleTheme()" title="切换主题" id="themeToggleBtn">🌙</button>
         <button class="ghost" onclick="openSettings()" title="设置 (Ctrl+,)">⚙</button>
         <button class="ghost" onclick="openKeyboardHelp()" title="键盘快捷键 (?)">?</button>
@@ -6993,6 +6994,7 @@ function renderPage() {
             '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="rotateToken()">🔄 更换 Token</button>' +
             '<button class="ghost" style="font-size:13px;padding:6px 14px" onclick="openAuditLog()">📋 审计日志</button>' +
             '<button class="ghost" style="font-size:13px;padding:6px 14px" onclick="openDeviceManager()">📱 设备管理</button>' +
+            '<button class="ghost" style="font-size:13px;padding:6px 14px" onclick="openSyncDashboard()">📡 同步面板</button>' +
             '</div>' +
           '</div>' +
         '</div>';
@@ -7287,6 +7289,112 @@ function renderPage() {
       } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
     }
 
+    async function openSyncDashboard() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📡 同步面板';
+      body.innerHTML = '<div style="padding:8px 0;color:var(--muted);text-align:center">加载中...</div>';
+      modal.classList.add('open');
+
+      var syncStatus, devices, logs;
+      try {
+        var tres = await Promise.all([
+          fetch('/api/sync/status', { headers: headers() }),
+          fetch('/api/devices', { headers: headers() }),
+          fetch('/api/sync/logs?since=0', { headers: headers() })
+        ]);
+        var jdata = await Promise.all(tres.map(function(r) { return r.json(); }));
+        syncStatus = jdata[0];
+        devices = jdata[1];
+        logs = jdata[2];
+      } catch(e) {
+        body.innerHTML = '<p style="color:var(--error);padding:20px">加载失败: ' + escapeHtmlClient(e.message) + '</p>';
+        return;
+      }
+
+      var status = syncStatus || {};
+      var deviceList = devices.devices || [];
+      var synclogs = (logs.logs || []).slice(0, 20);
+
+      // Status section
+      var unsyncedCount = status.unsynced || 0;
+      var totalLogs = status.total || 0;
+      var unsyncedSize = status.unsyncedSize || 0;
+      var statusColor = unsyncedCount === 0 ? '#10b981' : '#f59e0b';
+      var statusText = unsyncedCount === 0 ? '✅ 已同步' : '⏳ ' + unsyncedCount + ' 条待同步';
+
+      var html = '<div style="max-width:560px">';
+
+      // Status card
+      html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">';
+      html += '<div style="background:var(--bg-secondary);border-radius:12px;padding:14px;text-align:center">';
+      html += '<div style="font-size:22px;font-weight:700;color:' + statusColor + '">' + statusText + '</div>';
+      html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">同步状态</div></div>';
+      html += '<div style="background:var(--bg-secondary);border-radius:12px;padding:14px;text-align:center">';
+      html += '<div style="font-size:22px;font-weight:700">' + totalLogs + '</div>';
+      html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">总记录</div></div>';
+      html += '<div style="background:var(--bg-secondary);border-radius:12px;padding:14px;text-align:center">';
+      html += '<div style="font-size:22px;font-weight:700">' + formatBytes(unsyncedSize) + '</div>';
+      html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">待同步大小</div></div>';
+      html += '</div>';
+
+      // Connected devices section
+      html += '<div style="margin-bottom:20px">';
+      html += '<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)">📱 已连接设备 (' + deviceList.length + ')</div>';
+      if (!deviceList.length) {
+        html += '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">暂无设备连接</div>';
+      } else {
+        html += '<div style="display:flex;flex-direction:column;gap:6px">';
+        deviceList.forEach(function(dev) {
+          var online = dev.isOnline ? '🟢' : '⚫';
+          var lastSeen = dev.lastSeen ? new Date(dev.lastSeen * 1000).toLocaleString('zh-CN', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '未知';
+          html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-secondary);border-radius:8px">';
+          html += '<span style="font-size:18px">' + online + '</span>';
+          html += '<div style="flex:1;min-width:0">';
+          html += '<div style="font-weight:500;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(dev.deviceName || '未知设备') + '</div>';
+          html += '<div style="font-size:11px;color:var(--muted)">' + (dev.isOnline ? '在线' : '最后在线: ' + lastSeen) + '</div>';
+          html += '</div>';
+          html += '<div style="font-size:11px;color:var(--muted)">' + (dev.lastSeen ? lastSeen : '') + '</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+
+      // Recent sync activity
+      html += '<div>';
+      html += '<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)">📋 最近同步记录</div>';
+      if (!synclogs.length) {
+        html += '<div style="color:var(--muted);font-size:13px;text-align:center;padding:16px">暂无同步记录</div>';
+      } else {
+        html += '<div style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto">';
+        synclogs.forEach(function(log) {
+          var actionIcon = log.action === 'create' ? '➕' : log.action === 'delete' ? '🗑️' : log.action === 'rename' ? '✏️' : '📝';
+          var actionText = log.action === 'create' ? '创建' : log.action === 'delete' ? '删除' : log.action === 'rename' ? '重命名' : '更新';
+          var time = new Date(log.timestamp * 1000).toLocaleString('zh-CN', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit' });
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-secondary);border-radius:6px;font-size:12px">';
+          html += '<span>' + actionIcon + '</span>';
+          html += '<span style="color:var(--muted);min-width:32px">' + actionText + '</span>';
+          html += '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500">' + escapeHtmlClient(log.filename || '-') + '</span>';
+          html += '<span style="color:var(--muted)">' + time + '</span>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+
+      html += '</div>';
+      body.innerHTML = html;
+
+      // Update modal actions to just have close
+      var actions = modal.querySelector('.modal-actions');
+      if (actions) {
+        var i18n = typeof langDict !== 'undefined' ? langDict : {};
+        actions.innerHTML = '<button class="secondary" onclick="forceCloseModal()">' + (i18n['close'] || '关闭') + '</button>';
+      }
+    }
+
     function openKeyboardHelpFromSettings() {
       closeModal();
       setTimeout(openKeyboardHelp, 50);
@@ -7303,6 +7411,7 @@ function renderPage() {
         ['Enter', '打开/预览文件'],
         ['Space', '选中/取消选中'],
         ['s', '标记/取消收藏'],
+        ['p', '打开同步面板'],
         ['y', '复制文件名'],
         ['c', '复制分享链接'],
         ['v', '切换视图 (list↔grid)'],
