@@ -8928,6 +8928,47 @@ function renderPage() {
         html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">文件类型</div></div>';
         html += '</div>';
 
+        // Disk space gauge (if available)
+        var disk = sysData && sysData.disk;
+        if (disk && disk.total > 0) {
+          var diskPct = Math.round((disk.used / disk.total) * 100);
+          var diskUsedStr = disk.used > 1024*1024*1024 ? (Math.round(disk.used/1024/1024/1024*10)/10+' GB') : (Math.round(disk.used/1024/1024)+' MB');
+          var diskTotalStr = disk.total > 1024*1024*1024 ? (Math.round(disk.total/1024/1024/1024*10)/10+' GB') : (Math.round(disk.total/1024/1024)+' MB');
+          var diskFreeStr = disk.free > 1024*1024*1024 ? (Math.round(disk.free/1024/1024/1024*10)/10+' GB') : (Math.round(disk.free/1024/1024)+' MB');
+          var gaugeColor = diskPct > 90 ? '#ef4444' : diskPct > 75 ? '#f59e0b' : '#10b981';
+          // Compute days until disk full based on 7-day growth rate
+          var growthRate = null;
+          if (byDay.length >= 2) {
+            var first = byDay[0], last = byDay[byDay.length - 1];
+            if (first && last && last.file_count > 0 && first.file_count > 0) {
+              var daySpan = byDay.length - 1;
+              var avgGrowthPerDay = (last.total_size - first.total_size) / daySpan;
+              if (avgGrowthPerDay > 0 && disk.free > 0) {
+                var daysLeft = Math.floor(disk.free / avgGrowthPerDay);
+                growthRate = daysLeft;
+              }
+            }
+          }
+          html += '<div style="margin-bottom:20px;background:var(--bg-secondary);padding:16px;border-radius:12px">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">';
+          html += '<div style="font-weight:600;font-size:13px">💾 磁盘空间</div>';
+          html += '<div style="text-align:right">';
+          html += '<div style="font-size:18px;font-weight:700;color:' + gaugeColor + '">' + diskPct + '%</div>';
+          html += '<div style="font-size:11px;color:var(--muted)">已用 ' + diskUsedStr + ' / 总计 ' + diskTotalStr + '</div>';
+          html += '</div></div>';
+          html += '<div style="height:10px;background:var(--bg-tertiary);border-radius:5px;overflow:hidden;margin-bottom:6px">';
+          html += '<div style="height:100%;width:' + diskPct + '%;background:' + gaugeColor + ';border-radius:5px;transition:width .4s"></div>';
+          html += '</div>';
+          html += '<div style="display:flex;justify-content:space-between;font-size:11px">';
+          html += '<span style="color:var(--muted)">剩余 ' + diskFreeStr + '</span>';
+          if (growthRate !== null && growthRate > 0 && growthRate < 365) {
+            html += '<span style="color:' + gaugeColor + '">预计 ' + growthRate + ' 天后存满</span>';
+          } else if (growthRate !== null && growthRate >= 365) {
+            html += '<span style="color:#10b981">预计 ' + Math.round(growthRate/30) + ' 个月后存满</span>';
+          }
+          html += '</div></div>';
+        }
+
         // Type breakdown
         if (byType.length) {
           html += '<div style="margin-bottom:20px">';
