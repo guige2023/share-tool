@@ -214,6 +214,82 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Sync Conflicts ─────────────────────────────────────────────────
+  // GET /api/sync/conflicts — list unresolved conflicts
+  if (pathname === '/api/sync/conflicts' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const conflicts = db.getUnresolvedConflicts();
+    sendJson(res, { success: true, conflicts });
+    return true;
+  }
+
+  // GET /api/sync/conflicts/:id — get single conflict with content
+  if (pathname.match(/^\/api\/sync\/conflicts\/\d+$/) && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const conflictId = parseInt(pathname.split('/')[3], 10);
+    const db = require('../db');
+    const conflict = db.prepare('SELECT * FROM sync_conflicts WHERE id = ?').get(conflictId);
+    if (!conflict) { sendJson(res, { success: false, error: 'Not found' }, 404); return true; }
+    sendJson(res, { success: true, conflict });
+    return true;
+  }
+
+  // POST /api/sync/conflicts/:id/resolve — resolve a conflict
+  // body: { resolution: 'keep_local' | 'keep_remote' | 'keep_both' }
+  if (pathname.match(/^\/api\/sync\/conflicts\/\d+\/resolve$/) && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const conflictId = parseInt(pathname.split('/')[3], 10);
+    const db = require('../db');
+    let body = '';
+    req.on('data', d => { body += d; });
+    req.on('end', () => {
+      try {
+        const { resolution } = JSON.parse(body);
+        if (!['keep_local', 'keep_remote', 'keep_both'].includes(resolution)) {
+          sendJson(res, { success: false, error: 'Invalid resolution' }, 400);
+          return;
+        }
+        const conflict = db.prepare('SELECT * FROM sync_conflicts WHERE id = ?').get(conflictId);
+        if (!conflict) { sendJson(res, { success: false, error: 'Not found' }, 404); return true; }
+
+        let winningContent = null;
+        if (resolution === 'keep_local') {
+          winningContent = conflict.local_content;
+        } else if (resolution === 'keep_remote') {
+          winningContent = conflict.remote_content;
+        } else if (resolution === 'keep_both') {
+          // Keep remote as current, save local as a backup file
+          winningContent = conflict.remote_content;
+          const backupName = conflict.filename + '.conflict-backup-' + Date.now();
+          if (conflict.local_content !== null) {
+            db.addFile(backupName, conflict.local_content, 'text');
+            db.addSyncLog(null, backupName, 'create', conflict.local_hash, conflict.local_device_id, 0);
+          }
+        }
+        db.resolveConflict(conflictId, resolution, winningContent);
+        if (global.broadcastSSE) global.broadcastSSE({ type: 'files_changed' });
+        sendJson(res, { success: true });
+      } catch (e) {
+        sendJson(res, { success: false, error: e.message }, 400);
+      }
+    });
+    return true;
+  }
+
+  // DELETE /api/sync/conflicts/:id — dismiss/delete a conflict
+  if (pathname.match(/^\/api\/sync\/conflicts\/\d+$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const conflictId = parseInt(pathname.split('/')[3], 10);
+    const db = require('../db');
+    db.dismissConflict(conflictId);
+    sendJson(res, { success: true });
+    return true;
+  }
+
   // ── Audit Logs ──────────────────────────────────────────────────────
   if (pathname === '/api/audit/logs' && method === 'GET') {
     const auth = authRequired(req, res);
