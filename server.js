@@ -9682,6 +9682,7 @@ function renderPage() {
             '<button class="secondary" onclick="copyToClipboard(\'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制</button> ' +
             '<button class="secondary" onclick="downloadRequestLinkQr(\'' + encodeURIComponent(rl.code) + '\')">二维码</button> ' +
             '<button class="secondary" onclick="openRequestLinkFilesModal(\'' + escapeHtmlClient(rl.code) + '\')">📁 已收集' + (rl.upload_count ? ' (' + rl.upload_count + ')' : '') + '</button> ' +
+            '<button class="secondary" onclick="duplicateRequestLink(\'' + escapeHtmlClient(rl.code) + '\')">复制链接</button> ' +
             '<button class="secondary" onclick="openRequestLinkEditModal(\'' + escapeHtmlClient(rl.code) + '\')">编辑</button> ' +
             '<button class="secondary" onclick="toggleRequestLinkActive(\'' + escapeHtmlClient(rl.code) + '\', ' + !rl.active + ')">' + (rl.active ? '停用' : '启用') + '</button> ' +
             '<button class="danger" onclick="deleteRequestLink(\'' + escapeHtmlClient(rl.code) + '\')">删除</button>' +
@@ -9978,6 +9979,27 @@ function renderPage() {
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = '保存'; }
       }
+    }
+
+    async function duplicateRequestLink(code) {
+      var rl = currentRequestLinks.find(function(r) { return r.code === code; });
+      if (!rl) return;
+      var newName = rl.name + ' (副本)';
+      var body = { name: newName };
+      if (rl.target_folder) body.target_folder = rl.target_folder;
+      if (rl.has_password) body.password = null; // don't copy password
+      if (rl.max_uploads) body.max_uploads = rl.max_uploads;
+      // default new expiry: 30 days
+      body.expires_in_days = 30;
+      try {
+        var data = await request('/api/request-links', { method: 'POST', body: JSON.stringify(body) });
+        if (data.success || data.request_link) {
+          showToast('已创建副本: ' + newName, 'success');
+          await loadRequestLinks();
+        } else {
+          showToast(data.error || '创建失败', 'error');
+        }
+      } catch(e) { showToast('创建失败', 'error'); }
     }
 
     async function toggleRequestLinkActive(code, active) {
