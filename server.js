@@ -3475,6 +3475,7 @@ function renderPage() {
         btn.addEventListener('click', function() { cancelUploadItem(parseInt(btn.dataset.i, 10)); });
       });
       updateMobileUploadBadge();
+      updatePauseAllBtn();
       // Poll IndexedDB for offline-queued upload count
       if (window.getOfflinePendingCount) {
         window.getOfflinePendingCount().then(function(count) {
@@ -3503,6 +3504,7 @@ function renderPage() {
       item.pct = 0;
       item.retries = (item.retries || 0) + 1;
       renderUploadQueuePanel();
+      updatePauseAllBtn();
       processUploadQueue();
     }
 
@@ -3557,6 +3559,7 @@ function renderPage() {
       if (item.xhr) { item.xhr.abort(); item.xhr = null; }
       uploadActive--;
       renderUploadQueuePanel();
+      updatePauseAllBtn();
       processUploadQueue();
     }
 
@@ -3565,6 +3568,7 @@ function renderPage() {
       if (item.status !== 'paused') return;
       item.status = 'pending';
       renderUploadQueuePanel();
+      updatePauseAllBtn();
       processUploadQueue();
     }
 
@@ -3574,6 +3578,7 @@ function renderPage() {
       uploadQueue.splice(i, 1);
       if (item.status === 'uploading') uploadActive--;
       renderUploadQueuePanel();
+      updatePauseAllBtn();
       processUploadQueue();
     }
 
@@ -3801,6 +3806,7 @@ function renderPage() {
             status(failed + ' 个文件上传失败，可重试', 'error');
           }
           uploadQueue = [];
+          uploadPaused = false;
           renderUploadQueuePanel();
           loadFiles();
           _cachedTagData = null;  // uploaded files may have new tags
