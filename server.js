@@ -7879,6 +7879,8 @@ function renderPage() {
           { label: '总分享数', value: shares.total },
           { label: '密码保护', value: shares.withPassword },
           { label: '未同步项', value: sync.unsynced || 0 },
+          { label: '未同步大小', value: fmtSize(sync.unsyncedSize || 0) },
+          { label: '今日同步', value: sync.todaySyncLogs || 0 },
           { label: '上次同步', value: lastSyncStr },
           { label: 'Token 总数', value: tokens.total },
           { label: 'Token 活跃', value: tokens.active },

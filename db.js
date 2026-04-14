@@ -3297,6 +3297,8 @@ function getDashboardStats() {
 
   // 同步状态
   const unsynced = db.prepare('SELECT COUNT(*) as c FROM sync_log WHERE synced=0').get().c;
+  const unsyncedSize = db.prepare('SELECT COALESCE(SUM(size_bytes), 0) as s FROM sync_log WHERE synced=0').get().s;
+  const todaySyncLogs = db.prepare('SELECT COUNT(*) as c FROM sync_log WHERE timestamp >= ?').get(today).c;
 
   // 按虚拟文件夹存储分布（TOP 8）
   const byFolder = db.prepare(`
@@ -3370,7 +3372,7 @@ function getDashboardStats() {
     devices: { total: totalDevices, online: onlineDevices },
     tokens: { total: totalTokens, active: activeTokens },
     audit: { total: auditTotal, today: auditToday },
-    sync: { unsynced, lastSync },
+    sync: { unsynced, unsyncedSize, todaySyncLogs, lastSync },
     monthlyTrend,
     dailyTrend,
     topAccessed
