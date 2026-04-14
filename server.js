@@ -7994,6 +7994,54 @@ function renderPage() {
       }
     }
 
+    async function openFileActivity(filename) {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📊 ' + filename + ' - 访问记录';
+      body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">加载中...</div>';
+      modal.classList.add('open');
+
+      try {
+        var res = await fetch('/api/file-access-log/' + encodeURIComponent(filename) + '?limit=100', { headers: headers() });
+        var data = await res.json();
+        if (!data.success) throw new Error(data.error || '加载失败');
+
+        var statsRes = await fetch('/api/file-access-stats/' + encodeURIComponent(filename), { headers: headers() });
+        var statsData = await statsRes.json();
+        var stats = statsData.stats || { view_count: 0, download_count: 0 };
+
+        var logs = data.logs || [];
+        var html = '<div style="display:flex;gap:16px;margin-bottom:16px">';
+        html += '<div style="flex:1;padding:12px;background:var(--bg-secondary);border-radius:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--accent)">' + (stats.view_count || 0) + '</div><div style="font-size:12px;color:var(--muted)">浏览</div></div>';
+        html += '<div style="flex:1;padding:12px;background:var(--bg-secondary);border-radius:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:#10b981">' + (stats.download_count || 0) + '</div><div style="font-size:12px;color:var(--muted)">下载</div></div>';
+        html += '</div>';
+
+        if (!logs.length) {
+          html += '<div style="text-align:center;padding:30px;color:var(--muted)">暂无访问记录</div>';
+        } else {
+          html += '<div style="max-height:55vh;overflow-y:auto">';
+          logs.forEach(function(log) {
+            var icon = log.action === 'view' ? '👁' : (log.action === 'download' ? '⬇' : '📝');
+            var actionLabel = log.action === 'view' ? '浏览' : (log.action === 'download' ? '下载' : log.action);
+            var time = new Date(log.timestamp * 1000).toLocaleString('zh-CN');
+            var ip = log.ip || '—';
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)">';
+            html += '<span style="font-size:18px;flex-shrink:0">' + icon + '</span>';
+            html += '<div style="flex:1">';
+            html += '<div style="font-weight:500">' + actionLabel + '</div>';
+            html += '<div style="font-size:11px;color:var(--muted)">' + time + ' · IP: ' + escapeHtmlClient(ip) + '</div>';
+            html += '</div>';
+            html += '</div>';
+          });
+          html += '</div>';
+        }
+        body.innerHTML = html;
+      } catch (e) {
+        body.innerHTML = '<p style="color:var(--error);padding:20px">' + escapeHtmlClient(e.message) + '</p>';
+      }
+    }
+
     async function openDashboard() {
       var modal = document.getElementById('modal');
       var title = document.getElementById('modalTitle');
