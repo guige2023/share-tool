@@ -78,8 +78,9 @@ async function readBody(req, maxBytes = 500 * 1024 * 1024) {
   });
 }
 
-async function handleWebDAV(req, res, pathname, method) {
+async function handleWebDAV(req, res, pathname, query, ctx) {
   if (!pathname.startsWith('/dav')) return false;
+  const method = req.method;
 
   // OPTIONS — advertise WebDAV capabilities
   if (method === 'OPTIONS') {

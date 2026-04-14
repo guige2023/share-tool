@@ -2778,9 +2778,68 @@ function renderPage() {
     }
 
     function openTagInputModalForSearchResults() {
-      if (!currentSearchQuery || !currentFiles || !currentFiles.length) { showToast('无搜索结果', 'info'); return; }
-      var fileNames = currentFiles.map(function(f) { return f.name || f.filename; });
-      openTagInputModalForFiles('add', fileNames);
+      if (!currentSearchQuery) { showToast('无搜索关键词', 'info'); return; }
+      var count = currentTotal > 0 ? currentTotal : (currentFiles ? currentFiles.length : 0);
+      var modal = document.getElementById('tagInputModal');
+      if (modal) modal.remove();
+      modal = document.createElement('div');
+      modal.id = 'tagInputModal';
+      modal.className = 'modal';
+      modal.innerHTML = '\
+        <div class="modal-content" style="max-width:460px">\
+          <h3>🏷️ 批量打标签</h3>\
+          <p style="color:var(--muted);font-size:13px;margin-bottom:12px">\
+            为搜索「<strong style="color:var(--accent)">' + escapeHtmlClient(currentSearchQuery) + '</strong>」的全部 <strong>' + count + '</strong> 个文件添加标签\
+          </p>\
+          <div id="tagChipInput" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding:8px;border:1px solid var(--line);border-radius:8px;min-height:44px;cursor:text" onclick="document.getElementById(\'tagInputField\').focus()"></div>\
+          <div style="position:relative;margin-bottom:8px">\
+            <input id="tagInputField" type="text" placeholder="输入标签后按 Enter 添加" \
+              style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px" \
+              oninput="filterTagSuggestions(this.value)" \
+              onkeydown="handleTagInputKeydown(event, \'add\')">\
+            <div id="tagSuggestionDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg-secondary);border:1px solid var(--line);border-radius:8px;margin-top:4px;max-height:160px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.15)"></div>\
+          </div>\
+          <div id="existingTagsSection" style="margin-bottom:14px">\
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px">已有标签（点击添加）</div>\
+            <div id="existingTagChips" style="display:flex;flex-wrap:wrap;gap:5px"><span style="font-size:12px;color:var(--muted)">加载中…</span></div>\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'tagInputModal\').remove()">取消</button>\
+            <button onclick="confirmSearchBatchTag()">确定</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      fetch('/api/tags', { headers: headers() }).then(function(r) { return r.json(); }).then(function(data) {
+        var container = document.getElementById('existingTagChips');
+        if (!container || !data.success) return;
+        var tags = data.tags || [];
+        if (!tags.length) { container.innerHTML = '<span style="font-size:12px;color:var(--muted)">暂无标签</span>'; return; }
+        container.innerHTML = tags.map(function(t) {
+          return '<button onclick="addTagChipAndSuggest(\'' + t.tag.replace(/'/g, "\\'") + '\')" style="font-size:11px;padding:3px 9px;border-radius:999px;cursor:pointer;font-weight:500;' +
+            'border:1px solid ' + (t.color || '#e0e7ff') + ';background:' + (t.color || '#e0e7ff') + ';color:inherit;opacity:0.85" ' +
+            'title="' + escapeHtmlClient(t.tag) + '">' + (t.icon ? escapeHtmlClient(t.icon) + ' ' : '') + escapeHtmlClient(t.tag) + '</button>';
+        }).join('');
+      }).catch(function() {});
+      document.getElementById('tagInputField').focus();
+    }
+
+    function confirmSearchBatchTag() {
+      if (!_batchTagChips.length) { showToast('请至少输入一个标签', 'error'); return; }
+      var tagStr = _batchTagChips.join(',');
+      fetch('/api/file-tags/search-batch', {
+        method: 'POST',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ q: currentSearchQuery, mode: _searchMode, action: 'add', tags: tagStr })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        document.getElementById('tagInputModal').remove();
+        _batchTagChips = [];
+        if (data.success) {
+          showToast('已为 ' + (data.updated || 0) + ' 个文件打标签', 'success');
+          loadFiles();
+        } else {
+          showToast(data.error || '操作失败', 'error');
+        }
+      }).catch(function() { showToast('操作失败', 'error'); });
     }
 
     function getCurrentFolder() { return ''; } // ShareTool uses flat structure, no real folders
