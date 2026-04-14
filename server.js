@@ -3967,7 +3967,12 @@ function renderPage() {
         <div class="modal-content" style="max-width:440px">\
           <h3 style="margin-bottom:4px">收藏夹详情</h3>\
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">\
-            <span style="font-size:18px;color:' + escapeHtmlClient(vf.color || '#667eea') + '">●</span>\
+            <span style="position:relative;display:inline-block">\
+              <span id="vfDetailColorDot" onclick="document.getElementById('vfDetailColorPicker').click()" style="font-size:18px;color:' + escapeHtmlClient(vf.color || '#667eea') + ';cursor:pointer" title="点击更换颜色">●</span>\
+              <input type="color" id="vfDetailColorPicker" value="' + escapeHtmlClient(vf.color || '#667eea') + '" ' +
+                'onchange="updateVFColor(' + vfId + ',' + JSON.stringify(vfName).replace(/\"/g, '&quot;') + ',this.value)" ' +
+                'style="position:absolute;opacity:0;width:20px;height:20px;left:0;top:0;cursor:pointer">\
+            </span>\
             <strong style="font-size:15px">' + escapeHtmlClient(vf.name) + '</strong>\
             <span style="color:var(--muted);font-size:12px">' + (vf.file_count || vf.fileCount || 0) + ' 个文件 · ' + (vf.total_size ? formatFileSize(vf.total_size) : '0 B') + '</span>\
           </div>\
@@ -3994,6 +3999,14 @@ function renderPage() {
       await request('/api/folders/' + encodeURIComponent(vfName) + '/tags', { method: 'PUT', body: JSON.stringify({ tagIds: tagIds }) });
       openVFFolderDetail(vfId, vfName);
     }
+
+    window.updateVFColor = async function(vfId, vfName, color) {
+      var dot = document.getElementById('vfDetailColorDot');
+      if (dot) dot.style.color = color;
+      await request('/api/virtual-folders/' + vfId, { method: 'PATCH', body: JSON.stringify({ color: color }) });
+      broadcastSSE({ type: 'files_changed' });
+      showToast('颜色已更新', 'success');
+    };
 
     window.removeVFTag = async function(vfId, vfName, tagId) {
       var cache = window._vfDetailCache || {};
