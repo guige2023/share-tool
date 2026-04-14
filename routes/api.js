@@ -1056,6 +1056,18 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/virtual-folders/:id/size-analysis - size breakdown + top files
+  if (pathname.match(/^\/api\/virtual-folders\/\d+\/size-analysis$/) && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    const folder = db.getVirtualFolder(folderId);
+    if (!folder) { sendJson(res, { success: false, error: 'Folder not found' }, 404); return true; }
+    const data = db.getVirtualFolderSizeAnalysis(folderId);
+    sendJson(res, { success: true, ...data });
+    return true;
+  }
+
   if (pathname.startsWith('/api/virtual-folders/') && !pathname.includes('/files') && method === 'PUT') {
     const auth = authRequired(req, res);
     if (!auth) return true;

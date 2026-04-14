@@ -1211,6 +1211,59 @@ function getVirtualFolder(id) {
   return db.prepare('SELECT * FROM virtual_folders WHERE id = ?').get(id);
 }
 
+function getVirtualFolderFiles(folderId) {
+  const db = getDb();
+  const files = db.prepare(`
+    SELECT f.id, f.filename, f.virtual_folder, f.size, f.type, f.updated_at
+    FROM virtual_folder_files vff
+    JOIN files f ON f.id = vff.file_id
+    WHERE vff.folder_id = ?
+    ORDER BY f.size DESC
+  `).all(folderId);
+  // Type breakdown
+  const byType = {};
+  let totalSize = 0;
+  files.forEach(function(f) {
+    totalSize += f.size || 0;
+    var cat = getFileCategory(f.filename || '', f.type);
+    byType[cat] = (byType[cat] || 0) + (f.size || 0);
+  });
+  return { files: files.slice(0, 10), totalSize: totalSize, byType: byType, totalCount: files.length };
+}
+
+function getFileCategory(filename, type) {
+  var ext = filename.split('.').pop().toLowerCase();
+  if (['jpg','jpeg','png','gif','webp','svg','bmp','ico'].indexOf(ext) !== -1) return '图片';
+  if (['mp4','avi','mov','mkv','flv','wmv','webm'].indexOf(ext) !== -1) return '视频';
+  if (['mp3','wav','flac','aac','ogg','m4a'].indexOf(ext) !== -1) return '音频';
+  if (['pdf'].indexOf(ext) !== -1) return 'PDF';
+  if (['doc','docx','rtf','odt'].indexOf(ext) !== -1) return 'Word';
+  if (['xls','xlsx','csv','ods'].indexOf(ext) !== -1) return 'Excel';
+  if (['zip','tar','gz','rar','7z','bz2'].indexOf(ext) !== -1) return '压缩包';
+  if (['js','ts','jsx','tsx','py','java','c','cpp','h','go','rs','rb','php'].indexOf(ext) !== -1) return '代码';
+  if (['txt','md','json','xml','yml','yaml','ini','cfg','log'].indexOf(ext) !== -1) return '文档';
+  return '其他';
+}
+
+function getVirtualFolderSizeAnalysis(folderId) {
+  const db = getDb();
+  const files = db.prepare(`
+    SELECT f.id, f.filename, f.virtual_folder, f.size, f.type, f.updated_at
+    FROM virtual_folder_files vff
+    JOIN files f ON f.id = vff.file_id
+    WHERE vff.folder_id = ?
+    ORDER BY f.size DESC
+  `).all(folderId);
+  const byType = {};
+  let totalSize = 0;
+  files.forEach(function(f) {
+    totalSize += f.size || 0;
+    var cat = getFileCategory(f.filename || '', f.type);
+    byType[cat] = (byType[cat] || 0) + (f.size || 0);
+  });
+  return { files: files.slice(0, 10), totalSize: totalSize, byType: byType, totalCount: files.length };
+}
+
 function deleteVirtualFolder(id) {
   const db = getDb();
   db.prepare('DELETE FROM virtual_folders WHERE id = ?').run(id);
