@@ -980,6 +980,32 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // PUT /api/virtual-folders/:id/password - set or remove VF password
+  if (pathname.match(/^\/api\/virtual-folders\/\d+\/password$/) && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    const body = await readJsonBody(req);
+    const { password } = body;
+    db.setVirtualFolderPassword(folderId, password || null);
+    sendJson(res, { success: true });
+    global.broadcastSSE({ type: 'files_changed' });
+    return true;
+  }
+
+  // POST /api/virtual-folders/:id/verify - verify VF password (public, for client-side unlock)
+  if (pathname.match(/^\/api\/virtual-folders\/\d+\/verify$/) && method === 'POST') {
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    const body = await readJsonBody(req);
+    const valid = db.verifyVirtualFolderPassword(folderId, body.password || '');
+    if (valid) {
+      sendJson(res, { success: true });
+    } else {
+      sendJson(res, { success: false, error: 'Invalid password' }, 401);
+    }
+    return true;
+  }
+
   // Add/remove file from virtual folder
   if (pathname.startsWith('/api/virtual-folders/') && pathname.endsWith('/files') && method === 'POST') {
     const auth = authRequired(req, res);
@@ -1185,6 +1211,32 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     if (!version || version.file_id !== file.id) { sendJson(res, { success: false, error: 'Version not found' }, 404); return true; }
     db.deleteFileVersion(versionId);
     sendJson(res, { success: true });
+    return true;
+  }
+
+  // ── Starred Files ────────────────────────────────────────────────────────
+  // GET /api/files/starred - list all starred files
+  if (pathname === '/api/files/starred' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const db = require('./db');
+    const files = db.getStarredFiles ? db.getStarredFiles() : [];
+    sendJson(res, { success: true, files });
+    return true;
+  }
+
+  // POST /api/files/starred - toggle star for a file (body: { filename })
+  if (pathname === '/api/files/starred' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { filename } = body;
+    if (!filename) { sendJson(res, { success: false, error: 'filename required' }, 400); return true; }
+    const db = require('./db');
+    const result = db.toggleStar(filename);
+    if (!result.success) { sendJson(res, { success: false, error: result.error }, 404); return true; }
+    global.broadcastSSE({ type: 'file_starred', filename, starred: result.starred === 1 });
+    sendJson(res, { success: true, starred: result.starred === 1 });
     return true;
   }
 

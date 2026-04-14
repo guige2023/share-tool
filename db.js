@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 18; // v18: share_links.label — custom display name for share links
+const SCHEMA_VERSION = 20; // v20: virtual_folders.password_hash
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -101,8 +101,9 @@ function initDatabase() {
     initSchemaV17(db); // v17: file notes
     initSchemaV18(db); // v18: share_links.label
     initSchemaV19(db); // v19: share_link_stats table
+    initSchemaV20(db); // v20: virtual_folders.password_hash
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
-    console.log('[DB] Fresh database initialized (v1-v19 schema)');
+    console.log('[DB] Fresh database initialized (v1-v20 schema)');
     return;
   }
 
@@ -732,6 +733,20 @@ function initSchemaV19(db) {
   }
 }
 
+function initSchemaV20(db) {
+  // v20: virtual_folders.password_hash — password-protect virtual folders
+  try {
+    db.exec(`ALTER TABLE virtual_folders ADD COLUMN password_hash TEXT DEFAULT NULL`);
+    console.log('[DB] Migrated: virtual_folders.password_hash');
+  } catch (e) {
+    if (e.message.includes('duplicate column') || e.message.includes('already exists')) {
+      console.log('[DB] virtual_folders.password_hash already exists');
+    } else {
+      console.warn('[DB] Migration v20 failed:', e.message);
+    }
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {
@@ -824,6 +839,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV18(db);
     } else if (v === 19) {
       // v19: no-op
+    } else if (v === 20) {
+      initSchemaV20(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -1095,6 +1112,11 @@ function toggleStar(filename) {
   return { success: true, starred: newStarred };
 }
 
+function getStarredFiles() {
+  const db = getDb();
+  return db.prepare('SELECT * FROM files WHERE starred = 1 AND type = ? ORDER BY updated_at DESC').all('file');
+}
+
 // ============================================================
 // 虚拟文件夹
 // ============================================================
@@ -1122,7 +1144,8 @@ function listVirtualFolders() {
   return folders.map(f => ({
     ...f,
     file_count: statsMap[f.id] ? statsMap[f.id].count : 0,
-    total_size: statsMap[f.id] ? statsMap[f.id].totalSize : 0
+    total_size: statsMap[f.id] ? statsMap[f.id].totalSize : 0,
+    has_password: !!f.password_hash
   }));
 }
 
@@ -1146,6 +1169,21 @@ function deleteVirtualFolder(id) {
   const db = getDb();
   db.prepare('DELETE FROM virtual_folders WHERE id = ?').run(id);
   return { success: true };
+}
+
+function setVirtualFolderPassword(folderId, password) {
+  const db = getDb();
+  const hash = password ? hashPassword(password) : null;
+  db.prepare('UPDATE virtual_folders SET password_hash = ? WHERE id = ?').run(hash, folderId);
+  return { success: true };
+}
+
+function verifyVirtualFolderPassword(folderId, inputPwd) {
+  const db = getDb();
+  const row = db.prepare('SELECT password_hash FROM virtual_folders WHERE id = ?').get(folderId);
+  if (!row) return false;
+  if (!row.password_hash) return true; // No password set — always allow
+  return verifyPassword(inputPwd, row.password_hash);
 }
 
 function addFileToVirtualFolder(folderId, fileId) {
@@ -4331,7 +4369,7 @@ module.exports = {
   // 密码
   hashPassword, verifyPassword,
   // 文件
-  addFile, getFile, getFileByName, toggleStar, listFiles, updateFile, updateFileByName,
+  addFile, getFile, getFileByName, toggleStar, getStarredFiles, listFiles, updateFile, updateFileByName,
   deleteFile, deleteFileByName, deleteFiles, renameFile, batchRenameFiles, parseRenamePattern, deleteOldFiles, deleteAllFiles,
   deleteFilesByPrefix, renameFilesByPrefix, moveFile, moveFilesByPrefix, copyFile, copyFilesByPrefix, batchMove, batchCopy, getFilesByPrefix,
   setFilePositions,

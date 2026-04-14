@@ -1033,7 +1033,7 @@ function renderPage() {
       <div id="searchResultsBar" style="display:none;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:8px;padding:8px 14px;margin-bottom:8px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px"></div>
       <div id="typeFilterBar" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch">
         <button class="type-chip active" data-type="" onclick="setTypeFilter('')">全部</button>
-        <button class="type-chip" data-type="starred" onclick="setTypeFilter('starred')">⭐ 星标</button>
+        <button class="type-chip" data-type="starred" onclick="setTypeFilter('starred')" id="starredChip">⭐ 星标<span id="starredCountBadge" style="margin-left:3px;font-size:10px;opacity:0.7"></span></button>
         <button class="type-chip" data-type="image" onclick="setTypeFilter('image')">🖼️ 图片</button>
         <button class="type-chip" data-type="video" onclick="setTypeFilter('video')">🎬 视频</button>
         <button class="type-chip" data-type="audio" onclick="setTypeFilter('audio')">🎵 音频</button>
@@ -1643,6 +1643,7 @@ function renderPage() {
       updateSortDropdownActive();
       updateQuickSortButtons();
       loadStorageStats();
+      updateStarredCountBadge();
       setupInfiniteScroll();
       showWelcomeIfNeeded();
       checkExpiringLinks();
@@ -2011,6 +2012,7 @@ function renderPage() {
       var action = newStarred ? '收藏' : '取消收藏';
       showToast(failed ? names.length - failed + '/' + names.length + ' 已' + action : '已' + action + ' ' + names.length + ' 个文件', failed ? 'warn' : 'success');
       loadFiles();
+      updateStarredCountBadge();
     }
 
     // File batch operations
@@ -4505,7 +4507,10 @@ function renderPage() {
       const tagMap = {};
       folderTags.forEach(ft => { tagMap[ft.id] = ft.tags; });
 
-      list.innerHTML = data.folders.map(f => {
+      list.innerHTML = '<div class="ctx-item" onclick="setTypeFilter(' + "'starred'" + ');document.getElementById(' + "'vfMenu'" + ').style.display=' + "'none'" + '" style="display:flex;justify-content:space-between;align-items:center">' +
+        '<span>⭐ 星标文件</span><span id="vfMenuStarredCount" style="font-size:11px;color:var(--muted)"></span></div>' +
+        '<div style="border-top:1px solid var(--line);margin:4px 0"></div>' +
+        data.folders.map(f => {
         const tags = tagMap[f.id] || [];
         const tagChips = tags.length > 0
           ? '<span style="margin-left:4px">' + tags.map(t =>
@@ -4522,6 +4527,12 @@ function renderPage() {
           '</span>' +
         '</div>';
       }).join('');
+      // Load starred count into VF menu badge
+      fetch('/api/files/starred', { headers: headers() }).then(function(r) { return r.json(); }).then(function(d) {
+        var badge = document.getElementById('vfMenuStarredCount');
+        var n = (d.files || []).length;
+        if (badge) badge.textContent = n > 0 ? '(' + n + ')' : '';
+      });
     }
 
     async function openVFFolderDetail(vfId, vfName) {
@@ -4715,9 +4726,44 @@ function renderPage() {
     };
 
     async function navigateVirtualFolder(folderId) {
+      // Check if VF is password-protected and verify if not already unlocked
+      const storedPwd = sessionStorage.getItem('vf_unlocked_' + folderId);
+      const vfRes = await fetch('/api/virtual-folders/' + folderId, { headers: headers() });
+      const vfData = await vfRes.json();
+      if (!vfData.success || !vfData.folder) { showToast('文件夹不存在', 'error'); return; }
+      const vf = vfData.folder;
+      if (vf.has_password && !storedPwd) {
+        // Show password prompt
+        openConfirmModal({
+          title: '🔒 受保护的收藏夹',
+          text: '请输入密码才能访问「' + escapeHtmlClient(vf.name) + '」',
+          password: true,
+          onConfirm: async function(pwd) {
+            if (!pwd) { showToast('请输入密码', 'error'); return; }
+            const vr = await fetch('/api/virtual-folders/' + folderId + '/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password: pwd })
+            });
+            const vd = await vr.json();
+            if (vd.success) {
+              sessionStorage.setItem('vf_unlocked_' + folderId, '1');
+              _doNavigateVF(folderId, vf.name, vf.color);
+            } else {
+              showToast('密码错误', 'error');
+            }
+          }
+        });
+        return;
+      }
+
       isRecentFilesMode = false; // exit recent files mode when entering VF
       currentVirtualFolderId = folderId;
       document.getElementById('vfMenu').style.display = 'none';
+      _doNavigateVF(folderId, vf.name, vf.color);
+    }
+
+    async function _doNavigateVF(folderId, vfName, vfColor) {
       var breadcrumb = document.getElementById('breadcrumb');
       breadcrumb.style.display = 'flex';
       breadcrumb.innerHTML = '<span style="cursor:pointer;color:var(--accent);font-weight:500" onclick="exitVirtualFolder()" title="返回全部文件">全部文件</span><span style="color:var(--muted)"> › </span><span id="breadcrumbVFName" style="color:var(--text)">加载中...</span><span id="breadcrumbVFTags" style="margin-left:4px"></span>';
@@ -4725,12 +4771,13 @@ function renderPage() {
       const res = await fetch('/api/virtual-folders/' + folderId + '/files', { headers: headers() });
       const data = await res.json();
       const files = sortFiles(data.files || []);
+      // Use passed vfName/vfColor for breadcrumb display (avoids extra fetch)
+      var nameSpan = document.getElementById('breadcrumbVFName');
+      if (nameSpan) {
+        nameSpan.textContent = vfName;
+        nameSpan.style.color = vfColor || 'var(--text)';
+      }
       if (data.folder) {
-        var nameSpan = document.getElementById('breadcrumbVFName');
-        if (nameSpan) {
-          nameSpan.textContent = data.folder.name;
-          nameSpan.style.color = data.folder.color || 'var(--text)';
-        }
         // Fetch and display VF tags in breadcrumb
         var tagsRes = await fetch('/api/folders/' + encodeURIComponent(data.folder.name) + '/tags', { headers: headers() });
         var tagsData = await tagsRes.json();
@@ -5773,6 +5820,7 @@ function renderPage() {
         if (data.success !== undefined && !data.success) { showToast(data.error || '操作失败', 'error'); return; }
         showToast(data.starred ? '已收藏' : '已取消收藏', 'success');
         loadFiles();
+        updateStarredCountBadge();
       } catch(e) { showToast('收藏操作失败', 'error'); }
     }
 
@@ -12531,6 +12579,20 @@ function renderPage() {
         var t = c.getAttribute('data-type');
         c.classList.toggle('active', t === '' ? currentTypeFilters.length === 0 : currentTypeFilters.indexOf(t) !== -1);
       });
+    }
+
+    var _starredCountCache = 0;
+    async function updateStarredCountBadge() {
+      try {
+        var res = await fetch('/api/files/starred', { headers: headers() });
+        if (res.ok) {
+          var data = await res.json();
+          var count = (data.files || []).length;
+          _starredCountCache = count;
+          var badge = document.getElementById('starredCountBadge');
+          if (badge) badge.textContent = count > 0 ? '(' + count + ')' : '';
+        }
+      } catch (e) {}
     }
 
     // Storage usage bar
