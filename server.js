@@ -2043,39 +2043,7 @@ function renderPage() {
       updateFileBatchBar();
     }
 
-    async function batchDeleteSelectedFiles() {
-      if (selectedFileIds.size === 0) return;
-      if (!confirm('确认删除 ' + selectedFileIds.size + ' 个文件？')) return;
-      var btn = event.target;
-      if (btn) { btn.disabled = true; }
-      try {
-        var filenames = [];
-        for (var i = 0; i < window._currentFiles.length; i++) {
-          var f = window._currentFiles[i];
-          if (selectedFileIds.has(String(f.id)) || selectedFileIds.has(f.id)) {
-            filenames.push(f.filename);
-          }
-        }
-        if (!filenames.length) { showToast('未找到文件', 'error'); return; }
-        var res = await fetch('/api/files/batch-delete', {
-          method: 'POST',
-          headers: Object.assign(headers(), { 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ filenames: filenames })
-        });
-        var data = await res.json();
-        if (data.success) {
-          showToast('已删除 ' + (data.deleted || filenames.length) + ' 个文件', 'success');
-          clearFileSelection();
-          loadFiles();
-        } else {
-          showToast(data.error || '删除失败', 'error');
-        }
-      } finally {
-        if (btn) { btn.disabled = false; }
-      }
-    }
-
-    async function batchMoveSelectedFiles() {
+    function batchDeleteSelected() {
       if (selectedFileIds.size === 0) return;
       const names = checkedNames().map(function(n) { return decodeURIComponent(n); });
       if (!names.length) { showToast('未找到文件', 'error'); return; }
