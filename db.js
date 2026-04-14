@@ -999,14 +999,17 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
   }
 
   const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+  // Single query with window function: get files + total count in one round-trip
   const files = db.prepare(`
-    SELECT ${FILE_LIST_FIELDS} FROM files
+    SELECT ${FILE_LIST_FIELDS}, COUNT(*) OVER() as _total FROM files
     ${where}
     ORDER BY ${safeSort} ${safeOrder}
     LIMIT ? OFFSET ?
   `).all(...params, limit, offset);
 
-  const total = db.prepare(`SELECT COUNT(*) as count FROM files ${where}`).get(...params).count;
+  const total = files.length > 0 ? (files[0]._total || 0) : 0;
+  // Strip internal _total field before returning
+  files.forEach(f => { delete f._total; });
   return { files, total };
 }
 
