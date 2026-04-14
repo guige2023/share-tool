@@ -807,6 +807,8 @@ function renderPage() {
     #fileTableGrid .file-item:active,#fileTable .file-item:active{cursor:grabbing}
     .file-item.dragging{opacity:.4;transform:scale(.97)}
     .file-item.drag-over:not(.dragging){border-color:var(--accent)!important;box-shadow:0 0 0 2px var(--accent);transform:scale(1.02);border-style:dashed}
+    #fileTable tr.dragging td{opacity:.4;background:var(--bg-tertiary)}
+    #fileTable tr.drag-over td:first-child{border-left:3px solid var(--accent);padding-left:calc(var(--td-padding) - 3px)}
     /* Code block styling */
     #codeBlock,#codeBlock code,#plainTextPre{background:var(--bg-secondary)!important}
     #codeBlock code.hljs{background:transparent!important;padding:.5em!important;border-radius:8px}
@@ -4410,7 +4412,7 @@ function renderPage() {
             return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + (icon ? escapeHtmlClient(icon) + ' ' : '') + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
-      return '<tr data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" onmousedown="handleItemClick(event, ' + file._index + ')" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
+      return '<tr draggable="true" data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" onmousedown="handleItemClick(event, ' + file._index + ')" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-id="' + (file.id || '') + '" onchange="onFileCheckChange()" onclick="lastClickedIndex=' + file._index + '"></td>' +
         '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (file.highlightedName || (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name))) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><div class="muted">' + formatFileType(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
@@ -9464,9 +9466,15 @@ function renderPage() {
           </div>\
           <div style="font-size:12px;color:var(--muted);margin-bottom:16px">收集链接: /r/' + escapeHtmlClient(code) + '</div>\
           <div id="rlFilesBody" style="min-height:60px"><span style="color:var(--muted)">加载中...</span></div>\
-          <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:8px">\
-            <button class="secondary" onclick="downloadRequestLinkZip(\'' + escapeHtmlClient(code) + '\', this)" id="rlZipBtn" style="font-size:13px">📦 打包下载</button>\
-            <button class="secondary" onclick="closeRlFilesModal()">关闭</button>\
+          <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px">\
+            <div style="display:flex;align-items:center;gap:8px">\
+              <input type="checkbox" id="rlFilesSelectAll" onchange="toggleRlFilesSelectAll(this.checked)" style="cursor:pointer">\
+              <button id="rlBatchDeleteBtn" onclick="batchDeleteRlFiles()" style="padding:4px 12px;background:var(--error);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;display:none">删除选中</button>\
+            </div>\
+            <div style="display:flex;gap:8px">\
+              <button class="secondary" onclick="downloadRequestLinkZip(\'' + escapeHtmlClient(code) + '\', this)" id="rlZipBtn" style="font-size:13px">📦 打包下载</button>\
+              <button class="secondary" onclick="closeRlFilesModal()">关闭</button>\
+            </div>\
           </div>\
         </div>';
       document.body.appendChild(modal);
@@ -9499,7 +9507,8 @@ function renderPage() {
         var size = formatFileSize(f.size);
         var time = new Date(f.uploaded_at * 1000).toLocaleString('zh-CN');
         html += '<div style="display:flex;align-items:center;padding:8px 10px;background:var(--bg);border-radius:8px;gap:10px;border:1px solid var(--line)">';
-        html += '<span style="font-size:18px">' + getFileIcon(f.filename) + '</span>';
+        html += '<input type="checkbox" class="rl-file-check" data-id="' + f.id + '" onchange="updateRlBatchDeleteBtn()" style="cursor:pointer;flex-shrink:0">';
+        html += '<span style="font-size:18px;flex-shrink:0">' + getFileIcon(f.filename) + '</span>';
         html += '<div style="flex:1;min-width:0">';
         html += '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(f.filename) + '">' + escapeHtmlClient(f.filename) + '</div>';
         html += '<div style="font-size:11px;color:var(--muted)">' + size + ' · ' + time + '</div>';
