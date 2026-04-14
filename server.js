@@ -2298,6 +2298,89 @@ function renderPage() {
     // ── Unified Search Overlay ───────────────────────────────────────────────
 
     var _searchOverlayTimer = null;
+function openCommandPalette() {
+      var existing = document.getElementById('commandPalette');
+      if (existing) { existing.remove(); return; }
+      var overlay = document.createElement('div');
+      overlay.id = 'commandPalette';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:9998;display:flex;align-items:flex-start;justify-content:center;padding-top:80px';
+      overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+      document.body.appendChild(overlay);
+
+      var commands = [
+        { icon: '🔍', label: '全屏搜索', shortcut: 'Ctrl+K', action: function() { overlay.remove(); openUnifiedSearchOverlay(); } },
+        { icon: '📁', label: '新建文件夹', shortcut: '', action: function() { overlay.remove(); openNewFolderModal(); } },
+        { icon: '📤', label: '上传文件', shortcut: '', action: function() { overlay.remove(); document.getElementById('fileInput').click(); } },
+        { icon: '🏷️', label: '标签管理', shortcut: '', action: function() { overlay.remove(); openTagManager(); } },
+        { icon: '📊', label: '存储概览', shortcut: '', action: function() { overlay.remove(); openStorageOverview(); } },
+        { icon: '🔗', label: '管理收集链接', shortcut: '', action: function() { overlay.remove(); openRequestLinksModal(); } },
+        { icon: '📨', label: '管理分享链接', shortcut: '', action: function() { overlay.remove(); openShareLinksModal(); } },
+        { icon: '⚙️', label: '设置', shortcut: '', action: function() { overlay.remove(); openSettings(); } },
+        { icon: '🗑️', label: '清理存储', shortcut: '', action: function() { overlay.remove(); openCleanupWizard(); } },
+        { icon: '📜', label: '快捷键帮助', shortcut: '?', action: function() { overlay.remove(); showShortcutsHelp(); } },
+        { icon: '🌙', label: '切换主题', shortcut: 'Ctrl+Shift+D', action: function() { overlay.remove(); toggleTheme(); } },
+        { icon: '🔄', label: '刷新文件', shortcut: 'r', action: function() { overlay.remove(); loadFiles(); } },
+        { icon: '📋', label: '活动日志', shortcut: '', action: function() { overlay.remove(); openAuditLog(); } },
+        { icon: '🗂️', label: '新建虚拟文件夹', shortcut: '', action: function() { overlay.remove(); openNewVirtualFolderModal(); } },
+      ];
+
+      var palette = document.createElement('div');
+      palette.style.cssText = 'background:var(--bg-primary);border:1px solid var(--line);border-radius:14px;width:100%;max-width:560px;box-shadow:0 8px 32px rgba(0,0,0,.2);overflow:hidden;font-size:13px';
+      palette.innerHTML = '\
+        <div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);gap:8px">\
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted);flex-shrink:0"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>\
+          <input id="cmdPaletteInput" type="text" placeholder="输入命令名称..." autofocus \
+            style="flex:1;border:none;outline:none;background:transparent;font-size:15px;color:var(--text);padding:0" \
+            oninput="filterCommands(this.value)">\
+          <button onclick="document.getElementById(\'commandPalette\').remove()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:16px;padding:2px 6px">✕</button>\
+        </div>\
+        <div id="cmdPaletteList" style="max-height:380px;overflow-y:auto;padding:6px 0"></div>';
+
+      document.body.appendChild(palette);
+
+      var _cmdFilter = '';
+      window.filterCommands = function(q) {
+        _cmdFilter = q.toLowerCase();
+        renderCmdList();
+      };
+
+      function renderCmdList() {
+        var list = document.getElementById('cmdPaletteList');
+        var filtered = _cmdFilter ? commands.filter(function(c) { return c.label.toLowerCase().includes(_cmdFilter); }) : commands;
+        if (!filtered.length) {
+          list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)">无匹配命令</div>';
+          return;
+        }
+        var html = '';
+        filtered.forEach(function(c) {
+html += '<div data-label="' + escapeHtmlClient(c.label) + '" onclick="executeCommand(\'' + escapeHtmlClient(c.label) + '\')" style="display:flex;align-items:center;padding:9px 14px;cursor:pointer;border-radius:6px;margin:2px 6px;gap:10px;' +
+            '" onmouseover="this.style.background=\'var(--bg-secondary)\'" onmouseout="this.style.background=\'transparent\'">';
+          html += '<span style="font-size:16px;width:24px;text-align:center">' + c.icon + '</span>';
+          html += '<span style="flex:1;font-size:13px;color:var(--text)">' + c.label + '</span>';
+          if (c.shortcut) html += '<span style="font-size:11px;color:var(--muted);background:var(--bg-secondary);padding:2px 6px;border-radius:4px">' + c.shortcut + '</span>';
+          html += '</div>';
+        });
+        list.innerHTML = html;
+      }
+
+      window.executeCommand = function(label) {
+        var cmd = commands.find(function(c) { return c.label === label; });
+        if (cmd) { document.getElementById('commandPalette').remove(); cmd.action(); }
+      };
+
+// Keyboard: Enter to execute first, Escape to close
+      var input = document.getElementById('cmdPaletteInput');
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { document.getElementById('commandPalette').remove(); return; }
+        if (e.key === 'Enter') {
+          var first = document.querySelector('#cmdPaletteList > div');
+          if (first) { document.getElementById('commandPalette').remove(); var lbl = first.getAttribute('data-label'); if (lbl) executeCommand(lbl); }
+          return;
+        }
+      });
+      renderCmdList();
+    }
+
     function openUnifiedSearchOverlay() {
       var existing = document.getElementById('unifiedSearchOverlay');
       if (existing) { existing.remove(); }
@@ -14621,6 +14704,12 @@ function renderPage() {
         openUnifiedSearchOverlay();
         return;
       }
+      // Ctrl+Shift+P: open command palette
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'P') {
+        e.preventDefault();
+        openCommandPalette();
+        return;
+      }
       // ?: show shortcuts help
       if (e.key === '?') {
         var existing = document.getElementById('shortcutsHelp');
@@ -14630,6 +14719,7 @@ function renderPage() {
         div.style.cssText = 'position:fixed;bottom:60px;right:16px;background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;padding:16px 20px;min-width:240px;font-size:12px;z-index:1000;box-shadow:0 4px 20px rgba(0,0,0,0.15)';
         var shortcuts = [
           ['Ctrl+K', '全屏搜索'],
+          ['Ctrl+Shift+P', '命令面板'],
           ['?', '显示/隐藏快捷键'],
           ['r', '刷新文件列表'],
           ['f 或 /', '聚焦搜索框'],
