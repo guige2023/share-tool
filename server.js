@@ -1103,6 +1103,7 @@ function renderPage() {
         <button class="ghost" onclick="toggleInvertSelection()">反选</button>
         <button class="ghost" onclick="openBatchTagModal()">添加标签</button>
         <button class="ghost" onclick="openBatchRemoveTagModal()">移除标签</button>
+        <button class="ghost" onclick="batchToggleStar()">⭐ 收藏</button>
         <button class="ghost" onclick="openBatchRenameModal()">批量重命名</button>
         <button class="ghost" onclick="batchCopyShareLinks()">🔗 复制链接</button>
         <button class="ghost" onclick="openBatchMoveModal()">📁 移动</button>
@@ -1955,6 +1956,31 @@ function renderPage() {
       document.getElementById('gridSelectAll').checked = false;
       updateBatchBar();
       clearFileSelection();
+    }
+
+    async function batchToggleStar() {
+      var names = checkedNames();
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+      var selectedFiles = names.map(function(n) {
+        var decoded = decodeURIComponent(n);
+        return currentFiles.find(function(f) { return f.name === decoded; });
+      }).filter(Boolean);
+      if (!selectedFiles.length) { showToast('未找到选中文件', 'error'); return; }
+      // Toggle: if any file is unstarred → star all; otherwise → unstar all
+      var anyUnstarred = selectedFiles.some(function(f) { return !f.starred; });
+      var newStarred = anyUnstarred ? true : false;
+      var failed = 0;
+      for (var i = 0; i < names.length; i++) {
+        var resp = await fetch('/api/files/' + encodeURIComponent(names[i]), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...headers() },
+          body: JSON.stringify({ starred: newStarred })
+        });
+        if (!resp.ok) failed++;
+      }
+      var action = newStarred ? '收藏' : '取消收藏';
+      showToast(failed ? names.length - failed + '/' + names.length + ' 已' + action : '已' + action + ' ' + names.length + ' 个文件', failed ? 'warn' : 'success');
+      loadFiles();
     }
 
     // File batch operations
