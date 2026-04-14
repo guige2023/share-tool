@@ -1522,14 +1522,18 @@ function renderPage() {
     }
 
     let currentFiles = [];
+    var _loadSeq = 0;  // sequence counter for stale response protection
+    var _activeController = null;  // AbortController for in-flight requests
 
     function headers(extra) {
       return Object.assign({ 'x-auth-token': getToken() }, extra || {});
     }
 
     async function request(url, options) {
+      try {
       const response = await fetch(url, Object.assign({}, options || {}, {
-        headers: headers((options && options.headers) || {})
+        headers: headers((options && options.headers) || {}),
+        signal: (options || {}).signal || null
       }));
       if (!response.ok) {
         // 401: try refreshing token once, then retry
@@ -1549,6 +1553,10 @@ function renderPage() {
       const type = response.headers.get('content-type') || '';
       if (type.includes('application/json')) return response.json();
       return response;
+      } catch (e) {
+        if (e.name === 'AbortError') return null;  // silently ignore aborted requests
+        throw e;
+      }
     }
 
     // Check for expiring share/request links and add notifications
@@ -3230,10 +3238,21 @@ function renderPage() {
       if (append) {
         loading.style.display = 'block';
       }
+      // Abort any in-flight request and start a new seq
+      if (_activeController) { _activeController.abort(); }
+      _activeController = new AbortController();
+      var mySeq = ++_loadSeq;
       // Only fetch tags on first load, not on append/pagination
       const [data, tagData] = append
-        ? [await request(url), null]
-        : await Promise.all([request(url), request('/api/tags')]);
+        ? [await request(url, { signal: _activeController.signal }), null]
+        : await Promise.all([
+            request(url, { signal: _activeController.signal }),
+            request('/api/tags', { signal: _activeController.signal })
+          ]);
+      // Ignore stale responses (response came back after a newer request)
+      if (mySeq !== _loadSeq) return;
+      // data is null if request was aborted
+      if (!data) return;
       const incoming = (data.files || []).map(function(f, i) { f._index = currentOffset + i; return f; });
       currentTotal = data.total || 0;
       const prevLen = currentFiles.length;
