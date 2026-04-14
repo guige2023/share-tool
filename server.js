@@ -74,7 +74,7 @@ const I18N = {
     confirmDeleteMulti: '删除所选文件？此操作不可撤销。',
     // System
     storage: '存储', usage: '使用量', duplicateFiles: '重复文件', cleanupTrash: '清空回收站',
-    auditLog: '审计日志', exportData: '导出数据', language: '语言', theme: '主题', dashboard: '存储分析', settings: '设置', appearance: '外观', defaultView: '默认视图', serverInfo: '服务器信息', dark: '深色', light: '浅色', system: '跟随系统', listView: '列表视图', gridView: '网格视图', saved: '已保存',
+    auditLog: '审计日志', exportData: '导出数据', language: '语言', theme: '主题', dashboard: '存储分析', settings: '设置', appearance: '外观', defaultView: '默认视图', serverInfo: '服务器信息', dark: '深色', light: '浅色', system: '跟随系统', listView: '列表视图', gridView: '网格视图', saved: '已保存', customCSS: '自定义 CSS',
   }
 };
 
@@ -6911,15 +6911,15 @@ function renderPage() {
           break;
         }
         case 'y': {
-          // y: yank (copy) filename of selected file to clipboard
+          // y: yank (copy) selected filenames to clipboard
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           var selected = getSelectedFiles();
-          if (selected.length === 1) {
-            e.preventDefault();
-            navigator.clipboard.writeText(selected[0]).then(function() {
-              showToast('已复制文件名: ' + selected[0], 'success');
-            }).catch(function() { showToast('复制失败', 'error'); });
-          }
+          if (!selected.length) break;
+          e.preventDefault();
+          var text = selected.length === 1 ? selected[0] : selected.join('\n');
+          navigator.clipboard.writeText(text).then(function() {
+            showToast(selected.length === 1 ? '已复制: ' + selected[0] : '已复制 ' + selected.length + ' 个文件名', 'success');
+          }).catch(function() { showToast('复制失败', 'error'); });
           break;
         }
         case 'e':
@@ -6938,16 +6938,17 @@ function renderPage() {
           break;
         }
         case 'Y': {
-          // Shift+Y: copy full file path
+          // Shift+Y: copy full file path(s)
           if (!e.shiftKey) break;
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           var names = getSelectedFiles();
-          if (names.length === 1) {
-            e.preventDefault();
-            navigator.clipboard.writeText('/' + names[0]).then(function() {
-              showToast('已复制文件路径: /' + names[0], 'success');
-            }).catch(function() { showToast('复制失败', 'error'); });
-          }
+          if (!names.length) break;
+          e.preventDefault();
+          var base = ''; // virtual folder path would go here if applicable
+          var text = names.length === 1 ? '/' + names[0] : names.map(function(n) { return '/' + n; }).join('\n');
+          navigator.clipboard.writeText(text).then(function() {
+            showToast(names.length === 1 ? '已复制: /' + names[0] : '已复制 ' + names.length + ' 个文件路径', 'success');
+          }).catch(function() { showToast('复制失败', 'error'); });
           break;
         }
         case 'Backspace': {
@@ -9114,6 +9115,16 @@ function renderPage() {
             '<button id="tac90" class="secondary" style="font-size:12px;padding:5px 10px" onclick="setTrashAutoClean(90)">90天</button>' +
           '</div>' +
           '<div id="trashAutoCleanStatus" style="font-size:11px;color:var(--muted);margin-top:6px"></div>' +
+        // Custom CSS
+        '<div id="customCSSSection">' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">🎨 自定义 CSS</label>' +
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">在这里编写 CSS 代码，实时应用到界面（最大 10KB）</div>' +
+          '<textarea id="customCSSTextarea" placeholder="/* 例如：修改 Accent 颜色 */&#10;:root { --accent: #ff6600; }&#10;&#10;/* 例如：隐藏工具栏按钮 */&#10;#toolbar button:nth-child(3) { display:none; }" style="width:100%;min-height:120px;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-family:monospace;font-size:12px;resize:vertical;box-sizing:border-box;outline:none"></textarea>' +
+          '<div style="display:flex;gap:8px;margin-top:8px">' +
+            '<button onclick="saveCustomCSS()" style="padding:6px 16px;background:var(--accent);color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px">💾 保存</button>' +
+            '<button onclick="resetCustomCSS()" style="padding:6px 16px;background:var(--bg-secondary);color:var(--text);border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:13px">重置</button>' +
+          '</div>' +
+          '<div id="customCSSStatus" style="font-size:11px;margin-top:6px"></div>' +
         '</div>' +
 
         // Keyboard shortcuts
@@ -9787,6 +9798,44 @@ function renderPage() {
       document.getElementById('viewListBtn2').className = view === 'list' ? 'primary' : 'secondary';
       document.getElementById('viewGridBtn2').className = view === 'grid' ? 'primary' : 'secondary';
     }
+
+    // Load custom CSS into textarea when settings opens
+    fetch('/api/config/custom-css', { headers: headers() }).then(function(r) { return r.json(); }).then(function(data) {
+      var ta = document.getElementById('customCSSTextarea');
+      if (ta && data.success) ta.value = data.customCSS || '';
+    }).catch(function() {});
+
+    async function saveCustomCSS() {
+      var ta = document.getElementById('customCSSTextarea');
+      var status = document.getElementById('customCSSStatus');
+      if (!ta) return;
+      var css = ta.value;
+      try {
+        var res = await fetch('/api/config/custom-css', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...headers() },
+          body: JSON.stringify({ customCSS: css })
+        });
+        var data = await res.json();
+        if (data.success) {
+          if (status) { status.textContent = '✅ 已保存，刷新页面生效'; status.style.color = 'var(--success)'; }
+          showToast(i18n.saved || '已保存', 'success');
+        } else {
+          if (status) { status.textContent = '❌ 保存失败'; status.style.color = 'var(--error)'; }
+        }
+      } catch (e) {
+        if (status) { status.textContent = '❌ ' + e.message; status.style.color = 'var(--error)'; }
+      }
+    }
+
+    window.saveCustomCSS = saveCustomCSS;
+    window.resetCustomCSS = function() {
+      var ta = document.getElementById('customCSSTextarea');
+      if (ta && confirm('确定重置自定义 CSS？')) {
+        ta.value = '';
+        saveCustomCSS();
+      }
+    };
 
     function loadSettingsInfo() {
       fetch('/api/health', { headers: headers() }).then(function(r) { return r.json(); }).then(function(data) {

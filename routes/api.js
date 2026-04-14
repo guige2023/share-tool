@@ -582,6 +582,52 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // POST /api/file-tags/search-batch - batch tag all search results (bypasses 30-file limit)
+  if (pathname === '/api/file-tags/search-batch' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { q, mode = 'normal', action, tags: tagStr } = body;
+    if (!q || !action || !tagStr) {
+      sendJson(res, { success: false, error: 'q, action, tags required' }, 400);
+      return true;
+    }
+    const tagList = tagStr.split(',').map(t => t.trim()).filter(Boolean);
+    const matched = db.searchFiles(q, null, { limit: 10000, mode: mode });
+    if (!matched.length) { sendJson(res, { success: true, updated: 0, failed: 0, total: 0 }); return true; }
+    const filenames = matched.map(f => f.filename);
+    const placeholders = filenames.map(() => '?').join(',');
+    const allFiles = db.getDb().prepare(`SELECT id, filename, tags FROM files WHERE filename IN (${placeholders})`).all(...filenames);
+    const fileMap = new Map(allFiles.map(f => [f.filename, f]));
+    let updated = 0, failed = 0;
+    for (const filename of filenames) {
+      try {
+        const file = fileMap.get(filename);
+        if (!file) { failed++; continue; }
+        const current = file.tags ? file.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+        let next;
+        if (action === 'add') {
+          const merged = new Set([...current, ...tagList]);
+          next = Array.from(merged).join(',');
+        } else if (action === 'remove') {
+          const removeSet = new Set(tagList);
+          next = current.filter(t => !removeSet.has(t)).join(',');
+        } else { failed++; continue; }
+        db.getDb().prepare('UPDATE files SET tags = ?, updated_at = unixepoch() WHERE id = ?').run(next, file.id);
+        updated++;
+      } catch (e) { failed++; }
+    }
+    if (tagList.length > 0 && updated > 0) {
+      for (const t of tagList) {
+        db.getDb().prepare(`INSERT OR IGNORE INTO tag_stats(tag, count) VALUES(?, 0)`).run(t);
+        db.getDb().prepare(`UPDATE tag_stats SET count = (SELECT COUNT(*) FROM files WHERE LOWER(tags) LIKE ?) WHERE tag = ?`).run(`%${t.toLowerCase()}%`, t);
+      }
+    }
+    if (updated > 0) global.broadcastSSE({ type: 'files_changed' });
+    sendJson(res, { success: true, updated, failed, total: filenames.length });
+    return true;
+  }
+
   // DELETE /api/tags/orphans - 清理所有孤立标签（count=0）
   if (pathname === '/api/tags/orphans' && method === 'DELETE') {
     const auth = authRequired(req, res);
@@ -1133,6 +1179,19 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const body = await readJsonBody(req);
     const { fileId } = body;
     if (!fileId) { sendJson(res, { success: false, error: 'fileId required' }, 400); return true; }
+    // Quota enforcement: block if VF has quota and adding this file would exceed it
+    const vf = db.getVirtualFolder(folderId);
+    if (vf && vf.quota_bytes > 0) {
+      const file = db.getFile(fileId);
+      if (file) {
+        const stats = db.getVirtualFolderSize(folderId);
+        const effectiveSize = stats.totalSize || 0;
+        if (effectiveSize + (file.size || 0) > vf.quota_bytes) {
+          sendJson(res, { success: false, error: '配额已满 (' + Math.round(effectiveSize / vf.quota_bytes * 100) + '%) — 请先清理或扩容' }, 403);
+          return true;
+        }
+      }
+    }
     db.addFileToVirtualFolder(folderId, fileId);
     sendJson(res, { success: true });
     global.broadcastSSE({ type: 'files_changed' });
@@ -1945,6 +2004,27 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     });
 
     sendJson(res, { success: true, items });
+    return true;
+  }
+
+  // GET /api/config/custom-css - get current custom CSS
+  if (pathname === '/api/config/custom-css' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const { config } = ctx;
+    sendJson(res, { success: true, customCSS: config.customCSS || '' });
+    return true;
+  }
+
+  // PUT /api/config/custom-css - save custom CSS
+  if (pathname === '/api/config/custom-css' && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { config } = ctx;
+    config.customCSS = (body.customCSS || '').slice(0, 10000); // max 10KB
+    ctx.saveConfig();
+    sendJson(res, { success: true });
     return true;
   }
 
