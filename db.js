@@ -2896,8 +2896,8 @@ function saveShareLink(shareData) {
   // 密码哈希存储（兼容无密码场景）
   const hashedPassword = shareData.password ? hashPassword(shareData.password) : null;
   const stmt = db.prepare(`
-    INSERT INTO share_links (code, filename, is_text, password, expires_at, max_downloads, download_count, description, created_by, theme_bg, theme_color, brand_text)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO share_links (code, filename, is_text, password, expires_at, max_downloads, download_count, description, created_by, theme_bg, theme_color, brand_text, label)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   // expiresAt: 0/undefined/null → MAX_TS（永不过期）
   const MAX_TS_SECONDS = Math.floor(32503680000000 / 1000); // 32503680000
@@ -2916,7 +2916,8 @@ function saveShareLink(shareData) {
     shareData.createdBy || null,
     shareData.themeBg || null,
     shareData.themeColor || null,
-    shareData.brandText || null
+    shareData.brandText || null,
+    shareData.label || ''
   );
   // 返回完整对象（包含 hasPassword 和内部 _passwordHash）
   return {
@@ -2931,7 +2932,8 @@ function saveShareLink(shareData) {
     createdBy: shareData.createdBy || null,
     themeBg: shareData.themeBg || null,
     themeColor: shareData.themeColor || null,
-    brandText: shareData.brandText || null
+    brandText: shareData.brandText || null,
+    label: shareData.label || ''
   };
 }
 
@@ -2954,7 +2956,8 @@ function getShareLink(code) {
     _passwordHash: row.password,  // 内部使用，验证时比对
     themeBg: row.theme_bg || null,
     themeColor: row.theme_color || null,
-    brandText: row.brand_text || null
+    brandText: row.brand_text || null,
+    label: row.label || ''
   };
 }
 
@@ -3004,6 +3007,11 @@ function updateShareLink(code, updates) {
   if (updates.brandText !== undefined) {
     fields.push('brand_text = ?');
     values.push(updates.brandText || null);
+  }
+
+  if (updates.label !== undefined) {
+    fields.push('label = ?');
+    values.push(updates.label || '');
   }
 
   if (fields.length === 0) {
