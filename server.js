@@ -8937,6 +8937,7 @@ function renderPage() {
           '<td class="actions-cell" data-label="操作">' +
             '<button class="secondary" onclick="copyToClipboard(\'' + escapeHtmlClient(url) + '\').then(function(){showToast(\'链接已复制\',\'success\')})">复制</button> ' +
             '<button class="secondary" onclick="downloadRequestLinkQr(\'' + encodeURIComponent(rl.code) + '\')">二维码</button> ' +
+            '<button class="secondary" onclick="openRequestLinkFilesModal(\'' + escapeHtmlClient(rl.code) + '\')">📁 已收集' + (rl.upload_count ? ' (' + rl.upload_count + ')' : '') + '</button> ' +
             '<button class="secondary" onclick="openRequestLinkEditModal(\'' + escapeHtmlClient(rl.code) + '\')">编辑</button> ' +
             '<button class="secondary" onclick="toggleRequestLinkActive(\'' + escapeHtmlClient(rl.code) + '\', ' + !rl.active + ')">' + (rl.active ? '停用' : '启用') + '</button> ' +
             '<button class="danger" onclick="deleteRequestLink(\'' + escapeHtmlClient(rl.code) + '\')">删除</button>' +
