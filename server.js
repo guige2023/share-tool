@@ -4906,7 +4906,20 @@ function renderPage() {
             <strong id="vfDetailName" style="font-size:15px;cursor:pointer" title="双击重命名" ondblclick="startVFRename()">' + escapeHtmlClient(vf.name) + '</strong>\
             <span style="color:var(--muted);font-size:12px">' + (vf.file_count || vf.fileCount || 0) + ' 个文件 · ' + (vf.total_size ? formatFileSize(vf.total_size) : '0 B') + '</span>\
           </div>\
-          <div style="border-top:1px solid var(--line);padding-top:10px">\
+          <div id="vfQuotaSection" style="margin-top:8px;display:' + (vf.quota_bytes > 0 ? 'block' : 'none') + '">\
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">\
+              <span>存储配额</span>\
+              <span id="vfQuotaLabel">' + (vf.total_size ? formatFileSize(vf.total_size) : '0 B') + ' / ' + formatFileSize(vf.quota_bytes) + '</span>\
+            </div>\
+            <div id="vfQuotaBar" style="height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden">\
+              <div id="vfQuotaFill" style="height:100%;width:' + Math.min(100, Math.round((vf.total_size || 0) / vf.quota_bytes * 100)) + '%;border-radius:4px;transition:width .3s;background:' + ((vf.total_size || 0) / vf.quota_bytes > 0.9 ? '#ef4444' : (vf.total_size || 0) / vf.quota_bytes > 0.8 ? '#f59e0b' : 'var(--accent)') + '"></div>\
+            </div>\
+          </div>\
+          <div style="margin-top:6px;display:flex;gap:6px;align-items:center">\
+            <button onclick="openVFQuotaModal(' + vfId + ',\'' + escapeHtmlClient(vfName) + '\',' + (vf.quota_bytes || 0) + ')" style="font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text)">配额设置</button>\
+            <span id="vfQuotaStatus" style="font-size:11px;color:var(--muted);display:none"></span>\
+          </div>\
+          <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px">\
             <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px">🏷️ 标签</div>\
             <div id="vfTagSection">' + renderVFTagSection() + '</div>\
           </div>\
@@ -4989,6 +5002,42 @@ function renderPage() {
         if (nameEl) { nameEl.style.display = ''; nameEl.textContent = oldName; }
         showToast('重命名失败', 'error');
       }
+    };
+
+    window.openVFQuotaModal = function(vfId, vfName, currentQuota) {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📊 ' + vfName + ' — 配额设置';
+      body.innerHTML = '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">设置此收藏夹的存储空间上限，达到上限后将阻止向此收藏夹添加文件。</div>' +
+        '<div style="margin-bottom:16px">' +
+        '<label style="display:block;font-size:12px;font-weight:500;margin-bottom:6px;color:var(--muted)">配额大小（字节）</label>' +
+        '<input type="number" id="vfQuotaInput" value="' + (currentQuota || 0) + '" min="0" step="1073741824" placeholder="0 表示不限制" style="width:100%;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg-secondary);color:var(--text);box-sizing:border-box">' +
+        '<div style="font-size:11px;color:var(--muted);margin-top:4px">常用: <span style="cursor:pointer;color:var(--accent)" onclick="document.getElementById(\'vfQuotaInput\').value=1073741824">1 GB</span> · <span style="cursor:pointer;color:var(--accent)" onclick="document.getElementById(\'vfQuotaInput\').value=5368709120">5 GB</span> · <span style="cursor:pointer;color:var(--accent)" onclick="document.getElementById(\'vfQuotaInput\').value=10737418240">10 GB</span> · <span style="cursor:pointer;color:var(--accent)" onclick="document.getElementById(\'vfQuotaInput\').value=0">不限制</span></div>' +
+        '</div>';
+      var actions = modal.querySelector('.modal-actions');
+      if (actions) actions.innerHTML = '<button class="secondary" onclick="closeModal()">取消</button><button class="primary" onclick="saveVFQuota(' + vfId + ',\'' + escapeHtmlClient(vfName) + '\')">保存</button>';
+      modal.classList.add('open');
+    };
+
+    window.saveVFQuota = async function(vfId, vfName) {
+      var input = document.getElementById('vfQuotaInput');
+      var quotaBytes = parseInt(input.value, 10) || 0;
+      try {
+        var res = await fetch('/api/virtual-folders/' + vfId, {
+          method: 'PATCH',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ quota_bytes: quotaBytes })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('配额已保存', 'success');
+          closeModal();
+          openVFFolderDetail(vfId, vfName);
+        } else {
+          showToast(data.error || '保存失败', 'error');
+        }
+      } catch(e) { showToast('保存失败', 'error'); }
     };
 
     window.deleteVFFromDetail = async function() {

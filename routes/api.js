@@ -1120,6 +1120,19 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // PATCH /api/virtual-folders/:id - update VF (including quota_bytes)
+  if (pathname.match(/^\/api\/virtual-folders\/\d+$/) && method === 'PATCH') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    const body = await readJsonBody(req);
+    const updated = db.updateVirtualFolder(folderId, body);
+    if (!updated.success) { sendJson(res, updated, 400); return true; }
+    sendJson(res, { success: true });
+    global.broadcastSSE({ type: 'files_changed' });
+    return true;
+  }
+
   // GET /api/virtual-folders/:id/download - Download all files in a virtual folder as streaming zip
   if (pathname.startsWith('/api/virtual-folders/') && pathname.endsWith('/download') && method === 'GET') {
     const auth = authRequired(req, res);
