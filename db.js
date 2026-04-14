@@ -1496,13 +1496,14 @@ function emptyTrash(cutoff = null) {
   for (const item of items) {
     if (item.tags) updateTagStats(item.tags, null);
   }
+  const freedBytes = items.reduce((a, item) => a + (item.size || 0), 0);
   let result;
   if (cutoff !== null) {
     result = db.prepare('DELETE FROM trash WHERE deleted_at < ?').run(cutoff);
   } else {
     result = db.prepare('DELETE FROM trash').run();
   }
-  return { success: true, deleted: result.changes };
+  return { success: true, deleted: result.changes, freedBytes };
 }
 
 function cleanupExpiredTrash() {

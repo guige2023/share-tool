@@ -945,6 +945,17 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // POST /api/trash/cleanup-old — permanently delete trash items older than 30 days
+  if (pathname === '/api/trash/cleanup-old' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const cutoff = Math.floor(Date.now() / 1000) - 30 * 86400;
+    const result = db.emptyTrash(cutoff);
+    sendJson(res, { success: true, deleted: result.deleted, freedBytes: result.freedBytes });
+    global.broadcastSSE({ type: 'files_changed' });
+    return true;
+  }
+
   // GET /api/trash/auto-clean?days=N — delete trash items older than N days
   if (pathname === '/api/trash/auto-clean' && method === 'GET') {
     const auth = authRequired(req, res);

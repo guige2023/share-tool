@@ -1049,6 +1049,7 @@ function renderPage() {
         <button id="autoRefreshBtn" class="ghost" onclick="toggleAutoRefresh()" title="自动刷新 (每30秒)" style="font-size:12px">🔁</button>
         <button class="secondary" onclick="searchFiles()">搜索</button>
         <button class="ghost" onclick="openStorageStats()" title="存储统计">📊</button>
+        <button class="ghost" onclick="openCleanupWizard()" title="存储清理向导">🧹</button>
         <button class="ghost" onclick="openSyncDashboard()" title="同步面板 (z)">🔄</button>
         <button class="ghost" onclick="toggleTheme()" title="切换主题" id="themeToggleBtn">🌙</button>
         <button class="ghost" onclick="openSettings()" title="设置 (Ctrl+,)">⚙</button>
@@ -1177,6 +1178,8 @@ function renderPage() {
         <button class="ghost" onclick="openBatchCopyModal()">复制</button>
         <button class="ghost danger" onclick="batchDeleteSelected()">删除</button>
         <button class="ghost" onclick="openBatchStatsModal()">📊 统计</button>
+        <button class="ghost" onclick="openBatchTagModal()">🏷️ 标签</button>
+        <button class="ghost" onclick="openBatchRemoveTagModal()">🏷️ 移除标签</button>
         <button class="ghost" onclick="clearFileSelection()">取消</button>
       </div>
       <div class="list-scroll">
@@ -6020,12 +6023,12 @@ function renderPage() {
       if (!q) return;
       var mode = getSearchMode();
       var label = q.length > 30 ? q.substring(0, 30) + '…' : q;
-      var entry = { q: q, mode: mode, label: label, ts: Date.now() };
+      var entry = { q: q, mode: mode, label: label, ts: Date.now(), pinned: false };
       var list = getSavedSearches().filter(function(s) { return s.q !== q; });
       list.unshift(entry);
       if (list.length > MAX_SAVED_SEARCHES) list = list.slice(0, MAX_SAVED_SEARCHES);
       localStorage.setItem(LS_SAVED_SEARCHES, JSON.stringify(list));
-      showToast('\u2705 \u5DF2\u4FDD\u5B58\u5F53\u524D\u641C\u7D22', 'success');
+      showToast('✅ 已保存搜索', 'success');
     }
     function applySavedSearch(entry) {
       document.getElementById('searchInput').value = entry.q;
