@@ -3973,7 +3973,7 @@ function renderPage() {
                 'onchange="updateVFColor(' + vfId + ',' + JSON.stringify(vfName).replace(/\"/g, '&quot;') + ',this.value)" ' +
                 'style="position:absolute;opacity:0;width:20px;height:20px;left:0;top:0;cursor:pointer">\
             </span>\
-            <strong style="font-size:15px">' + escapeHtmlClient(vf.name) + '</strong>\
+            <strong id="vfDetailName" style="font-size:15px;cursor:pointer" title="双击重命名" ondblclick="startVFRename()">' + escapeHtmlClient(vf.name) + '</strong>\
             <span style="color:var(--muted);font-size:12px">' + (vf.file_count || vf.fileCount || 0) + ' 个文件 · ' + (vf.total_size ? formatFileSize(vf.total_size) : '0 B') + '</span>\
           </div>\
           <div style="border-top:1px solid var(--line);padding-top:10px">\
@@ -4006,6 +4006,58 @@ function renderPage() {
       await request('/api/virtual-folders/' + vfId, { method: 'PATCH', body: JSON.stringify({ color: color }) });
       broadcastSSE({ type: 'files_changed' });
       showToast('颜色已更新', 'success');
+    };
+
+    window.startVFRename = function() {
+      var cache = window._vfDetailCache || {};
+      if (!cache.vfId) return;
+      var nameEl = document.getElementById('vfDetailName');
+      if (!nameEl) return;
+      var currentName = nameEl.textContent || '';
+      nameEl.style.display = 'none';
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.id = 'vfDetailNameInput';
+      input.value = currentName;
+      input.style.cssText = 'font-size:15px;padding:2px 6px;border-radius:4px;border:1px solid var(--accent);background:var(--bg);color:var(--text);outline:none;width:140px';
+      input.onkeydown = function(e) {
+        if (e.key === 'Enter') { input.blur(); }
+        if (e.key === 'Escape') { cancelVFRename(currentName); }
+      };
+      input.onblur = function() { finishVFRename(cache.vfId, input.value, currentName); };
+      nameEl.parentNode.insertBefore(input, nameEl.nextSibling);
+      input.focus();
+      input.select();
+    };
+
+    window.cancelVFRename = function(currentName) {
+      var input = document.getElementById('vfDetailNameInput');
+      if (input) input.remove();
+      var nameEl = document.getElementById('vfDetailName');
+      if (nameEl) { nameEl.style.display = ''; nameEl.textContent = currentName; }
+    };
+
+    window.finishVFRename = async function(vfId, newName, oldName) {
+      var input = document.getElementById('vfDetailNameInput');
+      if (input) input.remove();
+      var trimmed = (newName || '').trim();
+      if (!trimmed || trimmed === oldName) {
+        var nameEl = document.getElementById('vfDetailName');
+        if (nameEl) { nameEl.style.display = ''; nameEl.textContent = oldName; }
+        return;
+      }
+      var data = await request('/api/virtual-folders/' + vfId, { method: 'PATCH', body: JSON.stringify({ name: trimmed }) });
+      if (data && data.success) {
+        var nameEl = document.getElementById('vfDetailName');
+        if (nameEl) { nameEl.style.display = ''; nameEl.textContent = trimmed; }
+        window._vfDetailCache.vfName = trimmed;
+        broadcastSSE({ type: 'files_changed' });
+        showToast('已重命名', 'success');
+      } else {
+        var nameEl = document.getElementById('vfDetailName');
+        if (nameEl) { nameEl.style.display = ''; nameEl.textContent = oldName; }
+        showToast('重命名失败', 'error');
+      }
     };
 
     window.removeVFTag = async function(vfId, vfName, tagId) {
