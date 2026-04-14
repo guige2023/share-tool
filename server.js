@@ -754,6 +754,10 @@ function renderPage() {
     #pull-indicator{position:fixed;top:0;left:0;right:0;height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;font-size:13px;font-weight:500;z-index:999;transition:height .2s}
     #pull-indicator .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:ptr-spin .8s linear infinite;margin-right:6px}
     @keyframes ptr-spin{to{transform:rotate(360deg)}}
+    /* Offline indicator banner */
+    #offline-banner{display:none;align-items:center;justify-content:center;gap:6px;background:#92400e;color:#fff;font-size:13px;font-weight:500;padding:8px 16px;text-align:center}
+    #offline-banner.visible{display:flex}
+    @media(max-width:600px){#offline-banner{position:sticky;top:0;z-index:200}}
     .file-tags{display:flex;flex-wrap:wrap;gap:3px;max-width:110px}
     .tag-badge{background:#e0e7ff;color:#3730a3;font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500}
     .type-chip.active{background:var(--accent)!important;color:#fff!important;border-color:var(--accent)!important}
@@ -854,6 +858,7 @@ function renderPage() {
     <div class="ctx-item" onclick="ctxAction('delete')" style="color:var(--danger)">🗑 删除</div>
   </div>
   <div class="wrap">
+    <div id="offline-banner" role="alert">📵 当前处于离线状态，部分功能可能不可用</div>
     <section class="hero">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div>
@@ -10481,10 +10486,21 @@ function renderPage() {
       return true;
     };
 
-    // Browser-side online detection — trigger sync when back online
+    // Browser-side online/offline detection
     window.addEventListener('online', function() {
+      var banner = document.getElementById('offline-banner');
+      if (banner) banner.classList.remove('visible');
       syncUploads();
     });
+    window.addEventListener('offline', function() {
+      var banner = document.getElementById('offline-banner');
+      if (banner) banner.classList.add('visible');
+    });
+    // Show offline banner on initial load if already offline
+    if (!navigator.onLine) {
+      var banner = document.getElementById('offline-banner');
+      if (banner) banner.classList.add('visible');
+    }
 
     // Trigger SW sync
     window.syncUploads = function() {
