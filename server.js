@@ -2287,8 +2287,36 @@ function renderPage() {
     }
 
     function createVirtualFolderFromMove() {
-      var name = prompt('收藏夹名称:');
-      if (!name || !name.trim()) return;
+      var m = document.getElementById('createVFModal');
+      if (m) m.remove();
+      m = document.createElement('div');
+      m.id = 'createVFModal';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
+      m.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:400px;font-size:14px">\
+          <h3 style="margin:0 0 16px">创建新收藏夹</h3>\
+          <div style="margin-bottom:20px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">收藏夹名称</label>\
+            <input id="createVFModalInput" type="text" placeholder="例如：备份/图片" ' +
+              'style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'createVFModal\').remove()">取消</button>\
+            <button id="createVFModalBtn" onclick="confirmCreateVF()">创建</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(m);
+      m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
+      setTimeout(function() { var inp = document.getElementById('createVFModalInput'); if (inp) inp.focus(); }, 50);
+      var inp = document.getElementById('createVFModalInput');
+      inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmCreateVF(); } });
+    }
+
+    function confirmCreateVF() {
+      var name = (document.getElementById('createVFModalInput') || {value: ''}).value.trim();
+      if (!name) return;
+      var m = document.getElementById('createVFModal');
+      if (m) m.remove();
       fetch('/api/virtual-folders', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), description: '' })
@@ -4400,7 +4428,29 @@ function renderPage() {
     window.deleteVFFromDetail = async function() {
       var cache = window._vfDetailCache || {};
       if (!cache.vfId) return;
-      if (!confirm('确定删除此收藏夹？')) return;
+      var m = document.getElementById('confirmVFDeleteModal');
+      if (m) m.remove();
+      m = document.createElement('div');
+      m.id = 'confirmVFDeleteModal';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
+      m.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:380px;font-size:14px;text-align:center">\
+          <h3 style="margin:0 0 8px">确定删除此收藏夹？</h3>\
+          <p style="margin:0 0 20px;font-size:13px;color:var(--muted)">收藏夹内的文件不会被删除，只删除收藏夹本身。</p>\
+          <div style="display:flex;gap:10px;justify-content:center">\
+            <button class="secondary" onclick="document.getElementById(\'confirmVFDeleteModal\').remove()">取消</button>\
+            <button class="danger" onclick="doDeleteVFFromDetail()">确认删除</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(m);
+      m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
+    };
+
+    window.doDeleteVFFromDetail = async function() {
+      var cache = window._vfDetailCache || {};
+      if (!cache.vfId) return;
+      var m = document.getElementById('confirmVFDeleteModal');
+      if (m) m.remove();
       await fetch('/api/virtual-folders/' + cache.vfId, { method: 'DELETE', headers: headers() });
       closeVFFolderDetail();
       broadcastSSE({ type: 'files_changed' });
@@ -4600,7 +4650,27 @@ function renderPage() {
     }
 
     async function deleteVirtualFolder(id) {
-      if (!confirm('确定删除此收藏夹？')) return;
+      var m = document.getElementById('confirmVFDeleteModal2');
+      if (m) m.remove();
+      m = document.createElement('div');
+      m.id = 'confirmVFDeleteModal2';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
+      m.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:380px;font-size:14px;text-align:center">\
+          <h3 style="margin:0 0 8px">确定删除此收藏夹？</h3>\
+          <p style="margin:0 0 20px;font-size:13px;color:var(--muted)">收藏夹内的文件不会被删除，只删除收藏夹本身。</p>\
+          <div style="display:flex;gap:10px;justify-content:center">\
+            <button class="secondary" onclick="document.getElementById(\'confirmVFDeleteModal2\').remove()">取消</button>\
+            <button class="danger" onclick="doDeleteVirtualFolder(' + id + ')">确认删除</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(m);
+      m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
+    }
+
+    async function doDeleteVirtualFolder(id) {
+      var m = document.getElementById('confirmVFDeleteModal2');
+      if (m) m.remove();
       await fetch('/api/virtual-folders/' + id, { method: 'DELETE', headers: headers() });
       openVirtualFolderManager();
     }
@@ -11628,6 +11698,12 @@ function renderPage() {
       var active = document.activeElement;
       var tag = active && active.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // Ctrl+K or Ctrl+F: open unified search overlay
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        openUnifiedSearchOverlay();
+        return;
+      }
       // ?: show shortcuts help
       if (e.key === '?') {
         var existing = document.getElementById('shortcutsHelp');
@@ -11636,6 +11712,7 @@ function renderPage() {
         div.id = 'shortcutsHelp';
         div.style.cssText = 'position:fixed;bottom:60px;right:16px;background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;padding:16px 20px;min-width:240px;font-size:12px;z-index:1000;box-shadow:0 4px 20px rgba(0,0,0,0.15)';
         var shortcuts = [
+          ['Ctrl+K', '全屏搜索'],
           ['?', '显示/隐藏快捷键'],
           ['r', '刷新文件列表'],
           ['f', '聚焦搜索框'],
