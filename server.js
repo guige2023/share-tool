@@ -3074,6 +3074,63 @@ function renderPage() {
       }
     }
 
+    // ── Keyboard Shortcuts Modal ─────────────────────────────────────────
+    function openKeyboardShortcutsModal() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '⌨️ 键盘快捷键';
+      body.innerHTML = '\
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:0;font-size:13px;max-height:70vh;overflow-y:auto">\
+\
+<div style="padding:10px 12px;border-bottom:1px solid var(--line)">\
+<div style="font-weight:600;color:var(--accent);margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">导航</div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>↑ ↓ ← →</span><span style="color:var(--muted)">导航文件</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>j / k</span><span style="color:var(--muted)">Vim 风格下/上</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>g / G</span><span style="color:var(--muted)">跳到顶部/底部</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Home / End</span><span style="color:var(--muted)">首/末页</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>/</span><span style="color:var(--muted)">聚焦搜索框</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Esc</span><span style="color:var(--muted)">关闭弹窗 / 清除搜索</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>?</span><span style="color:var(--muted)">显示此面板</span></div>\
+</div>\
+\
+<div style="padding:10px 12px;border-bottom:1px solid var(--line);border-left:1px solid var(--line)">\
+<div style="font-weight:600;color:var(--accent);margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">文件操作</div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Enter</span><span style="color:var(--muted)">预览文件</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Space</span><span style="color:var(--muted)">选中/取消选中</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>a</span><span style="color:var(--muted)">全选</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Ctrl+A</span><span style="color:var(--muted)">全选 (macOS)</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>e</span><span style="color:var(--muted)">重命名</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Delete</span><span style="color:var(--muted)">删除选中</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>s</span><span style="color:var(--muted)">收藏/取消收藏</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>b</span><span style="color:var(--muted)">批量下载 zip</span></div>\
+</div>\
+\
+<div style="padding:10px 12px;border-bottom:1px solid var(--line)">\
+<div style="font-weight:600;color:var(--accent);margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">分享</div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>c / l</span><span style="color:var(--muted)">复制分享链接</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>y</span><span style="color:var(--muted)">复制文件名</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Shift+Y</span><span style="color:var(--muted)">复制文件路径</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>p</span><span style="color:var(--muted)">预览文件</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>i</span><span style="color:var(--muted)">显示文件信息</span></div>\
+</div>\
+\
+<div style="padding:10px 12px;border-bottom:1px solid var(--line);border-left:1px solid var(--line)">\
+<div style="font-weight:600;color:var(--accent);margin-bottom:8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px">其他</div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Ctrl+K</span><span style="color:var(--muted)">聚焦搜索 (macOS)</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>n</span><span style="color:var(--muted)">新建文本文件</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>Shift+N</span><span style="color:var(--muted)">新建文件夹</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>v</span><span style="color:var(--muted)">切换视图 (列表/网格)</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>r</span><span style="color:var(--muted)">刷新文件列表</span></div>\
+<div style="display:flex;justify-content:space-between;padding:3px 0;color:var(--text)"><span>z</span><span style="color:var(--muted)">打开同步面板</span></div>\
+</div>\
+\
+</div>';
+      var actions = modal.querySelector('.modal-actions');
+      if (actions) actions.innerHTML = '<button class="secondary" onclick="forceCloseModal()">关闭</button>';
+      modal.classList.add('open');
+    }
+
     function openTagInputModal(action, fileCount) {
       const existingModal = document.getElementById('tagInputModal');
       if (existingModal) existingModal.remove();
@@ -3361,6 +3418,58 @@ function renderPage() {
     var MAX_CONCURRENT = 2;
     var uploadingFiles = new Map(); // fileName -> { xhr, status }
 
+    // ── Queue Persistence ─────────────────────────────────────────
+    var _queueFileMap = {}; // key: name+size -> File object (in-memory only, not serialized)
+
+    function _queueKey(item) { return item.name + '|' + (item.size || 0) + '|' + (item.lastModified || 0); }
+
+    function saveUploadQueue() {
+      try {
+        var meta = uploadQueue.map(function(item) {
+          return { name: item.name, size: item.size, type: item.type, lastModified: item.lastModified, status: item.status, pct: item.pct };
+        });
+        localStorage.setItem('sharetool_upload_queue', JSON.stringify(meta));
+      } catch(e) {}
+    }
+
+    function restoreUploadQueue() {
+      try {
+        var raw = localStorage.getItem('sharetool_upload_queue');
+        if (!raw) return;
+        var meta = JSON.parse(raw);
+        if (!Array.isArray(meta) || meta.length === 0) return;
+        // Reconstruct items without File objects — mark as needing re-selection
+        var hasPending = false;
+        meta.forEach(function(m) {
+          var item = { name: m.name, size: m.size, type: m.type, lastModified: m.lastModified, status: 'needs_file', pct: m.pct || 0 };
+          uploadQueue.push(item);
+          hasPending = true;
+        });
+        if (hasPending) {
+          localStorage.removeItem('sharetool_upload_queue');
+          renderUploadQueuePanel();
+          showToast('上传队列已恢复（需重新选择文件）', 'info');
+        }
+      } catch(e) { localStorage.removeItem('sharetool_upload_queue'); }
+    }
+
+    function reconnectQueueFile(file) {
+      // Match file to a 'needs_file' item by name+size
+      var key = file.name + '|' + file.size + '|' + file.lastModified;
+      for (var i = 0; i < uploadQueue.length; i++) {
+        var item = uploadQueue[i];
+        if (item.status === 'needs_file' && item.name === file.name && item.size === file.size) {
+          item.file = file;
+          item.status = 'pending';
+          _queueFileMap[_queueKey(item)] = file;
+          saveUploadQueue();
+          processUploadQueue();
+          return true;
+        }
+      }
+      return false;
+    }
+
     // ── Image Gallery State ────────────────────────────────────────────
     var galleryFiles = [];       // current visible image files
     var galleryIndex = 0;        // current index in gallery
@@ -3540,6 +3649,7 @@ function renderPage() {
       uploadQueue = uploadQueue.filter(function(item) {
         return item.status !== 'done' && item.status !== 'failed';
       });
+      saveUploadQueue();
       renderUploadQueuePanel();
     }
 
@@ -3577,6 +3687,7 @@ function renderPage() {
       if (item.xhr) { item.xhr.abort(); item.xhr = null; }
       uploadQueue.splice(i, 1);
       if (item.status === 'uploading') uploadActive--;
+      saveUploadQueue();
       renderUploadQueuePanel();
       updatePauseAllBtn();
       processUploadQueue();
@@ -3787,7 +3898,9 @@ function renderPage() {
       files.forEach(function(file) {
         var uploadName = folderPrefix ? folderPrefix + '/' + file.name : file.name;
         uploadQueue.push({ name: uploadName, file: file, status: 'pending', pct: 0 });
+        _queueFileMap[_queueKey({ name: uploadName, size: file.size, lastModified: file.lastModified })] = file;
       });
+      saveUploadQueue();
       renderUploadQueuePanel();
       input.value = '';
       clearFileInput();
