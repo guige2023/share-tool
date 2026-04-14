@@ -1082,6 +1082,7 @@ function renderPage() {
         <button class="type-chip" data-type="recent" onclick="setTypeFilter('recent')">🕐 最近</button>
       </div>
       <div id="tagChipsBar" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center"></div>
+      <div id="tagModeBar" style="display:none;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center"></div>
       <div id="fileStatsBar" style="display:flex;gap:16px;align-items:center;padding:0 0 8px 0;font-size:12px;color:var(--muted);font-family:monospace;flex-wrap:wrap">
         <span id="fileCountDisplay">共 <strong>0</strong> 个文件</span>
         <span id="selectedCountDisplay" style="display:none">，已选 <strong>0</strong> 个</span>
@@ -4548,6 +4549,7 @@ function renderPage() {
     function toggleTagMatchMode() {
       window._tagMatchMode = (window._tagMatchMode || 'OR') === 'OR' ? 'AND' : 'OR';
       localStorage.setItem('tagMatchMode', window._tagMatchMode);
+      renderTagChips();
       renderTagQuickBar({ tags: window._allTags || [] });
       loadFiles();
     }
@@ -4646,8 +4648,9 @@ function renderPage() {
     function renderTagChips() {
       const bar = document.getElementById('tagChipsBar');
       if (!bar) return;
+      const modeBar = document.getElementById('tagModeBar');
       const allTags = window._allTags || [];
-      if (!allTags.length) { bar.style.display = 'none'; return; }
+      if (!allTags.length) { bar.style.display = 'none'; if (modeBar) modeBar.style.display = 'none'; return; }
       const top = allTags.slice(0, 12); // show up to 12 tag chips
       bar.innerHTML = top.map(function(t) {
         const active = currentTagFilters.indexOf(t.tag) !== -1;
@@ -4657,6 +4660,16 @@ function renderPage() {
         return '<span class="tag-chip" style="' + style + '" onclick="toggleTagFilterChip(' + JSON.stringify(t.tag) + ')" title="筛选: ' + escaped + '">' + escaped + ' <span style="opacity:.6">' + t.count + '</span></span>';
       }).join('');
       bar.style.display = 'flex';
+      // Render AND/OR mode toggle if multiple filters are active
+      if (modeBar) {
+        if (currentTagFilters.length > 1) {
+          const mode = window._tagMatchMode || 'OR';
+          modeBar.innerHTML = '<button onclick="toggleTagMatchMode()" style="font-size:11px;padding:3px 10px;border-radius:999px;cursor:pointer;font-weight:500;border:1px solid ' + (mode === 'AND' ? 'var(--accent)' : 'var(--line)') + ';background:' + (mode === 'AND' ? 'var(--accent-weak)' : 'var(--bg-tertiary)') + ';color:' + (mode === 'AND' ? 'var(--accent)' : 'var(--text-muted)') + '" title="切换标签匹配模式：AND=所有标签，OR=任一标签">' + (mode === 'AND' ? 'AND' : 'OR') + ' 模式</button>';
+          modeBar.style.display = 'flex';
+        } else {
+          modeBar.style.display = 'none';
+        }
+      }
     }
 
     // ── Folder Tag Filter Bar ────────────────────────────────────────────────
@@ -10088,7 +10101,7 @@ function renderPage() {
             html += '<input type="checkbox" id="mtag_' + escapeHtmlClient(t.tag) + '" onchange="toggleTagMergeSelect(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);flex-shrink:0">';
             html += '<div style="flex:1;min-width:0">';
             html += '<span style="font-size:14px;cursor:pointer" id="tagname_' + escapeHtmlClient(t.tag) + '" onclick="openTagIconPicker(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" title="点击设置图标">' + (t.icon ? '<span style="font-size:15px">' + escapeHtmlClient(t.icon) + '</span> ' : '<span style="font-size:11px;color:var(--muted)">🏷</span> ') + escapeHtmlClient(t.tag) + '</span>';
-            html += '<span style="font-size:11px;color:var(--muted);margin-left:6px">' + t.count + ' 个文件</span>';
+            html += '<span style="font-size:11px;color:var(--muted);margin-left:6px;cursor:pointer" onclick="openTagDrillDown(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" title="查看所有文件">(' + t.count + ' 个文件) ▷</span>';
             html += '</div>';
             html += '<div style="display:flex;gap:2px;align-items:center;flex-shrink:0">' + colorDot + '</div>';
             html += '<button onclick="openRenameTagModal(\'' + escapeHtmlClient(t.tag).replace(/'/g, "\\'") + '\')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px" title="重命名">✎</button>';
@@ -10254,6 +10267,44 @@ function renderPage() {
           }
         }
       });
+    }
+
+    // Drill-down: show all files that have a specific tag
+    async function openTagDrillDown(tag) {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '🏷️ ' + escapeHtmlClient(tag);
+      body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">加载中…</div>';
+      modal.classList.add('show');
+      try {
+        // Fetch files with this tag via the existing search/filter API
+        // Use the GET /api/search endpoint or filter by tag
+        var tagEncoded = encodeURIComponent(tag);
+        var res = await fetch('/api/search?q=' + tagEncoded + '&limit=200', { headers: headers() });
+        var data = await res.json();
+        var files = (data.results || []).filter(function(f) {
+          return f.tags && f.tags.some(function(t) { return t.tag === tag; });
+        });
+        if (!files.length) {
+          body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px">暂无文件</div>';
+          return;
+        }
+        var html = '<div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:var(--muted)">' + files.length + ' 个文件</span><button onclick="openTagManager()" style="padding:4px 12px;background:var(--bg-tertiary);border:1px solid var(--line);border-radius:6px;cursor:pointer;font-size:12px">← 返回标签管理</button></div>';
+        html += '<div style="max-height:60vh;overflow-y:auto">';
+        files.forEach(function(f) {
+          var icon = getFileIcon(f.name || f.filename || '');
+          html += '<div style="display:flex;align-items:center;padding:8px 4px;border-bottom:1px solid var(--border);gap:8px;cursor:pointer" onclick="previewFile(\'' + escapeHtmlClient(f.name || f.filename || '').replace(/'/g, "\\'") + '\')">';
+          html += '<span style="font-size:18px;flex-shrink:0">' + icon + '</span>';
+          html += '<div style="flex:1;min-width:0"><div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(f.name || f.filename || '') + '</div>';
+          html += '<div style="font-size:11px;color:var(--muted)">' + formatFileSize(f.size || 0) + '</div></div>';
+          html += '</div>';
+        });
+        html += '</div>';
+        body.innerHTML = html;
+      } catch(e) {
+        body.innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
     }
 
     function openRenameTagModal(oldTag) {

@@ -2372,6 +2372,38 @@ function getStorageStats() {
   };
 }
 
+// Find files with identical content (same hash) — returns duplicate groups with size savings
+function findDuplicateHashes() {
+  const db = getDb();
+  // Find hashes that appear more than once (excluding null hashes and deleted files)
+  const dupes = db.prepare(`
+    SELECT hash, COUNT(*) as count, SUM(size) as total_size
+    FROM files
+    WHERE hash IS NOT NULL AND deleted = 0
+    GROUP BY hash
+    HAVING COUNT(*) > 1
+    ORDER BY total_size DESC
+  `).all();
+
+  const groups = dupes.map(d => {
+    const files = db.prepare(`
+      SELECT id, filename, size, content_type, virtual_folder, created_at
+      FROM files
+      WHERE hash = ? AND deleted = 0
+      ORDER BY created_at ASC
+    `).all(d.hash);
+    return {
+      hash: d.hash,
+      count: d.count,
+      total_size: d.total_size,
+      wasted_space: d.total_size - (files[0] ? files[0].size : 0),
+      files
+    };
+  });
+
+  return groups;
+}
+
 // 获取虚拟文件夹大小（所有前缀匹配的文件累计大小）
 function getFolderSize(folderPrefix) {
   const db = getDb();
