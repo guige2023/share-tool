@@ -6076,6 +6076,72 @@ function renderPage() {
       container.innerHTML = html;
     }
 
+    function toggleSavedSearchPin(q) {
+      var list = getSavedSearches();
+      var idx = list.findIndex(function(s) { return s.q === q; });
+      if (idx === -1) return;
+      list[idx].pinned = !list[idx].pinned;
+      localStorage.setItem(LS_SAVED_SEARCHES, JSON.stringify(list));
+      renderSavedSearches();
+    }
+
+    function renameSavedSearch(q) {
+      var newQ = prompt('输入新的搜索内容：', q);
+      if (!newQ || !newQ.trim() || newQ.trim() === q) return;
+      newQ = newQ.trim();
+      var list = getSavedSearches();
+      var idx = list.findIndex(function(s) { return s.q === q; });
+      if (idx === -1) return;
+      list[idx].q = newQ;
+      list[idx].ts = Date.now();
+      list[idx].label = newQ.length > 30 ? newQ.substring(0, 30) + '…' : newQ;
+      localStorage.setItem(LS_SAVED_SEARCHES, JSON.stringify(list));
+      renderSavedSearches();
+      showToast('已重命名', 'success');
+    }
+
+    function exportSavedSearches() {
+      var list = getSavedSearches();
+      if (!list.length) { showToast('没有已保存的搜索', 'info'); return; }
+      var blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'sharetool_saved_searches_' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importSavedSearches() {
+      var input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          try {
+            var imported = JSON.parse(ev.target.result);
+            if (!Array.isArray(imported)) throw new Error('Invalid format');
+            var existing = getSavedSearches();
+            var merged = existing.concat(imported.filter(function(imp) {
+              return !existing.some(function(ex) { return ex.q === imp.q; });
+            }));
+            merged.sort(function(a, b) { return (b.ts || 0) - (a.ts || 0); });
+            if (merged.length > MAX_SAVED_SEARCHES) merged = merged.slice(0, MAX_SAVED_SEARCHES);
+            localStorage.setItem(LS_SAVED_SEARCHES, JSON.stringify(merged));
+            renderSavedSearches();
+            showToast('已导入 ' + Math.min(imported.length, MAX_SAVED_SEARCHES) + ' 个搜索', 'success');
+          } catch(err) {
+            showToast('导入失败: 无效的JSON文件', 'error');
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
     // Result count chip — shown after search completes
     function showSearchResultChip(total, q) {
       var chip = document.getElementById('searchResultChip');
