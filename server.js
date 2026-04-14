@@ -2929,6 +2929,7 @@ function renderPage() {
         </div>';
       document.body.appendChild(modal);
       window._batchRenameFiles = names;
+      loadRenamePresetOptions();
       updateBatchRenamePreview();
     }
 
@@ -3125,6 +3126,81 @@ function renderPage() {
       } catch(e) {
         showToast('重命名失败: ' + e.message, 'error');
       }
+    }
+
+    // Batch Rename Presets
+    function getRenamePresets() {
+      try { return JSON.parse(localStorage.getItem('renamePresets') || '[]'); } catch(e) { return []; }
+    }
+    function saveRenamePresets(presets) {
+      localStorage.setItem('renamePresets', JSON.stringify(presets));
+    }
+
+    function loadRenamePresetOptions() {
+      var sel = document.getElementById('batchRenamePreset');
+      if (!sel) return;
+      var presets = getRenamePresets();
+      sel.innerHTML = '<option value="">— 选择预设 —</option>' +
+        presets.map(function(p) { return '<option value="' + escapeHtmlClient(p.name) + '">' + escapeHtmlClient(p.name) + '</option>'; }).join('');
+    }
+
+    function applyBatchRenamePreset() {
+      var sel = document.getElementById('batchRenamePreset');
+      if (!sel || !sel.value) return;
+      var presets = getRenamePresets();
+      var p = presets.find(function(x) { return x.name === sel.value; });
+      if (!p) return;
+      var typeSel = document.getElementById('batchRenameType');
+      if (typeSel) typeSel.value = p.type;
+      // Re-render fields then fill values
+      updateBatchRenamePreview();
+      setTimeout(function() {
+        if (p.type === 'prefix') { var el = document.getElementById('batchRenamePrefix'); if (el) el.value = p.value || ''; }
+        else if (p.type === 'suffix') { var el = document.getElementById('batchRenameSuffix'); if (el) el.value = p.value || ''; }
+        else if (p.type === 'replace') {
+          var elFrom = document.getElementById('batchRenameFrom'); if (elFrom) elFrom.value = p.from || '';
+          var elTo = document.getElementById('batchRenameTo'); if (elTo) elTo.value = p.to || '';
+        }
+        else if (p.type === 'regex') {
+          var elFrom = document.getElementById('batchRenameRegexFrom'); if (elFrom) elFrom.value = p.from || '';
+          var elTo = document.getElementById('batchRenameRegexTo'); if (elTo) elTo.value = p.to || '';
+        }
+        else if (p.type === 'case') { var el = document.getElementById('batchRenameCaseType'); if (el) el.value = p.value || 'upper'; }
+        else if (p.type === 'ext') { var el = document.getElementById('batchRenameExt'); if (el) el.value = p.value || ''; }
+        else if (p.type === 'pattern') { var el = document.getElementById('batchRenamePattern'); if (el) el.value = p.value || '{name}_{n}'; }
+        updateBatchRenamePreview();
+      }, 0);
+    }
+
+    function saveBatchRenamePreset() {
+      var type = document.getElementById('batchRenameType').value;
+      var name = prompt('输入预设名称：');
+      if (!name || !name.trim()) return;
+      name = name.trim();
+      var preset = { name: name, type: type };
+      if (type === 'prefix') { preset.value = (document.getElementById('batchRenamePrefix') || {}).value || ''; }
+      else if (type === 'suffix') { preset.value = (document.getElementById('batchRenameSuffix') || {}).value || ''; }
+      else if (type === 'replace') { preset.from = (document.getElementById('batchRenameFrom') || {}).value || ''; preset.to = (document.getElementById('batchRenameTo') || {}).value || ''; }
+      else if (type === 'regex') { preset.from = (document.getElementById('batchRenameRegexFrom') || {}).value || ''; preset.to = (document.getElementById('batchRenameRegexTo') || {}).value || ''; }
+      else if (type === 'case') { preset.value = (document.getElementById('batchRenameCaseType') || {}).value || 'upper'; }
+      else if (type === 'ext') { preset.value = (document.getElementById('batchRenameExt') || {}).value || ''; }
+      else if (type === 'pattern') { preset.value = (document.getElementById('batchRenamePattern') || {}).value || '{name}_{n}'; }
+      var presets = getRenamePresets().filter(function(p) { return p.name !== name; });
+      presets.unshift(preset);
+      if (presets.length > 20) presets = presets.slice(0, 20);
+      saveRenamePresets(presets);
+      loadRenamePresetOptions();
+      showToast('预设已保存: ' + name, 'success');
+    }
+
+    function deleteBatchRenamePreset() {
+      var sel = document.getElementById('batchRenamePreset');
+      if (!sel || !sel.value) { showToast('请先选择一个预设', 'info'); return; }
+      var presets = getRenamePresets().filter(function(p) { return p.name !== sel.value; });
+      saveRenamePresets(presets);
+      loadRenamePresetOptions();
+      showToast('已删除预设: ' + sel.value, 'success');
+      sel.value = '';
     }
 
     function openBatchStatsModal() {
@@ -8972,6 +9048,172 @@ function renderPage() {
       body.innerHTML = html;
       modal.classList.add('open');
     }
+
+    // ── Storage Cleanup Wizard ──────────────────────────────────────
+    async function openCleanupWizard() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '🧹 存储清理向导';
+      body.innerHTML = '<div id="cleanupWizardContent" style="padding:8px 0"><div style="text-align:center;color:var(--muted);padding:30px">正在扫描…</div></div>';
+      modal.classList.add('open');
+
+      try {
+        var res = await fetch('/api/cleanup/suggestions', { headers: headers() });
+        var data = await res.json();
+        if (!data.success) throw new Error(data.error || '加载失败');
+        renderCleanupWizard(data.suggestions);
+      } catch (e) {
+        document.getElementById('cleanupWizardContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
+    }
+
+    function renderCleanupWizard(s) {
+      var html = '';
+      var totalPotential = (s.duplicates ? s.duplicates.wasted_space : 0) +
+                           (s.trash ? s.trash.total_size : 0) +
+                           (s.oldTrash ? s.oldTrash.total_size : 0);
+
+      html += '<div style="margin-bottom:16px;padding:16px;background:var(--bg-secondary);border-radius:12px;text-align:center">';
+      html += '<div style="font-size:13px;color:var(--muted);margin-bottom:6px">预计可释放空间</div>';
+      html += '<div style="font-size:32px;font-weight:700;color:var(--accent)">' + formatFileSize(totalPotential) + '</div>';
+      html += '</div>';
+
+      html += '<div style="display:flex;flex-direction:column;gap:10px">';
+
+      // 1. Large files
+      var largeSize = s.largeFilesSize || 0;
+      var largeCount = s.largeFilesCount || 0;
+      html += '<div style="padding:14px;background:var(--bg-secondary);border-radius:10px;cursor:pointer" onclick="showLargeFilesCleanup()">';
+      html += '<div style="display:flex;align-items:center;gap:10px">';
+      html += '<span style="font-size:22px">📦</span>';
+      html += '<div style="flex:1">';
+      html += '<div style="font-weight:600;font-size:14px">大文件 (' + largeCount + '个)</div>';
+      html += '<div style="font-size:12px;color:var(--muted)">超过10MB的文件，可节省 ' + formatFileSize(largeSize) + '</div>';
+      html += '</div>';
+      html += '<span style="color:var(--muted)">▶</span>';
+      html += '</div></div>';
+
+      // 2. Duplicates
+      var dupWaste = s.duplicates ? s.duplicates.wasted_space : 0;
+      var dupGroups = s.duplicates ? s.duplicates.group_count : 0;
+      html += '<div style="padding:14px;background:var(--bg-secondary);border-radius:10px;cursor:pointer" onclick="openDuplicateFinder()">';
+      html += '<div style="display:flex;align-items:center;gap:10px">';
+      html += '<span style="font-size:22px">🔀</span>';
+      html += '<div style="flex:1">';
+      html += '<div style="font-weight:600;font-size:14px">重复文件 (' + dupGroups + '组)</div>';
+      html += '<div style="font-size:12px;color:var(--muted)">内容完全相同的文件，可节省 ' + formatFileSize(dupWaste) + '</div>';
+      html += '</div>';
+      html += '<span style="color:var(--muted)">▶</span>';
+      html += '</div></div>';
+
+      // 3. Trash
+      var trashCount = s.trash ? s.trash.count : 0;
+      var trashSize = s.trash ? s.trash.total_size : 0;
+      html += '<div style="padding:14px;background:var(--bg-secondary);border-radius:10px;cursor:pointer" onclick="openTrash()">';
+      html += '<div style="display:flex;align-items:center;gap:10px">';
+      html += '<span style="font-size:22px">🗑️</span>';
+      html += '<div style="flex:1">';
+      html += '<div style="font-weight:600;font-size:14px">回收站 (' + trashCount + '个文件)</div>';
+      html += '<div style="font-size:12px;color:var(--muted)">占用 ' + formatFileSize(trashSize) + ' · 永久删除可释放空间</div>';
+      html += '</div>';
+      html += '<span style="color:var(--muted)">▶</span>';
+      html += '</div></div>';
+
+      // 4. Old trash (>30 days)
+      var oldCount = s.oldTrash ? s.oldTrash.count : 0;
+      var oldSize = s.oldTrash ? s.oldTrash.total_size : 0;
+      if (oldCount > 0) {
+        html += '<div style="padding:14px;background:var(--bg-secondary);border-radius:10px;cursor:pointer" onclick="cleanupOldTrash()">';
+        html += '<div style="display:flex;align-items:center;gap:10px">';
+        html += '<span style="font-size:22px">⏰</span>';
+        html += '<div style="flex:1">';
+        html += '<div style="font-weight:600;font-size:14px">回收站超过30天 (' + oldCount + '个)</div>';
+        html += '<div style="font-size:12px;color:var(--muted)">一键清理 ' + formatFileSize(oldSize) + ' 的旧文件</div>';
+        html += '</div>';
+        html += '<button onclick="event.stopPropagation();cleanupOldTrash()" style="padding:6px 14px;background:var(--error);color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">清理</button>';
+        html += '</div></div>';
+      }
+
+      // 5. Empty folders
+      var emptyCount = s.emptyFolders ? s.emptyFolders.count : 0;
+      if (emptyCount > 0) {
+        html += '<div style="padding:14px;background:var(--bg-secondary);border-radius:10px;cursor:pointer" onclick="openVirtualFolderManager()">';
+        html += '<div style="display:flex;align-items:center;gap:10px">';
+        html += '<span style="font-size:22px">📁</span>';
+        html += '<div style="flex:1">';
+        html += '<div style="font-weight:600;font-size:14x">空收藏夹 (' + emptyCount + '个)</div>';
+        html += '<div style="font-size:12px;color:var(--muted)">删除没有文件的空收藏夹</div>';
+        html += '</div>';
+        html += '<span style="color:var(--muted)">▶</span>';
+        html += '</div></div>';
+      }
+
+      html += '</div>';
+
+      document.getElementById('cleanupWizardContent').innerHTML = html;
+    }
+
+    window.cleanupOldTrash = async function() {
+      if (!confirm('确定清空回收站中超过30天的文件？此操作不可恢复。')) return;
+      try {
+        var res = await fetch('/api/trash/cleanup-old', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers() } });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已清理 ' + (data.deleted || 0) + ' 个文件', 'success');
+          openCleanupWizard();
+        } else {
+          showToast(data.error || '清理失败', 'error');
+        }
+      } catch (e) {
+        showToast('清理失败: ' + e.message, 'error');
+      }
+    };
+
+    function showLargeFilesCleanup() {
+      fetch('/api/cleanup/suggestions', { headers: headers() }).then(function(r) { return r.json(); }).then(function(data) {
+        if (!data.success || !data.suggestions) return;
+        var files = data.suggestions.largeFiles || [];
+        if (!files.length) {
+          showToast('没有大文件', 'info');
+          return;
+        }
+        var html = '<div style="max-width:560px">';
+        html += '<div style="margin-bottom:12px;font-size:13px;color:var(--muted)">点击文件名下载，点击 × 删除</div>';
+        html += '<div style="max-height:400px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">';
+        files.forEach(function(f) {
+          var sizeStr = f.size > 1024 * 1024 * 1024 ? (Math.round(f.size / 1024 / 1024 / 1024 * 10) / 10 + ' GB') : f.size > 1024 * 1024 ? (Math.round(f.size / 1024 / 1024) + ' MB') : (Math.round(f.size / 1024) + ' KB');
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-secondary);border-radius:8px">';
+          html += '<span style="font-size:16px;flex-shrink:0">' + getFileIcon(f.filename) + '</span>';
+          html += '<div style="flex:1;min-width:0">';
+          html += '<div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(f.filename) + '">' + escapeHtmlClient(f.filename) + '</div>';
+          html += '<div style="font-size:11px;color:var(--muted)">' + sizeStr + '</div>';
+          html += '</div>';
+          html += '<button onclick="deleteLargeFile(' + f.id + ',\'' + escapeHtmlClient(f.filename).replace(/'/g, "\\'") + '\')" style="padding:4px 8px;background:var(--error);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;flex-shrink:0">×</button>';
+          html += '</div>';
+        });
+        html += '</div></div>';
+        var body = document.getElementById('modalBody');
+        document.getElementById('modalTitle').textContent = '📦 大文件';
+        body.innerHTML = html;
+      });
+    }
+
+    window.deleteLargeFile = async function(fileId, filename) {
+      if (!confirm('确认删除此文件？')) return;
+      try {
+        var res = await fetch('/api/files/' + fileId, { method: 'DELETE', headers: headers() });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已删除', 'success');
+          showLargeFilesCleanup();
+        } else {
+          showToast(data.error || '删除失败', 'error');
+        }
+      } catch (e) {
+        showToast('删除失败', 'error');
+      }
+    };
 
     async function openStorageStats() {
       var modal = document.getElementById('modal');

@@ -591,6 +591,15 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/cleanup/suggestions - get storage cleanup suggestions
+  if (pathname === '/api/cleanup/suggestions' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const suggestions = db.getCleanupSuggestions();
+    sendJson(res, { success: true, suggestions });
+    return true;
+  }
+
   // ── Folder Tags ───────────────────────────────────────────────────────────────
 
   // GET /api/folder-tags - list all tag definitions with folder counts
