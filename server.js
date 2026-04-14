@@ -8271,12 +8271,18 @@ function renderPage() {
     }
 
     async function deleteDeviceById(deviceId) {
-      if (!confirm('确认删除该设备？删除后该设备需要重新注册。')) return;
-      try {
-        var data = await request('/api/devices/' + encodeURIComponent(deviceId), { method: 'DELETE' });
-        if (data.success) { showToast('设备已删除', 'success'); loadDeviceList(); }
-        else showToast('删除失败: ' + (data.error || ''), 'error');
-      } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+      openConfirmModal({
+        title: '确认删除该设备？',
+        text: '删除后该设备需要重新注册。',
+        danger: true,
+        onConfirm: async function() {
+          try {
+            var data = await request('/api/devices/' + encodeURIComponent(deviceId), { method: 'DELETE' });
+            if (data.success) { showToast('设备已删除', 'success'); loadDeviceList(); }
+            else showToast('删除失败: ' + (data.error || ''), 'error');
+          } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+        }
+      });
     }
 
     async function openSyncDashboard() {
@@ -8878,18 +8884,24 @@ function renderPage() {
     }
 
     async function deleteTag(tag) {
-      if (!confirm('确定删除标签「' + tag + '」？该标签将从所有文件中移除。')) return;
-      const res = await fetch('/api/tags/' + encodeURIComponent(tag) + '/delete', {
-        method: 'DELETE',
-        headers: headers()
+      openConfirmModal({
+        title: '确定删除标签「' + tag + '」？',
+        text: '该标签将从所有文件中移除。',
+        danger: true,
+        onConfirm: async function() {
+          const res = await fetch('/api/tags/' + encodeURIComponent(tag) + '/delete', {
+            method: 'DELETE',
+            headers: headers()
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast('标签已删除（移除自 ' + data.removed + ' 个文件）', 'success');
+            openTagManager();
+          } else {
+            showToast('删除失败: ' + (data.error || '未知错误'), 'error');
+          }
+        }
       });
-      const data = await res.json();
-      if (data.success) {
-        showToast('标签已删除（移除自 ' + data.removed + ' 个文件）', 'success');
-        openTagManager();
-      } else {
-        showToast('删除失败: ' + (data.error || '未知错误'), 'error');
-      }
     }
 
     function openRenameTagModal(oldTag) {
@@ -10238,6 +10250,7 @@ function renderPage() {
           '<td class="actions-cell" data-label="操作">' +
             (renewBtn || '') +
             '<button class="secondary" onclick=' + "'" + 'copyShare(' + JSON.stringify(share.url) + ')' + "'" + '>复制</button>' +
+            '<button class="secondary" onclick=' + "'" + 'copyShareEmbed("' + escapeHtmlClient(share.code) + '")' + "'" + '>嵌入</button>' +
             '<button class="secondary" onclick=' + "'" + 'previewShare("' + escapeHtmlClient(share.code) + '")' + "'" + '>预览</button>' +
             '<button class="secondary" onclick=' + "'" + 'downloadQrCode(' + JSON.stringify(share.code) + ')' + "'" + '>二维码</button>' +
             '<button class="secondary" onclick=' + "'" + 'openShareEditModal(' + JSON.stringify(share.code) + ')' + "'" + '>编辑</button>' +
@@ -10276,6 +10289,16 @@ function renderPage() {
       await copyToClipboard(url);
       var display = url.length > 60 ? url.slice(0, 57) + '...' : url;
       showToast('已复制: ' + display, 'success');
+    }
+
+    async function copyShareEmbed(code) {
+      var share = currentShares.find(function(s) { return s.code === code; });
+      if (!share) { showToast('分享不存在', 'error'); return; }
+      var url = share.url || (location.origin + '/s/' + code);
+      var name = share.filename || code;
+      var html = '<a href="' + url + '" target="_blank">' + escapeHtmlClient(name) + '</a>';
+      await copyToClipboard(html);
+      showToast('已复制嵌入代码', 'success');
     }
 
     async function deleteShare(code) {
@@ -10320,6 +10343,12 @@ function renderPage() {
         else if (days === 0) expiryInfo = '今天过期';
         else expiryInfo = '已过期 ' + Math.abs(days) + ' 天';
       }
+      var dlPct = (share.maxDownloads && share.maxDownloads > 0)
+        ? Math.round((share.downloadCount || 0) / share.maxDownloads * 100)
+        : null;
+      var dlBar = dlPct !== null
+        ? '<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span>下载进度</span><span>' + (share.downloadCount || 0) + '/' + share.maxDownloads + '</span></div><div style="height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden"><div style="height:100%;width:' + dlPct + '%;background:' + (dlPct >= 100 ? '#ef4444' : dlPct >= 80 ? '#f59e0b' : 'var(--accent)') + ';border-radius:3px"></div></div></div>'
+        : '';
       var stats = '\
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">\
           <div style="background:var(--bg-tertiary);border-radius:10px;padding:14px;text-align:center">\
@@ -10330,9 +10359,9 @@ function renderPage() {
             <div style="font-size:24px;font-weight:700;color:var(--accent)">' + (share.downloadCount || 0) + '</div>\
             <div style="font-size:11px;color:var(--muted);margin-top:2px">下载</div>\
           </div>\
-          <div style="background:var(--bg-tertiary);border-radius:10px;padding:14px;text-align:center">\
+          <div style="background:var(--bg-tertiary);border-radius:10px;padding:14px;text-align:center;position:relative">\
             <div style="font-size:24px;font-weight:700">' + (share.maxDownloads ? share.maxDownloads : '∞') + '</div>\
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">最大下载</div>\
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">最大下载</div>' + dlBar + '\
           </div>\
           <div style="background:var(--bg-tertiary);border-radius:10px;padding:14px;text-align:center">\
             <div style="font-size:14px;font-weight:700">' + expiryInfo + '</div>\
@@ -10360,7 +10389,12 @@ function renderPage() {
           <tr style="border-bottom:1px solid var(--line)">\
             <td style="padding:7px 4px;color:var(--muted)">密码</td>\
             <td style="padding:7px 4px">' + (share.hasPassword ? '🔒 有密码' : '无') + '</td>\
-          </tr>\
+          </tr>' +
+          (share.description ? '\
+          <tr style="border-bottom:1px solid var(--line)">\
+            <td style="padding:7px 4px;color:var(--muted)">描述</td>\
+            <td style="padding:7px 4px;color:var(--text-secondary);font-size:12px">' + escapeHtmlClient(share.description) + '</td>\
+          </tr>' : '') + '\
         </table>';
       var modal = document.getElementById('modal');
       var title = document.getElementById('modalTitle');

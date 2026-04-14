@@ -1635,6 +1635,28 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/file-notes/:encodedPath - get notes for a file
+  const notesMatch = pathname.match(/^\/api\/file-notes\/(.+)$/);
+  if (notesMatch && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const filename = decodeURIComponent(notesMatch[1]);
+    const notes = db.getFileNotes(filename);
+    sendJson(res, { success: true, notes });
+    return true;
+  }
+
+  // PUT /api/file-notes/:encodedPath - update notes for a file
+  if (notesMatch && method === 'PUT') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const filename = decodeURIComponent(notesMatch[1]);
+    const body = await readJsonBody(req);
+    const result = db.updateFileNotes(filename, body.notes);
+    sendJson(res, result);
+    return true;
+  }
+
   // GET /api/expiring-links - get share/request links expiring within 7 days
   if (pathname === '/api/expiring-links' && method === 'GET') {
     const auth = authRequired(req, res);
