@@ -1150,7 +1150,9 @@ function renderPage() {
               <th style="width:100px;cursor:pointer;user-select:none" onclick="setSort('size')">大小 <span class="sort-arrow" id="arrow-size"></span></th>
               <th style="width:170px;cursor:pointer;user-select:none" onclick="setSort('updated_at')">更新时间 <span class="sort-arrow" id="arrow-updated_at"></span></th>
               <th style="width:140px;cursor:pointer;user-select:none" onclick="setSort('created_at')">创建时间 <span class="sort-arrow" id="arrow-created_at"></span></th>
-              <th style="width:280px">操作</th>
+              <th style="width:60px;cursor:pointer;user-select:none" onclick="setSort('position')" title="手动排序，拖拽调整顺序">📌 <span class="sort-arrow" id="arrow-position"></span></th>
+              <th style="width:160px">路径</th>
+              <th style="width:240px">操作</th>
             </tr>
           </thead>
           <tbody id="fileTableBody"></tbody>
@@ -4791,7 +4793,7 @@ function renderPage() {
         return '<div style="display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:8px;background:var(--bg-tertiary);margin-bottom:6px">' +
           '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + ';font-size:16px;margin-top:2px">●</span>' +
           '<div style="flex:1;min-width:0">' +
-            '<div style="font-size:13px;font-weight:500;margin-bottom:4px">' + escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ' 文件' + (f.size > 0 ? ', ' + formatFileSize(f.size) : '') + ')</span></div>' +
+            '<div style="font-size:13px;font-weight:500;margin-bottom:4px">' + escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ' 文件' + ((f.total_size || 0) > 0 ? ', ' + formatFileSize(f.total_size) : '') + ')</span></div>' +
             '<div style="margin-bottom:6px" id="vfTagChips_' + f.id + '">' + tagChips + '</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap" id="vfTagEdit_' + f.id + '">' +
               allTags.map(t => {

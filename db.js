@@ -97,8 +97,12 @@ function initDatabase() {
     initSchemaV13(db); // v13: share_links theme columns
     initSchemaV14(db); // v14: folder_tags + tag_definitions
     initSchemaV15(db); // v15: request_link_files table
+    initSchemaV16(db); // v16: no-op (SQLite durability hardening was applied in initDb)
+    initSchemaV17(db); // v17: file notes
+    initSchemaV18(db); // v18: share_links.label
+    initSchemaV19(db); // v19: share_link_stats table
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
-    console.log('[DB] Fresh database initialized (v1-v15 schema)');
+    console.log('[DB] Fresh database initialized (v1-v19 schema)');
     return;
   }
 
@@ -672,6 +676,10 @@ function initSchemaV15(db) {
   }
 }
 
+function initSchemaV16(db) {
+  // v16: no-op — SQLite durability hardening (auto_vacuum, busy_timeout, synchronous) applied in initDb
+}
+
 function initSchemaV17(db) {
   // v17: file notes column
   try {
@@ -790,6 +798,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV17(db);
     } else if (v === 18) {
       initSchemaV18(db);
+    } else if (v === 19) {
+      // v19: no-op
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
