@@ -85,7 +85,9 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
 
     const q = (query.get('q') || '').trim();
     const tags = query.get('tags') || null;
-    const tagMatch = query.get('tagMatch') || 'all';
+    // Map UI 'OR'/'AND' to DB 'any'/'all'
+    const tagMatchRaw = query.get('tagMatch') || 'all';
+    const tagMatch = tagMatchRaw === 'OR' ? 'any' : 'all';
     const sizeMin = query.get('size_min') || null;
     const sizeMax = query.get('size_max') || null;
     const searchMode = query.get('mode') || 'normal'; // 'normal' | 'glob' | 'regex'

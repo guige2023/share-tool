@@ -5110,6 +5110,15 @@ function renderPage() {
           openDeleteConfirmModal(selected);
           break;
         }
+        case 'p':
+        case 'P': {
+          // p: open sync dashboard
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          openSyncDashboard();
+          break;
+        }
         case 'v':
         case 'V': {
           // v: toggle list/grid view
