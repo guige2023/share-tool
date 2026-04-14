@@ -1180,13 +1180,14 @@ function renderPage() {
     <!-- Mobile Bottom Navigation Bar -->
     <nav id="mobileNav" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg-secondary);border-top:1px solid var(--line);z-index:900;padding:6px 0 env(safe-area-inset-bottom, 8px)">
       <div style="display:flex;justify-content:space-around;align-items:center">
-        <button class="mobile-nav-btn active" data-panel="files" onclick="switchMobileNav('files')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--accent);font-size:10px;cursor:pointer;border-radius:10px"
+        <button class="mobile-nav-btn active" data-panel="files" onclick="switchMobileNav('files')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--accent);font-size:10px;cursor:pointer;border-radius:10px">
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
           <span>文件</span>
         </button>
-        <button class="mobile-nav-btn" data-panel="upload" onclick="switchMobileNav('upload')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--muted);font-size:10px;cursor:pointer">
+        <button class="mobile-nav-btn" data-panel="upload" onclick="switchMobileNav('upload')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--muted);font-size:10px;cursor:pointer;position:relative">
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           <span>上传</span>
+          <span id="mobileUploadBadge" style="display:none;position:absolute;top:2px;right:8px;background:#ef4444;color:#fff;border-radius:10px;font-size:9px;padding:1px 4px;line-height:1.2;font-weight:700;min-width:16px;text-align:center"></span>
         </button>
         <button class="mobile-nav-btn" data-panel="shares" onclick="switchMobileNav('shares')" style="background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;color:var(--muted);font-size:10px;cursor:pointer">
           <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -2693,11 +2694,27 @@ function renderPage() {
       return 'Bearer ' + (localStorage.getItem('st_auth_token') || STATIC_TOKEN);
     }
 
+    function updateMobileUploadBadge() {
+      var badge = document.getElementById('mobileUploadBadge');
+      if (!badge) return;
+      // Count pending + uploading + queued items (not yet done/failed)
+      var pending = uploadQueue.filter(function(f) {
+        return f.status !== 'done' && f.status !== 'failed';
+      }).length;
+      if (pending > 0) {
+        badge.textContent = pending > 99 ? '99+' : pending;
+        badge.style.display = 'block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
     function renderUploadQueuePanel() {
       var panel = document.getElementById('uploadQueuePanel');
       if (!panel) return;
       if (uploadQueue.length === 0) {
         panel.style.display = 'none';
+        updateMobileUploadBadge();
         return;
       }
       panel.style.display = 'block';
@@ -2744,6 +2761,7 @@ function renderPage() {
       list.querySelectorAll('.uq-cancel').forEach(function(btn) {
         btn.addEventListener('click', function() { cancelUploadItem(parseInt(btn.dataset.i, 10)); });
       });
+      updateMobileUploadBadge();
     }
 
     function updateQueueItem(i, updates) {
@@ -9881,8 +9899,10 @@ function renderPage() {
     // Mobile bottom navigation
     function switchMobileNav(panel) {
       document.querySelectorAll('.mobile-nav-btn').forEach(function(btn) {
-        btn.classList.toggle('active', btn.dataset.panel === panel);
-        btn.style.color = btn.dataset.panel === panel ? 'var(--accent)' : 'var(--muted)';
+        var isActive = btn.dataset.panel === panel;
+        btn.classList.toggle('active', isActive);
+        btn.style.color = isActive ? 'var(--accent)' : 'var(--muted)';
+        btn.style.borderRadius = isActive ? '10px' : '';
       });
       var filesPanel = document.getElementById('filesPanel');
       var uploadSection = document.getElementById('uploadSection');
