@@ -2261,7 +2261,32 @@ function getStorageStats() {
     FROM files
     WHERE deleted = 0
     ORDER BY size DESC
-    LIMIT 5
+    LIMIT 10
+  `).all();
+
+  // Monthly trend: last 12 months
+  const twelveMonthsAgo = Math.floor(Date.now() / 1000) - 365 * 86400;
+  const byMonth = db.prepare(`
+    SELECT
+      strftime('%Y-%m', created_at, 'unixepoch') as month,
+      COUNT(*) as file_count,
+      COALESCE(SUM(size), 0) as total_size
+    FROM files
+    WHERE created_at >= ?
+    GROUP BY month
+    ORDER BY month ASC
+  `).all(twelveMonthsAgo);
+
+  // VF usage breakdown
+  const vfRows = db.prepare(`
+    SELECT
+      COALESCE(NULLIF(virtual_folder, ''), '(root)') as folder,
+      COUNT(*) as file_count,
+      COALESCE(SUM(size), 0) as total_size
+    FROM files
+    WHERE deleted = 0
+    GROUP BY folder
+    ORDER BY total_size DESC
   `).all();
 
   return {

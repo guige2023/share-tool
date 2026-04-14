@@ -8316,6 +8316,142 @@ function renderPage() {
       }
     }
 
+    // ── Duplicate File Finder ──────────────────────────────────────────
+    function openDuplicateFinder() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '🔍 重复文件查找';
+      body.innerHTML = '<div id="dupFinderContent" style="padding:8px 0"><div style="text-align:center;color:var(--muted);padding:30px">扫描中，请稍候…</div></div>';
+      modal.classList.add('open');
+
+      fetch('/api/duplicates', { headers: headers() }).then(function(res) { return res.json(); }).then(function(data) {
+        if (!data.success) {
+          document.getElementById('dupFinderContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败</div>';
+          return;
+        }
+        var groups = data.groups || [];
+        renderDuplicateGroups(groups);
+      }).catch(function(e) {
+        document.getElementById('dupFinderContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      });
+    }
+
+    function renderDuplicateGroups(groups) {
+      var totalWasted = 0;
+      var totalDupes = 0;
+      groups.forEach(function(g) {
+        totalWasted += g.files[0].size * (g.count - 1);
+        totalDupes += g.count - 1;
+      });
+
+      var html = '';
+      if (!groups.length) {
+        html = '<div style="text-align:center;padding:40px;color:var(--muted)">' +
+          '<div style="font-size:40px;margin-bottom:12px">✅</div>' +
+          '<div style="font-size:15px;font-weight:600;margin-bottom:6px">没有发现重复文件</div>' +
+          '<div style="font-size:12px">你的文件库很干净，没有发现内容完全相同的文件。</div>' +
+          '</div>';
+      } else {
+        html = '<div style="display:flex;gap:12px;margin-bottom:16px">';
+        html += '<div style="flex:1;background:var(--bg-secondary);padding:12px;border-radius:10px;text-align:center">' +
+          '<div style="font-size:20px;font-weight:700;color:var(--accent)">' + groups.length + '</div>' +
+          '<div style="font-size:11px;color:var(--muted)">重复组</div></div>';
+        html += '<div style="flex:1;background:var(--bg-secondary);padding:12px;border-radius:10px;text-align:center">' +
+          '<div style="font-size:20px;font-weight:700;color:#f59e0b">' + totalDupes + '</div>' +
+          '<div style="font-size:11px;color:var(--muted)">重复文件</div></div>';
+        html += '<div style="flex:1;background:var(--bg-secondary);padding:12px;border-radius:10px;text-align:center">' +
+          '<div style="font-size:20px;font-weight:700;color:#ef4444">' + formatFileSize(totalWasted) + '</div>' +
+          '<div style="font-size:11px;color:var(--muted)">可释放空间</div></div>';
+        html += '</div>';
+
+        html += '<div style="margin-bottom:12px;font-size:12px;color:var(--muted)">每组保留第一个文件（最早创建），可删除其余重复项</div>';
+
+        groups.forEach(function(g, gi) {
+          var origFile = g.files[0];
+          var wasted = origFile.size * (g.count - 1);
+          html += '<div style="margin-bottom:16px;border:1px solid var(--line);border-radius:10px;overflow:hidden">';
+          html += '<div style="background:var(--bg-secondary);padding:10px 14px;display:flex;align-items:center;gap:10px">';
+          html += '<span style="font-size:16px">' + getFileIcon(origFile.filename) + '</span>';
+          html += '<div style="flex:1;min-width:0">';
+          html += '<div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(origFile.filename) + '</div>';
+          html += '<div style="font-size:11px;color:var(--muted)">' + g.count + ' 份 · ' + formatFileSize(origFile.size) + ' · 可节省 ' + formatFileSize(wasted) + '</div>';
+          html += '</div>';
+          html += '</div>';
+          g.files.forEach(function(f, fi) {
+            var isFirst = fi === 0;
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--line);background:var(--bg)">';
+            html += '<input type="checkbox" data-file-id="' + f.id + '" ' + (isFirst ? 'disabled title="保留原件" style="opacity:0.4"' : 'style="cursor:pointer"') + '>';
+            html += '<div style="flex:1;min-width:0;font-size:12px">';
+            html += '<div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (isFirst ? 'var(--accent)' : 'var(--text)') + '">' + escapeHtmlClient(f.filename) + (isFirst ? ' ✓ 原件' : '') + '</div>';
+            html += '<div style="font-size:11px;color:var(--muted)">创建于 ' + new Date(f.created_at * 1000).toLocaleDateString('zh-CN') + '</div>';
+            html += '</div>';
+            if (!isFirst) {
+              html += '<button onclick="deleteDuplicateFile(' + f.id + ',' + gi + ')" style="padding:4px 10px;background:var(--error);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">删除</button>';
+            }
+            html += '</div>';
+          });
+          html += '</div>';
+        });
+
+        html += '<div style="margin-top:8px;padding:10px;background:var(--bg-secondary);border-radius:8px">';
+        html += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">已选择 <span id="dupSelectedCount">0</span> 个文件 · 约可释放 <span id="dupSelectedSize">0 B</span></div>';
+        html += '<button id="dupDeleteSelectedBtn" onclick="deleteSelectedDuplicates()" style="padding:8px 20px;background:var(--error);color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;opacity:0.4" disabled>删除所选</button>';
+        html += '</div>';
+      }
+
+      document.getElementById('dupFinderContent').innerHTML = html;
+
+      // Bind checkboxes
+      document.querySelectorAll('#dupFinderContent input[type="checkbox"]').forEach(function(cb) {
+        cb.addEventListener('change', updateDuplicateSelection);
+      });
+    }
+
+    function deleteDuplicateFile(fileId, groupIdx) {
+      if (!confirm('确认删除此文件？')) return;
+      fetch('/api/files/' + fileId, { method: 'DELETE', headers: headers() }).then(function(res) { return res.json(); }).then(function(data) {
+        if (data.success) {
+          showToast('已删除', 'success');
+          openDuplicateFinder(); // Re-render
+        } else {
+          showToast(data.error || '删除失败', 'error');
+        }
+      });
+    }
+
+    function updateDuplicateSelection() {
+      var checked = document.querySelectorAll('#dupFinderContent input[type="checkbox"]:checked');
+      var total = 0;
+      checked.forEach(function(cb) {
+        var row = cb.closest('div[style*="border-top"]');
+      });
+      document.getElementById('dupSelectedCount').textContent = checked.length;
+      var btn = document.getElementById('dupDeleteSelectedBtn');
+      if (checked.length > 0) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      } else {
+        btn.disabled = true;
+        btn.style.opacity = '0.4';
+      }
+    }
+
+    function deleteSelectedDuplicates() {
+      var checked = document.querySelectorAll('#dupFinderContent input[type="checkbox"]:checked');
+      if (!checked.length) return;
+      var fileIds = Array.from(checked).map(function(cb) { return parseInt(cb.dataset.fileId, 10); });
+      if (!confirm('确认删除选中的 ' + fileIds.length + ' 个重复文件？')) return;
+      Promise.all(fileIds.map(function(id) {
+        return fetch('/api/files/' + id, { method: 'DELETE', headers: headers() });
+      })).then(function(results) {
+        showToast('已删除 ' + fileIds.length + ' 个文件', 'success');
+        openDuplicateFinder();
+      }).catch(function(e) {
+        showToast('删除失败', 'error');
+      });
+    }
+
     function setLangAndReload(lang) {
       localStorage.setItem('st_lang', lang);
       location.reload();
