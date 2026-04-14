@@ -2890,17 +2890,27 @@ function renderPage() {
         <div class="modal-content" style="max-width:600px">\
           <h3>批量重命名</h3>\
           <p style="color:var(--muted);font-size:13px;margin-bottom:12px">为 ' + names.length + ' 个文件重命名</p>\
-          <div style="margin-bottom:10px">\
-            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">重命名规则</label>\
-            <select id="batchRenameType" onchange="updateBatchRenamePreview()" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg)">\
-              <option value="prefix">添加前缀</option>\
-              <option value="suffix">添加后缀</option>\
-              <option value="replace">替换文本</option>\
-              <option value="regex">正则替换</option>\
-              <option value="case">大小写转换</option>\
-              <option value="ext">修改扩展名</option>\
-              <option value="pattern">使用模式 {name}_{n}</option>\
-            </select>\
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">\
+            <div style="flex:1">\
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">重命名规则</label>\
+              <select id="batchRenameType" onchange="updateBatchRenamePreview()" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg)">\
+                <option value="prefix">添加前缀</option>\
+                <option value="suffix">添加后缀</option>\
+                <option value="replace">替换文本</option>\
+                <option value="regex">正则替换</option>\
+                <option value="case">大小写转换</option>\
+                <option value="ext">修改扩展名</option>\
+                <option value="pattern">使用模式 {name}_{n}</option>\
+              </select>\
+            </div>\
+            <div>\
+              <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">预设</label>\
+              <div style="display:flex;gap:4px">\
+                <select id="batchRenamePreset" onchange="applyBatchRenamePreset()" style="padding:8px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--bg);min-width:100px"><option value="">— 选择预设 —</option></select>\
+                <button onclick="saveBatchRenamePreset()" title="保存当前规则为预设" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;background:var(--bg-secondary);font-size:13px">💾</button>\
+                <button onclick="deleteBatchRenamePreset()" title="删除当前预设" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;cursor:pointer;background:var(--bg-secondary);font-size:13px">🗑</button>\
+              </div>\
+            </div>\
           </div>\
           <div id="batchRenameFields"></div>\
           <div style="margin-bottom:12px">\
@@ -4827,9 +4837,11 @@ function renderPage() {
               (t.icon ? escapeHtmlClient(t.icon) + ' ' : '') + escapeHtmlClient(t.name) + '</span>'
             ).join('') + '</span>'
           : '';
+        var quotaPct = (f.quota_bytes > 0 && f.total_size > 0) ? f.total_size / f.quota_bytes : 0;
+        var quotaWarn = quotaPct > 0.9 ? '🔴' : quotaPct > 0.8 ? '🟠' : '';
         return '<div class="ctx-item" onclick="navigateVirtualFolder(' + f.id + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">' +
           '<span><span style="color:' + escapeHtmlClient(f.color || '#667eea') + '">●</span> ' +
-          escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ' 个, ' + (f.total_size ? formatFileSize(f.total_size) : '0 B') + ')</span>' + tagChips + '</span>' +
+          escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ' 个, ' + (f.total_size ? formatFileSize(f.total_size) : '0 B') + ')' + quotaWarn + '</span>' + tagChips + '</span>' +
           '<span style="display:flex;gap:2px;align-items:center">' +
             '<button onclick="event.stopPropagation();openVFFolderDetail(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px" title="详情/标签">ℹ️</button>' +
             '<button onclick="event.stopPropagation();downloadVirtualFolder(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px" title="下载为 ZIP">⬇</button>' +

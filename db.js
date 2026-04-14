@@ -2397,6 +2397,94 @@ function getStorageStats() {
   };
 }
 
+// Get cleanup suggestions: large files, trash, duplicate groups
+function getCleanupSuggestions() {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const thirtyDaysAgo = now - 30 * 86400;
+  const ninetyDaysAgo = now - 90 * 86400;
+
+  // Large files (> 10MB)
+  const largeFiles = db.prepare(`
+    SELECT id, filename, size, content_type, virtual_folder, created_at
+    FROM files
+    WHERE deleted = 0 AND size > 10 * 1024 * 1024
+    ORDER BY size DESC
+    LIMIT 20
+  `).all();
+
+  // Trash stats
+  const trashStats = db.prepare(`
+    SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as total_size
+    FROM trash
+  `).get();
+
+  // Files in trash older than 30 days
+  const oldTrashCount = db.prepare(`
+    SELECT COUNT(*) as count, COALESCE(SUM(size), 0) as total_size
+    FROM trash
+    WHERE deleted_at < ?
+  `).get(thirtyDaysAgo);
+
+  // Duplicate groups summary
+  const dupSummary = db.prepare(`
+    SELECT COUNT(*) as group_count
+    FROM (
+      SELECT hash FROM files
+      WHERE hash IS NOT NULL AND hash != '' AND deleted = 0
+      GROUP BY hash HAVING COUNT(*) > 1
+    )
+  `).get();
+
+  const dupWaste = db.prepare(`
+    SELECT COALESCE(SUM(sizes), 0) as waste FROM (
+      SELECT SUM(size) - MAX(size) as sizes FROM files
+      WHERE hash IS NOT NULL AND hash != '' AND deleted = 0
+      GROUP BY hash HAVING COUNT(*) > 1
+    )
+  `).get();
+
+  // Empty virtual folders (no files inside)
+  const emptyVFs = db.prepare(`
+    SELECT id, name, color, created_at FROM virtual_folders
+    WHERE id NOT IN (
+      SELECT DISTINCT CAST(value AS INTEGER) FROM files,
+      json_each('[' || REPLACE(
+        COALESCE((SELECT GROUP_CONCAT(id) FROM virtual_folders), 'null'),
+        'null', '[]') || ']')
+    )
+  `).all();
+
+  // Get actual empty VF count using filename prefix check
+  const allVFs = db.prepare(`SELECT id, name, color FROM virtual_folders`).all();
+  const emptyFolders = allVFs.filter(vf => {
+    const prefix = vf.name + '/';
+    const count = db.prepare(`SELECT COUNT(*) as c FROM files WHERE filename LIKE ? AND deleted = 0`).get(prefix + '%');
+    return count.c === 0;
+  });
+
+  return {
+    largeFiles,
+    largeFilesCount: largeFiles.length,
+    largeFilesSize: largeFiles.reduce((a, f) => a + f.size, 0),
+    trash: {
+      count: trashStats.count,
+      total_size: trashStats.total_size
+    },
+    oldTrash: {
+      count: oldTrashCount.count,
+      total_size: oldTrashCount.total_size
+    },
+    duplicates: {
+      group_count: dupSummary.group_count || 0,
+      wasted_space: dupWaste.waste || 0
+    },
+    emptyFolders: {
+      count: emptyFolders.length
+    }
+  };
+}
+
 // 获取虚拟文件夹大小（所有前缀匹配的文件累计大小）
 function getFolderSize(folderPrefix) {
   const db = getDb();
