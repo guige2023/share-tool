@@ -1211,51 +1211,6 @@ function getVirtualFolder(id) {
   return db.prepare('SELECT * FROM virtual_folders WHERE id = ?').get(id);
 }
 
-function getVirtualFolderSizeAnalysis(folderId) {
-  const db = getDb();
-  const files = db.prepare(`
-    SELECT f.id, f.filename, f.virtual_folder, f.size, f.type, f.updated_at
-    FROM virtual_folder_files vff
-    JOIN files f ON f.id = vff.file_id
-    WHERE vff.folder_id = ?
-    ORDER BY f.size DESC
-  `).all(folderId);
-  const byType = {};
-  let totalSize = 0;
-  files.forEach(function(f) {
-    totalSize += f.size || 0;
-    var ext = (f.filename || '').split('.').pop().toLowerCase();
-    var cat = getFileCategoryFromExt(ext);
-    byType[cat] = (byType[cat] || 0) + (f.size || 0);
-  });
-  return { files: files.slice(0, 10), totalSize: totalSize, byType: byType, totalCount: files.length };
-}
-
-function getFileCategoryFromExt(ext) {
-  if (['jpg','jpeg','png','gif','webp','svg','bmp','ico'].indexOf(ext) !== -1) return '图片';
-  if (['mp4','avi','mov','mkv','flv','wmv','webm'].indexOf(ext) !== -1) return '视频';
-  if (['mp3','wav','flac','aac','ogg','m4a'].indexOf(ext) !== -1) return '音频';
-  if (['pdf'].indexOf(ext) !== -1) return 'PDF';
-  if (['doc','docx','rtf','odt'].indexOf(ext) !== -1) return 'Word';
-  if (['xls','xlsx','csv','ods'].indexOf(ext) !== -1) return 'Excel';
-  if (['zip','tar','gz','rar','7z','bz2'].indexOf(ext) !== -1) return '压缩包';
-  if (['js','ts','jsx','tsx','py','java','c','cpp','h','go','rs','rb','php'].indexOf(ext) !== -1) return '代码';
-  if (['txt','md','json','xml','yml','yaml','ini','cfg','log'].indexOf(ext) !== -1) return '文档';
-  return '其他';
-}
-
-function getVirtualFolderFiles(folderId, limit = 100) {
-  const db = getDb();
-  return db.prepare(`
-    SELECT f.${FILE_LIST_FIELDS}, v.added_at
-    FROM virtual_folder_files v
-    JOIN files f ON f.id = v.file_id
-    WHERE v.folder_id = ?
-    ORDER BY v.added_at DESC
-    LIMIT ?
-  `).all(folderId, limit);
-}
-
 function deleteVirtualFolder(id) {
   const db = getDb();
   db.prepare('DELETE FROM virtual_folders WHERE id = ?').run(id);
@@ -1306,16 +1261,37 @@ function getVirtualFolderFiles(folderId, limit = 100) {
   `).all(folderId, limit);
 }
 
-function getVirtualFolderFileList(folderId, limit = 100) {
+function getFileCategoryFromExt(ext) {
+  if (['jpg','jpeg','png','gif','webp','svg','bmp','ico'].indexOf(ext) !== -1) return '图片';
+  if (['mp4','avi','mov','mkv','flv','wmv','webm'].indexOf(ext) !== -1) return '视频';
+  if (['mp3','wav','flac','aac','ogg','m4a'].indexOf(ext) !== -1) return '音频';
+  if (['pdf'].indexOf(ext) !== -1) return 'PDF';
+  if (['doc','docx','rtf','odt'].indexOf(ext) !== -1) return 'Word';
+  if (['xls','xlsx','csv','ods'].indexOf(ext) !== -1) return 'Excel';
+  if (['zip','tar','gz','rar','7z','bz2'].indexOf(ext) !== -1) return '压缩包';
+  if (['js','ts','jsx','tsx','py','java','c','cpp','h','go','rs','rb','php'].indexOf(ext) !== -1) return '代码';
+  if (['txt','md','json','xml','yml','yaml','ini','cfg','log'].indexOf(ext) !== -1) return '文档';
+  return '其他';
+}
+
+function getVirtualFolderSizeAnalysis(folderId) {
   const db = getDb();
-  return db.prepare(`
-    SELECT f.${FILE_LIST_FIELDS}, v.added_at
-    FROM virtual_folder_files v
-    JOIN files f ON f.id = v.file_id
-    WHERE v.folder_id = ?
-    ORDER BY v.added_at DESC
-    LIMIT ?
-  `).all(folderId, limit);
+  const files = db.prepare(`
+    SELECT f.id, f.filename, f.virtual_folder, f.size, f.type, f.updated_at
+    FROM virtual_folder_files vff
+    JOIN files f ON f.id = vff.file_id
+    WHERE vff.folder_id = ?
+    ORDER BY f.size DESC
+  `).all(folderId);
+  const byType = {};
+  let totalSize = 0;
+  files.forEach(function(f) {
+    totalSize += f.size || 0;
+    var ext = (f.filename || '').split('.').pop().toLowerCase();
+    var cat = getFileCategoryFromExt(ext);
+    byType[cat] = (byType[cat] || 0) + (f.size || 0);
+  });
+  return { files: files.slice(0, 10), totalSize: totalSize, byType: byType, totalCount: files.length };
 }
 
 function isFileInVirtualFolder(folderId, fileId) {
@@ -4652,7 +4628,7 @@ module.exports = {
   listShareLinks, cleanupExpiredShareLinks, getShareStats, getExpiringShares, renewShareLink, getExpiringShareLinks,
   // 虚拟文件夹
   createVirtualFolder, listVirtualFolders, getVirtualFolder, deleteVirtualFolder, updateVirtualFolder, getVirtualFolderSize,
-  addFileToVirtualFolder, removeFileFromVirtualFolder, getVirtualFolderFileList, isFileInVirtualFolder,
+  addFileToVirtualFolder, removeFileFromVirtualFolder, getVirtualFolderFiles, isFileInVirtualFolder,
   // 文件收集链接
   createRequestLink, getRequestLink, verifyRequestLinkPassword,
   toggleRequestLinkActive, updateRequestLink, deleteRequestLink, listRequestLinks,

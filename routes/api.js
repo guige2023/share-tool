@@ -1056,7 +1056,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
-  // GET /api/virtual-folders/:id/size-analysis - size breakdown + top files
+  // GET /api/virtual-folders/:id/size-analysis - type breakdown + top files
   if (pathname.match(/^\/api\/virtual-folders\/\d+\/size-analysis$/) && method === 'GET') {
     const auth = authRequired(req, res);
     if (!auth) return true;

@@ -15,7 +15,6 @@ const handleApiRoutes = require('./routes/api');
 const handleFileRoutes = require('./routes/files');
 const handleShareRoutes = require('./routes/share');
 const { initWebSocketServer } = require('./routes/sync');
-const { handleWebDAV } = require('./routes/webdav');
 
 const VERSION = require('./package.json').version;
 const PORT = parseInt(process.env.SHARE_TOOL_PORT || '18790', 10);
@@ -4997,9 +4996,7 @@ function renderPage() {
             </span>\
             <strong id="vfDetailName" style="font-size:15px;cursor:pointer" title="双击重命名" ondblclick="startVFRename()">' + escapeHtmlClient(vf.name) + '</strong>\
             <span style="color:var(--muted);font-size:12px">' + (vf.file_count || vf.fileCount || 0) + ' 个文件 · ' + (vf.total_size ? formatFileSize(vf.total_size) : '0 B') + '</span>\
-            <button onclick="loadVFSizeAnalysis(' + vfId + ',' + JSON.stringify(vfName).replace(/"/g, '&quot;') + ')" id="vfSizeAnalysisBtn" style="font-size:11px;padding:2px 8px;border-radius:6px;cursor:pointer;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text-muted);margin-left:auto" title="查看大小分布">📊 分析</button>\
           </div>\
-          <div id="vfSizeAnalysisSection" style="display:none;margin-top:8px;padding:8px;background:var(--bg-tertiary);border-radius:8px;font-size:12px"></div>\
           <div id="vfQuotaSection" style="margin-top:8px;display:' + (vf.quota_bytes > 0 ? 'block' : 'none') + '">\
             <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">\
               <span>存储配额</span>\
@@ -5045,51 +5042,6 @@ function renderPage() {
       broadcastSSE({ type: 'files_changed' });
       showToast('颜色已更新', 'success');
     };
-
-    async function loadVFSizeAnalysis(vfId, vfName) {
-      var section = document.getElementById('vfSizeAnalysisSection');
-      if (!section) return;
-      if (section.style.display !== 'none') { section.style.display = 'none'; return; }
-      section.style.display = 'block';
-      section.innerHTML = '<div style="text-align:center;color:var(--muted);padding:10px">加载中…</div>';
-      try {
-        var res = await fetch('/api/virtual-folders/' + vfId + '/size-analysis', { headers: headers() });
-        var data = await res.json();
-        if (!data.success) { section.innerHTML = '<div style="color:var(--error);padding:8px">加载失败</div>'; return; }
-        var r = data;
-        var total = r.totalSize || 0;
-        // Type breakdown bars
-        var typeBars = Object.entries(r.byType || {}).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 6);
-        var barHtml = '';
-        typeBars.forEach(function(entry) {
-          var cat = entry[0], size = entry[1];
-          var pct = total > 0 ? Math.round(size / total * 100) : 0;
-          barHtml += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">';
-          barHtml += '<span style="width:50px;font-size:11px;color:var(--muted);flex-shrink:0">' + cat + '</span>';
-          barHtml += '<div style="flex:1;height:10px;background:var(--bg-secondary);border-radius:5px;overflow:hidden">';
-          barHtml += '<div style="height:100%;width:' + pct + '%;border-radius:5px;background:var(--accent)"></div>';
-          barHtml += '</div>';
-          barHtml += '<span style="width:60px;text-align:right;font-size:11px;color:var(--muted);flex-shrink:0">' + formatFileSize(size) + ' (' + pct + '%)</span>';
-          barHtml += '</div>';
-        });
-        // Top 5 largest files
-        var topFiles = (r.files || []).slice(0, 5);
-        var fileHtml = '';
-        topFiles.forEach(function(f) {
-          fileHtml += '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)">';
-          fileHtml += '<span style="font-size:13px;flex-shrink:0">' + getFileIcon(f.filename || '') + '</span>';
-          fileHtml += '<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + escapeHtmlClient(f.filename || '') + '">' + escapeHtmlClient(f.filename || '') + '</span>';
-          fileHtml += '<span style="font-size:11px;color:var(--muted);flex-shrink:0">' + formatFileSize(f.size || 0) + '</span>';
-          fileHtml += '</div>';
-        });
-        section.innerHTML =
-          '<div style="margin-bottom:8px"><strong>类型分布</strong> <span style="color:var(--muted);font-size:11px">(' + (r.totalCount || 0) + ' 个文件，共 ' + formatFileSize(total) + ')</span></div>' +
-          '<div style="margin-bottom:12px">' + (barHtml || '<div style="color:var(--muted);font-size:12px">暂无数据</div>') + '</div>' +
-          (topFiles.length ? '<div><strong>最大文件</strong></div>' + fileHtml : '');
-      } catch(e) {
-        section.innerHTML = '<div style="color:var(--error);padding:8px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
-      }
-    }
 
     window.startVFRename = function() {
       var cache = window._vfDetailCache || {};
@@ -15151,10 +15103,6 @@ async function requestHandler(req, res) {
   };
 
   try {
-    // WebDAV — handle before API routes since /dav/* needs custom treatment
-    if (pathname.startsWith('/dav')) {
-      if (await handleWebDAV(req, res, pathname, method)) return;
-    }
     if (await handleApiRoutes(req, res, pathname, query, ctx)) return;
     if (await handleFileRoutes(req, res, pathname, query, ctx)) return;
     if (await handleShareRoutes(req, res, pathname, query, ctx)) return;
