@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 15; // v15: request_link_files table for tracking uploaded files
+const SCHEMA_VERSION = 16; // v16: SQLite durability hardening — auto_vacuum=INCREMENTAL, busy_timeout=5000, synchronous=NORMAL
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -30,6 +30,9 @@ function getDb() {
     db = new Database(DB_PATH);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');
+    db.pragma('busy_timeout = 5000');
+    db.pragma('synchronous = NORMAL');
+    db.pragma('auto_vacuum = INCREMENTAL');
   }
   return db;
 }
@@ -3548,6 +3551,36 @@ function checkDbIntegrity() {
   return result.integrity_check;
 }
 
+// ── SQLite 在线备份 ─────────────────────────────────────────
+function backupDb() {
+  const db = getDb();
+  const fs = require('fs');
+  const backupDir = path.join(path.dirname(DB_PATH), 'backups');
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+  }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const backupPath = path.join(backupDir, `share-tool-${timestamp}.db`);
+  const walPath = DB_PATH + '-wal';
+  const shmPath = DB_PATH + '-shm';
+
+  // Use better-sqlite3's backup() API — synchronous, single call
+  const backupDbInstance = new (require('better-sqlite3'))(backupPath);
+  backupDbInstance.close();
+  // Reopen as backup target
+  const dest = new (require('better-sqlite3'))(backupPath);
+  db.backup(dest, (err) => {
+    dest.close();
+    if (err) {
+      console.error('[DB] Backup failed:', err.message);
+    } else {
+      console.log('[DB] Backup saved to:', backupPath);
+    }
+  });
+
+  return backupPath;
+}
+
 // ============================================================
 // 标签颜色
 // ============================================================
@@ -4170,7 +4203,7 @@ module.exports = {
   // 清理
   cleanupExpiredTokens, cleanupRateLimit, cleanupIncompleteUploads, cleanupSearchHistory,
   // DB 健康
-  cleanupSyncLog, cleanupAuditLog, clearAuditLogs, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity,
+  cleanupSyncLog, cleanupAuditLog, clearAuditLogs, getDbStats, getSystemStats, getDashboardStats, runVacuum, checkDbIntegrity, backupDb,
   // 标签颜色
   getTagColor, setTagColor, getAllTagColors, getSuggestedColor, deleteTagColor, touchTag,
   getTagEmoji, setTagEmoji,  getAllTags, getAllTagsWithStats, ensureTagStats, renameTagGlobally, deleteTagFromAllFiles, mergeTags, cleanupOrphanTags,

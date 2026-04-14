@@ -7001,6 +7001,15 @@ function renderPage() {
             '<button class="ghost" style="font-size:13px;padding:6px 14px" onclick="openSyncDashboard()">📡 同步面板</button>' +
             '</div>' +
           '</div>' +
+        '</div>' +
+
+        // Database backup
+        '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">💾 数据库备份</label>' +
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">创建 SQLite 数据库完整备份，可直接导入恢复。</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="backupDatabase()">📦 下载备份</button>' +
+          '</div>' +
         '</div>';
 
       modal.classList.add('open');

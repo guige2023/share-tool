@@ -441,6 +441,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const count = db.deleteTagFromAllFiles(tag);
     db.deleteTagColor(tag);
     sendJson(res, { success: true, tag, removed: count });
+    global.broadcastSSE({ type: 'files_changed' });
     return true;
   }
 
@@ -459,6 +460,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
       return true;
     }
     sendJson(res, { success: true, oldTag, newTag, updated: result2.updated });
+    global.broadcastSSE({ type: 'files_changed' });
     return true;
   }
 
@@ -478,6 +480,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
       return true;
     }
     sendJson(res, { success: true, target, updated: result.updated, deletedSources: sources.length });
+    global.broadcastSSE({ type: 'files_changed' });
     return true;
   }
 
@@ -1164,6 +1167,35 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     if (!auth) return true;
     const stats = db.getDbStats();
     sendJson(res, { success: true, ...stats });
+    return true;
+  }
+
+  // GET /api/db/backup - create a SQLite backup and return it as downloadable file
+  if (pathname === '/api/db/backup' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const fs = require('fs');
+    const pathModule = require('path');
+    const { DB_PATH } = require('../db');
+    // WAL checkpoint — flush WAL to main DB for consistent copy
+    db.getDb().pragma('wal_checkpoint(TRUNCATE)');
+    const backupDir = pathModule.join(pathModule.dirname(DB_PATH), 'backups');
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const backupName = `share-tool-${timestamp}.db`;
+    const backupPath = pathModule.join(backupDir, backupName);
+    fs.copyFileSync(DB_PATH, backupPath);
+    // Also copy WAL and SHM as -wal and -shm (vacuum may leave them)
+    try {
+      if (fs.existsSync(DB_PATH + '-wal')) fs.copyFileSync(DB_PATH + '-wal', backupPath + '-wal');
+      if (fs.existsSync(DB_PATH + '-shm')) fs.copyFileSync(DB_PATH + '-shm', backupPath + '-shm');
+    } catch (e) { /* WAL/SHM may not exist */ }
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.sqlite3',
+      'Content-Disposition': `attachment; filename="${backupName}"`,
+      'Content-Length': String(fs.statSync(backupPath).size)
+    });
+    fs.createReadStream(backupPath).pipe(res);
     return true;
   }
 
