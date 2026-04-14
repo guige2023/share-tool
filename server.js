@@ -631,6 +631,10 @@ function renderPage() {
       /* Mobile tag chips: smaller and no max-width so they wrap nicely */
       .file-tags{max-width:none;gap:3px}
       .file-tags .tag-badge,.file-tags .tag-chip{font-size:10px;padding:1px 5px;border-radius:8px}
+      /* Mobile grid view: smaller columns, larger touch targets */
+      #fileTableGrid tbody{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px!important}
+      #fileTableGrid .file-item,#fileTableGrid .file-item{min-height:120px;padding:10px}
+      #fileTableGrid .file-item .file-name{font-size:12px}
       /* Context menu: larger touch targets on mobile */
       .ctx-menu{min-width:180px}
       /* Sticky toolbar on mobile scroll */
@@ -970,6 +974,10 @@ function renderPage() {
         <div class="uq-title" style="padding:8px 14px;font-size:12px;font-weight:600;border-bottom:1px solid var(--line);background:var(--bg-tertiary);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span>上传队列</span>
           <span id="offlinePendingBadge" style="display:none;background:#f59e0b;color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;font-weight:600;vertical-align:middle" title="离线待同步"></span>
+          <span style="flex:1"></span>
+          <button id="pauseAllBtn" onclick="pauseAllUploads()" style="display:none;background:var(--bg-secondary);border:1px solid var(--line);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 8px;color:var(--text)">⏸ 全部暂停</button>
+          <button id="resumeAllBtn" onclick="resumeAllUploads()" style="display:none;background:var(--bg-secondary);border:1px solid var(--line);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 8px;color:var(--text)">▶ 全部继续</button>
+          <button onclick="clearDoneUploads()" style="background:var(--bg-secondary);border:1px solid var(--line);border-radius:5px;cursor:pointer;font-size:11px;padding:2px 8px;color:var(--muted)">✕ 清空已完成</button>
         </div>
         <div class="uq-list" style="max-height:200px;overflow-y:auto;padding:0 14px"></div>
       </div>
@@ -3498,6 +3506,50 @@ function renderPage() {
       processUploadQueue();
     }
 
+    function pauseAllUploads() {
+      uploadPaused = true;
+      // Abort all currently uploading items
+      uploadQueue.forEach(function(item) {
+        if (item.status === 'uploading' && item.xhr) {
+          item.xhr.abort();
+          item.xhr = null;
+          item.status = 'paused';
+          item.pct = item.pct || 0;
+        }
+      });
+      uploadActive = 0;
+      renderUploadQueuePanel();
+      updatePauseAllBtn();
+    }
+
+    function resumeAllUploads() {
+      uploadPaused = false;
+      uploadQueue.forEach(function(item) {
+        if (item.status === 'paused') {
+          item.status = 'pending';
+        }
+      });
+      renderUploadQueuePanel();
+      updatePauseAllBtn();
+      processUploadQueue();
+    }
+
+    function clearDoneUploads() {
+      uploadQueue = uploadQueue.filter(function(item) {
+        return item.status !== 'done' && item.status !== 'failed';
+      });
+      renderUploadQueuePanel();
+    }
+
+    function updatePauseAllBtn() {
+      var pauseBtn = document.getElementById('pauseAllBtn');
+      var resumeBtn = document.getElementById('resumeAllBtn');
+      var hasActive = uploadQueue.some(function(item) { return item.status === 'uploading' || item.status === 'pending'; });
+      var hasPaused = uploadQueue.some(function(item) { return item.status === 'paused'; });
+      if (pauseBtn) pauseBtn.style.display = uploadPaused || !hasActive ? 'none' : 'inline-block';
+      if (resumeBtn) resumeBtn.style.display = uploadPaused && hasPaused ? 'inline-block' : 'none';
+    }
+
     function pauseUploadItem(i) {
       var item = uploadQueue[i];
       if (item.status !== 'uploading') return;
@@ -5637,6 +5689,51 @@ function renderPage() {
       // Init keyboard nav state for ctx menu
       ctxMenuNavIndex = -1;
       updateCtxMenuHighlight();
+    });
+
+    // --- Long-press context menu for mobile ---
+    var longPressTimer = null;
+    var longPressTarget = null;
+
+    document.addEventListener('touchstart', function(e) {
+      var row = e.target.closest('tr');
+      var checkbox = null;
+      if (row) checkbox = row.querySelector('.file-check');
+      if (!checkbox) {
+        var gridItem = e.target.closest('.file-item');
+        if (gridItem) checkbox = gridItem.querySelector('.file-check');
+      }
+      if (!checkbox) return;
+      longPressTarget = checkbox.value;
+      longPressTimer = setTimeout(function() {
+        if (!longPressTarget) return;
+        // Trigger context menu at touch position
+        var touch = e.changedTouches[0];
+        var menu = document.getElementById('ctxMenu');
+        var x = Math.min(touch.clientX, window.innerWidth - 170);
+        var y = Math.min(touch.clientY, window.innerHeight - 220);
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
+        var file = currentFiles.find(function(f) { return (f.name || f.filename) === decodeURIComponent(longPressTarget); });
+        var isStarred = file && file.starred;
+        var starItems = menu.querySelectorAll('.ctx-star');
+        starItems.forEach(function(item) {
+          var showStarred = item.dataset.starred === '1';
+          item.style.display = showStarred === isStarred ? '' : 'none';
+        });
+        menu.style.display = 'block';
+        ctxMenuNavIndex = -1;
+        updateCtxMenuHighlight();
+        // Prevent ghost click
+        longPressTarget = null;
+      }, 500);
+    }, { passive: true });
+
+    document.addEventListener('touchend', function() {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    });
+    document.addEventListener('touchmove', function() {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
     });
 
     document.addEventListener('click', function(e) {
