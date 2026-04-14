@@ -993,9 +993,9 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     }
     const fullPath = path.join(ctx.storageDir, file.virtual_folder || '', file.filename);
     // Open containing folder in Finder (macOS only)
-    const { execSync } = require('child_process');
+    const { execFileSync } = require('child_process');
     try {
-      execSync('open -R ' + JSON.stringify(fullPath), { stdio: 'ignore' });
+      execFileSync('open', ['-R', fullPath], { stdio: 'ignore' });
     } catch (e) { /* non-fatal */ }
     sendJson(res, { success: true, path: fullPath });
     return true;
