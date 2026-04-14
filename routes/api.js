@@ -856,7 +856,20 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const folderId = parseInt(pathname.split('/')[3], 10);
     const folder = db.getVirtualFolder(folderId);
     const files = db.getVirtualFolderFiles(folderId);
-    sendJson(res, { success: true, files, folder: folder ? { id: folder.id, name: folder.name, color: folder.color } : null });
+    const stats = folder ? db.getVirtualFolderSize(folderId) : null;
+    sendJson(res, { success: true, files, folder: folder ? { ...folder, ...stats } : null });
+    return true;
+  }
+
+// GET /api/virtual-folders/:id - get single VF with stats
+  if (pathname.match(/^\/api\/virtual-folders\/\d+$/) && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    const folder = db.getVirtualFolder(folderId);
+    if (!folder) { sendJson(res, { success: false, error: 'Folder not found' }, 404); return true; }
+    const stats = db.getVirtualFolderSize(folderId);
+    sendJson(res, { success: true, folder: { ...folder, ...stats } });
     return true;
   }
 

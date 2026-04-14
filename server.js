@@ -3799,7 +3799,7 @@ function renderPage() {
           : '';
         return '<div class="ctx-item" onclick="navigateVirtualFolder(' + f.id + ')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">' +
           '<span><span style="color:' + escapeHtmlClient(f.color || '#667eea') + '">●</span> ' +
-          escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span>' + tagChips + '</span>' +
+          escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ' 个, ' + (f.total_size ? formatFileSize(f.total_size) : '0 B') + ')</span>' + tagChips + '</span>' +
           '<span style="display:flex;gap:2px;align-items:center">' +
             '<button onclick="event.stopPropagation();openVFFolderDetail(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px" title="详情/标签">ℹ️</button>' +
             '<button onclick="event.stopPropagation();downloadVirtualFolder(' + f.id + ',' + JSON.stringify(f.name).replace(/"/g, '&quot;') + ')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:11px;padding:2px 5px;border-radius:4px" title="下载为 ZIP">⬇</button>' +
@@ -3857,7 +3857,7 @@ function renderPage() {
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">\
             <span style="font-size:18px;color:' + escapeHtmlClient(vf.color || '#667eea') + '">●</span>\
             <strong style="font-size:15px">' + escapeHtmlClient(vf.name) + '</strong>\
-            <span style="color:var(--muted);font-size:12px">' + (vf.file_count || vf.fileCount || 0) + ' 个文件</span>\
+            <span style="color:var(--muted);font-size:12px">' + (vf.file_count || vf.fileCount || 0) + ' 个文件 · ' + (vf.total_size ? formatFileSize(vf.total_size) : '0 B') + '</span>\
           </div>\
           <div style="border-top:1px solid var(--line);padding-top:10px">\
             <div style="font-size:12px;font-weight:500;color:var(--muted);margin-bottom:6px">🏷️ 标签</div>\

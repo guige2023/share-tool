@@ -1063,7 +1063,7 @@ function getVirtualFolderSize(folderId) {
     JOIN files f ON f.id = vff.file_id
     WHERE vff.folder_id = ?
   `).get(folderId);
-  return { count: row ? row.count : 0, totalSize: row ? row.totalSize : 0 };
+  return { file_count: row ? row.count : 0, total_size: row ? row.totalSize : 0 };
 }
 
 function getVirtualFolder(id) {
