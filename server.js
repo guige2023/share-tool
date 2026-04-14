@@ -849,6 +849,7 @@ function renderPage() {
     <div class="ctx-item" onclick="ctxAction('copyLink')">📋 复制链接</div>
     <div class="ctx-item" onclick="ctxAction('copyName')">📝 复制文件名</div>
     <div class="ctx-item" onclick="ctxAction('copyPath')">📂 复制文件路径</div>
+    <div class="ctx-item" onclick="ctxAction('openInFinder')">🔍 在 Finder 中打开</div>
     <div class="ctx-item" onclick="ctxAction('history')">📜 版本历史</div>
     <div class="ctx-item" onclick="ctxAction('stats')">📊 访问统计</div>
     <div class="ctx-item" onclick="ctxAction('info')">ℹ️ 文件属性</div>
@@ -1128,6 +1129,7 @@ function renderPage() {
         <button class="ghost" onclick="batchMoveSelectedFiles()">移动</button>
         <button class="ghost" onclick="openBatchCopyModal()">复制</button>
         <button class="ghost danger" onclick="batchDeleteSelected()">删除</button>
+        <button class="ghost" onclick="openBatchStatsModal()">📊 统计</button>
         <button class="ghost" onclick="clearFileSelection()">取消</button>
       </div>
       <div class="list-scroll">
@@ -2717,6 +2719,90 @@ function renderPage() {
         }
       } catch(e) {
         showToast('重命名失败: ' + e.message, 'error');
+      }
+    }
+
+    function openBatchStatsModal() {
+      const names = checkedNames().map(function(n) { return decodeURIComponent(n); });
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+
+      const modal = document.getElementById('modal');
+      const title = document.getElementById('modalTitle');
+      const body = document.getElementById('modalBody');
+      title.textContent = '📊 批量统计 (' + names.length + ')';
+      body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)">加载中...</div>';
+      modal.classList.add('open');
+
+      // Build stats from currentFiles (already in memory)
+      const files = names.map(function(n) {
+        return currentFiles.find(function(f) { return (f.name || f.filename) === n; }) || { name: n, filename: n };
+      });
+
+      const totalSize = files.reduce(function(s, f) { return s + (f.size || 0); }, 0);
+      const byType = {};
+      const byExt = {};
+      const byDay = {};
+      files.forEach(function(f) {
+        var type = (f.type || '').toLowerCase() || '未知';
+        byType[type] = (byType[type] || 0) + 1;
+        var dot = f.name.lastIndexOf('.');
+        var ext = dot > 0 ? f.name.slice(dot + 1).toLowerCase() : '(无扩展名)';
+        byExt[ext] = (byExt[ext] || 0) + 1;
+        var day = f.created_at ? new Date(f.created_at * 1000).toLocaleDateString('zh-CN') : '未知';
+        byDay[day] = (byDay[day] || 0) + 1;
+      });
+
+      var typeEntries = Object.entries(byType).sort(function(a, b) { return b[1] - a[1]; });
+      var extEntries = Object.entries(byExt).sort(function(a, b) { return b[1] - a[1]; }).slice(0, 8);
+      var dayEntries = Object.entries(byDay).sort(function(a, b) { return b[0].localeCompare(a[0]); });
+
+      var html = '<div style="max-width:480px">';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">';
+      html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--accent)">' + files.length + '</div><div style="font-size:11px;color:var(--muted);margin-top:2px">文件数</div></div>';
+      html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:10px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--accent)">' + formatFileSize(totalSize) + '</div><div style="font-size:11px;color:var(--muted);margin-top:2px">总体积</div></div>';
+      html += '</div>';
+
+      html += '<div style="margin-bottom:14px">';
+      html += '<div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">按类型</div>';
+      typeEntries.forEach(function(e) {
+        var pct = Math.round(e[1] / files.length * 100);
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+        html += '<span style="min-width:60px;font-size:12px;color:var(--text-secondary)">' + escapeHtmlClient(e[0]) + '</span>';
+        html += '<div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--accent);width:' + pct + '%;border-radius:3px"></div></div>';
+        html += '<span style="min-width:36px;text-align:right;font-size:11px;color:var(--muted)">' + e[1] + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+
+      html += '<div style="margin-bottom:14px">';
+      html += '<div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">按扩展名</div>';
+      extEntries.forEach(function(e) {
+        var pct = Math.round(e[1] / files.length * 100);
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+        html += '<span style="min-width:60px;font-size:12px;color:var(--text-secondary)">' + escapeHtmlClient(e[0]) + '</span>';
+        html += '<div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--primary);width:' + pct + '%;border-radius:3px"></div></div>';
+        html += '<span style="min-width:36px;text-align:right;font-size:11px;color:var(--muted)">' + e[1] + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+
+      html += '<div>';
+      html += '<div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">按创建日期</div>';
+      dayEntries.slice(0, 6).forEach(function(e) {
+        var pct = Math.round(e[1] / files.length * 100);
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+        html += '<span style="min-width:80px;font-size:12px;color:var(--text-secondary)">' + escapeHtmlClient(e[0]) + '</span>';
+        html += '<div style="flex:1;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden"><div style="height:100%;background:#10b981;width:' + pct + '%;border-radius:3px"></div></div>';
+        html += '<span style="min-width:36px;text-align:right;font-size:11px;color:var(--muted)">' + e[1] + '</span>';
+        html += '</div>';
+      });
+      html += '</div>';
+
+      html += '</div>';
+      body.innerHTML = html;
+      var actions = modal.querySelector('.modal-actions');
+      if (actions) {
+        actions.innerHTML = '<button class="secondary" onclick="forceCloseModal()">关闭</button>';
       }
     }
 
