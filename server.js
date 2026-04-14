@@ -940,7 +940,10 @@ function renderPage() {
 
       <!-- Upload Queue Panel -->
       <div id="uploadQueuePanel" style="display:none;background:var(--bg-secondary);border:1px solid var(--line);border-radius:10px;margin-top:8px;overflow:hidden">
-        <div class="uq-title" style="padding:8px 14px;font-size:12px;font-weight:600;border-bottom:1px solid var(--line);background:var(--bg-tertiary)">上传队列</div>
+        <div class="uq-title" style="padding:8px 14px;font-size:12px;font-weight:600;border-bottom:1px solid var(--line);background:var(--bg-tertiary);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>上传队列</span>
+          <span id="offlinePendingBadge" style="display:none;background:#f59e0b;color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;font-weight:600;vertical-align:middle" title="离线待同步"></span>
+        </div>
         <div class="uq-list" style="max-height:200px;overflow-y:auto;padding:0 14px"></div>
       </div>
     </div>
@@ -2802,6 +2805,20 @@ function renderPage() {
         btn.addEventListener('click', function() { cancelUploadItem(parseInt(btn.dataset.i, 10)); });
       });
       updateMobileUploadBadge();
+      // Poll IndexedDB for offline-queued upload count
+      if (window.getOfflinePendingCount) {
+        window.getOfflinePendingCount().then(function(count) {
+          var badge = document.getElementById('offlinePendingBadge');
+          if (badge) {
+            if (count > 0) {
+              badge.textContent = count > 99 ? '99+' : count;
+              badge.style.display = 'inline-block';
+            } else {
+              badge.style.display = 'none';
+            }
+          }
+        });
+      }
     }
 
     function updateQueueItem(i, updates) {
@@ -3117,10 +3134,22 @@ function renderPage() {
         var res = await fetch('/api/recent-files?limit=100', { headers: headers() });
         var data = await res.json();
         if (data.success && data.files) {
-          renderFileList(data.files, 0, data.files.length, data.files.length);
-          updateFileCountDisplay(data.files.length);
-          // Store the files for scroll pagination
+          // Set currentFiles directly and render (fix: renderFileList never existed)
+          currentFiles = data.files.map(function(f, i) { f._index = i; return f; });
+          currentOffset = currentFiles.length;
+          currentTotal = currentFiles.length;
+          window._currentFiles = currentFiles;
           window._recentFilesCache = data.files;
+          // Build empty tagColorMap (recent files don't need tag coloring here)
+          var tagColorMap = {};
+          if (window._folderTagDefinitions) {
+            window._folderTagDefinitions.forEach(function(td) {
+              tagColorMap[td.name] = { color: td.color || '#e0e7ff', icon: td.icon || '' };
+            });
+          }
+          setGalleryFiles(currentFiles.filter(function(f) { return (f.content_type || f.mime || '').startsWith('image/'); }));
+          renderFiles(tagColorMap);
+          updateFileCountDisplay(data.files.length);
         }
       } catch(e) {
         showToast('加载最近文件失败', 'error');
@@ -10516,6 +10545,20 @@ function renderPage() {
     window.addEventListener('offline', function() {
       var banner = document.getElementById('offline-banner');
       if (banner) banner.classList.add('visible');
+      // Check offline pending count when going offline
+      if (window.getOfflinePendingCount) {
+        window.getOfflinePendingCount().then(function(count) {
+          var badge = document.getElementById('offlinePendingBadge');
+          if (badge) {
+            if (count > 0) {
+              badge.textContent = count > 99 ? '99+' : count;
+              badge.style.display = 'inline-block';
+            } else {
+              badge.style.display = 'none';
+            }
+          }
+        });
+      }
     });
     // Show offline banner on initial load if already offline
     if (!navigator.onLine) {
@@ -10527,6 +10570,24 @@ function renderPage() {
     window.syncUploads = function() {
       if (!navigator.serviceWorker.controller) return;
       navigator.serviceWorker.controller.postMessage({ type: 'SYNC_UPLOADS' });
+    };
+
+    // Query IndexedDB pending upload count from SW
+    window.getOfflinePendingCount = function() {
+      if (!navigator.serviceWorker.controller) return Promise.resolve(0);
+      return new Promise(function(resolve) {
+        var mc = new MessageChannel();
+        mc.port1.onmessage = function(e) {
+          mc.port1.close();
+          resolve(e.data && e.data.count || 0);
+        };
+        navigator.serviceWorker.controller.postMessage({ type: 'GET_PENDING_COUNT' }, [mc.port2]);
+        // Timeout fallback
+        setTimeout(function() {
+          try { mc.port1.close(); } catch(e) {}
+          resolve(0);
+        }, 2000);
+      });
     };
 
     // Advanced search panel toggle
