@@ -2659,6 +2659,25 @@ function getMostAccessedFiles(limit = 20, since = null) {
   `).all(...params);
 }
 
+// Global activity log across all files (for admin dashboard)
+function getActivityLog(limit = 200, action = null, since = null) {
+  const db = getDb();
+  const conditions = [];
+  const params = [];
+  if (action) { conditions.push('fal.action = ?'); params.push(action); }
+  if (since) { conditions.push('fal.timestamp >= ?'); params.push(since); }
+  const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+  params.push(limit);
+  return db.prepare(`
+    SELECT fal.*, f.filename, f.size as file_size
+    FROM file_access_log fal
+    LEFT JOIN files f ON fal.file_id = f.id
+    ${where}
+    ORDER BY fal.timestamp DESC
+    LIMIT ?
+  `).all(...params);
+}
+
 function getFileAccessStats(filename) {
   const db = getDb();
   const file = getFileByName(filename);

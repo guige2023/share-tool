@@ -1090,6 +1090,18 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/activity-log - global activity log across all files
+  if (pathname === '/api/activity-log' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const limit = parseInt(query.get('limit') || '200', 10);
+    const action = query.get('action') || null;
+    const since = query.get('since') ? parseInt(query.get('since'), 10) : null;
+    const logs = db.getActivityLog(limit, action, since);
+    sendJson(res, { success: true, logs });
+    return true;
+  }
+
   // GET /api/file-access-stats/:filename - get access stats for a file
   if (pathname.startsWith('/api/file-access-stats/') && method === 'GET') {
     const auth = authRequired(req, res);

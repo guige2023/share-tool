@@ -8138,6 +8138,15 @@ function renderPage() {
           '</div>' +
         '</div>' +
 
+        // Activity log
+        '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">📊 活动日志</label>' +
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:10px">查看所有文件的浏览、下载、上传记录。</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="secondary" style="font-size:13px;padding:6px 14px" onclick="openActivityLog()">📊 查看活动日志</button>' +
+          '</div>' +
+        '</div>';
+
         // Database backup
         '<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">' +
           '<label style="font-weight:600;display:block;margin-bottom:8px">💾 数据库备份</label>' +
@@ -8458,6 +8467,74 @@ function renderPage() {
       }).catch(function(e) {
         showToast('删除失败', 'error');
       });
+    }
+
+    // ── Activity Log ────────────────────────────────────────────────
+    function openActivityLog() {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📊 活动日志';
+      body.innerHTML = '<div id="activityLogContent" style="padding:8px 0"><div style="text-align:center;color:var(--muted);padding:30px">加载中…</div></div>';
+      modal.classList.add('open');
+      loadActivityLog();
+    }
+
+    function loadActivityLog(actionFilter) {
+      var params = '?limit=200';
+      if (actionFilter) params += '&action=' + actionFilter;
+      fetch('/api/activity-log' + params, { headers: headers() }).then(function(res) { return res.json(); }).then(function(data) {
+        if (!data.success) {
+          document.getElementById('activityLogContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败</div>';
+          return;
+        }
+        var logs = data.logs || [];
+        renderActivityLog(logs, actionFilter);
+      }).catch(function(e) {
+        document.getElementById('activityLogContent').innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      });
+    }
+
+    function renderActivityLog(logs, currentFilter) {
+      var html = '<div style="margin-bottom:16px">';
+      var filters = ['', 'view', 'download', 'upload'];
+      var labels = { '': '全部', 'view': '👁 浏览', 'download': '⬇ 下载', 'upload': '⬆ 上传' };
+      filters.forEach(function(f) {
+        var active = f === currentFilter ? 'background:var(--accent);color:white;border-color:var(--accent)' : '';
+        html += '<button onclick="loadActivityLog(\'' + f + '\')" style="padding:5px 12px;margin-right:6px;margin-bottom:6px;border-radius:6px;border:1px solid var(--line);background:var(--bg-secondary);cursor:pointer;font-size:12px;' + active + '">' + labels[f] + '</button>';
+      });
+      html += '</div>';
+
+      if (!logs.length) {
+        html += '<div style="text-align:center;padding:40px;color:var(--muted)">暂无记录</div>';
+      } else {
+        // Group by date
+        var byDate = {};
+        logs.forEach(function(log) {
+          var d = new Date(log.timestamp * 1000).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+          if (!byDate[d]) byDate[d] = [];
+          byDate[d].push(log);
+        });
+
+        html += '<div style="max-height:500px;overflow-y:auto">';
+        Object.keys(byDate).forEach(function(date) {
+          html += '<div style="font-size:11px;font-weight:600;color:var(--muted);padding:6px 0 4px;border-bottom:1px solid var(--line);margin-bottom:4px">' + date + '</div>';
+          byDate[date].forEach(function(log) {
+            var icon = log.action === 'view' ? '👁' : log.action === 'download' ? '⬇' : log.action === 'upload' ? '⬆' : '📄';
+            var actionLabel = log.action === 'view' ? '浏览' : log.action === 'download' ? '下载' : log.action === 'upload' ? '上传' : log.action;
+            var time = new Date(log.timestamp * 1000).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            var fname = log.filename ? '<span style="font-weight:500">' + escapeHtmlClient(log.filename) + '</span>' : '<span style="color:var(--muted)">(文件已删除)</span>';
+            html += '<div style="display:flex;align-items:center;gap:10px;padding:7px 4px;border-radius:6px" onmouseover="this.style.background=\'var(--bg-secondary)\'" onmouseout="this.style.background=\'\'">';
+            html += '<span style="font-size:14px;width:20px;text-align:center">' + icon + '</span>';
+            html += '<span style="font-size:11px;color:var(--muted);width:65px">' + time + '</span>';
+            html += '<span style="font-size:11px;background:var(--bg-secondary);padding:1px 6px;border-radius:4px;width:40px;text-align:center">' + actionLabel + '</span>';
+            html += '<span style="flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + fname + '</span>';
+            html += '</div>';
+          });
+        });
+        html += '</div>';
+      }
+      document.getElementById('activityLogContent').innerHTML = html;
     }
 
     function setLangAndReload(lang) {
