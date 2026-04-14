@@ -9239,6 +9239,80 @@ function renderPage() {
       await loadRequestLinks();
     }
 
+    // ── Request Link Files Modal ─────────────────────────────────────────────
+
+    function openRequestLinkFilesModal(code) {
+      var rl = currentRequestLinks.find(function(r) { return r.code === code; });
+      if (!rl) return;
+      var modal = document.createElement('div');
+      modal.id = 'requestLinkFilesModal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:580px;font-size:14px;max-height:85vh;overflow-y:auto">\
+          <h3 style="margin:0 0 4px">📁 已收集文件 — ' + escapeHtmlClient(rl.name) + '</h3>\
+          <div style="font-size:12px;color:var(--muted);margin-bottom:16px">收集链接: /r/' + escapeHtmlClient(code) + '</div>\
+          <div id="rlFilesBody" style="min-height:60px"><span style="color:var(--muted)">加载中...</span></div>\
+          <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">\
+            <button class="secondary" onclick="closeRlFilesModal()">关闭</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click', function(e) { if (e.target === modal) closeRlFilesModal(); });
+      loadRequestLinkFiles(code);
+    }
+
+    function closeRlFilesModal() {
+      var m = document.getElementById('requestLinkFilesModal');
+      if (m) m.remove();
+    }
+
+    async function loadRequestLinkFiles(code) {
+      var res = await fetch('/api/request-links/' + encodeURIComponent(code) + '/files', { headers: headers() });
+      var data = await res.json();
+      var body = document.getElementById('rlFilesBody');
+      if (!data.success) { body.innerHTML = '<div style="color:var(--error);padding:10px">加载失败: ' + (data.error || '') + '</div>'; return; }
+      var files = data.files || [];
+      if (!files.length) {
+        body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px">暂无文件</div>';
+        return;
+      }
+      var html = '<div style="margin-bottom:10px"><strong>' + files.length + '</strong> 个文件</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:6px">';
+      files.forEach(function(f) {
+        var size = formatFileSize(f.size);
+        var time = new Date(f.uploaded_at * 1000).toLocaleString('zh-CN');
+        html += '<div style="display:flex;align-items:center;padding:8px 10px;background:var(--bg);border-radius:8px;gap:10px;border:1px solid var(--line)">';
+        html += '<span style="font-size:18px">' + getFileIcon(f.filename) + '</span>';
+        html += '<div style="flex:1;min-width:0">';
+        html += '<div style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtmlClient(f.filename) + '</div>';
+        html += '<div style="font-size:11px;color:var(--muted)">' + size + ' · ' + time + '</div>';
+        html += '</div>';
+        html += '<button onclick="deleteRequestLinkFile(\'' + escapeHtmlClient(code) + '\',' + f.id + ',this)" style="padding:4px 10px;background:var(--error);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">删除</button>';
+        html += '</div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+    }
+
+    async function deleteRequestLinkFile(code, fileId, btn) {
+      if (!confirm('确认删除此文件？')) return;
+      btn.disabled = true;
+      try {
+        var res = await fetch('/api/request-links/' + encodeURIComponent(code) + '/files/' + fileId, { method: 'DELETE', headers: headers() });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已删除', 'success');
+          loadRequestLinkFiles(code);
+        } else {
+          showToast(data.error || '删除失败', 'error');
+          btn.disabled = false;
+        }
+      } catch(e) {
+        showToast('删除失败', 'error');
+        btn.disabled = false;
+      }
+    }
+
     // ── Duplicates (重复文件清理) ───────────────────────────────────────────
 
     var selectedDuplicates = new Set();
