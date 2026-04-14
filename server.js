@@ -2075,34 +2075,57 @@ function renderPage() {
 
     async function batchMoveSelectedFiles() {
       if (selectedFileIds.size === 0) return;
-      var vf = prompt('输入目标虚拟文件夹路径（如 uploads/backup）：');
-      if (!vf) return;
-      var btn = event.target;
-      if (btn) { btn.disabled = true; }
+      const names = checkedNames().map(function(n) { return decodeURIComponent(n); });
+      if (!names.length) { showToast('未找到文件', 'error'); return; }
+
+      var modal = document.getElementById('batchMoveModal');
+      if (modal) modal.remove();
+      modal = document.createElement('div');
+      modal.id = 'batchMoveModal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:480px;font-size:14px">\
+          <h3 style="margin:0 0 4px">📂 批量移动文件</h3>\
+          <p style="margin:0 0 16px;font-size:12px;color:var(--muted)">将 <strong>' + names.length + '</strong> 个文件移动到目标收藏夹</p>\
+          <div style="margin-bottom:16px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">目标收藏夹路径</label>\
+            <input id="batchMoveDest" type="text" placeholder="例如：备份/图片（留空表示根目录）" ' +
+              'style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'batchMoveModal\').remove()">取消</button>\
+            <button id="batchMoveBtn" onclick="confirmBatchMove()">确定移动</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+      window._batchMoveFiles = names;
+    }
+
+    async function confirmBatchMove() {
+      var names = window._batchMoveFiles || [];
+      if (!names.length) return;
+      var vf = (document.getElementById('batchMoveDest') || {value: ''}).value.trim();
+      var btn = document.getElementById('batchMoveBtn');
+      if (btn) { btn.disabled = true; btn.textContent = '移动中...'; }
       try {
-        var filenames = [];
-        for (var i = 0; i < window._currentFiles.length; i++) {
-          var f = window._currentFiles[i];
-          if (selectedFileIds.has(String(f.id)) || selectedFileIds.has(f.id)) {
-            filenames.push(f.filename);
-          }
-        }
-        if (!filenames.length) { showToast('未找到文件', 'error'); return; }
         var res = await fetch('/api/files/batch-move', {
           method: 'POST',
           headers: Object.assign(headers(), { 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ filenames: filenames, destFolder: vf })
+          body: JSON.stringify({ filenames: names, destFolder: vf })
         });
         var data = await res.json();
+        var m = document.getElementById('batchMoveModal');
+        if (m) m.remove();
         if (data.success) {
-          showToast('已移动 ' + filenames.length + ' 个文件到 ' + vf, 'success');
+          showToast('已移动 ' + names.length + ' 个文件' + (vf ? ' 到 ' + vf : ''), 'success');
           clearFileSelection();
           loadFiles();
         } else {
           showToast(data.error || '移动失败', 'error');
         }
       } finally {
-        if (btn) { btn.disabled = false; }
+        if (btn) { btn.disabled = false; btn.textContent = '确定移动'; }
       }
     }
 
