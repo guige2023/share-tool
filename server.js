@@ -1159,6 +1159,7 @@ function renderPage() {
         <button class="ghost" onclick="openShareAnalytics()">📈 分析</button>
         <button class="ghost" onclick="openExpiringShares()">⏰ 过期提醒</button>
         <button class="danger" onclick="batchDeleteExpiredShares()">删除过期</button>
+        <input id="shareSearchInput" type="text" placeholder="搜索分享链接..." oninput="filterShareTable()" style="margin-left:auto;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg-secondary);color:var(--text);font-size:13px;max-width:180px">
       </div>
       <div id="shareBatchBar" class="batch-bar" style="display:none">
         <input type="checkbox" id="shareSelectAll" onchange="toggleShareSelectAll(this.checked)" style="margin-right:4px">
@@ -8856,6 +8857,20 @@ function renderPage() {
       currentShares = shares;
       updateShareSortArrows();
       renderShareTable(applyShareSort(shares));
+    }
+
+    function filterShareTable() {
+      var q = document.getElementById('shareSearchInput').value.trim().toLowerCase();
+      if (!q) {
+        renderShareTable(applyShareSort(currentShares));
+        return;
+      }
+      var filtered = currentShares.filter(function(s) {
+        return (s.filename && s.filename.toLowerCase().includes(q)) ||
+               (s.code && s.code.toLowerCase().includes(q)) ||
+               (s.url && s.url.toLowerCase().includes(q));
+      });
+      renderShareTable(applyShareSort(filtered));
     }
 
     function renderShareTable(shares) {
