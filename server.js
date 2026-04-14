@@ -1628,6 +1628,66 @@ function renderPage() {
     }
 
     // Check for expiring share/request links and add notifications
+    // ── Sync Conflicts ──────────────────────────────────────────────
+    async function checkSyncConflicts() {
+      try {
+        var data = await request('/api/sync/conflicts');
+        if (!data || !data.success) return;
+        var conflicts = data.conflicts || [];
+        if (!conflicts.length) return;
+        openSyncConflictsModal(conflicts);
+      } catch(e) {}
+    }
+
+    async function openSyncConflictsModal(conflicts) {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '⚠️ 同步冲突 (' + conflicts.length + ')';
+      var html = '<div style="color:var(--muted);font-size:12px;margin-bottom:12px">以下文件在多个设备同时修改，请选择保留哪个版本：</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto">';
+      conflicts.forEach(function(c) {
+        var ts = new Date((c.detected_at || 0) * 1000).toLocaleString('zh-CN');
+        html += '<div style="border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--bg-secondary)">' +
+          '<div style="font-weight:600;margin-bottom:6px">' + escapeHtmlClient(c.filename) + '</div>' +
+          '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">检测时间: ' + ts + '</div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap">';
+        html += '<button onclick="resolveSyncConflict(' + c.id + ',\'keep_local\')" style="flex:1;padding:6px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">📱 保留本地</button>';
+        html += '<button onclick="resolveSyncConflict(' + c.id + ',\'keep_remote\')" style="flex:1;padding:6px;background:#8b5cf6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">☁️ 保留云端</button>';
+        html += '<button onclick="resolveSyncConflict(' + c.id + ',\'keep_both\')" style="flex:1;padding:6px;background:#22c55e;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px">📋 保留两者</button>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+      var actions = modal.querySelector('.modal-actions');
+      if (actions) actions.innerHTML = '<button class="secondary" onclick="closeModal()">稍后处理</button>';
+      modal.classList.add('open');
+    }
+
+    async function resolveSyncConflict(conflictId, resolution) {
+      try {
+        var res = await fetch('/api/sync/conflicts/' + conflictId + '/resolve', {
+          method: 'POST',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ resolution: resolution })
+        });
+        var data = await res.json();
+        if (data.success) {
+          showToast('已解决', 'success');
+          closeModal();
+          loadFiles();
+          // Refresh conflict count
+          var remaining = await request('/api/sync/conflicts');
+          var count = (remaining.conflicts || []).length;
+          if (count > 0) {
+            openSyncConflictsModal(remaining.conflicts);
+          }
+        } else {
+          showToast(data.error || '解决失败', 'error');
+        }
+      } catch(e) { showToast('解决失败', 'error'); }
+    }
+
     async function checkExpiringLinks() {
       try {
         var data = await request('/api/expiring-links');
@@ -1686,6 +1746,7 @@ function renderPage() {
       setupInfiniteScroll();
       showWelcomeIfNeeded();
       checkNewVersion();
+      checkSyncConflicts();
       checkExpiringLinks();
 
       // URL param ?f=filename - highlight and scroll to specific file
@@ -6537,18 +6598,7 @@ function renderPage() {
           if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
           if (_batchTagChips.length) return; // don't intercept when tagging
           e.preventDefault();
-          var currentPath = getCurrentVirtualFolder();
-          if (currentPath) {
-            var parent = currentPath.split('/').slice(0, -1).join('/');
-            navigateToVirtualFolder(parent || null);
-          } else {
-            // Already at root, try to go up via hash
-            var hash = location.hash;
-            if (hash.startsWith('#/')) {
-              var folderPart = decodeURIComponent(hash.substring(2).split('/')[0]);
-              if (folderPart) navigateToVirtualFolder(null);
-            }
-          }
+          exitVirtualFolder();
           showToast('↩ 返回上级', 'info', 1500);
           break;
         }
