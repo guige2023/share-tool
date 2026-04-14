@@ -5412,7 +5412,31 @@ function renderPage() {
       return t.firstElementChild;
     }
 
+    function getDateGroup(timestamp) {
+      if (!timestamp) return '更早';
+      var now = new Date();
+      var d = new Date(timestamp * 1000);
+      var todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      var weekStart = todayStart - (now.getDay() || 7) * 86400000;
+      var lastWeekStart = weekStart - 7 * 86400000;
+      var ts = d.getTime();
+      if (ts >= todayStart) return '今天';
+      if (ts >= todayStart - 86400000) return '昨天';
+      if (ts >= weekStart) return '本周';
+      if (ts >= lastWeekStart) return '上周';
+      return '更早';
+    }
+
+    var _dateGroupEnabled = false;
+    function toggleDateGroup() {
+      _dateGroupEnabled = !_dateGroupEnabled;
+      var btn = document.getElementById('dateGroupToggle');
+      if (btn) btn.style.background = _dateGroupEnabled ? 'var(--accent)' : 'var(--bg-tertiary)';
+      renderFiles(window._currentTagColorMap || {});
+    }
+
     function renderFiles(tagColorMap) {
+      window._currentTagColorMap = tagColorMap;
       const empty = document.getElementById('fileEmpty');
       const listBody = document.getElementById('fileTableBody');
       const gridBody = document.getElementById('fileTableGrid');
@@ -5477,9 +5501,34 @@ function renderPage() {
       } else {
         document.getElementById('fileTable').style.display = 'table';
         gridBody.style.display = 'none';
-        listBody.innerHTML = currentFiles.map(function(file) {
-          return renderFileRow(file, tagColorMap);
-        }).join('');
+        if (_dateGroupEnabled) {
+          // Group by date
+          var groups = { '今天': [], '昨天': [], '本周': [], '上周': [], '更早': [] };
+          currentFiles.forEach(function(file) {
+            var g = getDateGroup(file.updated_at);
+            if (!groups[g]) groups[g] = [];
+            groups[g].push(file);
+          });
+          var html = '';
+          var groupOrder = ['今天', '昨天', '本周', '上周', '更早'];
+          var groupIcons = { '今天': '📅', '昨天': '📆', '本周': '📅', '上周': '📅', '更早': '📂' };
+          groupOrder.forEach(function(group) {
+            var files = groups[group];
+            if (!files || !files.length) return;
+            html += '<tr class="date-group-header" style="background:var(--bg-secondary);cursor:default">' +
+              '<td colspan="7" style="padding:8px 12px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--line)">' +
+              groupIcons[group] + ' ' + group + ' <span style="font-weight:400;opacity:.7">(' + files.length + ')</span>' +
+              '</td></tr>';
+            files.forEach(function(file) {
+              html += renderFileRow(file, tagColorMap);
+            });
+          });
+          listBody.innerHTML = html;
+        } else {
+          listBody.innerHTML = currentFiles.map(function(file) {
+            return renderFileRow(file, tagColorMap);
+          }).join('');
+        }
       }
 
       // Set up drag-and-drop for file reordering (list view only, sort by position)
@@ -6235,7 +6284,7 @@ function renderPage() {
 
       // ? shows keyboard shortcuts
       if (e.key === '?') {
-        openKeyboardShortcutsModal();
+        openKeyboardHelp();
         return;
       }
 

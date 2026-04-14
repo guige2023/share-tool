@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 20; // v20: virtual_folders.password_hash
+const SCHEMA_VERSION = 21; // v21: sync_conflicts table
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -102,6 +102,7 @@ function initDatabase() {
     initSchemaV18(db); // v18: share_links.label
     initSchemaV19(db); // v19: share_link_stats table
     initSchemaV20(db); // v20: virtual_folders.password_hash
+    initSchemaV21(db); // v21: sync_conflicts table
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
     console.log('[DB] Fresh database initialized (v1-v20 schema)');
     return;
@@ -747,6 +748,33 @@ function initSchemaV20(db) {
   }
 }
 
+function initSchemaV21(db) {
+  // v21: sync_conflicts table — track file sync conflicts for resolution
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS sync_conflicts (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename        TEXT    NOT NULL,
+        local_hash      TEXT,
+        remote_hash     TEXT,
+        local_content   TEXT,
+        remote_content  TEXT,
+        local_device_id TEXT,
+        remote_device_id TEXT,
+        detected_at     INTEGER DEFAULT (unixepoch()),
+        resolved        INTEGER DEFAULT 0,
+        resolution      TEXT    DEFAULT NULL,
+        resolved_at     INTEGER DEFAULT NULL
+      )
+    `);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sc_filename ON sync_conflicts(filename)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_sc_resolved ON sync_conflicts(resolved)`);
+    console.log('[DB] Migrated: sync_conflicts table');
+  } catch (e) {
+    console.warn('[DB] Migration v21 failed:', e.message);
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {
@@ -841,6 +869,8 @@ function runMigrations(db, fromVersion) {
       // v19: no-op
     } else if (v === 20) {
       initSchemaV20(db);
+    } else if (v === 21) {
+      initSchemaV21(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
