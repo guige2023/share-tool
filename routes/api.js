@@ -1240,6 +1240,26 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // ── Batch Rename ──────────────────────────────────────────────────────────
+  // POST /api/file-rename-batch - batch rename files (body: { operations: [{oldFilename, newFilename}] })
+  if (pathname === '/api/file-rename-batch' && method === 'POST') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const body = await readJsonBody(req);
+    const { operations } = body;
+    if (!Array.isArray(operations) || operations.length === 0) {
+      sendJson(res, { success: false, error: 'operations array required' }, 400);
+      return true;
+    }
+    const db = require('./db');
+    const result = db.batchRenameFiles(operations);
+    if (result.renamed > 0) {
+      global.broadcastSSE({ type: 'files_renamed', operations });
+    }
+    sendJson(res, { success: true, renamed: result.renamed, errors: result.errors });
+    return true;
+  }
+
   // ── Notifications ────────────────────────────────────────────────────────
   // GET /api/notifications - list notifications
   if (pathname === '/api/notifications' && method === 'GET') {
