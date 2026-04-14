@@ -7485,6 +7485,19 @@ function renderPage() {
           '</label>' +
         '</div>' +
 
+        // Trash auto-cleanup
+        '<div>' +
+          '<label style="font-weight:600;display:block;margin-bottom:8px">🗑️ 回收站自动清理</label>' +
+          '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">进入回收站超过此天数的文件将自动永久删除（不开启则永不自动清理）</div>' +
+          '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+            '<button id="tacOff" class="secondary" style="font-size:12px;padding:5px 10px" onclick="setTrashAutoClean(0)">不开启</button>' +
+            '<button id="tac7" class="secondary" style="font-size:12px;padding:5px 10px" onclick="setTrashAutoClean(7)">7天</button>' +
+            '<button id="tac30" class="secondary" style="font-size:12px;padding:5px 10px" onclick="setTrashAutoClean(30)">30天</button>' +
+            '<button id="tac90" class="secondary" style="font-size:12px;padding:5px 10px" onclick="setTrashAutoClean(90)">90天</button>' +
+          '</div>' +
+          '<div id="trashAutoCleanStatus" style="font-size:11px;color:var(--muted);margin-top:6px"></div>' +
+        '</div>' +
+
         // Keyboard shortcuts
         '<div>' +
           '<label style="font-weight:600;display:block;margin-bottom:8px">键盘快捷键</label>' +
@@ -7535,6 +7548,7 @@ function renderPage() {
       modal.classList.add('open');
       loadSettingsInfo();
       loadShareTemplatesSettings();
+      loadTrashAutoCleanSetting();
     }
 
     async function openStorageStats() {
@@ -9140,7 +9154,29 @@ function renderPage() {
     }
 
     async function permanentDeleteTrashItem(trashId) {
-      if (!confirm('彻底删除后无法恢复，确定？')) return;
+      var m = document.getElementById('confirmDeleteModal');
+      if (m) m.remove();
+      m = document.createElement('div');
+      m.id = 'confirmDeleteModal';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
+      m.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:380px;font-size:14px;text-align:center">\
+          <div style="font-size:40px;margin-bottom:12px">⚠️</div>\
+          <h3 style="margin:0 0 8px">彻底删除文件？</h3>\
+          <p style="margin:0 0 20px;font-size:13px;color:var(--muted)">此操作不可恢复，确定要彻底删除吗？</p>\
+          <div style="display:flex;gap:10px;justify-content:center">\
+            <button class="secondary" onclick="document.getElementById(\'confirmDeleteModal\').remove()">取消</button>\
+            <button class="danger" onclick="doPermanentDeleteTrash(' + trashId + ')">确认删除</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(m);
+      m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
+      window._pendingDeleteTrashId = trashId;
+    }
+
+    async function doPermanentDeleteTrash(trashId) {
+      var m = document.getElementById('confirmDeleteModal');
+      if (m) m.remove();
       try {
         const res = await fetch('/api/trash/delete', {
           method: 'POST',
@@ -9177,19 +9213,40 @@ function renderPage() {
 
     async function confirmEmptyTrash() {
       const count = document.getElementById('trashCount') ? document.getElementById('trashCount').textContent : '所有';
-      if (!confirm('\u786e\u5b9a\u6e05\u7a7a\u56de\u6536\u7ad9\uff1f' + count + '\u4e2a\u6587\u4ef6\u5c06\u88ab\u6c38\u4e45\u5220\u9664\u3002')) return;
+      var m = document.getElementById('confirmEmptyTrashModal');
+      if (m) m.remove();
+      m = document.createElement('div');
+      m.id = 'confirmEmptyTrashModal';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
+      m.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:400px;font-size:14px;text-align:center">\
+          <div style="font-size:40px;margin-bottom:12px">🗑️</div>\
+          <h3 style="margin:0 0 8px">确定清空回收站？</h3>\
+          <p style="margin:0 0 20px;font-size:13px;color:var(--muted)"><strong>' + count + '</strong> 个文件将被永久删除，此操作不可恢复。</p>\
+          <div style="display:flex;gap:10px;justify-content:center">\
+            <button class="secondary" onclick="document.getElementById(\'confirmEmptyTrashModal\').remove()">取消</button>\
+            <button class="danger" onclick="doEmptyTrash()">确认清空</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(m);
+      m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
+    }
+
+    async function doEmptyTrash() {
+      var m = document.getElementById('confirmEmptyTrashModal');
+      if (m) m.remove();
       try {
         const res = await fetch('/api/trash/empty', { method: 'POST', headers: headers() });
         const data = await res.json();
         if (data.success) {
-          showToast('\u56de\u6536\u7ad9\u5df2\u6e05\u7a7a', 'success');
+          showToast('回收站已清空', 'success');
           closeModal();
           loadFiles();
         } else {
-          showToast('\u6e05\u7a7a\u5931\u8d25: ' + (data.error || '\u672a\u77e5\u9519\u8bef'), 'error');
+          showToast('清空失败: ' + (data.error || '未知错误'), 'error');
         }
       } catch (e) {
-        showToast('\u6e05\u7a7a\u5931\u8d25: ' + e.message, 'error');
+        showToast('清空失败: ' + e.message, 'error');
       }
     }
 
@@ -12478,6 +12535,48 @@ function startCleanupScheduler() {
 function createApp() {
   return http.createServer(requestHandler);
 }
+
+    function loadTrashAutoCleanSetting() {
+      var saved = parseInt(localStorage.getItem('trashAutoCleanDays') || '0', 10);
+      var status = document.getElementById('trashAutoCleanStatus');
+      // Highlight the active button
+      ['tacOff','tac7','tac30','tac90'].forEach(function(id) {
+        var btn = document.getElementById(id);
+        if (!btn) return;
+        var days = id === 'tacOff' ? 0 : id === 'tac7' ? 7 : id === 'tac30' ? 30 : 90;
+        btn.className = (saved === days) ? 'primary' : 'secondary';
+      });
+      if (status) {
+        if (saved > 0) {
+          status.textContent = '已开启：进入回收站超过 ' + saved + ' 天的文件将自动永久删除';
+        } else {
+          status.textContent = '未开启自动清理';
+        }
+      }
+    }
+
+    function setTrashAutoClean(days) {
+      localStorage.setItem('trashAutoCleanDays', String(days));
+      loadTrashAutoCleanSetting();
+      showToast(days > 0 ? '已设置为 ' + days + ' 天后自动清理' : '已关闭自动清理', 'info');
+    }
+
+    async function runTrashAutoClean() {
+      var days = parseInt(localStorage.getItem('trashAutoCleanDays') || '0', 10);
+      if (!days) return;
+      try {
+        var res = await fetch('/api/trash/auto-clean?days=' + days, { headers: headers() });
+        var data = await res.json();
+        if (data.deleted > 0) {
+          console.log('[TrashAutoClean] Deleted ' + data.deleted + ' old trash items');
+        }
+      } catch(e) {
+        console.error('[TrashAutoClean] Failed:', e);
+      }
+    }
+
+    // Run trash auto-clean on startup (after a short delay to let server start)
+    setTimeout(runTrashAutoClean, 5000);
 
 async function start() {
   const { key, cert } = await getOrCreateCertificate();
