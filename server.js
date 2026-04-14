@@ -1222,7 +1222,7 @@ function renderPage() {
     <section class="panel request-links" style="margin-top:18px">
       <h2>文件收集链接</h2>
       <div class="toolbar" style="margin-bottom:12px;flex-wrap:wrap;gap:6px">
-        <input id="requestLinkSearchInput" type="text" placeholder="搜索收集链接" style="flex:1 1 180px">
+        <input id="requestLinkSearchInput" type="text" placeholder="搜索收集链接" oninput="filterRequestLinks()" style="flex:1 1 180px">
         <button class="secondary" onclick="filterRequestLinks()">过滤</button>
         <button class="primary" onclick="openRequestLinkCreateModal()">+ 新建收集链接</button>
       </div>
