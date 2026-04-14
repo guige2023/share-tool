@@ -905,6 +905,7 @@ function renderPage() {
           <option value="en">🇺🇸 English</option>
         </select>
         <button id="notifBell" onclick="toggleNotificationPanel()" title="通知" style="background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;padding:6px 10px;cursor:pointer;font-size:16px;position:relative;line-height:1">🔔<span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:999px;font-size:10px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-weight:bold;line-height:1"></span></button>
+        <button id="notifSoundToggle" onclick="toggleNotificationSound()" title="通知声音" style="background:var(--bg-secondary);border:1px solid var(--line);border-radius:12px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1">🔕</button>
       </div>
       <div class="meta">
         <div class="chip">局域网地址 https://${escapeHtml(pageInfo.localIp)}:${pageInfo.port}</div>
@@ -1873,18 +1874,18 @@ function renderPage() {
     }
 
     // ── Theme Toggle ────────────────────────────────────────────────────
-    var THEME_KEY = 'sharetool_theme';
-
     function setTheme(theme) {
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem(THEME_KEY, theme);
+      document.documentElement.setAttribute('data-theme', theme === 'dark' ? 'dark' : '');
+      localStorage.setItem(STORAGE_KEY_THEME_MODE, theme === 'dark' ? 'dark' : (theme === 'light' ? 'light' : 'system'));
+      localStorage.setItem(STORAGE_KEY_THEME_RESOLVED, theme === 'dark' ? 'dark' : 'light');
       var btn = document.getElementById('themeToggleBtn');
-      if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+      if (btn) btn.textContent = (theme === 'dark' || (theme !== 'light' && document.documentElement.getAttribute('data-theme') === 'dark')) ? '☀️' : '🌙';
     }
 
     function toggleTheme() {
       var current = document.documentElement.getAttribute('data-theme');
-      setTheme(current === 'dark' ? 'light' : 'dark');
+      var newTheme = current === 'dark' ? 'light' : 'dark';
+      setTheme(newTheme);
     }
 
     // Apply saved theme on load
@@ -6343,6 +6344,13 @@ function renderPage() {
         e.preventDefault();
         var si = document.getElementById('searchInput');
         if (si) { si.focus(); si.select(); }
+        return;
+      }
+
+      // Ctrl/Cmd+Shift+D → toggle dark/light theme
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        toggleTheme();
         return;
       }
 
@@ -12837,6 +12845,47 @@ function renderPage() {
       } else {
         badge.style.display = 'none';
       }
+      // Play sound if count increased and sound is enabled
+      if (count > 0 && window._notifSoundEnabled !== false) {
+        var prev = parseInt(badge.dataset.prevCount || '0', 10);
+        if (count > prev) playNotificationChime();
+      }
+      badge.dataset.prevCount = count;
+    }
+
+    var _notifSoundEnabled = localStorage.getItem('notifSound') !== 'off';
+    function toggleNotificationSound() {
+      _notifSoundEnabled = !_notifSoundEnabled;
+      localStorage.setItem('notifSound', _notifSoundEnabled ? 'on' : 'off');
+      var btn = document.getElementById('notifSoundToggle');
+      if (btn) btn.textContent = _notifSoundEnabled ? '🔔' : '🔕';
+      if (_notifSoundEnabled) playNotificationChime();
+    }
+
+    function updateNotifSoundButton() {
+      var btn = document.getElementById('notifSoundToggle');
+      if (btn) btn.textContent = _notifSoundEnabled ? '🔔' : '🔕';
+    }
+
+    // Web Audio API chime — no external files needed
+    function playNotificationChime() {
+      try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5 chord arpeggio
+        frequencies.forEach(function(freq, i) {
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.12);
+          gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + i * 0.12 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.3);
+          osc.start(ctx.currentTime + i * 0.12);
+          osc.stop(ctx.currentTime + i * 0.12 + 0.35);
+        });
+      } catch(e) {}
     }
 
     function renderNotificationList(notifs) {

@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 21; // v21: sync_conflicts table
+const SCHEMA_VERSION = 22; // v22: virtual_folders.quota_bytes
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -775,6 +775,20 @@ function initSchemaV21(db) {
   }
 }
 
+function initSchemaV22(db) {
+  // v22: add quota_bytes to virtual_folders
+  try {
+    db.exec(`ALTER TABLE virtual_folders ADD COLUMN quota_bytes INTEGER DEFAULT 0`);
+    console.log('[DB] Migrated: virtual_folders.quota_bytes');
+  } catch (e) {
+    if (e.message.includes('duplicate column')) {
+      console.log('[DB] v22 column already exists, skipping');
+    } else {
+      console.warn('[DB] Migration v22 failed:', e.message);
+    }
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {
@@ -871,6 +885,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV20(db);
     } else if (v === 21) {
       initSchemaV21(db);
+    } else if (v === 22) {
+      initSchemaV22(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -1258,6 +1274,7 @@ function updateVirtualFolder(id, updates) {
   if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
   if (updates.description !== undefined) { fields.push('description = ?'); values.push(updates.description); }
   if (updates.color !== undefined) { fields.push('color = ?'); values.push(updates.color); }
+  if (updates.quota_bytes !== undefined) { fields.push('quota_bytes = ?'); values.push(updates.quota_bytes); }
   if (fields.length === 0) return { success: false, error: 'No fields to update' };
   values.push(id);
   db.prepare(`UPDATE virtual_folders SET ${fields.join(', ')} WHERE id = ?`).run(...values);
@@ -2214,14 +2231,16 @@ function pruneAllFileVersions(keepCount = 10) {
 // ============================================================
 function findDuplicates() {
   const db = getDb();
-  // 找 hash 出现2次以上的文件（忽略 null hash）
+  // Find hashes appearing more than once (exclude null hashes and deleted files)
   const dupes = db.prepare(`
     SELECT hash, COUNT(*) as count,
       GROUP_CONCAT(filename, '|||') as filenames,
       GROUP_CONCAT(id, '|||') as ids,
-      GROUP_CONCAT(COALESCE(size, 0), '|||') as sizes
+      GROUP_CONCAT(COALESCE(size, 0), '|||') as sizes,
+      GROUP_CONCAT(COALESCE(created_at, 0), '|||') as created_ats,
+      GROUP_CONCAT(COALESCE(virtual_folder, ''), '|||') as virtual_folders
     FROM files
-    WHERE hash IS NOT NULL AND hash != ''
+    WHERE hash IS NOT NULL AND hash != '' AND deleted = 0
     GROUP BY hash
     HAVING count > 1
     ORDER BY count DESC
@@ -2231,13 +2250,19 @@ function findDuplicates() {
     const filenames = row.filenames.split('|||');
     const ids = row.ids.split('|||');
     const sizes = (row.sizes || '').split('|||').map(Number);
+    const createdAts = (row.created_ats || '').split('|||').map(Number);
     const totalSize = sizes.reduce((a, b) => a + b, 0);
     return {
       hash: row.hash,
       count: row.count,
       totalSize,
       wastedSpace: totalSize - (sizes[0] || 0),
-      files: filenames.map((filename, i) => ({ id: parseInt(ids[i]), filename, size: sizes[i] || 0 }))
+      files: filenames.map((filename, i) => ({
+        id: parseInt(ids[i]),
+        filename,
+        size: sizes[i] || 0,
+        created_at: createdAts[i] || 0
+      }))
     };
   });
 }
@@ -2370,38 +2395,6 @@ function getStorageStats() {
       { label: '>= 100MB', count: sr.ge_100mb_count || 0,     size: sr.ge_100mb_size || 0 }
     ]
   };
-}
-
-// Find files with identical content (same hash) — returns duplicate groups with size savings
-function findDuplicateHashes() {
-  const db = getDb();
-  // Find hashes that appear more than once (excluding null hashes and deleted files)
-  const dupes = db.prepare(`
-    SELECT hash, COUNT(*) as count, SUM(size) as total_size
-    FROM files
-    WHERE hash IS NOT NULL AND deleted = 0
-    GROUP BY hash
-    HAVING COUNT(*) > 1
-    ORDER BY total_size DESC
-  `).all();
-
-  const groups = dupes.map(d => {
-    const files = db.prepare(`
-      SELECT id, filename, size, content_type, virtual_folder, created_at
-      FROM files
-      WHERE hash = ? AND deleted = 0
-      ORDER BY created_at ASC
-    `).all(d.hash);
-    return {
-      hash: d.hash,
-      count: d.count,
-      total_size: d.total_size,
-      wasted_space: d.total_size - (files[0] ? files[0].size : 0),
-      files
-    };
-  });
-
-  return groups;
 }
 
 // 获取虚拟文件夹大小（所有前缀匹配的文件累计大小）
