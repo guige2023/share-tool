@@ -965,24 +965,30 @@ function renderPage() {
           </div>
         </div>
         <div style="position:relative">
-          <button id="sortDropdownBtn" class="ghost" onclick="toggleSortDropdown()" title="排序方式" style="min-width:90px;font-size:13px">
-            <span id="sortDropdownLabel">↕ 更新时间</span>
-          </button>
-          <div id="sortDropdownMenu" style="display:none;position:absolute;top:calc(100%+4px);left:0;z-index:1000;background:var(--bg-secondary);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:160px;padding:6px 0;font-size:13px">
-            <div class="ctx-item" onclick="setSortFromDropdown('updated_at','desc')" id="sortItem-updated_at-desc">↕ 最新优先</div>
-            <div class="ctx-item" onclick="setSortFromDropdown('updated_at','asc')" id="sortItem-updated_at-asc">↑ 最旧优先</div>
-            <div class="ctx-item" onclick="setSortFromDropdown('filename','asc')" id="sortItem-filename-asc">A↕ 名称 A-Z</div>
-            <div class="ctx-item" onclick="setSortFromDropdown('filename','desc')" id="sortItem-filename-desc">Z↕ 名称 Z-A</div>
-            <div class="ctx-item" onclick="setSortFromDropdown('size','desc')" id="sortItem-size-desc">⬇ 最大优先</div>
-            <div class="ctx-item" onclick="setSortFromDropdown('size','asc')" id="sortItem-size-asc">⬆ 最小优先</div>
-            <div class="ctx-item" onclick="setSortFromDropdown('created_at','desc')" id="sortItem-created_at-desc">🕐 最新创建</div>
-            <div class="ctx-item" onclick="setSortFromDropdown('created_at','asc')" id="sortItem-created_at-asc">🕐 最旧创建</div>
-            <div class="ctx-item" onclick="setSortFromDropdown('type','asc')" id="sortItem-type-asc">📂 类型</div>
-            <div style="border-top:1px solid var(--line);margin:4px 0"></div>
-            <div class="ctx-item" onclick="setSortFromDropdown('position','asc')" id="sortItem-position-asc">📌 手动排序</div>
-            <div style="border-top:1px solid var(--line);margin:4px 0"></div>
-            <div class="ctx-item" onclick="showRecentFiles()" id="sortItem-recent" style="color:var(--accent);font-weight:500">🕐 最近访问</div>
-          </div>
+          <button id="sortDropdownBtn" class="ghost" onclick="toggleSortDropdown()" title="排序方式" style="min-width:90px;font-size:13px">\
+            <span id="sortDropdownLabel">↕ 更新时间</span>\
+          </button>\
+          <div style="display:flex;gap:2px;margin-left:2px">\
+            <button id="qs-updated" onclick="setSortFromDropdown('updated_at','desc')" title="最新优先" style="padding:4px 8px;font-size:11px;border-radius:6px;border:none;cursor:pointer;background:var(--bg-tertiary);color:var(--muted)">↕</button>\
+            <button id="qs-name" onclick="setSortFromDropdown('filename','asc')" title="名称 A-Z" style="padding:4px 8px;font-size:11px;border-radius:6px;border:none;cursor:pointer;background:var(--bg-tertiary);color:var(--muted)">A↓</button>\
+            <button id="qs-size" onclick="setSortFromDropdown('size','desc')" title="最大优先" style="padding:4px 8px;font-size:11px;border-radius:6px;border:none;cursor:pointer;background:var(--bg-tertiary);color:var(--muted)">⬇</button>\
+            <button id="qs-type" onclick="setSortFromDropdown('type','asc')" title="按类型" style="padding:4px 8px;font-size:11px;border-radius:6px;border:none;cursor:pointer;background:var(--bg-tertiary);color:var(--muted)">📂</button>\
+          </div>\
+          <div id="sortDropdownMenu" style="display:none;position:absolute;top:calc(100%+4px);left:0;z-index:1000;background:var(--bg-secondary);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:160px;padding:6px 0;font-size:13px">\
+            <div class="ctx-item" onclick="setSortFromDropdown('updated_at','desc')" id="sortItem-updated_at-desc">↕ 最新优先</div>\
+            <div class="ctx-item" onclick="setSortFromDropdown('updated_at','asc')" id="sortItem-updated_at-asc">↑ 最旧优先</div>\
+            <div class="ctx-item" onclick="setSortFromDropdown('filename','asc')" id="sortItem-filename-asc">A↕ 名称 A-Z</div>\
+            <div class="ctx-item" onclick="setSortFromDropdown('filename','desc')" id="sortItem-filename-desc">Z↕ 名称 Z-A</div>\
+            <div class="ctx-item" onclick="setSortFromDropdown('size','desc')" id="sortItem-size-desc">⬇ 最大优先</div>\
+            <div class="ctx-item" onclick="setSortFromDropdown('size','asc')" id="sortItem-size-asc">⬆ 最小优先</div>\
+            <div class="ctx-item" onclick="setSortFromDropdown('created_at','desc')" id="sortItem-created_at-desc">🕐 最新创建</div>\
+            <div class="ctx-item" onclick="setSortFromDropdown('created_at','asc')" id="sortItem-created_at-asc">🕐 最旧创建</div>\
+            <div class="ctx-item" onclick="setSortFromDropdown('type','asc')" id="sortItem-type-asc">📂 类型</div>\
+            <div style="border-top:1px solid var(--line);margin:4px 0"></div>\
+            <div class="ctx-item" onclick="setSortFromDropdown('position','asc')" id="sortItem-position-asc">📌 手动排序</div>\
+            <div style="border-top:1px solid var(--line);margin:4px 0"></div>\
+            <div class="ctx-item" onclick="showRecentFiles()" id="sortItem-recent" style="color:var(--accent);font-weight:500">🕐 最近访问</div>\
+          </div>\
         </div>
         <button id="vfBtn" class="ghost" onclick="toggleVirtualFolderMenu()" title="收藏夹">⭐</button>
         <div id="vfMenu" style="display:none;position:absolute;z-index:1000;background:var(--bg-secondary);border:1px solid var(--line);border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.15);min-width:180px;padding:6px 0;font-size:13px;margin-top:4px">
@@ -1616,6 +1622,8 @@ function renderPage() {
       loadFiles();
       loadShares();
       updateSortDropdownLabel();
+      updateSortDropdownActive();
+      updateQuickSortButtons();
       loadStorageStats();
       setupInfiniteScroll();
       showWelcomeIfNeeded();
@@ -3745,6 +3753,8 @@ function renderPage() {
       localStorage.setItem('sortBy', sort);
       localStorage.setItem('sortOrder', order);
       updateSortDropdownLabel();
+      updateSortDropdownActive();
+      updateQuickSortButtons();
       closeAllDropdowns();
       loadFiles();
     }
@@ -3772,6 +3782,23 @@ function renderPage() {
       items.forEach(function(item) { item.style.fontWeight = ''; item.style.color = ''; });
       var active = document.getElementById('sortItem-' + currentSort + '-' + currentOrder);
       if (active) { active.style.fontWeight = '600'; active.style.color = 'var(--accent)'; }
+    }
+
+    function updateQuickSortButtons() {
+      var qsKeys = { 'updated_at-desc': 'qs-updated', 'filename-asc': 'qs-name', 'size-desc': 'qs-size', 'type-asc': 'qs-type' };
+      var key = currentSort + '-' + currentOrder;
+      var activeId = qsKeys[key];
+      ['qs-updated', 'qs-name', 'qs-size', 'qs-type'].forEach(function(id) {
+        var btn = document.getElementById(id);
+        if (!btn) return;
+        if (id === activeId) {
+          btn.style.background = 'var(--accent)';
+          btn.style.color = 'white';
+        } else {
+          btn.style.background = 'var(--bg-tertiary)';
+          btn.style.color = 'var(--muted)';
+        }
+      });
     }
 
     function closeAllDropdowns() {
@@ -7903,7 +7930,16 @@ function renderPage() {
         const data = await res.json();
         if (!data.success) { throw new Error(data.error); }
 
-        const tags = data.tags || [];
+        // Also fetch tag definitions (icons) in parallel
+        const tagDefRes = await fetch('/api/folder-tags', { headers: headers() });
+        const tagDefData = await tagDefRes.json();
+        const tagDefMap = {};
+        (tagDefData.tags || []).forEach(function(td) { tagDefMap[td.name] = td; });
+
+        const tags = (data.tags || []).map(function(t) {
+          t.icon = (tagDefMap[t.tag] && tagDefMap[t.tag].icon) || '';
+          return t;
+        });
         const colorPresets = ['#e0e7ff','#fce7f3','#dcfce7','#fef9c3','#ffedd5','#f3e8ff','#ecfeff','#ffe4e6','#f0fdf4'];
 
         // Tag statistics
@@ -8101,6 +8137,45 @@ function renderPage() {
       });
       const data = await res.json();
       if (data.success) {
+        openTagManager();
+      }
+    }
+
+    async function openTagIconPicker(tag) {
+      const tagDefRes = await fetch('/api/folder-tags', { headers: headers() });
+      const tagDefData = await tagDefRes.json();
+      const tagDefs = tagDefData.tags || [];
+      const td = tagDefs.find(function(t) { return t.name === tag; });
+      const currentIcon = td && td.icon ? td.icon : '';
+      const tagId = td && td.id ? td.id : null;
+      const emojiList = ['🏷','📁','📂','🗂','📄','📝','📋','📌','📎','🗒','🗓','📅','📆','🗑','🏹','⚡','🔥','💡','🎯','⭐','🌟','💫','✨','💎','🔑','🗝','🔐','🔒','🔓','🛡','⚙️','🔧','🛠','🔩','⚙️','🎨','🎭','🎪','🎬','🎥','📷','🎙','🎚','🎛','🎵','🎶','📡','🌐','🗺','🧭','📍','📍','🗳','🗳️','📊','📈','📉','📉','📋','📑','🗃','🗄','💾','💿','📀','🎮','🕹','🎲','🧩','🃏','🀄','♟','♟️','🎰','🏆','🥇','🥈','🥉','🏅','🎖','🎗','🎫','🎟','🎭','🛒','💰','💵','💴','💶','💷','💸','💳','🧾','🏧','📱','💻','🖥','🖨','⌨️','🖱','🖲','💽','📠','📞','☎️','📟','📠','📺','📻','🧭','⏰','⏱','⏲','⏳','🕐','🕑','🕒','🕓','🕔','🕕','🕖','🕗','🕘','🕙','🕚','🕛','🌡','🌡️','🗺','🌍','🌎','🌏','🌐','🪐','☀️','🌤️','⛅','🌥','☁️','⛈','🌩','🌨','❄️','☃️','🌬','💨','🌪','🌫','🌙','🌛','🌜','🌚','🌝','🌞','🌅','🌄','🌇','🌆','🏙','🌃','🌉','🌌','🎠','🎡','🎢','🎡','🎪','🎭','🛖','🏕','⛺','🛤️','🛣','🗾','🗾','🏔','⛰','🌋','🗻','🏗','🏠','🏡','🏢','🏣','🏤','🏥','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕍','🕌','🛕','⛩','⛩️','🛤','🛢','💈','🔭','🔬','💊','💉','🩺','🩻','🏧','🦠','🧫','🧬','🧪','🧫','🧬','🧯','🧹','🧺','🧻','🚽','🚰','🚿','🛁','🛀','🧼','🪥','🪒','🧽','🪣','🧴','🛎','🔑','🗝','🔒','🔓','🔏','🔐','🔑','🗡','⚔','🛡','🔫','🎯','🏹','🪃','🛡','⚔','🗡','🪓','🪚','🪛','🔩','🧱','🧲','⚙️','🧱','🪜','🪚','🪛','🪜'];
+      var html = '<div style="padding:8px 4px">';
+      html += '<div style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:12px">选择图标（点击确认）</div>';
+      html += '<div style="display:grid;grid-template-columns:repeat(8,1fr);gap:4px;max-height:200px;overflow-y:auto;margin-bottom:12px">';
+      emojiList.forEach(function(e) {
+        var sel = currentIcon === e ? 'border-color:var(--primary);background:var(--bg-secondary)' : '';
+        html += '<span onclick="setTagIcon(\'' + tag.replace(/'/g, "\\'") + '\',\'' + e.replace(/'/g, "\\'") + '\',' + (tagId || 'null') + ')" style="cursor:pointer;font-size:20px;text-align:center;padding:4px;border-radius:6px;border:2px solid transparent;' + sel + '">' + e + '</span>';
+      });
+      html += '</div>';
+      html += '<div style="text-align:center"><button onclick="setTagIcon(\'' + tag.replace(/'/g, "\\'") + '\',\'\',' + (tagId || 'null') + ')" style="padding:6px 16px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:12px;color:var(--muted)">清除图标</button></div>';
+      html += '</div>';
+      openModal('🏷 选择图标', html, '');
+    }
+
+    async function setTagIcon(tag, icon, tagId) {
+      if (tagId) {
+        var res = await fetch('/api/folder-tags/' + tagId, {
+          method: 'PUT',
+          headers: headers({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ icon: icon })
+        });
+        var data = await res.json();
+        if (data.success) {
+          closeModal();
+          openTagManager();
+        }
+      } else {
+        closeModal();
         openTagManager();
       }
     }
