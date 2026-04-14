@@ -844,6 +844,7 @@ function renderPage() {
     <div class="ctx-item" onclick="ctxAction('copyName')">📝 复制文件名</div>
     <div class="ctx-item" onclick="ctxAction('copyPath')">📂 复制文件路径</div>
     <div class="ctx-item" onclick="ctxAction('history')">📜 版本历史</div>
+    <div class="ctx-item" onclick="ctxAction('stats')">📊 访问统计</div>
     <div class="ctx-item" onclick="ctxAction('info')">ℹ️ 文件属性</div>
     <div class="ctx-item ctx-star" data-starred="0" onclick="ctxAction('addToVF')">⭐ 添加到收藏夹</div>
     <div class="ctx-item ctx-star" data-starred="1" onclick="ctxAction('removeFromVF')" style="display:none">⭐ 从收藏移除</div>
@@ -5326,6 +5327,7 @@ function renderPage() {
         case 'rename': startInlineRename(filename); break;
         case 'delete': openDeleteConfirmModal([filename]); break;
         case 'history': openVersionHistory(filename); break;
+        case 'stats': openFileAccessStats(filename); break;
         case 'info': showFileInfo(filename); break;
         case 'addToVF': openAddToVirtualFolder(filename); break;
         case 'removeFromVF': toggleFileStarred(filename, false); break;
@@ -7217,6 +7219,63 @@ function renderPage() {
       } catch (e) {
         var errEl = document.getElementById('versionsContent');
         if (errEl) errEl.innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
+    }
+
+    async function openFileAccessStats(filename) {
+      var modal = document.getElementById('modal');
+      var title = document.getElementById('modalTitle');
+      var body = document.getElementById('modalBody');
+      title.textContent = '📊 文件访问统计';
+      body.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px">加载中...</div>';
+      modal.classList.add('show');
+      try {
+        var res = await fetch('/api/file-access-stats/' + encodeURIComponent(filename), { headers: headers() });
+        var data = await res.json();
+        if (!data.success) throw new Error(data.error);
+        var s = data.stats;
+        var html = '<div style="max-width:600px;padding:4px 0">';
+
+        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px">';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;text-align:center"><div style="font-size:24px;font-weight:700">' + (s.totalAccess||0) + '</div><div style="font-size:11px;color:var(--muted)">总访问</div></div>';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;text-align:center"><div style="font-size:24px;font-weight:700">' + (s.viewCount||0) + '</div><div style="font-size:11px;color:var(--muted)">预览</div></div>';
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;text-align:center"><div style="font-size:24px;font-weight:700">' + (s.downloadCount||0) + '</div><div style="font-size:11px;color:var(--muted)">下载</div></div>';
+        html += '</div>';
+
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:16px">';
+        html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">近30天访问趋势</div>';
+        if (s.daily && s.daily.length) {
+          var maxDay = Math.max.apply(null, s.daily.map(function(d) { return d.count; }).concat([1]));
+          html += '<div style="display:flex;align-items:flex-end;gap:3px;height:60px">';
+          s.daily.forEach(function(d) {
+            var h = Math.max(Math.round(d.count / maxDay * 50), d.count > 0 ? 3 : 1);
+            html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:0;height:100%;justify-content:flex-end" title="' + d.day + ': ' + d.count + '次"><div style="width:100%;height:' + h + 'px;background:var(--accent);border-radius:2px 2px 0 0;opacity:0.8"></div></div>';
+          });
+          html += '</div>';
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px;text-align:center">暂无数据</div>';
+        }
+        html += '</div>';
+
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px">';
+        html += '<div style="font-weight:600;margin-bottom:12px;font-size:13px">最近访问记录</div>';
+        if (s.recent && s.recent.length) {
+          html += '<table style="width:100%;font-size:12px"><thead><tr><th style="text-align:left;padding:4px 8px;color:var(--muted)">时间</th><th style="text-align:left;padding:4px 8px;color:var(--muted)">操作</th></tr></thead><tbody>';
+          s.recent.forEach(function(r) {
+            var dt = new Date(r.timestamp * 1000).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+            var actionLabel = r.action === 'view' ? '预览' : '下载';
+            var actionColor = r.action === 'view' ? 'var(--accent)' : '#f59e0b';
+            html += '<tr><td style="padding:4px 8px;color:var(--text-secondary)">' + dt + '</td><td style="padding:4px 8px"><span style="color:' + actionColor + ';font-weight:600">' + actionLabel + '</span></td></tr>';
+          });
+          html += '</tbody></table>';
+        } else {
+          html += '<div style="color:var(--muted);font-size:12px;text-align:center">暂无记录</div>';
+        }
+        html += '</div></div>';
+
+        body.innerHTML = html;
+      } catch(e) {
+        body.innerHTML = '<div style="color:var(--error);padding:12px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
       }
     }
 

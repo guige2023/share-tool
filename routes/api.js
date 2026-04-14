@@ -987,6 +987,17 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/file-access-stats/:filename - get access stats for a file
+  if (pathname.startsWith('/api/file-access-stats/') && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const filename = decodeURIComponent(pathname.slice('/api/file-access-stats/'.length));
+    const stats = db.getFileAccessStats(filename);
+    if (!stats) { sendJson(res, { success: false, error: 'File not found' }, 404); return true; }
+    sendJson(res, { success: true, stats });
+    return true;
+  }
+
   // GET /api/dashboard - 存储分析 Dashboard 数据
   if (pathname === '/api/dashboard' && method === 'GET') {
     const auth = authRequired(req, res);

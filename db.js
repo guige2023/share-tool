@@ -2449,6 +2449,49 @@ function getMostAccessedFiles(limit = 20, since = null) {
   `).all(...params);
 }
 
+function getFileAccessStats(filename) {
+  const db = getDb();
+  const file = getFileByName(filename);
+  if (!file) return null;
+
+  const totals = db.prepare(`
+    SELECT
+      COUNT(*) as total_access,
+      SUM(CASE WHEN action = 'view' THEN 1 ELSE 0 END) as view_count,
+      SUM(CASE WHEN action = 'download' THEN 1 ELSE 0 END) as download_count
+    FROM file_access_log WHERE file_id = ?
+  `).get(file.id);
+
+  const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 86400;
+  const daily = db.prepare(`
+    SELECT
+      date(timestamp, 'unixepoch') as day,
+      COUNT(*) as count,
+      SUM(CASE WHEN action = 'view' THEN 1 ELSE 0 END) as views,
+      SUM(CASE WHEN action = 'download' THEN 1 ELSE 0 END) as downloads
+    FROM file_access_log
+    WHERE file_id = ? AND timestamp >= ?
+    GROUP BY day
+    ORDER BY day ASC
+  `).all(file.id, thirtyDaysAgo);
+
+  const recent = db.prepare(`
+    SELECT timestamp, action, device_id
+    FROM file_access_log
+    WHERE file_id = ?
+    ORDER BY timestamp DESC
+    LIMIT 20
+  `).all(file.id);
+
+  return {
+    totalAccess: totals.total_access || 0,
+    viewCount: totals.view_count || 0,
+    downloadCount: totals.download_count || 0,
+    daily: daily,
+    recent: recent
+  };
+}
+
 // ============================================================
 // 最近访问文件
 // ============================================================
@@ -2840,6 +2883,34 @@ function incrementShareLinkDownload(code) {
 function incrementShareLinkViewCount(code) {
   const db = getDb();
   db.prepare('UPDATE share_links SET view_count = view_count + 1 WHERE code = ?').run(code);
+}
+
+function renewShareLink(code, expiresAtSeconds) {
+  const db = getDb();
+  const MAX_TS = Math.floor(32503680000000 / 1000); // year 3000
+  const exp = expiresAtSeconds > 0 ? expiresAtSeconds : MAX_TS;
+  const result = db.prepare('UPDATE share_links SET expires_at = ? WHERE code = ?').run(exp, code);
+  return result.changes > 0;
+}
+
+function getExpiringShareLinks(days = 7) {
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  const future = now + days * 86400;
+  const rows = db.prepare(
+    "SELECT code, filename, expires_at, view_count, download_count, max_downloads, has_password, created_at FROM share_links WHERE expires_at > ? AND expires_at <= ? AND expires_at > 0 ORDER BY expires_at ASC"
+  ).all(now, future);
+  return rows.map(r => ({
+    code: r.code,
+    filename: r.filename,
+    expiresAt: r.expires_at * 1000,
+    expiresInDays: Math.ceil((r.expires_at * 1000 - Date.now()) / 86400000),
+    viewCount: r.view_count,
+    downloadCount: r.download_count,
+    maxDownloads: r.max_downloads,
+    hasPassword: !!r.has_password,
+    createdAt: r.created_at * 1000,
+  }));
 }
 
 function listShareLinks(filename = null) {
@@ -3990,7 +4061,7 @@ module.exports = {
   // Token
   generateToken, validateToken, refreshToken, revokeToken, revokeAllTokens,
   // 审计
-  addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV, addFileAccessLog, getFileAccessLog, getMostAccessedFiles, getRecentlyAccessedFiles,
+  addAuditLog, listAuditLogs, getAuditStats, exportAuditLogsCSV, addFileAccessLog, getFileAccessLog, getMostAccessedFiles, getRecentlyAccessedFiles, getFileAccessStats,
   // 速率限制
   checkRateLimit, recordRateLimitAttempt, getRateLimitConfig, setRateLimitConfig, listRateLimits, deleteRateLimit,
   // 通知
@@ -3999,7 +4070,7 @@ module.exports = {
   addSearchHistory, getSearchHistory, clearSearchHistory, deleteSearchHistoryItem, getPopularSearches,
   // 分享链接
   saveShareLink, getShareLink, updateShareLink, deleteShareLink, incrementShareLinkDownload, incrementShareLinkViewCount,
-  listShareLinks, cleanupExpiredShareLinks, getShareStats, getExpiringShares,
+  listShareLinks, cleanupExpiredShareLinks, getShareStats, getExpiringShares, renewShareLink, getExpiringShareLinks,
   // 虚拟文件夹
   createVirtualFolder, listVirtualFolders, getVirtualFolder, deleteVirtualFolder, updateVirtualFolder,
   addFileToVirtualFolder, removeFileFromVirtualFolder, getVirtualFolderFiles, isFileInVirtualFolder,
