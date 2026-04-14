@@ -1,27 +1,14 @@
-// WebDAV server implementation for ShareTool
-// Supports: PROPFIND, GET, PUT, DELETE, MKCOL, MOVE, COPY, OPTIONS
-const path = require('path');
-const fs = require('fs');
-const { authRequired, sendJson } = require('./api');
-
-const BASE_DIR = process.env.SHARE_TOOL_ROOT || '/Users/guige/share-tool-storage';
+// WebDAV server — ShareTool storage via WebDAV protocol
+// Supports: OPTIONS, PROPFIND, GET, PUT, DELETE, MKCOL
+// Files are stored in SQLite (ShareTool's native model), served via WebDAV
 
 function xmlEscape(str) {
-  if (str === null || str === undefined) return '';
+  if (str == null) return '';
   return String(str)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-function getDavPath(reqPath) {
-  // reqPath: /dav/ or /dav/folder/file.txt
-  if (!reqPath.startsWith('/dav')) return null;
-  let fp = reqPath.slice(4); // strip /dav
-  if (!fp.startsWith('/')) fp = '/' + fp;
-  if (fp === '/') return BASE_DIR;
-  return path.join(BASE_DIR, fp);
 }
 
 function sendDav(res, status, headers, body) {
@@ -31,46 +18,43 @@ function sendDav(res, status, headers, body) {
 }
 
 function sendXml(res, status, xml) {
-  sendDav(res, status, {
+  res.writeHead(status, {
     'Content-Type': 'application/xml; charset=utf-8',
     'Cache-Control': 'no-cache',
     'DAV': '1'
-  }, xml);
+  });
+  res.end(xml);
 }
 
-function formatDirListing(files, subPath) {
-  // subPath: the path being listed, e.g. /dav/folder/
-  const items = [];
-  const now = Math.floor(Date.now() / 1000);
+function formatMultistatus(items, basePath) {
+  const responses = items.map(item => {
+    const href = '/dav' + (basePath === '/' ? '' : basePath) + '/' + xmlEscape(item.filename);
+    const isDir = item.content_type === 'folder' || item.isFolder;
+    const size = item.size || 0;
+    const ct = item.content_type || 'application/octet-stream';
+    const created = new Date((item.created_at || Math.floor(Date.now() / 1000)) * 1000).toISOString();
+    const modified = new Date((item.updated_at || Math.floor(Date.now() / 1000)) * 1000).toGMTString();
 
-  for (const f of files) {
-    // f: { filename, size, content_type, created_at, updated_at }
-    const relPath = f.filename.startsWith('/') ? f.filename : '/' + f.filename;
-    const href = '/dav' + relPath;
-    const isDir = f.content_type === 'folder';
-    const displayName = relPath.split('/').pop();
-
-    items.push(`<d:response>
-<d:href>${xmlEscape(href)}</d:href>
+    return `<d:response>
+<d:href>${href}</d:href>
 <d:propstat>
 <d:prop>
-<d:displayname>${xmlEscape(displayName)}</d:displayname>
-<d:getcontentlength>${isDir ? 0 : (f.size || 0)}</d:getcontentlength>
-<d:getcontenttype>${isDir ? 'httpd/unix-directory' : xmlEscape(f.content_type || 'application/octet-stream')}</d:getcontenttype>
-<d:creationdate>${new Date((f.created_at || now) * 1000).toISOString()}</d:creationdate>
-<d:getlastmodified>${new Date((f.updated_at || now) * 1000).toGMTString()}</d:getlastmodified>
+<d:displayname>${xmlEscape(item.filename)}</d:displayname>
+<d:getcontentlength>${isDir ? 0 : size}</d:getcontentlength>
+<d:getcontenttype>${isDir ? 'httpd/unix-directory' : xmlEscape(ct)}</d:getcontenttype>
+<d:creationdate>${created}</d:creationdate>
+<d:getlastmodified>${modified}</d:getlastmodified>
 <d:resourcetype>${isDir ? '<d:collection/>' : ''}</d:resourcetype>
 </d:prop>
 <d:status>HTTP/1.1 200 OK</d:status>
 </d:propstat>
-</d:response>`);
-  }
+</d:response>`;
+  }).join('\n');
 
-  const body = `<?xml version="1.0" encoding="UTF-8"?>
-<d:multistatus xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns" xmlns:cs="http://calendarserver.org/ns">
-${items.join('\n')}
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<d:multistatus xmlns:d="DAV:">
+${responses}
 </d:multistatus>`;
-  return body;
 }
 
 function parseDepth(header) {
@@ -80,14 +64,27 @@ function parseDepth(header) {
   return 1;
 }
 
-async function handleWebDAV(req, res, pathname) {
-  // Only handle /dav/* paths
+async function readBody(req, maxBytes = 500 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+    req.on('data', chunk => {
+      total += chunk.length;
+      if (total > maxBytes) { reject(new Error('Body too large')); return; }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+async function handleWebDAV(req, res, pathname, method) {
   if (!pathname.startsWith('/dav')) return false;
 
-  // OPTIONS — advertise WebDAV support
-  if (req.method === 'OPTIONS') {
+  // OPTIONS — advertise WebDAV capabilities
+  if (method === 'OPTIONS') {
     sendDav(res, 200, {
-      'Allow': 'OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MOVE, COPY, MKCOL',
+      'Allow': 'OPTIONS, PROPFIND, GET, PUT, DELETE, MKCOL, MOVE, COPY',
       'DAV': '1',
       'MS-Author-Via': 'DAV',
       'Content-Length': '0'
@@ -95,236 +92,206 @@ async function handleWebDAV(req, res, pathname) {
     return true;
   }
 
-  // All WebDAV methods require auth
-  const authUser = authRequired(req, res, true); // skipJson=true for WebDAV
-  if (!authUser) return true;
-
-  const method = req.method;
-  const fp = getDavPath(pathname);
-  if (!fp) return false;
+  // Auth check — WebDAV uses Basic Auth header
+  const auth = req.headers['authorization'];
+  if (!auth || !auth.startsWith('Basic ')) {
+    res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="ShareTool WebDAV"' });
+    res.end();
+    return true;
+  }
 
   const db = require('../db');
 
-  // PROPFIND — list directory
-  if (method === 'PROPFIND' || method === 'PROPFIND') {
-    // Read Depth header
-    const depth = parseDepth(req.headers['depth'] || '1');
-    // Read request body for props
-    let body = '';
-    try {
-      body = await new Promise((resolve, reject) => {
-        req.on('data', d => { body += d; });
-        req.on('end', resolve);
-        req.on('error', reject);
-      });
-    } catch (e) {}
+  // Strip /dav prefix to get ShareTool path
+  let relPath = pathname.replace(/^\/dav/, '') || '/';
+  if (!relPath.startsWith('/')) relPath = '/' + relPath;
 
-    // Determine what path to list
-    const isRoot = fp === BASE_DIR;
-    let files = [];
-    let virtualFolders = [];
+  // Normalize: / → root listing
+  const isRoot = relPath === '/' || relPath === '';
+
+  // PROPFIND — list directory
+  if (method === 'PROPFIND') {
+    const depth = parseDepth(req.headers['depth'] || '1');
+
+    let items = [];
 
     if (isRoot) {
-      // List top-level files and folders
-      files = db.prepare(`
-        SELECT filename, size, content_type, created_at, updated_at
+      // Root: list top-level files (no slash in filename) and virtual folders
+      const files = db.prepare(`
+        SELECT id, filename, size, content_type, created_at, updated_at
         FROM files WHERE deleted = 0 AND filename NOT LIKE '%/%'
         ORDER BY filename
       `).all();
-      virtualFolders = db.prepare(`SELECT name as filename, 'folder' as content_type, created_at, updated_at FROM virtual_folders ORDER BY name`).all();
+      const folders = db.prepare(`
+        SELECT name as filename, 'folder' as content_type, created_at, updated_at
+        FROM virtual_folders ORDER BY name
+      `).all();
+      items = [...folders.map(f => ({ ...f, isFolder: true })), ...files];
     } else {
-      // List files within a virtual folder prefix
-      const prefix = fp.slice(BASE_DIR.length);
-      const folderPrefix = prefix.endsWith('/') ? prefix : prefix + '/';
-      files = db.prepare(`
-        SELECT filename, size, content_type, created_at, updated_at
+      // Strip trailing slash for prefix matching
+      const prefix = relPath.endsWith('/') ? relPath.slice(0, -1) : relPath;
+      // List immediate children
+      const childPrefix = prefix + '/';
+      const files = db.prepare(`
+        SELECT id, filename, size, content_type, created_at, updated_at
         FROM files WHERE deleted = 0 AND filename LIKE ? AND filename NOT LIKE ?
         ORDER BY filename
+      `).all(childPrefix + '%', childPrefix + '%/%');
+
+      // Sub-folders at this level
+      const folderPrefix = prefix.endsWith('/') ? prefix : prefix + '/';
+      const folders = db.prepare(`
+        SELECT name as filename, 'folder' as content_type, created_at, updated_at
+        FROM virtual_folders
+        WHERE name LIKE ? AND name NOT LIKE ?
+        ORDER BY name
       `).all(folderPrefix + '%', folderPrefix + '%/%');
-      // Also list sub-folders
-      const subFolders = db.prepare(`SELECT name as filename, 'folder' as content_type, created_at, updated_at FROM virtual_folders WHERE name LIKE ? AND name NOT LIKE ? ORDER BY name`).all(folderPrefix + '%', folderPrefix + '%/%');
-      virtualFolders = subFolders;
+
+      items = [...folders.map(f => ({ ...f, isFolder: true })), ...files];
     }
 
-    const allItems = [...virtualFolders.map(vf => ({
-      ...vf,
-      content_type: 'folder',
-      filename: vf.filename
-    })), ...files];
-
-    // For depth=0, only return the requested resource itself
-    let toShow = allItems;
+    // Depth 0: only return the requested resource itself
     if (depth === 0) {
-      // Check if requesting a single file
-      const existing = allItems.find(f => {
-        const itemPath = '/' + f.filename;
-        return itemPath === pathname.replace('/dav', '') || '/' + f.filename === pathname.replace('/dav', '');
-      });
-      toShow = existing ? [existing] : [];
+      const self = db.prepare(`SELECT id, filename, size, content_type, created_at, updated_at FROM files WHERE filename = ? AND deleted = 0`).get(relPath);
+      if (self) {
+        items = [self];
+      } else {
+        const vf = db.prepare(`SELECT name as filename, 'folder' as content_type, created_at, updated_at FROM virtual_folders WHERE name = ?`).get(relPath);
+        items = vf ? [{ ...vf, isFolder: true }] : [];
+      }
     }
 
-    const xml = formatDirListing(toShow, pathname);
-    sendXml(res, 207, xml);
+    sendXml(res, 207, formatMultistatus(items, relPath === '/' ? '/' : '/' + relPath));
     return true;
   }
 
   // GET — download file
   if (method === 'GET' || method === 'HEAD') {
-    const relPath = pathname.replace('/dav', '');
-    const file = db.getFileByName(relPath);
-    if (!file || file.deleted) {
+    const file = db.prepare(`SELECT * FROM files WHERE filename = ? AND deleted = 0`).get(relPath);
+    if (!file) {
       sendDav(res, 404, { 'Content-Type': 'text/plain' }, 'Not Found');
       return true;
     }
-    const fullPath = path.join(BASE_DIR, relPath);
-    if (!fs.existsSync(fullPath)) {
-      sendDav(res, 404, { 'Content-Type': 'text/plain' }, 'File not on disk');
+
+    // Check if it's a virtual folder
+    const vf = db.prepare(`SELECT name FROM virtual_folders WHERE name = ?`).get(relPath);
+    if (vf) {
+      // Directory listing as HTML
+      const children = db.prepare(`
+        SELECT filename, size, content_type FROM files
+        WHERE filename LIKE ? AND filename NOT LIKE ? AND deleted = 0
+        ORDER BY filename
+      `).all(relPath + '/%', relPath + '/%/%');
+      const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${xmlEscape(relPath)}</title></head>
+<body><h1>Index of ${xmlEscape(relPath)}</h1><ul>${children.map(f =>
+        `<li><a href="${xmlEscape(f.filename.replace(relPath + '/', ''))}">${xmlEscape(f.filename.replace(relPath + '/', ''))}</a> (${f.size} bytes)</li>`
+      ).join('')}</ul></body></html>`;
+      sendDav(res, 200, { 'Content-Type': 'text/html; charset=utf-8' }, html);
       return true;
     }
-    const stat = fs.statSync(fullPath);
-    if (stat.isDirectory()) {
-      // Return directory listing as HTML
-      const files = fs.readdirSync(fullPath);
-      const html = `<html><body><h1>Directory: ${xmlEscape(relPath)}</h1><ul>${files.map(f => `<li><a href="${xmlEscape(f)}">${xmlEscape(f)}</a></li>`).join('')}</ul></body></html>`;
-      sendDav(res, 200, { 'Content-Type': 'text/html' }, html);
+
+    // Serve file content
+    const content = file.content ? Buffer.from(file.content, 'base64') : null;
+    if (!content) {
+      sendDav(res, 204, { 'Content-Type': 'text/plain' }, '');
       return true;
     }
-    const stream = fs.createReadStream(fullPath);
     res.writeHead(200, {
       'Content-Type': file.content_type || 'application/octet-stream',
-      'Content-Length': stat.size,
-      'Content-Disposition': 'attachment; filename="' + path.basename(relPath) + '"'
+      'Content-Length': content.length,
+      'Content-Disposition': 'attachment; filename="' + xmlEscape(relPath.split('/').pop()) + '"',
+      'ETag': '"' + file.hash + '"'
     });
-    stream.pipe(res);
+    if (method === 'GET') res.end(content);
+    else res.end();
     return true;
   }
 
-  // PUT — upload/replace file
+  // PUT — upload / replace file
   if (method === 'PUT') {
-    const relPath = pathname.replace('/dav', '');
-    const fullPath = path.join(BASE_DIR, relPath);
-
-    // Ensure parent directory exists
-    const parent = path.dirname(fullPath);
-    if (!fs.existsSync(parent)) {
-      fs.mkdirSync(parent, { recursive: true });
+    let body;
+    try {
+      body = await readBody(req);
+    } catch (e) {
+      sendDav(res, 413, { 'Content-Type': 'text/plain' }, 'Payload too large');
+      return true;
     }
 
-    const chunks = [];
-    let totalSize = 0;
-    await new Promise((resolve, reject) => {
-      req.on('data', chunk => {
-        totalSize += chunk.length;
-        chunks.push(chunk);
-        if (totalSize > 200 * 1024 * 1024 * 1024) { // 200GB limit
-          reject(new Error('File too large'));
-        }
-      });
-      req.on('end', resolve);
-      req.on('error', reject);
-    });
+    const base64 = body.toString('base64');
+    const hash = require('crypto').createHash('md5').update(body).digest('hex');
+    const existing = db.prepare(`SELECT id FROM files WHERE filename = ? AND deleted = 0`).get(relPath);
 
-    const content = Buffer.concat(chunks);
-    const contentHash = require('crypto').createHash('sha256').update(content).digest('hex');
-
-    const existing = db.getFileByName(relPath);
     if (existing) {
-      db.updateFileByName(relPath, { content: content.toString('base64'), size: content.length, hash: contentHash });
+      db.prepare(`UPDATE files SET content = ?, size = ?, hash = ?, updated_at = unixepoch() WHERE id = ?`)
+        .run(base64, body.length, hash, existing.id);
     } else {
-      db.addFile(relPath, content.toString('base64'), 'text', contentHash);
+      // Create new file — need to determine position
+      const maxPos = db.prepare(`SELECT COALESCE(MAX(position), -1) as m FROM files`).get().m;
+      const contentType = detectMimeType(relPath);
+      db.prepare(`INSERT INTO files (filename, content, size, hash, content_type, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`)
+        .run(relPath, base64, body.length, hash, contentType, maxPos + 1);
     }
 
-    // Write to disk
-    fs.writeFileSync(fullPath, content);
-    sendDav(res, 201, { 'Location': pathname }, 'Created');
+    sendDav(res, existing ? 204 : 201, {
+      'Location': '/dav' + relPath,
+      'Content-Length': '0'
+    }, null);
     return true;
   }
 
   // DELETE — delete file
   if (method === 'DELETE') {
-    const relPath = pathname.replace('/dav', '');
-    const fullPath = path.join(BASE_DIR, relPath);
-    const existing = db.getFileByName(relPath);
-    if (existing) {
-      db.deleteFileByName(relPath);
+    const file = db.prepare(`SELECT id FROM files WHERE filename = ? AND deleted = 0`).get(relPath);
+    if (file) {
+      db.prepare(`UPDATE files SET deleted = 1, updated_at = unixepoch() WHERE id = ?`).run(file.id);
     }
-    if (fs.existsSync(fullPath)) {
-      try { fs.unlinkSync(fullPath); } catch (e) {}
-    }
-    sendDav(res, 204, {}, null);
+    sendDav(res, 204, { 'Content-Length': '0' }, null);
     return true;
   }
 
-  // MKCOL — create folder
+  // MKCOL — create virtual folder
   if (method === 'MKCOL') {
-    const relPath = pathname.replace('/dav', '');
-    const fullPath = path.join(BASE_DIR, relPath);
-    if (fs.existsSync(fullPath)) {
-      sendDav(res, 405, { 'Content-Type': 'text/plain' }, 'Method Not Allowed');
-      return true;
-    }
-    fs.mkdirSync(fullPath, { recursive: true });
-    // Create virtual folder in DB
-    const folderName = path.basename(relPath);
-    db.createVirtualFolder(folderName);
-    sendDav(res, 201, { 'Location': pathname }, 'Created');
-    return true;
-  }
-
-  // MOVE — move/rename file
-  if (method === 'MOVE') {
-    const relPath = pathname.replace('/dav', '');
-    const dest = req.headers['destination'];
-    if (!dest) {
-      sendDav(res, 400, { 'Content-Type': 'text/plain' }, 'Destination required');
-      return true;
-    }
-    const destPath = dest.replace(/^\//, '').replace(/^dav\//, '');
-    const fullSrc = path.join(BASE_DIR, relPath);
-    const fullDest = path.join(BASE_DIR, destPath);
-
-    const overwrite = req.headers['overwrite'] !== 'F';
-    if (fs.existsSync(fullDest) && !overwrite) {
-      sendDav(res, 412, { 'Content-Type': 'text/plain' }, 'Precondition Failed');
-      return true;
-    }
-
-    if (fs.existsSync(fullSrc)) {
-      fs.renameSync(fullSrc, fullDest);
-    }
-    db.renameFile(relPath, destPath);
-
-    sendDav(res, 201, { 'Location': '/' + destPath }, 'Moved');
-    return true;
-  }
-
-  // COPY — copy file
-  if (method === 'COPY') {
-    const relPath = pathname.replace('/dav', '');
-    const dest = req.headers['destination'];
-    if (!dest) {
-      sendDav(res, 400, { 'Content-Type': 'text/plain' }, 'Destination required');
-      return true;
-    }
-    const destPath = dest.replace(/^\//, '').replace(/^dav\//, '');
-    const fullSrc = path.join(BASE_DIR, relPath);
-    const fullDest = path.join(BASE_DIR, destPath);
-
-    if (fs.existsSync(fullSrc)) {
-      fs.copyFileSync(fullSrc, fullDest);
-    }
-    // Copy in DB
-    const existing = db.getFileByName(relPath);
+    // Check if already exists
+    const existing = db.prepare(`SELECT id FROM virtual_folders WHERE name = ?`).get(relPath);
     if (existing) {
-      const content = fs.existsSync(fullSrc) ? fs.readFileSync(fullSrc) : null;
-      if (content) db.addFile(destPath, content.toString('base64'), existing.content_type, existing.hash);
+      sendDav(res, 405, { 'Content-Type': 'text/plain' }, 'Folder already exists');
+      return true;
     }
-
-    sendDav(res, 201, { 'Location': '/' + destPath }, 'Copied');
+    // Ensure parent folder exists
+    const parts = relPath.split('/').filter(Boolean);
+    if (parts.length > 1) {
+      const parent = '/' + parts.slice(0, -1).join('/');
+      const parentVF = db.prepare(`SELECT id FROM virtual_folders WHERE name = ?`).get(parent);
+      if (!parentVF) {
+        sendDav(res, 409, { 'Content-Type': 'text/plain' }, 'Parent folder does not exist');
+        return true;
+      }
+    }
+    db.prepare(`INSERT INTO virtual_folders (name, created_at) VALUES (?, unixepoch())`).run(relPath);
+    sendDav(res, 201, { 'Location': '/dav' + relPath, 'Content-Length': '0' }, null);
     return true;
   }
 
   return false;
+}
+
+function detectMimeType(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  const types = {
+    'html': 'text/html', 'htm': 'text/html', 'css': 'text/css', 'js': 'application/javascript',
+    'json': 'application/json', 'xml': 'application/xml', 'txt': 'text/plain',
+    'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif',
+    'svg': 'image/svg+xml', 'webp': 'image/webp', 'ico': 'image/x-icon',
+    'mp4': 'video/mp4', 'webm': 'video/webm', 'avi': 'video/x-msvideo',
+    'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg', 'm4a': 'audio/mp4',
+    'pdf': 'application/pdf', 'zip': 'application/zip', 'tar': 'application/x-tar',
+    'gz': 'application/gzip', 'doc': 'application/msword', 'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xls': 'application/vnd.ms-excel', 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'ppt': 'application/vnd.ms-powerpoint', 'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'woff': 'font/woff', 'woff2': 'font/woff2', 'ttf': 'font/ttf', 'eot': 'application/vnd.ms-fontobject',
+    'csv': 'text/csv', 'md': 'text/markdown'
+  };
+  return types[ext] || 'application/octet-stream';
 }
 
 module.exports = { handleWebDAV };

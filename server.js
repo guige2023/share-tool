@@ -15,6 +15,7 @@ const handleApiRoutes = require('./routes/api');
 const handleFileRoutes = require('./routes/files');
 const handleShareRoutes = require('./routes/share');
 const { initWebSocketServer } = require('./routes/sync');
+const { handleWebDAV } = require('./routes/webdav');
 
 const VERSION = require('./package.json').version;
 const PORT = parseInt(process.env.SHARE_TOOL_PORT || '18790', 10);
@@ -15150,6 +15151,10 @@ async function requestHandler(req, res) {
   };
 
   try {
+    // WebDAV — handle before API routes since /dav/* needs custom treatment
+    if (pathname.startsWith('/dav')) {
+      if (await handleWebDAV(req, res, pathname, method)) return;
+    }
     if (await handleApiRoutes(req, res, pathname, query, ctx)) return;
     if (await handleFileRoutes(req, res, pathname, query, ctx)) return;
     if (await handleShareRoutes(req, res, pathname, query, ctx)) return;
