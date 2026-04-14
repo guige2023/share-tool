@@ -4502,7 +4502,7 @@ function renderPage() {
         return '<div style="display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:8px;background:var(--bg-tertiary);margin-bottom:6px">' +
           '<span style="color:' + escapeHtmlClient(f.color || '#667eea') + ';font-size:16px;margin-top:2px">●</span>' +
           '<div style="flex:1;min-width:0">' +
-            '<div style="font-size:13px;font-weight:500;margin-bottom:4px">' + escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ')</span></div>' +
+            '<div style="font-size:13px;font-weight:500;margin-bottom:4px">' + escapeHtmlClient(f.name) + ' <span style="color:var(--muted);font-size:11px">(' + f.file_count + ' 文件' + (f.size > 0 ? ', ' + formatFileSize(f.size) : '') + ')</span></div>' +
             '<div style="margin-bottom:6px" id="vfTagChips_' + f.id + '">' + tagChips + '</div>' +
             '<div style="display:flex;gap:6px;flex-wrap:wrap" id="vfTagEdit_' + f.id + '">' +
               allTags.map(t => {
@@ -7336,14 +7336,55 @@ function renderPage() {
     }
 
     async function renameFile(filename) {
-      const next = prompt('新文件名', filename);
-      if (!next || next === filename) return;
-      await request('/api/file-rename/' + encodeURIComponent(filename), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newFilename: next })
-      });
-      await loadFiles();
+      var m = document.getElementById('renameFileModal');
+      if (m) m.remove();
+      m = document.createElement('div');
+      m.id = 'renameFileModal';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
+      m.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:440px;font-size:14px">\
+          <h3 style="margin:0 0 16px">重命名文件</h3>\
+          <div style="margin-bottom:16px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px;color:var(--muted)">当前名称</label>\
+            <div style="padding:8px 10px;background:var(--bg);border-radius:6px;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted)">' + escapeHtmlClient(filename) + '</div>\
+          </div>\
+          <div style="margin-bottom:20px">\
+            <label style="display:block;margin-bottom:4px;font-size:13px">新名称</label>\
+            <input id="renameFileInput" type="text" value="' + escapeHtmlClient(filename) + '" ' +
+              'style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:var(--bg);color:var(--text);box-sizing:border-box">\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'renameFileModal\').remove()">取消</button>\
+            <button id="renameFileBtn" onclick="confirmRenameFile(\'' + filename.replace(/'/g, "\\'") + '\')">确定</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(m);
+      m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
+      // Focus and select filename (without extension)
+      var inp = document.getElementById('renameFileInput');
+      setTimeout(function() { inp.focus(); var dot = inp.value.lastIndexOf('.'); if (dot > 0) inp.setSelectionRange(0, dot); else inp.select(); }, 50);
+      inp.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); confirmRenameFile(filename); } });
+    }
+
+    async function confirmRenameFile(origFilename) {
+      var next = (document.getElementById('renameFileInput') || {value: ''}).value.trim();
+      if (!next || next === origFilename) { var m = document.getElementById('renameFileModal'); if (m) m.remove(); return; }
+      var btn = document.getElementById('renameFileBtn');
+      if (btn) { btn.disabled = true; }
+      var m = document.getElementById('renameFileModal');
+      try {
+        await request('/api/file-rename/' + encodeURIComponent(origFilename), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newFilename: next })
+        });
+        if (m) m.remove();
+        await loadFiles();
+      } catch (e) {
+        showToast('重命名失败: ' + e.message, 'error');
+        if (btn) { btn.disabled = false; }
+      }
+    }
       await loadShares();
     }
 

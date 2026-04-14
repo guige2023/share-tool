@@ -673,6 +673,58 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
+  // GET /api/search - unified search across files, shares, request links
+  if (pathname === '/api/search' && method === 'GET') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const q = (query.get('q') || '').trim();
+    const type = query.get('type') || 'all'; // 'all' | 'files' | 'shares' | 'request-links'
+    const limit = Math.min(parseInt(query.get('limit') || '50', 10), 200);
+    if (!q || q.length < 1) {
+      sendJson(res, { success: true, files: [], shares: [], requestLinks: [] });
+      return true;
+    }
+    const ql = q.toLowerCase();
+    const results = { files: [], shares: [], requestLinks: [] };
+
+    if (type === 'all' || type === 'files') {
+      const allFiles = db.listFiles ? (db.listFiles(1000, 0).files || db.listFiles(1000, 0) || []) : [];
+      const matched = allFiles.filter(function(f) {
+        return (f.filename || '').toLowerCase().includes(ql) ||
+               (f.type || '').toLowerCase().includes(ql);
+      }).slice(0, limit);
+      results.files = matched.map(function(f) {
+        return { id: f.id, filename: f.filename, size: f.size, type: f.type, created_at: f.created_at, updated_at: f.updated_at };
+      });
+    }
+
+    if (type === 'all' || type === 'shares') {
+      const allShares = db.listShares ? (db.listShares() || []) : [];
+      const matched = allShares.filter(function(s) {
+        return (s.filename || '').toLowerCase().includes(ql) ||
+               (s.code || '').toLowerCase().includes(ql) ||
+               (s.url || '').toLowerCase().includes(ql);
+      }).slice(0, limit);
+      results.shares = matched.map(function(s) {
+        return { id: s.id, filename: s.filename, code: s.code, url: s.url, expiresAt: s.expiresAt, password: !!s.password };
+      });
+    }
+
+    if (type === 'all' || type === 'request-links') {
+      const allRL = db.listRequestLinks ? (db.listRequestLinks() || []) : [];
+      const matched = allRL.filter(function(rl) {
+        return (rl.name || '').toLowerCase().includes(ql) ||
+               (rl.code || '').toLowerCase().includes(ql);
+      }).slice(0, limit);
+      results.requestLinks = matched.map(function(rl) {
+        return { id: rl.id, name: rl.name, code: rl.code, active: !!rl.active, uploadCount: rl.upload_count };
+      });
+    }
+
+    sendJson(res, { success: true, q: q, type: type, results: results });
+    return true;
+  }
+
   // ── Server-Sent Events: real-time file change notifications ──────────
   if (pathname === '/api/events' && method === 'GET') {
     // Support token via query param (EventSource can't send headers)
