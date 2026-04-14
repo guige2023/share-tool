@@ -1669,6 +1669,7 @@ function renderPage() {
       updateQuickSortButtons();
       loadStorageStats();
       updateStarredCountBadge();
+      restoreUploadQueue();
       setupInfiniteScroll();
       showWelcomeIfNeeded();
       checkExpiringLinks();
