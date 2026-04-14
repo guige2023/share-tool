@@ -29,6 +29,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
     const folder = query.get('folder') || null;
     const tags = query.get('tags') || null;
     const typeParam = query.get('type') || null;
+    const tagMatch = query.get('tagMatch') || 'OR';
     // Handle 'starred' and 'recent' as special type filters; split comma-separated types for multi-select
     const typeFilterList = typeParam ? typeParam.split(',').map(t => t.trim()).filter(Boolean) : [];
     const starredOnly = typeFilterList.includes('starred');
@@ -57,7 +58,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
       return true;
     }
 
-    const { files, total } = db.listFiles(limit, offset, sort, order, folder, starredOnly, tags, { typeFilter: actualTypeFilter });
+    const { files, total } = db.listFiles(limit, offset, sort, order, folder, starredOnly, tags, actualTypeFilter, tagMatch);
 
     sendJson(res, {
       success: true,

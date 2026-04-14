@@ -960,7 +960,7 @@ function setFilePositions(positions) {
   return true;
 }
 
-function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null, starred = false, tags = null, typeFilter = null) {
+function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC', folder = null, starred = false, tags = null, typeFilter = null, tagMatch = 'OR') {
   const db = getDb();
   const safeOrder = order.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   const safeSort = ['created_at', 'updated_at', 'filename', 'size', 'type', 'tags', 'position', 'starred'].includes(sort) ? sort : 'created_at';
@@ -989,10 +989,11 @@ function listFiles(limit = 100, offset = 0, sort = 'created_at', order = 'DESC',
     }
   }
   if (tags) {
-    // tags is comma-separated string; files matching ANY of the tags are returned (OR logic)
+    // tagMatch: 'OR' (any tag) or 'AND' (all tags must be present)
     const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
     if (tagList.length > 0) {
-      const tagConditions = tagList.map(() => 'LOWER(tags) LIKE ?').join(' OR ');
+      const joinOp = tagMatch === 'AND' ? ' AND ' : ' OR ';
+      const tagConditions = tagList.map(() => 'LOWER(tags) LIKE ?').join(joinOp);
       conditions.push('(' + tagConditions + ')');
       tagList.forEach(tag => params.push('%' + tag.toLowerCase() + '%'));
     }

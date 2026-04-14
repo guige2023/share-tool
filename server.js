@@ -3235,7 +3235,8 @@ function renderPage() {
       const allTagFilters = selectedTag
         ? (currentTagFilters.includes(selectedTag) ? currentTagFilters : [...currentTagFilters, selectedTag])
         : currentTagFilters;
-      const tagParam = allTagFilters.length ? '&tags=' + allTagFilters.map(encodeURIComponent).join(',') : '';
+      const tagMatchMode = window._tagMatchMode || 'OR';
+      const tagParam = allTagFilters.length ? '&tags=' + allTagFilters.map(encodeURIComponent).join(',') + '&tagMatch=' + tagMatchMode : '';
       const typeParam = currentTypeFilters.length ? '&type=' + currentTypeFilters.map(encodeURIComponent).join(',') : '';
       // Advanced search filters (size in KB, dates as YYYY-MM-DD)
       var sizeMinParam = '', sizeMaxParam = '', dateFromParam = '', dateToParam = '', tagMatchParam = '';
@@ -3545,8 +3546,16 @@ function renderPage() {
 
     function clearTagFilterChips() {
       currentTagFilters = [];
+      window._tagMatchMode = 'OR';
       localStorage.setItem('tagFilters', '');
       renderTagChips();
+      loadFiles();
+    }
+
+    function toggleTagMatchMode() {
+      window._tagMatchMode = (window._tagMatchMode || 'OR') === 'OR' ? 'AND' : 'OR';
+      localStorage.setItem('tagMatchMode', window._tagMatchMode);
+      renderTagQuickBar({ tags: window._allTags || [] });
       loadFiles();
     }
 
@@ -3718,6 +3727,15 @@ function renderPage() {
           inner += '<span class="tag-badge" style="background:' + tagColor + ';font-size:11px;padding:3px 10px;border-radius:999px;font-weight:500;color:inherit;white-space:nowrap;flex-shrink:0">' + escaped + ' <span style="opacity:.7;cursor:pointer" onclick="event.stopPropagation();toggleTagFilterChip(' + JSON.stringify(tag) + ')">×</span></span>';
         });
         inner += '<button onclick="clearTagFilterChips()" style="background:none;border:none;cursor:pointer;font-size:11px;color:var(--muted);padding:2px 6px;border-radius:4px;white-space:nowrap;flex-shrink:0" title="清除标签筛选">✕</button>';
+        // AND/OR match mode toggle — only show when 2+ tags active
+        if (currentTagFilters.length >= 2) {
+          var mode = window._tagMatchMode || 'OR';
+          var andActive = mode === 'AND';
+          inner += '<div style="display:flex;gap:0;flex-shrink:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-left:4px">';
+          inner += '<button onclick="toggleTagMatchMode()" style="padding:2px 8px;font-size:10px;border:none;cursor:pointer;background:' + (andActive ? 'var(--accent)' : 'var(--bg-secondary)') + ';color:' + (andActive ? 'white' : 'var(--text-muted)') + ';font-weight:500" title="满足所有标签">AND</button>';
+          inner += '<button onclick="toggleTagMatchMode()" style="padding:2px 8px;font-size:10px;border:none;cursor:pointer;background:' + (!andActive ? 'var(--accent)' : 'var(--bg-secondary)') + ';color:' + (!andActive ? 'white' : 'var(--text-muted)') + ';font-weight:500" title="满足任一标签">OR</button>';
+          inner += '</div>';
+        }
         inner += '<div style="width:1px;height:16px;background:var(--line);margin:0 4px;flex-shrink:0"></div>';
       }
       inner += top.map(function(t) {
@@ -10901,6 +10919,10 @@ function renderPage() {
       if (savedFolderTag) {
         window._activeFolderTagFilter = savedFolderTag;
         renderFolderTagFilterBar();
+      }
+      var savedTagMatch = localStorage.getItem('tagMatchMode');
+      if (savedTagMatch === 'AND' || savedTagMatch === 'OR') {
+        window._tagMatchMode = savedTagMatch;
       }
       updateActiveFilterChips();
 
