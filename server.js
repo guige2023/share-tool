@@ -5158,9 +5158,9 @@ function renderPage() {
             return '<span class="tag-badge" style="background:' + tc + ';font-size:10px;padding:1px 6px;border-radius:10px;font-weight:500;margin-right:3px;display:inline-block;color:inherit">' + (icon ? escapeHtmlClient(icon) + ' ' : '') + escapeHtmlClient(t.trim()) + '</span>';
           }).join('') + '</div>'
         : '<span class="muted" style="font-size:11px">—</span>';
-      return '<tr draggable="true" data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" onmousedown="handleItemClick(event, ' + file._index + ')" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
+      return '<tr draggable="true" data-index="' + file._index + '" data-filename="' + encodeURIComponent(file.name) + '" onmousedown="handleItemClick(event, ' + file._index + ')" ondblclick="if(!e.target.closest(\'.inline-rename-btn\') && !e.target.closest(\'.inline-star-btn\') && !e.target.closest(\'.tag-edit-btn\') && !e.target.closest(\'.file-check\') && !e.target.closest(\'button\')) previewFile(' + JSON.stringify(file.name) + ')">' +
         '<td data-label=""><input class="file-check" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-id="' + (file.id || '') + '" onchange="onFileCheckChange()" onclick="lastClickedIndex=' + file._index + '"></td>' +
-        '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (file.highlightedName || (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name))) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><div class="muted">' + formatFileType(file.type) + '</div></td>' +
+        '<td data-label="文件" class="filename-cell" data-filename="' + encodeURIComponent(file.name) + '"><span class="filename-text" ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (file.starred ? '<span title="已收藏" style="color:#f59e0b">⭐</span> ' : '') + (file.highlightedName || (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name))) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><button class="inline-star-btn" onclick="event.stopPropagation();toggleStar(' + JSON.stringify(file.name) + ')" title="' + (file.starred ? '取消收藏' : '收藏') + '" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:' + (file.starred ? '#f59e0b' : 'var(--muted)') + '">' + (file.starred ? '★' : '☆') + '</button><div class="muted">' + formatFileType(file.type) + '</div></td>' +
         '<td data-label="标签">' + tagHtml + '<button class="tag-edit-btn" onclick="editFileTags(' + JSON.stringify(file.name) + ',' + JSON.stringify(tags) + ')">✎</button></td>' +
         '<td data-label="📌" style="color:var(--muted);cursor:default;text-align:center;font-size:16px" title="拖拽移动">⠿</td>' +
         '<td data-label="大小">' + formatBytes(file.size) + '</td>' +
@@ -5230,7 +5230,7 @@ function renderPage() {
         '<input class="file-check file-check-row" type="checkbox" value="' + encodeURIComponent(file.name) + '" data-id="' + (file.id || '') + '" onchange="onFileCheckChange()" onclick="lastClickedIndex=' + file._index + '">' +
         '<div class="file-content">' +
           gridIcon +
-          '<div class="file-name"><span ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (file.highlightedName || (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name))) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button></div>' +
+          '<div class="file-name"><span ondblclick="startInlineRename(' + JSON.stringify(file.name) + ')">' + (file.starred ? '<span title="已收藏" style="color:#f59e0b">⭐</span> ' : '') + (file.highlightedName || (currentSearchQuery ? highlightMatch(file.name, currentSearchQuery) : escapeHtmlClient(file.name))) + '</span><button class="inline-rename-btn" onclick="startInlineRename(' + JSON.stringify(file.name) + ')" title="重命名 (Enter保存/Esc取消)">✏️</button><button class="inline-star-btn" onclick="event.stopPropagation();toggleStar(' + JSON.stringify(file.name) + ')" title="' + (file.starred ? '取消收藏' : '收藏') + '" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:' + (file.starred ? '#f59e0b' : 'var(--muted)') + '">' + (file.starred ? '★' : '☆') + '</button></div>' +
           '<div class="file-meta">' + formatBytes(file.size) + ' · ' + formatTime(file.updatedAt || file.createdAt) + '</div>' +
           tagHtml +
         '</div>' +
@@ -8707,15 +8707,21 @@ function renderPage() {
     };
 
     window.restoreVersion = async function(filename, versionId) {
-      if (!confirm('确认恢复到此版本？当前内容将作为新版本保存。')) return;
-      try {
-        var res = await fetch('/api/file-versions/' + encodeURIComponent(filename) + '/restore/' + versionId, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers() } });
-        var data = await res.json();
-        if (data.success) {
-          showToast('版本已恢复', 'success');
-          openFileVersions(filename);
-        } else { showToast(data.error || '恢复失败', 'error'); }
-      } catch (e) { showToast('恢复失败: ' + e.message, 'error'); }
+      openConfirmModal({
+        title: '确认恢复到此版本？',
+        text: '当前内容将作为新版本保存。',
+        danger: false,
+        onConfirm: async function() {
+          try {
+            var res = await fetch('/api/file-versions/' + encodeURIComponent(filename) + '/restore/' + versionId, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers() } });
+            var data = await res.json();
+            if (data.success) {
+              showToast('版本已恢复', 'success');
+              openFileVersions(filename);
+            } else { showToast(data.error || '恢复失败', 'error'); }
+          } catch (e) { showToast('恢复失败: ' + e.message, 'error'); }
+        }
+      });
     };
 
     window.deleteVersion = async function(filename, versionId) {

@@ -788,6 +788,8 @@ function runMigrations(db, fromVersion) {
       // v16: no schema change (SQLite durability hardening was applied in initDb)
     } else if (v === 17) {
       initSchemaV17(db);
+    } else if (v === 18) {
+      initSchemaV18(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
