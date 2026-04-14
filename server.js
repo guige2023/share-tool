@@ -1125,6 +1125,7 @@ function renderPage() {
         <input type="checkbox" id="fileSelectAllTop" onchange="toggleFileSelectAll(this.checked)" style="margin-right:4px">
         <span id="fileBatchCount" style="font-size:13px;color:var(--muted)"></span>
         <button class="ghost" onclick="batchMoveSelectedFiles()">移动</button>
+        <button class="ghost" onclick="openBatchCopyModal()">复制</button>
         <button class="ghost danger" onclick="batchDeleteSelectedFiles()">删除</button>
         <button class="ghost" onclick="clearFileSelection()">取消</button>
       </div>
@@ -2317,6 +2318,87 @@ function renderPage() {
       showToast('已添加 ' + count + ' 个文件到收藏夹', 'success');
     }
 
+    function openBatchCopyModal() {
+      const names = checkedNames().map(function(n) { return decodeURIComponent(n); });
+      if (!names.length) { showToast('请先选择文件', 'error'); return; }
+
+      const existingModal = document.getElementById('batchCopyModal');
+      if (existingModal) existingModal.remove();
+
+      const modal = document.createElement('div');
+      modal.id = 'batchCopyModal';
+      modal.className = 'modal open';
+      modal.innerHTML = '\
+        <div class="modal-content" style="max-width:500px">\
+          <h3>📋 批量复制文件</h3>\
+          <p style="color:var(--muted);font-size:13px;margin-bottom:12px">将 ' + names.length + ' 个文件复制到目标文件夹</p>\
+          <div style="margin-bottom:12px">\
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">目标文件夹路径（留空表示根目录）</label>\
+            <input id="batchCopyDestFolder" type="text" placeholder="例如：备份/图片" \
+              style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px" \
+              oninput="updateBatchCopyPreview()">\
+          </div>\
+          <div style="margin-bottom:12px">\
+            <label style="font-size:12px;color:var(--muted);display:block;margin-bottom:4px">预览</label>\
+            <div id="batchCopyPreview" style="max-height:200px;overflow:auto;background:var(--bg-secondary);border-radius:8px;padding:8px;font-size:12px;font-family:monospace"></div>\
+          </div>\
+          <div style="display:flex;gap:8px;justify-content:flex-end">\
+            <button class="secondary" onclick="document.getElementById(\'batchCopyModal\').remove()">取消</button>\
+            <button onclick="confirmBatchCopy()">确定复制</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(modal);
+      window._batchCopyFiles = names;
+      updateBatchCopyPreview();
+    }
+
+    function updateBatchCopyPreview() {
+      const dest = (document.getElementById('batchCopyDestFolder') || {value: ''}).value.trim();
+      const names = window._batchCopyFiles || [];
+      const preview = document.getElementById('batchCopyPreview');
+      if (!preview) return;
+      let html = '';
+      names.forEach(function(n) {
+        const basename = n.split('/').pop();
+        const destName = dest ? dest + '/' + basename : basename;
+        html += '<div style="color:var(--muted)">' + escapeHtmlClient(n) + ' → </div>';
+        html += '<div style="color:var(--accent);margin-bottom:6px">' + escapeHtmlClient(destName) + '</div>';
+      });
+      preview.innerHTML = html || '<div style="color:var(--muted);text-align:center;padding:10px">无文件</div>';
+    }
+
+    async function confirmBatchCopy() {
+      const names = window._batchCopyFiles || [];
+      if (!names.length) return;
+      const destFolder = (document.getElementById('batchCopyDestFolder') || {value: ''}).value.trim();
+      const btn = document.querySelector('#batchCopyModal button[onclick="confirmBatchCopy()"]');
+      if (btn) { btn.disabled = true; btn.textContent = '复制中…'; }
+
+      try {
+        const res = await fetch('/api/file-copy-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...Object.fromEntries(Object.entries(headers())) },
+          body: JSON.stringify({ operations: names.map(function(n) { return { filename: n }; }), destFolder: destFolder })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('已复制 ' + (data.copied || 0) + ' 个文件', 'success');
+          if (data.errors && data.errors.length) {
+            showToast(data.errors.length + ' 个文件复制失败', 'error');
+          }
+          document.getElementById('batchCopyModal').remove();
+          clearSelection();
+          loadFiles();
+        } else {
+          showToast(data.error || '复制失败', 'error');
+        }
+      } catch(e) {
+        showToast('复制失败: ' + e.message, 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '确定复制'; }
+      }
+    }
+
     async function batchDownloadSelected() {
       const names = checkedNames().map(function (n) { return decodeURIComponent(n); });
       if (!names.length) { showToast('请先选择文件', 'error'); return; }
@@ -2995,7 +3077,7 @@ function renderPage() {
               '<div class="uq-fill" style="height:100%;width:' + (item.pct || 0) + '%;background:' + color + ';transition:width .2s"></div>' +
             '</div>' +
           '</div>' +
-          '<div style="font-size:11px;color:var(--muted);min-width:60px;text-align:right;white-space:nowrap">' + (item.pct || 0) + '%' + (item.speed ? ' <span style="color:var(--text-muted)">' + item.speed + '</span>' : '') + '</div>' +
+          '<div style="font-size:11px;color:var(--muted);min-width:60px;text-align:right;white-space:nowrap">' + (item.pct || 0) + '%' + (item.speed ? ' <span style="color:var(--text-muted)">' + item.speed + '</span>' : '') + (item.eta ? ' <span title="剩余时间" style="color:var(--muted)">' + item.eta + '</span>' : '') + '</div>' +
           '<div style="display:flex;gap:4px">' + actions + '</div>' +
         '</div>';
       }).join('');
@@ -3105,7 +3187,14 @@ function renderPage() {
               item._lastLoaded = ev.loaded;
               item._lastTime = now;
               var speedStr = speed > 0 ? formatSpeed(speed) : '';
-              updateQueueItem(uploadQueue.indexOf(item), { pct: pct, speed: speedStr });
+              // ETA: remaining bytes / speed
+              var etaStr = '';
+              if (speed > 0 && ev.total > ev.loaded) {
+                var remaining = ev.total - ev.loaded;
+                var etaSeconds = Math.round(remaining / speed);
+                etaStr = formatEta(etaSeconds);
+              }
+              updateQueueItem(uploadQueue.indexOf(item), { pct: pct, speed: speedStr, eta: etaStr });
               status('上传中 ' + item.name + ' ' + pct + '%' + (speedStr ? ' ' + speedStr : ''));
             }
           };
@@ -6820,6 +6909,12 @@ function renderPage() {
       if (bytesPerSec < 1024) return bytesPerSec + ' B/s';
       if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
       return (bytesPerSec / 1024 / 1024).toFixed(1) + ' MB/s';
+    }
+
+    function formatEta(seconds) {
+      if (seconds < 60) return seconds + '秒';
+      if (seconds < 3600) return Math.round(seconds / 60) + '分钟';
+      return (seconds / 3600).toFixed(1) + '小时';
     }
 
     function openDeleteConfirmModal(selected) {
