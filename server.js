@@ -5032,6 +5032,54 @@ function renderPage() {
       openVirtualFolderManager();
     }
 
+    async function setVFPassword(vfId, vfName, hasPassword) {
+      var m = document.getElementById('vfPwdMgrModal');
+      if (m) m.remove();
+      m = document.createElement('div');
+      m.id = 'vfPwdMgrModal';
+      m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10002;display:flex;align-items:center;justify-content:center;padding:20px';
+      var actionText = hasPassword ? '修改' : '设置';
+      m.innerHTML = '\
+        <div style="background:var(--bg-secondary);border-radius:14px;padding:24px;width:100%;max-width:380px;font-size:14px;text-align:center">\
+          <h3 style="margin:0 0 8px">' + (hasPassword ? '🔑 修改密码' : '🔒 设置密码') + '</h3>\
+          <p style="margin:0 0 16px;font-size:13px;color:var(--muted)">' + (hasPassword ? '修改' : '为') + '「' + escapeHtmlClient(vfName) + '」' + (hasPassword ? '修改' : '设置') + '访问密码</p>\
+          <input id="vfPwdMgrInput1" type="password" placeholder="输入新密码' + (hasPassword ? '' : '（留空则不设置）') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;box-sizing:border-box;outline:none;margin-bottom:8px"/>' +
+          (hasPassword ? '<input id="vfPwdMgrInput2" type="password" placeholder="再次输入新密码" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;box-sizing:border-box;outline:none;margin-bottom:16px"/>' : '') +
+          '<div style="display:flex;gap:10px;justify-content:center">\
+            <button class="secondary" onclick="document.getElementById(\'vfPwdMgrModal\').remove()">取消</button>\
+            ' + (hasPassword ? '<button class="danger" onclick="doRemoveVFPassword(' + vfId + ')">移除密码</button>' : '') + '\
+            <button class="primary" onclick="doSetVFPassword(' + vfId + ')">确认</button>\
+          </div>\
+        </div>';
+      document.body.appendChild(m);
+      document.getElementById('vfPwdMgrInput1').focus();
+      m.addEventListener('click', function(e) { if (e.target === m) m.remove(); });
+    }
+
+    async function doSetVFPassword(vfId) {
+      var pwd1 = document.getElementById('vfPwdMgrInput1').value;
+      var pwd2 = document.getElementById('vfPwdMgrInput2') ? document.getElementById('vfPwdMgrInput2').value : '';
+      if (!pwd1) { showToast('请输入密码', 'error'); return; }
+      if (pwd2 && pwd1 !== pwd2) { showToast('两次密码不一致', 'error'); return; }
+      var m = document.getElementById('vfPwdMgrModal');
+      if (m) m.remove();
+      await fetch('/api/virtual-folders/' + vfId + '/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwd1 })
+      });
+      showToast('密码已设置', 'success');
+      openVirtualFolderManager();
+    }
+
+    async function doRemoveVFPassword(vfId) {
+      var m = document.getElementById('vfPwdMgrModal');
+      if (m) m.remove();
+      await fetch('/api/virtual-folders/' + vfId + '/password', { method: 'DELETE', headers: headers() });
+      showToast('密码已移除', 'success');
+      openVirtualFolderManager();
+    }
+
     async function deleteVirtualFolder(id) {
       var m = document.getElementById('confirmVFDeleteModal2');
       if (m) m.remove();
@@ -6053,6 +6101,12 @@ function renderPage() {
           clearSearchInput();
           return;
         }
+        return;
+      }
+
+      // ? shows keyboard shortcuts
+      if (e.key === '?') {
+        openKeyboardShortcutsModal();
         return;
       }
 

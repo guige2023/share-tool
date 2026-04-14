@@ -980,7 +980,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     return true;
   }
 
-  // PUT /api/virtual-folders/:id/password - set or remove VF password
+  // PUT /api/virtual-folders/:id/password - set or update VF password
   if (pathname.match(/^\/api\/virtual-folders\/\d+\/password$/) && method === 'PUT') {
     const auth = authRequired(req, res);
     if (!auth) return true;
@@ -988,6 +988,17 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
     const body = await readJsonBody(req);
     const { password } = body;
     db.setVirtualFolderPassword(folderId, password || null);
+    sendJson(res, { success: true });
+    global.broadcastSSE({ type: 'files_changed' });
+    return true;
+  }
+
+  // DELETE /api/virtual-folders/:id/password - remove VF password
+  if (pathname.match(/^\/api\/virtual-folders\/\d+\/password$/) && method === 'DELETE') {
+    const auth = authRequired(req, res);
+    if (!auth) return true;
+    const folderId = parseInt(pathname.split('/')[3], 10);
+    db.setVirtualFolderPassword(folderId, null);
     sendJson(res, { success: true });
     global.broadcastSSE({ type: 'files_changed' });
     return true;
