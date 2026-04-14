@@ -885,6 +885,7 @@ function renderPage() {
     <div class="ctx-item ctx-star" data-starred="0" onclick="ctxAction('addToVF')">⭐ 添加到收藏夹</div>
     <div class="ctx-item ctx-star" data-starred="1" onclick="ctxAction('removeFromVF')" style="display:none">⭐ 从收藏移除</div>
     <div class="ctx-item" onclick="ctxAction('addTags')">🏷️ 添加标签</div>
+    <div class="ctx-item" onclick="ctxAction('batchTag')">🏷️ 批量标签</div>
     <div class="ctx-sep"></div>
     <div class="ctx-item" onclick="ctxAction('rename')">✎ 重命名</div>
     <div class="ctx-item" onclick="ctxAction('delete')" style="color:var(--danger)">🗑 删除</div>
@@ -6801,6 +6802,18 @@ function renderPage() {
           break;
         }
 
+        case 'm':
+        case 'M': {
+          // m: batch tag selected files
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+          e.preventDefault();
+          var mNames = checkedNames();
+          if (!mNames.length) { showToast('请先选择文件', 'error'); return; }
+          openTagInputModalForFiles('add', mNames);
+          break;
+        }
+
         case 's':
         case 'S': {
           if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -7246,6 +7259,12 @@ function renderPage() {
         case 'addTags':
           openTagInputModalForFiles('add', [filename]);
           break;
+        case 'batchTag': {
+          var btNames = checkedNames();
+          if (!btNames.length) { showToast('请先选择文件（可多选）', 'error'); return; }
+          openTagInputModalForFiles('add', btNames);
+          break;
+        }
         case 'removeTags':
           openTagInputModalForFiles('remove', [filename]);
           break;
@@ -10123,6 +10142,85 @@ function renderPage() {
       }
     }
 
+    async function loadSystemStats() {
+      var loading = document.getElementById('sysStatsLoading');
+      var content = document.getElementById('sysStatsContent');
+      if (!content) return;
+      try {
+        var res = await fetch('/api/system/stats', { headers: headers() });
+        var data = await res.json();
+        if (!data.success) throw new Error(data.error || '加载失败');
+        var s = data;
+        function fmtMem(bytes) {
+          if (!bytes) return '0 B';
+          if (bytes > 1024*1024*1024) return Math.round(bytes/1024/1024/1024*10)/10 + ' GB';
+          if (bytes > 1024*1024) return Math.round(bytes/1024/1024) + ' MB';
+          return Math.round(bytes/1024) + ' KB';
+        }
+        function fmtUptime(seconds) {
+          var d = Math.floor(seconds/86400);
+          var h = Math.floor((seconds%86400)/3600);
+          var m = Math.floor((seconds%3600)/60);
+          return (d > 0 ? d+'天 ' : '') + (h > 0 ? h+'小时 ' : '') + m+'分钟';
+        }
+        var mem = s.memory || {};
+        var memTotal = mem.systemTotal || 0;
+        var memUsed = mem.systemUsed || 0;
+        var memPct = memTotal > 0 ? Math.round(memUsed/memTotal*100) : 0;
+        var memColor = memPct > 85 ? '#ef4444' : memPct > 70 ? '#f59e0b' : '#10b981';
+        var cpu = s.cpu || {};
+        var load1 = cpu.loadavg1m != null ? cpu.loadavg1m.toFixed(2) : 'N/A';
+        var load5 = cpu.loadavg5m != null ? cpu.loadavg5m.toFixed(2) : 'N/A';
+        var uptime = s.process ? s.process.uptime : null;
+        var uptimeStr = uptime ? fmtUptime(uptime) : 'N/A';
+        // Disk
+        var diskSection = '';
+        if (s.disk && s.disk.total > 0) {
+          var diskPct = Math.round(s.disk.used/s.disk.total*100);
+          var diskColor = diskPct > 90 ? '#ef4444' : diskPct > 75 ? '#f59e0b' : '#10b981';
+          diskSection = '<div style="margin-top:12px">';
+          diskSection += '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px"><span style="color:var(--muted)">磁盘使用</span><span style="font-weight:600">' + fmtMem(s.disk.used) + ' / ' + fmtMem(s.disk.total) + '</span></div>';
+          diskSection += '<div style="height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden">';
+          diskSection += '<div style="height:100%;width:' + diskPct + '%;background:' + diskColor + ';border-radius:4px"></div>';
+          diskSection += '</div><div style="text-align:right;font-size:11px;color:var(--muted);margin-top:2px">' + diskPct + '% · 剩余 ' + fmtMem(s.disk.free) + '</div></div>';
+        }
+        var html = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+        // Memory
+        html += '<div style="padding:10px;background:var(--bg-tertiary);border-radius:8px">';
+        html += '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">🧠 系统内存</div>';
+        html += '<div style="font-size:15px;font-weight:700">' + memPct + '%</div>';
+        html += '<div style="height:6px;background:var(--bg-secondary);border-radius:3px;overflow:hidden;margin:4px 0">';
+        html += '<div style="height:100%;width:' + memPct + '%;background:' + memColor + ';border-radius:3px"></div>';
+        html += '</div>';
+        html += '<div style="font-size:11px;color:var(--muted)">' + fmtMem(memUsed) + ' / ' + fmtMem(memTotal) + '</div></div>';
+        // CPU
+        html += '<div style="padding:10px;background:var(--bg-tertiary);border-radius:8px">';
+        html += '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">⚙️ CPU 负载</div>';
+        html += '<div style="font-size:15px;font-weight:700">' + load1 + ' <span style="font-size:12px;font-weight:400;color:var(--muted)">/ ' + (cpu.cores || '?') + '核</span></div>';
+        html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">1m: ' + load1 + ' · 5m: ' + load5 + '</div></div>';
+        // Uptime
+        html += '<div style="padding:10px;background:var(--bg-tertiary);border-radius:8px">';
+        html += '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">⏱️ 运行时间</div>';
+        html += '<div style="font-size:15px;font-weight:700">' + uptimeStr + '</div>';
+        html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">Node ' + (s.process ? s.process.nodeVersion : '?') + '</div></div>';
+        // Node heap
+        var heapUsed = mem.heapUsed || 0;
+        var heapTotal = mem.heapTotal || 0;
+        var heapPct = heapTotal > 0 ? Math.round(heapUsed/heapTotal*100) : 0;
+        html += '<div style="padding:10px;background:var(--bg-tertiary);border-radius:8px">';
+        html += '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">🗄️ 堆内存</div>';
+        html += '<div style="font-size:15px;font-weight:700">' + heapPct + '%</div>';
+        html += '<div style="font-size:11px;color:var(--muted);margin-top:4px">' + fmtMem(heapUsed) + ' / ' + fmtMem(heapTotal) + '</div></div>';
+        html += '</div>';
+        if (diskSection) html += diskSection;
+        if (loading) loading.style.display = 'none';
+        if (content) { content.style.display = 'grid'; content.innerHTML = html; }
+      } catch(e) {
+        if (loading) loading.style.display = 'none';
+        if (content) content.innerHTML = '<div style="color:#ef4444;font-size:12px;text-align:center;padding:8px">加载失败: ' + escapeHtmlClient(e.message) + '</div>';
+      }
+    }
+
     function exportAuditCSV() {
       var action = document.getElementById('auditActionFilter') && document.getElementById('auditActionFilter').value;
       var url = '/api/audit/export' + (action ? '?action=' + encodeURIComponent(action) : '');
@@ -11368,6 +11466,17 @@ function renderPage() {
           html += '<span style="font-weight:600;color:var(--text)">' + escapeHtmlClient('' + s.value) + '</span></div>';
         }
         html += '</div></div></div>';
+
+        // Row 5b: Real-time system resource stats (fetched live from /api/system/stats)
+        html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:20px">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+        html += '<div style="font-weight:600;font-size:13px">💻 实时系统状态</div>';
+        html += '<button id="refreshSysStatsBtn" onclick="loadSystemStats()" style="font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;border:1px solid var(--line);background:var(--bg-tertiary);color:var(--muted)">🔄 刷新</button>';
+        html += '</div>';
+        html += '<div id="sysStatsLoading" style="text-align:center;color:var(--muted);font-size:12px;padding:10px">加载中…</div>';
+        html += '<div id="sysStatsContent" style="display:none"></div>';
+        html += '</div>';
+        html += '<script>window.addEventListener(\'DOMContentLoaded\', function() { loadSystemStats(); });</script>';
 
         // Row 6: Share link analytics
         html += '<div style="background:var(--bg-secondary);padding:14px;border-radius:12px;margin-bottom:20px">';
