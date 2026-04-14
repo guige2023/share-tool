@@ -7969,34 +7969,65 @@ function renderPage() {
       const modal = document.getElementById('modal');
       const title = document.getElementById('modalTitle');
       const body = document.getElementById('modalBody');
-      title.textContent = '键盘快捷键';
-      const shortcuts = [
-        ['j / ↓', '向下导航'],
-        ['k / ↑', '向上导航'],
-        ['Enter', '打开/预览文件'],
-        ['Space', '选中/取消选中'],
-        ['s', '标记/取消收藏'],
-        ['z', '打开同步面板'],
-        ['y', '复制文件名'],
-        ['c', '复制分享链接'],
-        ['v', '切换视图 (list↔grid)'],
-        ['d', '切换主题 (light↔dark)'],
-        ['Home / End', '跳到开头/末尾'],
-        ['n', '新建文本文件'],
-        ['r', '刷新文件列表'],
-        ['f / /', '聚焦搜索框'],
-        ['t', '打开回收站'],
-        ['o', '打开已保存搜索'],
-        ['u', '触发上传'],
-        ['Ctrl+A', '全选文件'],
-        ['?', '显示帮助'],
-        ['Esc', '关闭弹窗/取消选择'],
-      ];
-      body.innerHTML = '<div style="display:grid;grid-template-columns:auto 1fr;gap:8px 20px;padding:8px 0;font-size:13px">' +
-        shortcuts.map(([k, d]) =>
-          '<kbd style="background:var(--bg-tertiary);border:1px solid var(--line);border-radius:5px;padding:2px 8px;font-family:monospace;font-size:12px;text-align:center;min-width:40px">' + escapeHtmlClient(k) + '</kbd>' +
-          '<span style="color:var(--text-secondary);padding-top:2px">' + escapeHtmlClient(d) + '</span>'
-        ).join('') + '</div>';
+      title.textContent = '⌨️ 键盘快捷键';
+
+      function section(title2, shortcuts2) {
+        return '<div style="margin-bottom:16px">' +
+          '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:8px">' + title2 + '</div>' +
+          '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;padding:0">' +
+          shortcuts2.map(function(s) {
+            return '<kbd style="background:var(--bg-tertiary);border:1px solid var(--line);border-radius:5px;padding:2px 8px;font-family:monospace;font-size:12px;text-align:center;min-width:52px;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.1)">' + escapeHtmlClient(s[0]) + '</kbd>' +
+              '<span style="color:var(--text-secondary);padding-top:3px;font-size:13px">' + escapeHtmlClient(s[1]) + '</span>';
+          }).join('') + '</div></div>';
+      }
+
+      body.innerHTML = '<div style="max-height:80vh;overflow-y:auto;padding:4px">' +
+
+        section('导航', [
+          ['j / ↓', '向下导航'],
+          ['k / ↑', '向上导航'],
+          ['Home / End', '跳到开头/末尾'],
+          ['gg', '跳到顶部（连按 g）'],
+        ]) +
+
+        section('文件操作', [
+          ['Enter', '打开/预览文件'],
+          ['Space', '选中/取消选中'],
+          ['s', '标记/取消收藏'],
+          ['y', '复制文件名'],
+          ['c', '复制分享链接'],
+          ['n', '新建文本文件'],
+          ['r', '刷新文件列表'],
+        ]) +
+
+        section('批量操作', [
+          ['p', '批量预览选中文件'],
+          ['Ctrl+A', '全选 / 取消全选'],
+          ['Shift+点击', '范围选中'],
+          ['Ctrl+点击', '多选文件'],
+          ['Delete', '删除选中的文件'],
+        ]) +
+
+        section('视图与主题', [
+          ['v', '切换视图 (list ↔ grid)'],
+          ['d', '切换主题 (light ↔ dark)'],
+          ['f / /', '聚焦搜索框'],
+        ]) +
+
+        section('面板', [
+          ['t', '打开回收站'],
+          ['z', '打开同步面板'],
+          ['o', '打开已保存搜索'],
+          ['u', '触发上传'],
+          ['p', '批量预览选中文件'],
+        ]) +
+
+        section('其他', [
+          ['?', '显示帮助'],
+          ['Esc', '关闭弹窗 / 取消选择'],
+        ]) +
+
+        '</div>';
       modal.classList.add('open');
     }
 
