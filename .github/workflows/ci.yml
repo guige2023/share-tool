@@ -120,13 +120,16 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -o ../app/ShareTool/sharetool_darwin_amd64 .
           ls -la "$REPO/app/ShareTool/sharetool_darwin_amd64"
 
-          # Build macOS app with xcodebuild
+          # Build macOS app with xcodebuild (disable set -e to capture exit code)
           cd "$REPO/app/ShareTool"
-          xcodebuild -project ShareTool.xcodeproj -scheme ShareTool -configuration Release -derivedDataPath ./build APP_CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO > /tmp/xcodebuild.log 2>&1; XCODE_EXIT=$?
-          tail -30 /tmp/xcodebuild.log
+          set +e
+          xcodebuild -project ShareTool.xcodeproj -scheme ShareTool -configuration Release -derivedDataPath ./build APP_CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO 2>&1 | tee /tmp/xcodebuild.log
+          XCODE_EXIT=${PIPESTATUS[0]}
+          set -e
           echo "xcodebuild exit code: $XCODE_EXIT"
+          tail -5 /tmp/xcodebuild.log
           if [ $XCODE_EXIT -ne 0 ]; then
-            echo "ERROR: xcodebuild failed"
+            echo "ERROR: xcodebuild failed with exit code $XCODE_EXIT"
             exit 1
           fi
 
