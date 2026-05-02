@@ -34,7 +34,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Determine local IP for clipboard manager base URL
         let localIP = getLocalIP() ?? "127.0.0.1"
-        let baseURL = "https://\(localIP):18793"
+        let baseURL = "http://\(localIP):18793"
 
         statusBarController = StatusBarController(
             baseURL: baseURL,
@@ -149,8 +149,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func openWebUI() {
-        guard let ip = getLocalIP() else { return }
-        NSWorkspace.shared.open(URL(string: "https://\(ip):18793")!)
+        NSWorkspace.shared.open(URL(string: "http://localhost:18793")!)
     }
 
     func openSharedFolder() {
