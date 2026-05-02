@@ -108,19 +108,20 @@ jobs:
 
       - name: Build macOS App
         run: |
+          REPO="$PWD"
           # Regenerate .xcodeproj from project.yml (in case it was updated)
-          cd app/ShareTool
+          cd "$REPO/app/ShareTool"
           xcodegen generate
           ls -la ShareTool.xcodeproj/
 
-          # Build Go binaries for both architectures
-          cd ../go
+          # Build Go binaries for both architectures (output to app/ShareTool/)
+          cd "$REPO/go"
           GOOS=darwin GOARCH=arm64 go build -o ../app/ShareTool/sharetool_darwin_arm64 .
           GOOS=darwin GOARCH=amd64 go build -o ../app/ShareTool/sharetool_darwin_amd64 .
-          cd ..
+          ls -la "$REPO/app/ShareTool/sharetool_darwin_amd64"
 
           # Build macOS app with xcodebuild
-          cd app/ShareTool
+          cd "$REPO/app/ShareTool"
           xcodebuild -project ShareTool.xcodeproj -scheme ShareTool -configuration Release -derivedDataPath ./build APP_CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO 2>&1 | tail -20
 
           # Verify .app exists
