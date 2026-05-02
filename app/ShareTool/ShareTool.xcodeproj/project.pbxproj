@@ -157,7 +157,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Create the executables directory inside the bundle\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin\"\n# Copy the Go binary\ncp -f \"${SRCROOT}/../../../sharetool_darwin_amd64\" \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin/sharetool\"\nchmod +x \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin/sharetool\"\n";
+			shellScript = "# Create the executables directory inside the bundle\nmkdir -p \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin\"\n# Copy the Go binary: check in .xcodeproj/../ (same dir as project) first\nGO_BIN=\"\"\nif [ -f \"${SRCROOT}/../sharetool_darwin_amd64\" ]; then\n  GO_BIN=\"${SRCROOT}/../sharetool_darwin_amd64\"\nelif [ -f \"${SRCROOT}/../sharetool_darwin_arm64\" ]; then\n  GO_BIN=\"${SRCROOT}/../sharetool_darwin_arm64\"\nfi\nif [ -n \"$GO_BIN\" ]; then\n  cp -f \"$GO_BIN\" \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin/sharetool\"\n  chmod +x \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin/sharetool\"\n  echo \"Copied: $GO_BIN\"\nelse\n  echo \"WARNING: Go binary not found, app will run in client-only mode\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

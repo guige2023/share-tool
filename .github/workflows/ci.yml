@@ -98,22 +98,26 @@ jobs:
           go-version: '1.25'
           cache-dependency-path: go/go.sum
 
+      - name: Setup XcodeGen
+        run: |
+          # Install xcodegen if not present
+          if ! command -v xcodegen &> /dev/null; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
       - name: Build macOS App
         run: |
+          # Regenerate .xcodeproj from project.yml (in case it was updated)
+          cd app/ShareTool
+          xcodegen generate
+          ls -la ShareTool.xcodeproj/
+
           # Build Go binaries for both architectures
-          cd go
-          GOOS=darwin GOARCH=arm64 go build -o ../sharetool_darwin_arm64 .
-          GOOS=darwin GOARCH=amd64 go build -o ../sharetool_darwin_amd64 .
+          cd ../go
+          GOOS=darwin GOARCH=arm64 go build -o ../app/ShareTool/sharetool_darwin_arm64 .
+          GOOS=darwin GOARCH=amd64 go build -o ../app/ShareTool/sharetool_darwin_amd64 .
           cd ..
-
-          # Place binary where Xcode preBuildScript expects it:
-          # preBuildScript now uses ${SRCROOT}/../sharetool_darwin_amd64
-          # ${SRCROOT} = .xcodeproj dir, so ../ = app/ShareTool/
-          cp sharetool_darwin_amd64 app/ShareTool/sharetool_darwin_amd64
-          cp sharetool_darwin_arm64 app/ShareTool/sharetool_darwin_arm64
-
-          # Verify
-          ls -la app/ShareTool/sharetool_darwin_amd64
 
           # Build macOS app with xcodebuild
           cd app/ShareTool
