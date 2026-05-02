@@ -506,9 +506,9 @@ internal class HiddenClipboardWindow : NativeWindow, IDisposable
             X = -10000,
             Y = -10000,
             Style = 0,
-            WindowClassStyle = 0,
+            ClassStyle = 0,
             ExStyle = 0x08000000, // WS_EX_TOOLWINDOW (no taskbar button)
-            Name = "ShareToolClipboardMonitor"
+            ClassName = "ShareToolClipboardMonitor"
         });
     }
 
