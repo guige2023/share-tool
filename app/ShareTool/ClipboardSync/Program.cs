@@ -319,8 +319,8 @@ class TrayAppContext : ApplicationContext
 
         _clipboardService.OnReceived += (_, entry) =>
         {
-            // Marshal to UI thread to avoid cross-thread issues
-            _notifyIcon?.BeginInvoke(new Action(() =>
+            // Marshal to UI thread to avoid cross-thread UI issues
+            _contextMenu.BeginInvoke(new Action(() =>
             {
                 try
                 {
@@ -336,7 +336,7 @@ class TrayAppContext : ApplicationContext
 
         _clipboardService.OnSent += (_, result) =>
         {
-            _notifyIcon?.BeginInvoke(new Action(() =>
+            _contextMenu.BeginInvoke(new Action(() =>
             {
                 try
                 {

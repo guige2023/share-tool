@@ -9,6 +9,7 @@ public class TrayIconManager : IDisposable
 {
     private NotifyIcon? _notifyIcon;
     private ContextMenuStrip? _menu;
+    private Control? _ownerControl; // used for BeginInvoke to marshal calls to UI thread
     private readonly ClipboardService _clipboardService;
     private readonly string _instanceName;
 
@@ -28,7 +29,7 @@ public class TrayIconManager : IDisposable
         _clipboardService.OnReceived += (_, entry) =>
         {
             // Marshal to UI thread to avoid cross-thread UI access
-            _notifyIcon?.BeginInvoke(new Action(() =>
+            _ownerControl?.BeginInvoke(new Action(() =>
             {
                 ShowNotification(
                     "收到剪贴板",
@@ -40,7 +41,7 @@ public class TrayIconManager : IDisposable
 
         _clipboardService.OnSent += (_, result) =>
         {
-            _notifyIcon?.BeginInvoke(new Action(() =>
+            _ownerControl?.BeginInvoke(new Action(() =>
             {
                 if (result.Error != null)
                     ShowNotification("发送失败", result.Error);
@@ -50,15 +51,17 @@ public class TrayIconManager : IDisposable
         };
     }
 
-    public void Setup(ContextMenuStrip menu)
+    public void Setup(ContextMenuStrip menu, Control? owner = null)
     {
         _menu = menu;
+        _ownerControl = owner ?? menu;
         BuildMenu();
     }
 
-    public void SetNotifyIcon(NotifyIcon ni)
+    public void SetNotifyIcon(NotifyIcon ni, Control? owner = null)
     {
         _notifyIcon = ni;
+        _ownerControl = owner;
         RefreshMenu();
     }
 
