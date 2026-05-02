@@ -1,0 +1,41 @@
+name: Build Windows App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Windows Tray App
+        run: |
+          cd app/ShareTool/ClipboardSync
+          dotnet restore
+          dotnet build -c Release -r win-x64 --self-contained false
+        working-directory: .
+
+      - name: Build Go Server (Windows)
+        run: |
+          cd go
+          go build -o ../sharetool_windows_amd64.exe .
+        working-directory: .
+
+      - name: Copy executables
+        run: |
+          mkdir -p artifacts
+          cp app/ShareTool/ClipboardSync/bin/Release/net8.0-windows/win-x64/ShareToolClipboardSync.exe artifacts/
+          cp sharetool_windows_amd64.exe artifacts/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sharetool-windows-binaries
+          path: artifacts/
+          retention-days: 1
