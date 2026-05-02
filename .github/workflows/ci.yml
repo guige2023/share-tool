@@ -127,7 +127,7 @@ jobs:
           XCODE_EXIT=${PIPESTATUS[0]}
           set -e
           echo "xcodebuild exit code: $XCODE_EXIT"
-          tail -5 /tmp/xcodebuild.log
+          tail -50 /tmp/xcodebuild.log
           if [ $XCODE_EXIT -ne 0 ]; then
             echo "ERROR: xcodebuild failed with exit code $XCODE_EXIT"
             exit 1
@@ -137,7 +137,19 @@ jobs:
           APP_PATH=$(find build -name "ShareTool.app" -maxdepth 5 2>/dev/null | head -1)
           if [ -n "$APP_PATH" ]; then
             echo "macOS app built: $APP_PATH"
-            echo "App size: $(du -sh "$APP_PATH" | cut -f1)"
+            echo "App size before Go binary: $(du -sh "$APP_PATH" | cut -f1)"
+
+            # Manually inject Go binary into .app bundle (preBuildScript may fail silently)
+            GO_BIN="$REPO/app/ShareTool/sharetool_darwin_amd64"
+            if [ -f "$GO_BIN" ]; then
+              mkdir -p "$APP_PATH/Contents/ShareTool-bin"
+              cp "$GO_BIN" "$APP_PATH/Contents/ShareTool-bin/sharetool"
+              chmod +x "$APP_PATH/Contents/ShareTool-bin/sharetool"
+              echo "Go binary injected: $(ls -lh "$APP_PATH/Contents/ShareTool-bin/sharetool" | awk '{print $5, $9}')"
+            else
+              echo "WARNING: Go binary not found at $GO_BIN, app will run in client-only mode"
+            fi
+
             mkdir -p artifacts
             cp -r "$APP_PATH" artifacts/
             echo "Copied to artifacts. Size: $(du -sh artifacts/ShareTool.app | cut -f1)"
