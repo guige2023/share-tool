@@ -100,15 +100,19 @@ jobs:
 
       - name: Build macOS App
         run: |
-          # Build Go binary for macOS arm64 (Apple Silicon)
+          # Build Go binaries for both architectures
           cd go
           GOOS=darwin GOARCH=arm64 go build -o ../sharetool_darwin_arm64 .
-          # Also build amd64 and place at the path Xcode project expects
           GOOS=darwin GOARCH=amd64 go build -o ../sharetool_darwin_amd64 .
           cd ..
 
-          # Verify binaries
-          ls -la sharetool_darwin_arm64 sharetool_darwin_amd64
+          # Place binary where Xcode preBuildScript expects it:
+          # preBuildScript runs from .xcodeproj dir, so ../../../ = repo root
+          cp sharetool_darwin_amd64 app/ShareTool/ShareTool.xcodeproj/../sharetool_darwin_amd64
+          cp sharetool_darwin_arm64 app/ShareTool/ShareTool.xcodeproj/../sharetool_darwin_arm64
+
+          # Verify
+          ls -la app/ShareTool/ShareTool.xcodeproj/../sharetool_darwin_amd64
 
           # Build macOS app with xcodebuild
           cd app/ShareTool
