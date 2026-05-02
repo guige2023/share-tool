@@ -1,100 +1,60 @@
 # ShareTool 开发任务
 
-## P0 问题（已修复并验证）
+## 全部问题（已修复）
+
+### P0 核心同步问题
 
 - [x] **mdns.go: advertiseLoop() 未被调用** — Start() 中调用了 d.advertiseLoop()
-- [x] **clipboard_api.go: peers map 并发修改** — 改用 peer snapshot 模式
+- [x] **clipboard_api.go: peers map 并发修改** — peer snapshot 模式（读取时复制切片）
 - [x] **clipboard_api.go: ClipboardRequest.BlobURL 缺失** — 已添加 blob_url 字段
 - [x] **clipboard_api.go: handleClipboardReceive 不获取 blob** — 通过 forwardClient.Get(blobURL) 获取
 - [x] **clipboard_api.go: handleClipboardPeersSend peer snapshot** — 同理修复
+- [x] **clipboard_api.go: handleClipboardReceive 处理文件 blob** — 遍历 req.Files[*].BlobURL 下载并保存到磁盘
 - [x] **Models.cs: ClipboardRequest 缺 blob_url/from/@type** — 已添加
 - [x] **ClipboardService.cs: 文件剪贴板无 blob 上传** — DetectClipboardTypeAsync + blob upload
 - [x] **ClipboardService.cs: 接收文件不写剪贴板** — DownloadFilesAndSetClipboard
 - [x] **ClipboardManager.swift: 文件剪贴板无 blob 上传** — sendFilesClipboard 先上传 blob
-- [x] **Program.cs: ContextMenuStrip 死锁** — 改用 BeginInvoke 跨线程调用
+- [x] **Program.cs: ContextMenuStrip 死锁** — BeginInvoke 跨线程 marshal
 - [x] **ClipboardSync.csproj: System.Drawing.Common 缺失** — 已添加
 - [x] **Node.js 旧实现** — 已删除
 
-## P1 问题（已修复并验证）
+### P1 结构问题
 
 - [x] **Windows C# CI build: ContextMenu/MenuItem 找不到**
-  - 原因：.NET 8 SDK + Windows Desktop SDK 配置问题
-  - 修复：改用 net10.0-windows + ContextMenuStrip/ToolStripMenuItem 重写 Program.cs
-  - 验证：CI 通过，生成 ShareToolClipboardSync.exe (159KB)
+  - 修复：net10.0-windows + ContextMenuStrip/ToolStripMenuItem 重写 Program.cs
+  - 验证：CI 通过
 
-- [x] **mDNS peer 注册**
-  - main.go 中 mDNS Start() 回调已调用 server.RegisterPeer(ip, port, name)
-  - peers_api.go 中 RegisterPeer 已实现
-  - 验证：代码已就位
+- [x] **Windows 轮询改为事件驱动**
+  - 问题：AddClipboardFormatListener 需要窗口句柄，IntPtr.Zero 导致 fallback 轮询
+  - 修复：新增 HiddenClipboardWindow (NativeWindow 子类)，off-screen WS_EX_TOOLWINDOW 窗口
+  - 结果：Windows 托盘 app 现在用事件驱动的 WM_CLIPBOARDUPDATE，macOS 用 NSPasteboard.changeCount，两端一致
 
-- [x] **forwarded 计数不准确**
-  - 代码中 wg.Wait() 同步等待后返回，forwarded 计数正确
-  - 验证：代码已正确
+- [x] **mDNS peer 注册** — main.go 中 mDNS Start() 回调调用 server.RegisterPeer()
+- [x] **forwarded 计数不准确** — wg.Wait() 同步等待后返回
+- [x] **桌面端轮询改推送** — SSE /api/push 端点实现，macOS Swift 和 Windows C# 都已连接
+- [x] **大文件断点续传** — upload_api.go: chunk hash 校验、bitmap、atomic rename
+- [x] **iOS/Android 后台自动剪贴板** — 系统限制，产品策略明确（半自动模式）
 
-- [x] **图片/文件剪贴板 blob 协议**
-  - handleClipboardReceive 已通过 BlobURL 获取图片数据
-  - 新增：handleClipboardReceive 处理 req.Files[*].BlobURL，下载并保存文件到磁盘
-  - saveReceivedFile helper 已添加
-  - 验证：Go build 通过
+### 待后续优化（非阻塞）
 
-- [x] **桌面端轮询改推送**
-  - /api/push SSE 端点已实现，handlePush handler 存在
-  - BroadcastClipboard 在 handleClipboardPost/handleClipboardReceive 中调用
-  - AddPushClient/RemovePushClient 已实现
-  - 验证：代码已就位，Go build 通过
+- [ ] **HTTPS 自签证书** — iOS/Android 浏览器强警告。可选方案：Let's Encrypt、mkcert、用户手动配置
+- [ ] **手动部署文档** — 如何在树莓派/Linux 盒子上部署 Go 服务器二进制
 
-- [x] **大文件断点续传**
-  - upload_api.go: handleUploadChunk 带 hash 校验、offset seek、bitmap 更新
-  - handleUploadComplete: SHA256 校验 + os.Rename 原子写入
-  - handleUploadStatus: 返回已完成的 chunks 列表用于恢复
-  - 验证：Go build 通过
-
-- [x] **iOS/Android 后台自动剪贴板**
-  - 系统限制：iOS Safari/PWA 无法后台读取剪贴板
-  - 产品定义：iOS/Android Web 端为"半自动"模式
-  - 验证：无需代码修改，产品策略已明确
-
-## 构建说明
-
-```bash
-# Go 服务器（所有平台）
-./scripts/build.sh
-# 输出：dist/sharetool_darwin_arm64, dist/sharetool_darwin_amd64,
-#       dist/sharetool_windows_amd64.exe, dist/sharetool_linux_amd64
-
-# macOS 原生菜单栏 App
-cd app/ShareTool
-xcodebuild -project ShareTool.xcodeproj -scheme ShareTool -configuration Release
-
-# Windows 托盘 App
-cd app/ShareTool/ClipboardSync
-dotnet build -c Release -r win-x64
-# 输出：bin/Release/net10.0-windows/win-x64/ShareToolClipboardSync.exe
-
-# GitHub Actions（自动构建所有平台）
-git push origin fix/clipboard-p0-fixes
-# 制品下载：
-#   gh run download <id> --name sharetool-server-binaries
-#   gh run download <id> --name sharetool-windows-app
-```
-
-## 架构说明
+## 构建产物
 
 ```
-ShareTool/
-├── go/                          # Go Core Server (单二进制)
-│   ├── main.go                  # 入口，mDNS 启动，HTTP 服务器
-│   └── internal/
-│       ├── server/               # API handlers
-│       │   ├── clipboard_api.go  # 剪贴板 API + SSE push
-│       │   ├── peers_api.go     # 设备注册 + mDNS peer 注册
-│       │   ├── blob_api.go      # blob 上传/下载
-│       │   ├── upload_api.go   # 断点续传上传 session
-│       │   └── ws_api.go       # SSE push handler
-│       └── discovery/
-│           └── mdns.go          # mDNS 发现 + advertise
-├── app/ShareTool/              # 原生桌面客户端
-│   ├── Sources/                # macOS Swift 菜单栏 App
-│   └── ClipboardSync/          # Windows C# 托盘 App
-└── dist/                       # 编译产物
+dist/
+├── sharetool_darwin_arm64       # Go macOS ARM64
+├── sharetool_darwin_amd64       # Go macOS Intel
+├── sharetool_windows_amd64.exe # Go Windows
+├── sharetool_linux_amd64       # Go Linux
+└── ShareToolClipboardSync.exe   # Windows C# 托盘 App (159KB)
 ```
+
+## GitHub Actions
+
+所有平台自动构建：
+- Go 服务器：darwin/arm64, darwin/amd64, windows/amd64, linux/amd64
+- Windows C# 托盘：.NET 10 + ContextMenuStrip
+- 制品下载：`gh run download <id> --name sharetool-server-binaries`
+- 制品下载：`gh run download <id> --name sharetool-windows-app`
