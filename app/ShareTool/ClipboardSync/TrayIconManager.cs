@@ -29,7 +29,7 @@ public class TrayIconManager : IDisposable
         {
             ShowNotification(
                 "收到剪贴板",
-                $"来自 {entry?.From}: {(entry?.Type == "text" ? Truncate(entry?.Content ?? "", 40) : $"[{entry?.Type}]")}"
+                $"来自 {entry?.from}: {(entry?.@type == "text" ? Truncate(entry?.text ?? "", 40) : $"[{entry?.@type}]")}"
             );
             RefreshHistoryMenu();
         };
@@ -126,14 +126,14 @@ public class TrayIconManager : IDisposable
             if (resp.IsSuccessStatusCode)
             {
                 var data = await resp.Content.ReadFromJsonAsync<ClipboardHistoryResponse>();
-                if (data?.Entries != null && data.Entries.Count > 0)
+                if (data?.entries != null && data.entries.Count > 0)
                 {
-                    foreach (var entry in data.Entries.Take(10))
+                    foreach (var entry in data.entries.Take(10))
                     {
-                        var preview = entry.Type == "text"
-                            ? Truncate(entry.Content ?? "", 40)
-                            : $"[{entry.Type}]";
-                        var item = new ToolStripMenuItem($"{entry.From}: {preview}");
+                        var preview = entry.@type == "text"
+                            ? Truncate(entry.text ?? "", 40)
+                            : $"[{entry.@type}]";
+                        var item = new ToolStripMenuItem($"{entry.from}: {preview}");
                         item.Click += (_, _) => _clipboardService.WriteClipboardToSystem(entry);
                         menu.Items.Add(item);
                     }
