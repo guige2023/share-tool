@@ -19,32 +19,49 @@ import (
 const (
 	MaxClipboardTextSize   = 1 * 1024 * 1024  // 1MB
 	MaxClipboardImageSize  = 10 * 1024 * 1024 // 10MB
-	MaxClipboardFilesSize  = 100 * 1024 * 1024 // 100MB
-	MaxClipboardHistory    = 50
-	HistoryFileName        = "history.json"
-	ImagesDirName          = "images"
-	FilesDirName           = "files"
+	MaxClipboardFilesSize = 100 * 1024 * 1024 // 100MB
+	MaxClipboardHistory   = 50
+	HistoryFileName      = "history.json"
+	ImagesDirName        = "images"
+	FilesDirName         = "files"
+	SmallImageMaxBytes   = 512 * 1024       // 512KB: embed directly, above -> blob URL
 )
 
-// ServerMode: "hub" = this instance is the central relay, "client" = sends to hub
-var ServerMode = "hub"
-
+// ClipboardEntry v2 — unified protocol structure
 type ClipboardEntry struct {
-	ID        string `json:"id"`
-	Type      string `json:"type"` // "text" | "image" | "files"
-	Content   string `json:"content"` // text content, or base64 for images, or JSON array for files
-	FilePath  string `json:"file_path,omitempty"` // local disk path for images/files
-	From      string `json:"from"`
-	Timestamp int64  `json:"timestamp"`
+	ID        string     `json:"entry_id"` // global unique ID for loop prevention
+	DeviceID  string     `json:"device_id"` // sender device identifier
+	Type      string     `json:"type"`      // "text" | "image" | "files"
+	Mime      string     `json:"mime"`      // MIME type
+	Text      string     `json:"text,omitempty"` // text content (type=text)
+	Files     []FileMeta `json:"files,omitempty"` // file array (type=image/files)
+	BlobURL   string     `json:"blob_url,omitempty"` // blob download URL
+	SHA256    string     `json:"sha256,omitempty"` // overall checksum
+	From      string     `json:"from"`       // display name
+	Timestamp int64      `json:"timestamp"`  // unix ms
 }
 
+// FileMeta describes a file in a clipboard entry
+type FileMeta struct {
+	Name    string `json:"name"`
+	Size    int64  `json:"size"`
+	SHA256  string `json:"sha256"`
+	BlobURL string `json:"blob_url"`
+	Mime    string `json:"mime,omitempty"`
+}
+
+// ClipboardRequest v2 — incoming request from clients
 type ClipboardRequest struct {
-	Type      string `json:"type"`
-	Content   string `json:"content"`
-	From      string `json:"from"`
-	Timestamp int64  `json:"timestamp"`
+	Type      string     `json:"type"`
+	Content   string     `json:"content"`               // text content (type=text)
+	From      string     `json:"from"`
+	Timestamp int64      `json:"timestamp"`
+	EntryID   string     `json:"entry_id,omitempty"`   // for dedup
+	BlobURL   string     `json:"blob_url,omitempty"`  // image/file download URL (type=image/files)
+	Files     []FileMeta `json:"files,omitempty"`      // file metadata array (type=files)
 }
 
+// ClipboardResponse v2
 type ClipboardResponse struct {
 	Success   bool   `json:"success"`
 	ID        string `json:"id,omitempty"`
@@ -60,6 +77,9 @@ var (
 	instancePort     = 18793
 	forwardClient     *http.Client
 	dataDir           = "" // e.g. ~/.sharetool/clipboard
+	lastWrittenEntry  = "" // for loop prevention
+	lastWrittenAt     int64
+	lastWrittenMu     sync.Mutex
 )
 
 func SetInstanceInfo(name, ip string, port int) {
@@ -74,6 +94,11 @@ func SetDataDir(dir string) {
 	dataDir = dir
 	ensureDataDirs()
 	loadHistory()
+	if blobStore == nil {
+		if err := InitBlobStore(dir); err != nil {
+			fmt.Printf("[BlobStore] init failed: %v\n", err)
+		}
+	}
 }
 
 // Ensure image/ and files/ subdirs exist
@@ -93,7 +118,6 @@ func loadHistory() {
 	path := filepath.Join(dataDir, HistoryFileName)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		// No history file yet, start fresh
 		return
 	}
 	var entries []ClipboardEntry
@@ -120,40 +144,23 @@ func saveHistory() {
 	os.WriteFile(path, data, 0644)
 }
 
-// Save image to disk, return relative path
-func saveImageFile(entryID string, base64Data string) (string, error) {
-	if dataDir == "" {
-		return "", fmt.Errorf("no data dir")
-	}
-	decoded, err := base64.StdEncoding.DecodeString(base64Data)
-	if err != nil {
-		return "", err
-	}
-	filename := fmt.Sprintf("%s.png", entryID)
-	filepath := filepath.Join(dataDir, ImagesDirName, filename)
-	if err := os.WriteFile(filepath, decoded, 0644); err != nil {
-		return "", err
-	}
-	return filepath, nil
-}
-
-// Save file list to disk, return relative path
-func saveFilesList(entryID string, filesJSON string) (string, error) {
-	if dataDir == "" {
-		return "", fmt.Errorf("no data dir")
-	}
-	filename := fmt.Sprintf("%s.files.json", entryID)
-	filepath := filepath.Join(dataDir, FilesDirName, filename)
-	if err := os.WriteFile(filepath, []byte(filesJSON), 0644); err != nil {
-		return "", err
-	}
-	return filepath, nil
-}
-
 func genClipboardID() string {
 	b := make([]byte, 8)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func mimeForType(t string) string {
+	switch t {
+	case "text":
+		return "text/plain"
+	case "image":
+		return "image/png"
+	case "files":
+		return "application/octet-stream"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 // handleClipboardPost receives clipboard content and stores + forwards to all peers
@@ -175,30 +182,9 @@ func handleClipboardPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate type
 	if req.Type != "text" && req.Type != "image" && req.Type != "files" {
 		http.Error(w, `{"error":"type must be text, image, or files"}`, 400)
 		return
-	}
-
-	// Validate size
-	size := int64(len(req.Content))
-	switch req.Type {
-	case "text":
-		if size > MaxClipboardTextSize {
-			http.Error(w, `{"error":"text content exceeds 1MB limit"}`, 413)
-			return
-		}
-	case "image":
-		if size > MaxClipboardImageSize {
-			http.Error(w, `{"error":"image content exceeds 10MB limit"}`, 413)
-			return
-		}
-	case "files":
-		if size > MaxClipboardFilesSize {
-			http.Error(w, `{"error":"files content exceeds 100MB limit"}`, 413)
-			return
-		}
 	}
 
 	if req.From == "" {
@@ -208,25 +194,66 @@ func handleClipboardPost(w http.ResponseWriter, r *http.Request) {
 		req.Timestamp = time.Now().UnixMilli()
 	}
 
+	entryID := genClipboardID()
 	entry := ClipboardEntry{
-		ID:        genClipboardID(),
+		ID:        entryID,
+		DeviceID:  instanceName,
 		Type:      req.Type,
-		Content:   req.Content,
+		Mime:      mimeForType(req.Type),
 		From:      req.From,
 		Timestamp: req.Timestamp,
 	}
 
-	// Persist to disk: images/files -> save to disk, text -> keep in JSON
-	if req.Type == "image" && dataDir != "" {
-		if fp, err := saveImageFile(entry.ID, req.Content); err == nil {
-			entry.FilePath = fp
-			// Clear base64 from memory after saving to disk
-			entry.Content = ""
+	switch req.Type {
+	case "text":
+		size := int64(len(req.Content))
+		if size > MaxClipboardTextSize {
+			http.Error(w, `{"error":"text content exceeds 1MB limit"}`, 413)
+			return
 		}
-	} else if req.Type == "files" && dataDir != "" {
-		if fp, err := saveFilesList(entry.ID, req.Content); err == nil {
-			entry.FilePath = fp
-			entry.Content = ""
+		entry.Text = req.Content
+
+	case "image":
+		size := int64(len(req.Content))
+		if size > MaxClipboardImageSize {
+			http.Error(w, `{"error":"image content exceeds 10MB limit"}`, 413)
+			return
+		}
+		// Strategy: < 512KB embed directly; >= 512KB store as blob
+		if len(req.Content) > 0 {
+			if len(req.Content) < SmallImageMaxBytes {
+				// Small image: embed base64 in Text field, save locally
+				entry.Text = req.Content
+				if dataDir != "" {
+					fp, err := saveImageFile(entryID, req.Content)
+					if err == nil {
+						entry.BlobURL = "/api/clipboard/file?path=" + filepath.Base(fp)
+					}
+				}
+			} else {
+				// Large image: store as blob
+				data, _ := hex.DecodeString(req.Content)
+				// If not valid hex, use content directly (should already be base64)
+				if len(data) == 0 {
+					data = []byte(req.Content)
+				}
+				blobID, sha, err := blobStore.Save(entryID, data, "image/png")
+				if err == nil {
+					entry.SHA256 = sha
+					entry.BlobURL = fmt.Sprintf("/api/blobs?id=%s", blobID)
+				}
+			}
+		}
+
+	case "files":
+		size := int64(len(req.Content))
+		if size > MaxClipboardFilesSize {
+			http.Error(w, `{"error":"files content exceeds 100MB limit"}`, 413)
+			return
+		}
+		// req.Files contains FileMeta array from client
+		if len(req.Files) > 0 {
+			entry.Files = req.Files
 		}
 	}
 
@@ -237,44 +264,51 @@ func handleClipboardPost(w http.ResponseWriter, r *http.Request) {
 		clipboardHistory = clipboardHistory[:MaxClipboardHistory]
 	}
 	clipboardMu.Unlock()
-
-	// Persist history to disk
 	saveHistory()
 
-	// Forward to all registered peers (async, non-blocking)
+	// Push to SSE clients (non-blocking)
+	go BroadcastClipboard(entry)
+
+	// Forward to all registered peers (sync, wait for results)
+	// Snapshot peers to avoid modifying map during iteration
+	peersMu.RLock()
+	peerList := make([]Peer, 0, len(peers))
+	for _, p := range peers {
+		if p.IP == instanceIP && p.Port == instancePort {
+			continue
+		}
+		peerList = append(peerList, p)
+	}
+	peersMu.RUnlock()
+
 	forwarded := 0
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	peersMu.RLock()
-	for key, peer := range peers {
-		// Don't send to self
-		if peer.IP == instanceIP && peer.Port == instancePort {
-			continue
-		}
+	for _, peer := range peerList {
 		wg.Add(1)
-		go func(k string, p Peer) {
+		go func(p Peer) {
 			defer wg.Done()
 			if err := forwardClipboardToPeer(p, entry); err != nil {
-				// Remove unreachable peer
+				// Remove failed peer (separate lock, outside map iteration)
 				peersMu.Lock()
-				delete(peers, k)
+				key := fmt.Sprintf("%s:%d", p.IP, p.Port)
+				delete(peers, key)
 				peersMu.Unlock()
 			} else {
 				mu.Lock()
 				forwarded++
 				mu.Unlock()
-				// Update peer's timestamp
 				peersMu.Lock()
-				if existing, ok := peers[k]; ok {
+				key := fmt.Sprintf("%s:%d", p.IP, p.Port)
+				if existing, ok := peers[key]; ok {
 					existing.UpdatedAt = time.Now().UnixMilli()
-					peers[k] = existing
+					peers[key] = existing
 				}
 				peersMu.Unlock()
 			}
-		}(key, peer)
+		}(peer)
 	}
-	peersMu.RUnlock()
-	go wg.Wait()
+	wg.Wait()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(ClipboardResponse{
@@ -285,21 +319,33 @@ func handleClipboardPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func forwardClipboardToPeer(peer Peer, entry ClipboardEntry) error {
-	url := fmt.Sprintf("https://%s:%d/api/clipboard/receive", peer.IP, peer.Port)
+	url := fmt.Sprintf("http://%s:%d/api/clipboard/receive", peer.IP, peer.Port)
 
 	payload := map[string]any{
+		"entry_id":  entry.ID,
+		"device_id": entry.DeviceID,
 		"type":      entry.Type,
-		"content":   entry.Content,
-		"file_path": entry.FilePath,
+		"mime":      entry.Mime,
 		"from":      entry.From,
 		"timestamp": entry.Timestamp,
+	}
+	if entry.Text != "" {
+		payload["text"] = entry.Text
+	}
+	if entry.BlobURL != "" {
+		payload["blob_url"] = entry.BlobURL
+	}
+	if len(entry.Files) > 0 {
+		payload["files"] = entry.Files
+	}
+	if entry.SHA256 != "" {
+		payload["sha256"] = entry.SHA256
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
-	// Skip TLS verification for self-signed certs
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	client := &http.Client{Transport: tr, Timeout: 10 * time.Second}
 
@@ -334,52 +380,72 @@ func handleClipboardReceive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Also accept file_path in the request (for receiving path-based entries from peers)
-	filePath := req.Content // reuse Content field for file path in receive context
-
 	if req.Type != "text" && req.Type != "image" && req.Type != "files" {
 		http.Error(w, `{"error":"invalid type"}`, 400)
 		return
 	}
 
+	// Loop prevention: skip if entry_id matches last written (our own echo)
+	if req.EntryID != "" {
+		lastWrittenMu.Lock()
+		skip := req.EntryID == lastWrittenEntry && time.Now().UnixMilli()-lastWrittenAt < 2000
+		lastWrittenMu.Unlock()
+		if skip {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(ClipboardResponse{Success: true})
+			return
+		}
+	}
+
 	if req.From == "" || req.From == instanceName {
-		// Don't store own messages that bounced back
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(ClipboardResponse{Success: true})
 		return
 	}
 
+	entryID := genClipboardID()
+	if req.EntryID != "" {
+		entryID = req.EntryID
+	}
+
 	entry := ClipboardEntry{
-		ID:        genClipboardID(),
+		ID:        entryID,
+		DeviceID:  req.From,
 		Type:      req.Type,
-		Content:   req.Content,
+		Mime:      mimeForType(req.Type),
+		Text:      req.Content, // text content (type=text) or base64 image (type=image)
 		From:      req.From,
 		Timestamp: req.Timestamp,
 	}
 
-	// Persist received image/files to disk if they came with base64 content
-	if req.Type == "image" && req.Content != "" && dataDir != "" {
-		if fp, err := saveImageFile(entry.ID, req.Content); err == nil {
-			entry.FilePath = fp
-			entry.Content = ""
+	// Handle BlobURL: fetch blob content and convert to base64 for local storage
+	targetContent := req.Content
+	if req.BlobURL != "" {
+		// Fetch blob from the provided URL
+		blobResp, err := forwardClient.Get(req.BlobURL)
+		if err == nil && blobResp.StatusCode == http.StatusOK {
+			data, err := io.ReadAll(blobResp.Body)
+			blobResp.Body.Close()
+			if err == nil {
+				targetContent = base64.StdEncoding.EncodeToString(data)
+			}
 		}
-	} else if req.Type == "files" && req.Content != "" && dataDir != "" {
-		if fp, err := saveFilesList(entry.ID, req.Content); err == nil {
-			entry.FilePath = fp
-			entry.Content = ""
+	}
+
+	// Persist received image to disk if we have content (either direct or fetched from blob)
+	if req.Type == "image" && targetContent != "" && dataDir != "" {
+		entry.Text = targetContent
+		if fp, err := saveImageFile(entry.ID, targetContent); err == nil {
+			entry.BlobURL = "/api/clipboard/file?path=" + filepath.Base(fp)
 		}
-	} else if filePath != "" {
-		// Content was already a path reference
-		entry.FilePath = filePath
-		entry.Content = ""
 	}
 
 	clipboardMu.Lock()
-	// Deduplicate: don't store if same content from same sender within 2 seconds
+	// Deduplicate: don't store if same entry_id from same sender within 2 seconds
 	isDup := false
 	if len(clipboardHistory) > 0 && clipboardHistory[0].From == entry.From {
 		if abs(entry.Timestamp-clipboardHistory[0].Timestamp) < 2000 &&
-			clipboardHistory[0].Content == entry.Content {
+			clipboardHistory[0].Text == entry.Text {
 			isDup = true
 		}
 	}
@@ -394,15 +460,17 @@ func handleClipboardReceive(w http.ResponseWriter, r *http.Request) {
 	// Persist to disk
 	saveHistory()
 
+	// Update loop prevention
+	lastWrittenMu.Lock()
+	lastWrittenEntry = entry.ID
+	lastWrittenAt = time.Now().UnixMilli()
+	lastWrittenMu.Unlock()
+
+	// Push to SSE clients
+	go BroadcastClipboard(entry)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(ClipboardResponse{Success: true})
-}
-
-func abs(n int64) int64 {
-	if n < 0 {
-		return -n
-	}
-	return n
 }
 
 // handleClipboardLatest returns the most recent clipboard entry
@@ -455,7 +523,6 @@ func handleClipboardDelete(w http.ResponseWriter, r *http.Request) {
 	clipboardHistory = nil
 	clipboardMu.Unlock()
 
-	// Also clear history file
 	if dataDir != "" {
 		os.Remove(filepath.Join(dataDir, HistoryFileName))
 	}
@@ -484,31 +551,37 @@ func handleClipboardPeersSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Snapshot peers to avoid modifying map during iteration
+	peersMu.RLock()
+	peerList := make([]Peer, 0, len(peers))
+	for _, p := range peers {
+		if p.IP == instanceIP && p.Port == instancePort {
+			continue
+		}
+		peerList = append(peerList, p)
+	}
+	peersMu.RUnlock()
+
 	forwarded := 0
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-
-	peersMu.RLock()
-	for key, peer := range peers {
-		if peer.IP == instanceIP && peer.Port == instancePort {
-			continue
-		}
+	for _, peer := range peerList {
 		wg.Add(1)
-		go func(k string, p Peer) {
+		go func(p Peer) {
 			defer wg.Done()
 			if err := forwardClipboardToPeer(p, *entry); err != nil {
 				peersMu.Lock()
-				delete(peers, k)
+				key := fmt.Sprintf("%s:%d", p.IP, p.Port)
+				delete(peers, key)
 				peersMu.Unlock()
 			} else {
 				mu.Lock()
 				forwarded++
 				mu.Unlock()
 			}
-		}(key, peer)
+		}(peer)
 	}
-	peersMu.RUnlock()
-	go wg.Wait()
+	wg.Wait()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
@@ -546,4 +619,111 @@ func handleClipboardFile(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Write(data)
+}
+
+// Save image to disk, return relative path
+func saveImageFile(entryID string, base64Data string) (string, error) {
+	if dataDir == "" {
+		return "", fmt.Errorf("no data dir")
+	}
+	decoded, err := decodeBase64(base64Data)
+	if err != nil {
+		return "", err
+	}
+	filename := fmt.Sprintf("%s.png", entryID)
+	fpath := filepath.Join(dataDir, ImagesDirName, filename)
+	if err := os.WriteFile(fpath, decoded, 0644); err != nil {
+		return "", err
+	}
+	return fpath, nil
+}
+
+// Save file list to disk, return relative path
+func saveFilesList(entryID string, filesJSON string) (string, error) {
+	if dataDir == "" {
+		return "", fmt.Errorf("no data dir")
+	}
+	filename := fmt.Sprintf("%s.files.json", entryID)
+	fpath := filepath.Join(dataDir, FilesDirName, filename)
+	if err := os.WriteFile(fpath, []byte(filesJSON), 0644); err != nil {
+		return "", err
+	}
+	return fpath, nil
+}
+
+// decodeBase64 attempts to decode base64 string, returns raw bytes
+func decodeBase64(s string) ([]byte, error) {
+	// Try standard base64
+	data, err := base64.StdEncoding.DecodeString(s)
+	if err == nil {
+		return data, nil
+	}
+	// Try raw base64
+	data, err = base64.RawStdEncoding.DecodeString(s)
+	if err == nil {
+		return data, nil
+	}
+	return nil, err
+}
+
+func abs(n int64) int64 {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+// BroadcastClipboard sends entry to all connected SSE clients
+func BroadcastClipboard(entry ClipboardEntry) {
+	pushServer.mu.RLock()
+	defer pushServer.mu.RUnlock()
+	for deviceID, ch := range pushServer.clients {
+		// Don't send to self
+		if deviceID == instanceName {
+			continue
+		}
+		select {
+		case ch <- entry:
+		default:
+		}
+	}
+}
+
+// SSEClient holds a client connection for clipboard push
+type SSEClient struct {
+	DeviceID string
+	Ch       chan ClipboardEntry
+}
+
+// PushServer manages SSE client connections
+type PushServer struct {
+	clients map[string]chan ClipboardEntry
+	mu     sync.RWMutex
+}
+
+var pushServer *PushServer
+
+func init() {
+	pushServer = &PushServer{
+		clients: make(map[string]chan ClipboardEntry),
+	}
+}
+
+// AddPushClient registers a client for clipboard push
+func AddPushClient(deviceID string) chan ClipboardEntry {
+	ch := make(chan ClipboardEntry, 20)
+	pushServer.mu.Lock()
+	pushServer.clients[deviceID] = ch
+	pushServer.mu.Unlock()
+	return ch
+}
+
+// RemovePushClient unregisters a client
+func RemovePushClient(deviceID string) {
+	pushServer.mu.Lock()
+	if ch, ok := pushServer.clients[deviceID]; ok {
+		close(ch)
+		delete(pushServer.clients, deviceID)
+	}
+	pushServer.mu.Unlock()
 }

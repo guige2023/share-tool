@@ -23,19 +23,31 @@ extension String {
     }
 }
 
+// MARK: - V2 Protocol
+
 struct ClipboardEntry: Codable {
-    let id: String
+    let entry_id: String?
+    let device_id: String?
     let type: String // "text" | "image" | "files"
-    let content: String
+    let mime: String?
+    let text: String?
+    let files: [FileMeta]?
+    let blob_url: String?
+    let sha256: String?
     let from: String
     let timestamp: Int64
 }
 
-struct ClipboardHistoryResponse: Codable {
-    let entries: [ClipboardEntry]
+struct FileMeta: Codable {
+    let name: String
+    let size: Int64
+    let sha256: String?
+    let blob_url: String?
+    let mime: String?
 }
 
-struct ClipboardLatestResponse: Codable {
+struct ClipboardHistoryResponse: Codable {
+    let entries: [ClipboardEntry]?
     let entry: ClipboardEntry?
 }
 
@@ -57,11 +69,24 @@ struct Peer: Codable {
     let updatedAt: Int64
 }
 
+// MARK: - Sync Settings
+
+struct SyncSettings: Codable {
+    var autoSend: Bool = true       // 自动发送剪贴板变化
+    var autoSyncText: Bool = true   // 自动接收文本
+    var autoSyncImage: Bool = true  // 自动接收图片
+    var autoSyncFiles: Bool = false // 自动接收文件
+}
+
+// MARK: - Clipboard Manager Delegate
+
 protocol ClipboardManagerDelegate: AnyObject {
     func clipboardManager(_ manager: ClipboardManager, didReceiveClipboard entry: ClipboardEntry)
     func clipboardManager(_ manager: ClipboardManager, didSendClipboard count: Int)
     func clipboardManager(_ manager: ClipboardManager, didFailWithError error: Error)
 }
+
+// MARK: - Clipboard Manager
 
 class ClipboardManager: NSObject, URLSessionDelegate {
 
@@ -69,14 +94,26 @@ class ClipboardManager: NSObject, URLSessionDelegate {
 
     private var baseURL: String = ""
     private var instanceName: String = ""
-    private var pollTimer: Timer?
-    private var lastSeenID: String = ""
     private var isPolling = false
 
-    // URLSession that skips TLS verification for self-signed certs
+    // changeCount monitoring
+    private var lastChangeCount: Int = 0
+    private var monitorTimer: Timer?
+    private var sseTask: URLSessionDataTask?
+
+    // Loop prevention
+    private var lastWrittenEntryID: String = ""
+    private var lastWrittenAt: Date = .distantPast
+    private let writeWindowSeconds: TimeInterval = 2.0
+
+    // Sync settings
+    var syncSettings = SyncSettings()
+
+    // Local SSE event source
     private lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForRequest = 0
+        config.timeoutIntervalForResource = 0
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
 
@@ -84,9 +121,11 @@ class ClipboardManager: NSObject, URLSessionDelegate {
         self.baseURL = baseURL
         self.instanceName = instanceName
         super.init()
+        self.lastChangeCount = NSPasteboard.general.changeCount
     }
 
-    // Skip TLS verification for self-signed certs
+    // MARK: - TLS: skip verification for self-signed certs
+
     func urlSession(_ session: URLSession,
                     didReceive challenge: URLAuthenticationChallenge,
                     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
@@ -99,9 +138,106 @@ class ClipboardManager: NSObject, URLSessionDelegate {
         }
     }
 
+    // MARK: - Clipboard Change Monitoring (NSPasteboard.changeCount)
+
+    /// Start monitoring clipboard via NSPasteboard.changeCount (efficient, event-driven)
+    func startMonitoring() {
+        guard !isPolling else { return }
+        isPolling = true
+        lastChangeCount = NSPasteboard.general.changeCount
+
+        // Poll changeCount every 0.3s — much lighter than polling content
+        monitorTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { [weak self] _ in
+            self?.checkClipboardChange()
+        }
+
+        // Also connect SSE push for receiving from other devices
+        connectSSEPush()
+    }
+
+    func stopMonitoring() {
+        monitorTimer?.invalidate()
+        monitorTimer = nil
+        isPolling = false
+        sseTask?.cancel()
+        sseTask = nil
+    }
+
+    private func checkClipboardChange() {
+        guard syncSettings.autoSend else { return }
+        let current = NSPasteboard.general.changeCount
+        if current != lastChangeCount {
+            lastChangeCount = current
+            // Clipboard changed — send it to server
+            sendClipboard()
+        }
+    }
+
+    // MARK: - SSE Push (receive from peers)
+
+    private func connectSSEPush() {
+        guard let url = URL(string: "\(baseURL)/api/push?device_id=\(instanceName)") else { return }
+
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 0
+
+        sseTask = session.dataTask(with: req) { [weak self] data, response, error in
+            guard let self = self else { return }
+            if let error = error {
+                debugLog("SSE error: \(error)")
+                // Retry connection after delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                    self.connectSSEPush()
+                }
+                return
+            }
+            guard let data = data else { return }
+            self.handleSSEData(data)
+        }
+        sseTask?.resume()
+    }
+
+    private func handleSSEData(_ data: Data) {
+        guard let text = String(data: data, encoding: .utf8) else { return }
+        let lines = text.components(separatedBy: "\n")
+        for line in lines {
+            guard line.hasPrefix("event: clipboard") else { continue }
+            let dataLine = lines.first { $0.hasPrefix("data: ") }
+            guard let jsonStr = dataLine else { continue }
+            let json = String(jsonStr.dropFirst(6))
+            guard let jsonData = json.data(using: .utf8),
+                  let entry = try? JSONDecoder().decode(ClipboardEntry.self, from: jsonData) else {
+                continue
+            }
+            DispatchQueue.main.async {
+                self.handleIncomingEntry(entry)
+            }
+        }
+    }
+
+    private func handleIncomingEntry(_ entry: ClipboardEntry) {
+        // Loop prevention
+        if let entryID = entry.entry_id, entryID == lastWrittenEntryID {
+            return
+        }
+        if entry.from == instanceName {
+            return
+        }
+        // Type filter
+        if entry.type == "text" && !syncSettings.autoSyncText { return }
+        if entry.type == "image" && !syncSettings.autoSyncImage { return }
+        if entry.type == "files" && !syncSettings.autoSyncFiles { return }
+
+        writeClipboard(entry: entry)
+        if let eid = entry.entry_id {
+            lastWrittenEntryID = eid
+        }
+        lastWrittenAt = Date()
+        delegate?.clipboardManager(self, didReceiveClipboard: entry)
+    }
+
     // MARK: - Read Clipboard
 
-    /// Returns the type and content of the current clipboard
     func readClipboard() -> (type: String, content: String)? {
         let pb = NSPasteboard.general
 
@@ -146,21 +282,44 @@ class ClipboardManager: NSObject, URLSessionDelegate {
 
         switch entry.type {
         case "text":
-            pb.setString(entry.content, forType: .string)
-            showNotification(title: "剪贴板已更新", body: "来自: \(entry.from)\n\(truncate(entry.content, 50))")
+            if let text = entry.text, !text.isEmpty {
+                pb.setString(text, forType: .string)
+                showNotification(title: "剪贴板已更新", body: "来自: \(entry.from)\n\(truncate(text, 50))")
+            }
 
         case "image":
-            if let imageData = Data(base64Encoded: entry.content) {
+            // Try text (base64 embedded) first
+            if let text = entry.text, !text.isEmpty,
+               let imageData = Data(base64Encoded: text) {
                 pb.setData(imageData, forType: .png)
                 showNotification(title: "图片已更新", body: "来自: \(entry.from)")
+            } else if let blobURL = entry.blob_url {
+                // Fetch blob URL
+                fetchBlob(from: blobURL) { [weak self] data in
+                    guard let self = self, let data = data else { return }
+                    DispatchQueue.main.async {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setData(data, forType: .png)
+                        self.showNotification(title: "图片已更新", body: "来自: \(entry.from)")
+                    }
+                }
             }
 
         case "files":
-            if let data = entry.content.data(using: .utf8),
-               let filenames = try? JSONSerialization.jsonObject(with: data) as? [String] {
-                let urls = filenames.compactMap { URL(fileURLWithPath: $0) as NSURL? }
-                pb.writeObjects(urls)
-                showNotification(title: "文件已更新", body: "来自: \(entry.from)\n\(filenames.joined(separator: ", "))")
+            if let files = entry.files, !files.isEmpty {
+                var urls: [URL] = []
+                for file in files {
+                    if let blobURL = file.blob_url {
+                        // Download file
+                        if let url = URL(string: "\(baseURL)\(blobURL)") {
+                            urls.append(url)
+                        }
+                    }
+                }
+                if !urls.isEmpty {
+                    pb.writeObjects(urls as [NSURL])
+                }
+                showNotification(title: "文件已更新", body: "来自: \(entry.from)\n\(files.map { $0.name }.joined(separator: ", "))")
             }
 
         default:
@@ -168,30 +327,139 @@ class ClipboardManager: NSObject, URLSessionDelegate {
         }
     }
 
+    private func fetchBlob(from path: String, completion: @escaping (Data?) -> Void) {
+        guard let url = URL(string: "\(baseURL)\(path)") else {
+            completion(nil)
+            return
+        }
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            completion(data)
+        }.resume()
+    }
+
     // MARK: - Send Clipboard to All Peers
 
     func sendClipboard() {
-        debugLog("sendClipboard CALLED baseURL=\(baseURL) instanceName=\(instanceName)")
-        guard let (type, content) = readClipboard() else {
-            debugLog("Nothing to send - clipboard empty")
-            print("[ClipboardManager] Nothing to send")
+        guard let (clipType, content) = readClipboard() else {
             delegate?.clipboardManager(self, didFailWithError: ClipboardError.empty)
             return
         }
-        debugLog("Sending type=\(type) contentLen=\(content.count) from=\(instanceName)")
 
-        let payload: [String: Any] = [
-            "type": type,
+        debugLog("Sending type=\(clipType) contentLen=\(content.count) from=\(instanceName)")
+
+        // For files, we need to upload each file to blob first
+        if clipType == "files" {
+            sendFilesClipboard(content: content)
+            return
+        }
+
+        var payload: [String: Any] = [
+            "type": clipType,
             "content": content,
             "from": instanceName,
             "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
         ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        postClipboardPayload(jsonData)
+    }
 
-        // Send to local server (which forwards to all peers)
+    private func sendFilesClipboard(content: String) {
+        // Parse filenames from JSON array
+        guard let data = content.data(using: .utf8),
+              let filenames = try? JSONSerialization.jsonObject(with: data) as? [String] else {
+            delegate?.clipboardManager(self, didFailWithError: ClipboardError.empty)
+            return
+        }
+
+        let pb = NSPasteboard.general
+        guard let fileURLs = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
+              !fileURLs.isEmpty else {
+            delegate?.clipboardManager(self, didFailWithError: ClipboardError.empty)
+            return
+        }
+
+        var fileMetas: [[String: Any]] = []
+        let group = DispatchGroup()
+        var uploadError: Error?
+
+        for (i, url) in fileURLs.enumerated() {
+            guard FileManager.default.fileExists(atPath: url.path) else { continue }
+            guard let fileData = try? Data(contentsOf: url) else { continue }
+
+            group.enter()
+            uploadBlob(data: fileData, filename: url.lastPathComponent, mime: mimeType(for: url.pathExtension)) { [weak self] result in
+                defer { group.leave() }
+                guard let self = self else { return }
+                switch result {
+                case .success(let meta):
+                    var m = meta
+                    m["name"] = url.lastPathComponent
+                    fileMetas.append(m)
+                case .failure(let err):
+                    debugLog("Blob upload failed for \(url.lastPathComponent): \(err)")
+                    uploadError = err
+                }
+            }
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            guard let self = self else { return }
+            guard !fileMetas.isEmpty else {
+                if let err = uploadError {
+                    self.delegate?.clipboardManager(self, didFailWithError: err)
+                }
+                return
+            }
+
+            let payload: [String: Any] = [
+                "type": "files",
+                "content": "",
+                "from": self.instanceName,
+                "timestamp": Int64(Date().timeIntervalSince1970 * 1000),
+                "files": fileMetas
+            ]
+
+            guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else { return }
+            self.postClipboardPayload(jsonData)
+        }
+    }
+
+    private func uploadBlob(data: Data, filename: String, mime: String, completion: @escaping (Result<[String: Any], Error>) -> Void) {
+        guard let url = URL(string: "\(baseURL)/api/blobs?id=\(filename.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? filename)") else {
+            completion(.failure(ClipboardError.invalidURL))
+            return
+        }
+
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.httpBody = data
+        req.setValue(mime, forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: req) { data, resp, err in
+            if let err = err {
+                completion(.failure(err))
+                return
+            }
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let id = json["id"] as? String,
+                  let sha256 = json["sha256"] as? String else {
+                completion(.failure(ClipboardError.invalidResponse))
+                return
+            }
+            completion(.success([
+                "name": filename,
+                "size": data.count,
+                "sha256": sha256,
+                "blob_url": "/api/blobs?id=\(id)",
+                "mime": mime
+            ]))
+        }.resume()
+    }
+
+    private func postClipboardPayload(_ jsonData: Data) {
         let url = URL(string: "\(baseURL)/api/clipboard")!
-        debugLog("URL: \(url.absoluteString)")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.httpBody = jsonData
@@ -201,7 +469,6 @@ class ClipboardManager: NSObject, URLSessionDelegate {
             guard let self = self else { return }
             if let err = err {
                 debugLog("Send FAILED: \(err)")
-                print("[ClipboardManager] Send failed: \(err)")
                 DispatchQueue.main.async {
                     self.delegate?.clipboardManager(self, didFailWithError: err)
                 }
@@ -209,7 +476,6 @@ class ClipboardManager: NSObject, URLSessionDelegate {
             }
             guard let data = data,
                   let response = try? JSONDecoder().decode(ClipboardSendResponse.self, from: data) else {
-                debugLog("Send: could not decode response")
                 return
             }
             debugLog("Send SUCCESS: id=\(response.id ?? "nil") forwarded=\(response.forwarded ?? -1)")
@@ -219,44 +485,20 @@ class ClipboardManager: NSObject, URLSessionDelegate {
         }.resume()
     }
 
-    // MARK: - Polling (receive from peers)
-
-    func startPolling(interval: TimeInterval = 3.0) {
-        guard !isPolling else { return }
-        isPolling = true
-
-        pollTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            self?.checkForUpdates()
+    private func mimeType(for ext: String) -> String {
+        switch ext.lowercased() {
+        case "pdf": return "application/pdf"
+        case "png": return "image/png"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "gif": return "image/gif"
+        case "zip": return "application/zip"
+        case "txt": return "text/plain"
+        case "json": return "application/json"
+        case "html", "htm": return "text/html"
+        case "css": return "text/css"
+        case "js": return "application/javascript"
+        default: return "application/octet-stream"
         }
-        // Immediate first check
-        checkForUpdates()
-    }
-
-    func stopPolling() {
-        pollTimer?.invalidate()
-        pollTimer = nil
-        isPolling = false
-    }
-
-    private func checkForUpdates() {
-        let url = URL(string: "\(baseURL)/api/clipboard/latest")!
-
-        session.dataTask(with: url) { [weak self] data, _, err in
-            guard let self = self, let data = data,
-                  let response = try? JSONDecoder().decode(ClipboardLatestResponse.self, from: data),
-                  let entry = response.entry else { return }
-
-            // Skip if it's from ourselves or if we already have it
-            if entry.from == self.instanceName { return }
-            if entry.id == self.lastSeenID { return }
-
-            self.lastSeenID = entry.id
-
-            DispatchQueue.main.async {
-                self.writeClipboard(entry: entry)
-                self.delegate?.clipboardManager(self, didReceiveClipboard: entry)
-            }
-        }.resume()
     }
 
     // MARK: - Helpers
@@ -285,5 +527,7 @@ class ClipboardManager: NSObject, URLSessionDelegate {
 
     enum ClipboardError: Error {
         case empty
+        case invalidURL
+        case invalidResponse
     }
 }

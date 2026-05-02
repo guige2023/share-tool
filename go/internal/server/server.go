@@ -222,6 +222,65 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		handleClipboardFile(w, r)
 	})
 
+	// Clipboard push via SSE
+	mux.HandleFunc("/api/push", handlePush)
+
+	// Blob upload/download
+	mux.HandleFunc("/api/blobs", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			handleBlobUpload(w, r)
+		case http.MethodGet:
+			handleBlobGet(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
+	// Blob download (zip multi-blob)
+	mux.HandleFunc("/api/blobs/download", handleBlobsDownload)
+
+	// Upload session API
+	mux.HandleFunc("/api/uploads", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			handleUploadCreate(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
+	// Upload session status / cancel
+	mux.HandleFunc("/api/uploads/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/status") {
+			if r.Method == http.MethodGet {
+				handleUploadStatus(w, r)
+			} else {
+				http.Error(w, "Method Not Allowed", 405)
+			}
+			return
+		}
+		if strings.HasSuffix(path, "/complete") {
+			if r.Method == http.MethodPost {
+				handleUploadComplete(w, r)
+			} else {
+				http.Error(w, "Method Not Allowed", 405)
+			}
+			return
+		}
+		if strings.HasPrefix(path, "/api/uploads/") && r.Method == http.MethodDelete {
+			handleUploadCancel(w, r)
+			return
+		}
+		// Chunk upload: /api/uploads/{id}/chunks/{index}
+		if strings.Contains(path, "/chunks/") && r.Method == http.MethodPut {
+			handleUploadChunk(w, r)
+			return
+		}
+		http.Error(w, "Not Found", 404)
+	})
+
 	// AI Integration endpoints
 	mux.HandleFunc("/openapi.json", HandleOpenAPI)
 	mux.HandleFunc("/tools.json", HandleTools)

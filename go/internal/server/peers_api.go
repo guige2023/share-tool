@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -19,6 +20,26 @@ var (
 	peers   = make(map[string]Peer)
 	peersMu sync.RWMutex
 )
+
+// RegisterPeer registers or updates a peer (exported for use by mDNS discovery)
+func RegisterPeer(ip string, port int, name string) {
+	if ip == "" || port <= 0 {
+		return
+	}
+	key := fmt.Sprintf("%s:%d", ip, port)
+	peersMu.Lock()
+	existing, exists := peers[key]
+	peers[key] = Peer{
+		Name:      name,
+		IP:        ip,
+		Port:      port,
+		UpdatedAt: time.Now().UnixMilli(),
+	}
+	peersMu.Unlock()
+	if !exists || existing.Name != name {
+		log.Printf("[Peers] Registered peer: %s (%s:%d)", name, ip, port)
+	}
+}
 
 // handlePeersList returns all registered peers
 func handlePeersList(w http.ResponseWriter, r *http.Request) {
@@ -59,15 +80,7 @@ func handlePeersRegister(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"missing required fields"}`, 400)
 		return
 	}
-	key := fmt.Sprintf("%s:%d", req.IP, req.Port)
-	peersMu.Lock()
-	peers[key] = Peer{
-		Name:      req.Name,
-		IP:        req.IP,
-		Port:      req.Port,
-		UpdatedAt: time.Now().UnixMilli(),
-	}
-	peersMu.Unlock()
+	RegisterPeer(req.IP, req.Port, req.Name)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
