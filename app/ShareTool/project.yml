@@ -40,12 +40,12 @@ targets:
         script: |
           # Create the executables directory inside the bundle
           mkdir -p "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin"
-          # Copy the Go binary (arm64 for Apple Silicon, falls back to amd64)
+          # Copy the Go binary: check in .xcodeproj/../ (same dir as project) first
           GO_BIN=""
-          if [ -f "${SRCROOT}/../../../sharetool_darwin_arm64" ]; then
-            GO_BIN="${SRCROOT}/../../../sharetool_darwin_arm64"
-          elif [ -f "${SRCROOT}/../../../sharetool_darwin_amd64" ]; then
-            GO_BIN="${SRCROOT}/../../../sharetool_darwin_amd64"
+          if [ -f "${SRCROOT}/../sharetool_darwin_amd64" ]; then
+            GO_BIN="${SRCROOT}/../sharetool_darwin_amd64"
+          elif [ -f "${SRCROOT}/../sharetool_darwin_arm64" ]; then
+            GO_BIN="${SRCROOT}/../sharetool_darwin_arm64"
           fi
           if [ -n "$GO_BIN" ]; then
             cp -f "$GO_BIN" "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin/sharetool"

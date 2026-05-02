@@ -107,12 +107,13 @@ jobs:
           cd ..
 
           # Place binary where Xcode preBuildScript expects it:
-          # preBuildScript runs from .xcodeproj dir, so ../../../ = repo root
-          cp sharetool_darwin_amd64 app/ShareTool/ShareTool.xcodeproj/../sharetool_darwin_amd64
-          cp sharetool_darwin_arm64 app/ShareTool/ShareTool.xcodeproj/../sharetool_darwin_arm64
+          # preBuildScript now uses ${SRCROOT}/../sharetool_darwin_amd64
+          # ${SRCROOT} = .xcodeproj dir, so ../ = app/ShareTool/
+          cp sharetool_darwin_amd64 app/ShareTool/sharetool_darwin_amd64
+          cp sharetool_darwin_arm64 app/ShareTool/sharetool_darwin_arm64
 
           # Verify
-          ls -la app/ShareTool/ShareTool.xcodeproj/../sharetool_darwin_amd64
+          ls -la app/ShareTool/sharetool_darwin_amd64
 
           # Build macOS app with xcodebuild
           cd app/ShareTool
