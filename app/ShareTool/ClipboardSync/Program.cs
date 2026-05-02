@@ -35,8 +35,8 @@ record Device(string IP, string Name, string Url);
 class TrayAppContext : ApplicationContext
 {
     private readonly NotifyIcon _notifyIcon;
-    private readonly ContextMenu _contextMenu;
-    private readonly MenuItem[] _deviceMenuItems;
+    private readonly ContextMenuStrip _contextMenu;
+    private readonly ToolStripMenuItem[] _deviceMenuItems;
     private ToolStripMenuItem? _autoSendItem;
     private ToolStripMenuItem? _syncTextItem;
     private ToolStripMenuItem? _syncImgItem;
@@ -68,7 +68,7 @@ class TrayAppContext : ApplicationContext
     {
         _instanceName = $"{Environment.MachineName}-Win";
         _localIP = GetLocalIP();
-        _deviceMenuItems = new MenuItem[10];
+        _deviceMenuItems = new ToolStripMenuItem[10];
 
         _contextMenu = BuildMenu();
 
@@ -76,7 +76,7 @@ class TrayAppContext : ApplicationContext
         {
             Text = "ShareTool (未启动)",
             Visible = true,
-            ContextMenu = _contextMenu
+            ContextMenuStrip = _contextMenu
         };
 
         // Load icon
@@ -98,105 +98,105 @@ class TrayAppContext : ApplicationContext
         StartLanScan();
     }
 
-    private ContextMenu BuildMenu()
+    private ContextMenuStrip BuildMenu()
     {
-        var menu = new ContextMenu();
+        var menu = new ContextMenuStrip();
 
-        var statusItem = new MenuItem("状态: 扫描中...") { Enabled = false };
+        var statusItem = new ToolStripMenuItem("状态: 扫描中...") { Enabled = false };
         statusItem.Name = "status";
-        menu.MenuItems.Add(statusItem);
+        menu.Items.Add(statusItem);
 
-        var ipItem = new MenuItem($"本机 IP: {_localIP}") { Enabled = false };
-        menu.MenuItems.Add(ipItem);
+        var ipItem = new ToolStripMenuItem($"本机 IP: {_localIP}") { Enabled = false };
+        menu.Items.Add(ipItem);
 
         // Devices header
-        var devicesHeader = new MenuItem("发现的服务:") { Enabled = false };
+        var devicesHeader = new ToolStripMenuItem("发现的服务:") { Enabled = false };
         devicesHeader.Name = "devicesHeader";
-        menu.MenuItems.Add(devicesHeader);
+        menu.Items.Add(devicesHeader);
 
         // Device list (max 10)
         for (int i = 0; i < 10; i++)
         {
-            _deviceMenuItems[i] = new MenuItem("(空)") { Enabled = false, Visible = false };
+            _deviceMenuItems[i] = new ToolStripMenuItem("(空)") { Enabled = false, Available = false };
             _deviceMenuItems[i].Name = $"device{i}";
             _deviceMenuItems[i].Click += DeviceItem_Click;
-            menu.MenuItems.Add(_deviceMenuItems[i]);
+            menu.Items.Add(_deviceMenuItems[i]);
         }
 
         // Rescan
-        var rescanItem = new MenuItem("重新扫描  🔍");
+        var rescanItem = new ToolStripMenuItem("重新扫描  🔍");
         rescanItem.Click += (_, _) => StartLanScan();
-        menu.MenuItems.Add(rescanItem);
+        menu.Items.Add(rescanItem);
 
-        menu.MenuItems.Add(new MenuItem("-")); // separator
+        menu.Items.Add(new ToolStripSeparator());
 
         // Sync settings submenu
-        var settingsMenu = new MenuItem("同步设置 ▼");
-        _autoSendItem = new MenuItem("自动发送剪贴板") { Checked = _autoSend };
+        var settingsMenu = new ToolStripMenuItem("同步设置 ▼");
+        _autoSendItem = new ToolStripMenuItem("自动发送剪贴板") { Checked = _autoSend };
         _autoSendItem.Click += (_, _) =>
         {
             _autoSend = !_autoSend;
             _autoSendItem!.Checked = _autoSend;
             SaveSyncSettings();
         };
-        _syncTextItem = new MenuItem("自动接收文本") { Checked = _autoSyncText };
+        _syncTextItem = new ToolStripMenuItem("自动接收文本") { Checked = _autoSyncText };
         _syncTextItem.Click += (_, _) =>
         {
             _autoSyncText = !_autoSyncText;
             _syncTextItem!.Checked = _autoSyncText;
             SaveSyncSettings();
         };
-        _syncImgItem = new MenuItem("自动接收图片") { Checked = _autoSyncImage };
+        _syncImgItem = new ToolStripMenuItem("自动接收图片") { Checked = _autoSyncImage };
         _syncImgItem.Click += (_, _) =>
         {
             _autoSyncImage = !_autoSyncImage;
             _syncImgItem!.Checked = _autoSyncImage;
             SaveSyncSettings();
         };
-        _syncFilesItem = new MenuItem("自动接收文件") { Checked = _autoSyncFiles };
+        _syncFilesItem = new ToolStripMenuItem("自动接收文件") { Checked = _autoSyncFiles };
         _syncFilesItem.Click += (_, _) =>
         {
             _autoSyncFiles = !_autoSyncFiles;
             _syncFilesItem!.Checked = _autoSyncFiles;
             SaveSyncSettings();
         };
-        settingsMenu.MenuItems.Add(_autoSendItem);
-        settingsMenu.MenuItems.Add(new MenuItem("-"));
-        settingsMenu.MenuItems.Add(_syncTextItem);
-        settingsMenu.MenuItems.Add(_syncImgItem);
-        settingsMenu.MenuItems.Add(_syncFilesItem);
-        menu.MenuItems.Add(settingsMenu);
+        settingsMenu.DropDownItems.Add(_autoSendItem);
+        settingsMenu.DropDownItems.Add(new ToolStripSeparator());
+        settingsMenu.DropDownItems.Add(_syncTextItem);
+        settingsMenu.DropDownItems.Add(_syncImgItem);
+        settingsMenu.DropDownItems.Add(_syncFilesItem);
+        menu.Items.Add(settingsMenu);
 
         // Send clipboard
-        _sendItem = new MenuItem("发送剪贴板  📋") { Enabled = false };
+        _sendItem = new ToolStripMenuItem("发送剪贴板  📋") { Enabled = false };
         _sendItem.Click += async (_, _) => await SendClipboardNow();
-        menu.MenuItems.Add(_sendItem);
+        menu.Items.Add(_sendItem);
 
         // History submenu
-        _historyItem = new MenuItem("剪贴板历史  📜") { Enabled = false };
+        _historyItem = new ToolStripMenuItem("剪贴板历史  📜") { Enabled = false };
         RebuildHistoryMenu();
-        menu.MenuItems.Add(_historyItem);
+        menu.Items.Add(_historyItem);
 
-        menu.MenuItems.Add(new MenuItem("-"));
+        menu.Items.Add(new ToolStripSeparator());
 
         // Start/Stop service
-        _startStopItem = new MenuItem("启动本地服务  ▶");
+        _startStopItem = new ToolStripMenuItem("启动本地服务  ▶");
         _startStopItem.Click += (_, _) =>
         {
             if (_serviceRunning) StopService();
             else StartService();
         };
-        menu.MenuItems.Add(_startStopItem);
+        menu.Items.Add(_startStopItem);
 
         // Web UI
-        _webItem = new MenuItem("打开 Web UI  🌐") { Enabled = false };
+        _webItem = new ToolStripMenuItem("打开 Web UI  🌐") { Enabled = false };
         _webItem.Click += (_, _) => OpenWebUI();
-        menu.MenuItems.Add(_webItem);
+        menu.Items.Add(_webItem);
 
-        menu.MenuItems.Add(new MenuItem("-"));
+        menu.Items.Add(new ToolStripSeparator());
 
         // Quit
-        var quitItem = new MenuItem("退出  ✕");
+        var quitItem = new ToolStripMenuItem("退出  ✕");
         quitItem.Click += (_, _) =>
         {
             StopService();
@@ -206,7 +206,7 @@ class TrayAppContext : ApplicationContext
             _notifyIcon.Visible = false;
             Application.Exit();
         };
-        menu.MenuItems.Add(quitItem);
+        menu.Items.Add(quitItem);
 
         return menu;
     }
@@ -222,9 +222,9 @@ class TrayAppContext : ApplicationContext
         }
     }
 
-    private MenuItem GetItem(string name) =>
-        _contextMenu.MenuItems.Cast<MenuItem>().FirstOrDefault(m => m.Name == name)
-        ?? new MenuItem();
+    private ToolStripMenuItem GetItem(string name) =>
+        _contextMenu.Items.Cast<ToolStripMenuItem>().FirstOrDefault(m => m.Name == name)
+        ?? new ToolStripMenuItem();
 
     private void UpdateStatus(bool running, string status)
     {
@@ -257,11 +257,11 @@ class TrayAppContext : ApplicationContext
 
     private void RebuildHistoryMenu()
     {
-        _historyItem!.MenuItems.Clear();
+        _historyItem!.DropDownItems.Clear();
 
         if (_historyEntries.Count == 0)
         {
-            _historyItem!.MenuItems.Add(new MenuItem("(无历史)") { Enabled = false });
+            _historyItem!.DropDownItems.Add(new ToolStripMenuItem("(无历史)") { Enabled = false });
             return;
         }
 
@@ -271,10 +271,10 @@ class TrayAppContext : ApplicationContext
                 ? Truncate(entry.text ?? "", 35)
                 : entry.@type == "image" ? "[图片]" : $"[{entry.@type}]";
             var label = $"{preview}  ← {entry.from}";
-            var item = new MenuItem(label);
+            var item = new ToolStripMenuItem(label);
             var entryCopy = entry;
             item.Click += (_, _) => CopyHistoryEntry(entryCopy);
-            _historyItem!.MenuItems.Add(item);
+            _historyItem!.DropDownItems.Add(item);
         }
     }
 
@@ -319,27 +319,34 @@ class TrayAppContext : ApplicationContext
 
         _clipboardService.OnReceived += (_, entry) =>
         {
-            try
+            // Marshal to UI thread to avoid cross-thread issues
+            _notifyIcon?.BeginInvoke(new Action(() =>
             {
-                var preview = entry.@type == "text"
-                    ? Truncate(entry.text ?? "", 40)
-                    : $"[{entry.@type}]";
-                ShowNotification("收到剪贴板", $"来自 {entry.from}: {preview}");
-                _ = RefreshHistoryAsync();
-            }
-            catch { }
+                try
+                {
+                    var preview = entry.@type == "text"
+                        ? Truncate(entry.text ?? "", 40)
+                        : $"[{entry.@type}]";
+                    ShowNotification("收到剪贴板", $"来自 {entry.from}: {preview}");
+                    _ = RefreshHistoryAsync();
+                }
+                catch { }
+            }));
         };
 
         _clipboardService.OnSent += (_, result) =>
         {
-            try
+            _notifyIcon?.BeginInvoke(new Action(() =>
             {
-                if (result.Error != null)
-                    ShowNotification("发送失败", result.Error);
-                else
-                    ShowNotification("剪贴板已发送", $"已发送到 {result.Count} 个设备");
-            }
-            catch { }
+                try
+                {
+                    if (result.Error != null)
+                        ShowNotification("发送失败", result.Error);
+                    else
+                        ShowNotification("剪贴板已发送", $"已发送到 {result.Count} 个设备");
+                }
+                catch { }
+            }));
         };
 
         // Start clipboard listener WITHOUT creating any hidden window
@@ -482,7 +489,7 @@ class TrayAppContext : ApplicationContext
 
             // Hide all device items
             for (int i = 0; i < 10; i++)
-                _deviceMenuItems[i].Visible = false;
+                _deviceMenuItems[i].Available = false;
 
             _scanTimer = new System.Threading.Timer(_ => LanScanOnce(), null, 0, 15000);
         }
@@ -542,7 +549,7 @@ class TrayAppContext : ApplicationContext
         // Hide all device items
         for (int i = 0; i < 10; i++)
         {
-            _deviceMenuItems[i].Visible = false;
+            _deviceMenuItems[i].Available = false;
             _deviceMenuItems[i].Tag = null;
         }
 
@@ -558,14 +565,14 @@ class TrayAppContext : ApplicationContext
         {
             var d = devices[i];
             _deviceMenuItems[i].Text = $"  {d.IP}";
-            _deviceMenuItems[i].Visible = true;
+            _deviceMenuItems[i].Available = true;
             _deviceMenuItems[i].Tag = d;
         }
     }
 
     private void DeviceItem_Click(object? sender, EventArgs e)
     {
-        if (sender is not MenuItem item || item.Tag is not Device d) return;
+        if (sender is not ToolStripMenuItem item || item.Tag is not Device d) return;
         if (_isConnecting) return;
         _isConnecting = true;
         ConnectTo(d);
@@ -608,7 +615,7 @@ class TrayAppContext : ApplicationContext
         _historyItem!.Enabled = !string.IsNullOrEmpty(connectedIP);
         GetItem("devicesHeader").Text = "发现的服务:";
         for (int i = 0; i < 10; i++)
-            _deviceMenuItems[i].Visible = false;
+            _deviceMenuItems[i].Available = false;
     }
 
     private void UpdateServerModeUI()
@@ -621,7 +628,7 @@ class TrayAppContext : ApplicationContext
         _historyItem!.Enabled = true;
         GetItem("devicesHeader").Text = "发现的服务: (服务端模式)";
         for (int i = 0; i < 10; i++)
-            _deviceMenuItems[i].Visible = false;
+            _deviceMenuItems[i].Available = false;
     }
 
     #endregion

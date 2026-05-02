@@ -27,19 +27,26 @@ public class TrayIconManager : IDisposable
 
         _clipboardService.OnReceived += (_, entry) =>
         {
-            ShowNotification(
-                "收到剪贴板",
-                $"来自 {entry?.from}: {(entry?.@type == "text" ? Truncate(entry?.text ?? "", 40) : $"[{entry?.@type}]")}"
-            );
-            RefreshHistoryMenu();
+            // Marshal to UI thread to avoid cross-thread UI access
+            _notifyIcon?.BeginInvoke(new Action(() =>
+            {
+                ShowNotification(
+                    "收到剪贴板",
+                    $"来自 {entry?.from}: {(entry?.@type == "text" ? Truncate(entry?.text ?? "", 40) : $"[{entry?.@type}]")}"
+                );
+                RefreshHistoryMenu();
+            }));
         };
 
         _clipboardService.OnSent += (_, result) =>
         {
-            if (result.Error != null)
-                ShowNotification("发送失败", result.Error);
-            else
-                ShowNotification("剪贴板已发送", $"已发送到 {result.Count} 个设备");
+            _notifyIcon?.BeginInvoke(new Action(() =>
+            {
+                if (result.Error != null)
+                    ShowNotification("发送失败", result.Error);
+                else
+                    ShowNotification("剪贴板已发送", $"已发送到 {result.Count} 个设备");
+            }));
         };
     }
 

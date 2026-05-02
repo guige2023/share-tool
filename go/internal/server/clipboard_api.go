@@ -440,6 +440,41 @@ func handleClipboardReceive(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Handle files: fetch each file blob and save to disk
+	if req.Type == "files" && len(req.Files) > 0 && dataDir != "" {
+		var savedFiles []FileMeta
+		for _, fm := range req.Files {
+			if fm.BlobURL == "" {
+				continue
+			}
+			blobResp, err := forwardClient.Get(fm.BlobURL)
+			if err != nil || blobResp.StatusCode != http.StatusOK {
+				if blobResp != nil {
+					blobResp.Body.Close()
+				}
+				continue
+			}
+			data, err := io.ReadAll(blobResp.Body)
+			blobResp.Body.Close()
+			if err != nil {
+				continue
+			}
+			fp, err := saveReceivedFile(fm.Name, data)
+			if err == nil {
+				savedFiles = append(savedFiles, FileMeta{
+					Name:    fm.Name,
+					Size:    int64(len(data)),
+					SHA256:  fm.SHA256,
+					BlobURL: "/api/clipboard/file?path=" + filepath.Base(fp),
+					Mime:    fm.Mime,
+				})
+			}
+		}
+		if len(savedFiles) > 0 {
+			entry.Files = savedFiles
+		}
+	}
+
 	clipboardMu.Lock()
 	// Deduplicate: don't store if same entry_id from same sender within 2 seconds
 	isDup := false
@@ -646,6 +681,22 @@ func saveFilesList(entryID string, filesJSON string) (string, error) {
 	filename := fmt.Sprintf("%s.files.json", entryID)
 	fpath := filepath.Join(dataDir, FilesDirName, filename)
 	if err := os.WriteFile(fpath, []byte(filesJSON), 0644); err != nil {
+		return "", err
+	}
+	return fpath, nil
+}
+
+// saveReceivedFile saves received binary file data to disk, returns absolute path
+func saveReceivedFile(name string, data []byte) (string, error) {
+	if dataDir == "" {
+		return "", fmt.Errorf("no data dir")
+	}
+	safeName := filepath.Base(name)
+	if safeName == "" || safeName == "." {
+		safeName = "file"
+	}
+	fpath := filepath.Join(dataDir, FilesDirName, safeName)
+	if err := os.WriteFile(fpath, data, 0644); err != nil {
 		return "", err
 	}
 	return fpath, nil
