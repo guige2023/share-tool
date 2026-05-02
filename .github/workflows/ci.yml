@@ -73,7 +73,7 @@ jobs:
       - name: Copy tray app
         run: |
           mkdir -p artifacts
-          cp app/ShareTool/ClipboardSync/bin/Release/net8.0-windows/win-x64/ShareToolClipboardSync.exe artifacts/
+          cp app/ShareTool/ClipboardSync/bin/Release/net10.0-windows/win-x64/ShareToolClipboardSync.exe artifacts/
 
       - name: Upload Windows app
         uses: actions/upload-artifact@v4
