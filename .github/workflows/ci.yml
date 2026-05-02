@@ -81,3 +81,48 @@ jobs:
           name: sharetool-windows-app
           path: artifacts/*
           retention-days: 3
+
+  # ─────────────────────────────────────────────────────────────
+  # macOS App (menu bar app)
+  # ─────────────────────────────────────────────────────────────
+  build-macos-app:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Build macOS App
+        run: |
+          # Build Go binary for macOS arm64 (Apple Silicon)
+          cd go
+          GOOS=darwin GOARCH=arm64 go build -o ../sharetool_darwin_arm64 .
+          cd ..
+
+          # Build macOS app with xcodebuild
+          cd app/ShareTool
+          xcodebuild -project ShareTool.xcodeproj -scheme ShareTool -configuration Release -derivedDataPath ./build APP_CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO 2>&1 | tail -20
+
+          # Verify .app exists
+          ls -la build/Build/Products/Release/*.app 2>/dev/null || ls -la build/*.app 2>/dev/null || find build -name "*.app" -maxdepth 4 2>/dev/null
+
+          # Copy .app to artifacts
+          APP_PATH=$(find build -name "ShareTool.app" -maxdepth 5 2>/dev/null | head -1)
+          if [ -n "$APP_PATH" ]; then
+            mkdir -p artifacts
+            cp -r "$APP_PATH" artifacts/
+            echo "macOS app built: $APP_PATH"
+          else
+            echo "ERROR: ShareTool.app not found"
+            ls -la build/ 2>/dev/null
+            find build -name "*.app" 2>/dev/null || echo "no .app found"
+            exit 1
+          fi
+        working-directory: .
+
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: sharetool-macos-app
+          path: app/ShareTool/artifacts/ShareTool.app
+          retention-days: 3

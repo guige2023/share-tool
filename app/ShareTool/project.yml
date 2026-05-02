@@ -40,7 +40,18 @@ targets:
         script: |
           # Create the executables directory inside the bundle
           mkdir -p "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin"
-          # Copy the Go binary
-          cp -f "${SRCROOT}/../../../sharetool_darwin_amd64" "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin/sharetool"
-          chmod +x "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin/sharetool"
+          # Copy the Go binary (arm64 for Apple Silicon, falls back to amd64)
+          GO_BIN=""
+          if [ -f "${SRCROOT}/../../../sharetool_darwin_arm64" ]; then
+            GO_BIN="${SRCROOT}/../../../sharetool_darwin_arm64"
+          elif [ -f "${SRCROOT}/../../../sharetool_darwin_amd64" ]; then
+            GO_BIN="${SRCROOT}/../../../sharetool_darwin_amd64"
+          fi
+          if [ -n "$GO_BIN" ]; then
+            cp -f "$GO_BIN" "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin/sharetool"
+            chmod +x "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_NAME}.app/Contents/ShareTool-bin/sharetool"
+            echo "Copied: $GO_BIN"
+          else
+            echo "WARNING: Go binary not found, app will run in client-only mode"
+          fi
         basedOnDependencyAnalysis: false
