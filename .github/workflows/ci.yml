@@ -103,7 +103,12 @@ jobs:
           # Build Go binary for macOS arm64 (Apple Silicon)
           cd go
           GOOS=darwin GOARCH=arm64 go build -o ../sharetool_darwin_arm64 .
+          # Also build amd64 and place at the path Xcode project expects
+          GOOS=darwin GOARCH=amd64 go build -o ../sharetool_darwin_amd64 .
           cd ..
+
+          # Verify binaries
+          ls -la sharetool_darwin_arm64 sharetool_darwin_amd64
 
           # Build macOS app with xcodebuild
           cd app/ShareTool
