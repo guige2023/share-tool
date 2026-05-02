@@ -2,44 +2,82 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, fix/clipboard-p0-fixes]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Rebuild better-sqlite3
-        run: npm rebuild better-sqlite3
-
-      - name: Run tests
-        run: npm test
-
-  lint:
+  # ─────────────────────────────────────────────────────────────
+  # Go Server Build (all platforms)
+  # ─────────────────────────────────────────────────────────────
+  build-go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          node-version: 20.x
-          cache: 'npm'
-      - run: npm ci
-      - name: Syntax check server.js
-        run: node --check server.js && node --check db.js && node --check cli.js
-        working-directory: ./
+          go-version: '1.22'
+          cache-dependency-path: go/go.sum
+
+      - name: Download Go modules
+        run: cd go && go mod download
+
+      - name: Build macOS (amd64)
+        run: cd go && GOOS=darwin GOARCH=amd64 go build -o ../artifacts/sharetool_darwin_amd64 .
+        working-directory: .
+
+      - name: Build macOS (arm64)
+        run: cd go && GOOS=darwin GOARCH=arm64 go build -o ../artifacts/sharetool_darwin_arm64 .
+        working-directory: .
+
+      - name: Build Windows
+        run: cd go && GOOS=windows GOARCH=amd64 go build -o ../artifacts/sharetool_windows_amd64.exe .
+        working-directory: .
+
+      - name: Build Linux
+        run: cd go && GOOS=linux GOARCH=amd64 go build -o ../artifacts/sharetool_linux_amd64 .
+        working-directory: .
+
+      - name: Upload server binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: sharetool-server-binaries
+          path: artifacts/*
+          retention-days: 3
+
+  # ─────────────────────────────────────────────────────────────
+  # Windows C# Tray App
+  # ─────────────────────────────────────────────────────────────
+  build-windows-app:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Windows Tray App
+        run: |
+          cd app/ShareTool/ClipboardSync
+          dotnet restore
+          dotnet build -c Release -r win-x64 --self-contained false
+        working-directory: .
+
+      - name: Copy tray app
+        run: |
+          mkdir -p artifacts
+          cp app/ShareTool/ClipboardSync/bin/Release/net8.0-windows/win-x64/ShareToolClipboardSync.exe artifacts/
+
+      - name: Upload Windows app
+        uses: actions/upload-artifact@v4
+        with:
+          name: sharetool-windows-app
+          path: artifacts/*
+          retention-days: 3
