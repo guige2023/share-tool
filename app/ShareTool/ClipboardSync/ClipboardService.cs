@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using System.Windows.Forms;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.ComponentModel;
 
 namespace ShareToolClipboardSync;
 
@@ -31,6 +32,7 @@ public class ClipboardService : IDisposable
     private IntPtr _hwnd;
     private uint _lastClipboardSequenceNumber = 0;
     private bool _clipboardListenerActive = false;
+    private HiddenClipboardWindow? _hiddenWindow;
 
     public ClipboardService(string baseUrl, string instanceName)
     {
@@ -56,13 +58,20 @@ public class ClipboardService : IDisposable
     // Start listening to clipboard changes via AddClipboardFormatListener
     public void StartClipboardListener(IntPtr hwnd)
     {
+        // If no window handle provided, create a hidden message window
+        if (hwnd == IntPtr.Zero)
+        {
+            _hiddenWindow = new HiddenClipboardWindow(this);
+            hwnd = _hiddenWindow.Handle;
+        }
+
         _hwnd = hwnd;
         _lastClipboardSequenceNumber = GetClipboardSequenceNumber();
 
         if (AddClipboardFormatListener(hwnd))
         {
             _clipboardListenerActive = true;
-            Console.WriteLine("[ClipboardService] Clipboard listener started");
+            Console.WriteLine("[ClipboardService] Clipboard listener started (event-driven)");
         }
         else
         {
@@ -82,6 +91,8 @@ public class ClipboardService : IDisposable
             RemoveClipboardFormatListener(_hwnd);
             _clipboardListenerActive = false;
         }
+        _hiddenWindow?.Dispose();
+        _hiddenWindow = null;
     }
 
     // Called from WndProc when WM_CLIPBOARDUPDATE is received
@@ -475,5 +486,43 @@ public class ClipboardService : IDisposable
         StopClipboardListener();
         _sseCts?.Dispose();
         _http.Dispose();
+    }
+}
+
+// Hidden message window for receiving WM_CLIPBOARDUPDATE without a visible window.
+// AddClipboardFormatListener requires a window handle to receive clipboard change events.
+internal class HiddenClipboardWindow : NativeWindow, IDisposable
+{
+    private readonly ClipboardService _service;
+    private const int WM_CLIPBOARDUPDATE = 0x031D;
+
+    public HiddenClipboardWindow(ClipboardService service)
+    {
+        _service = service;
+        CreateHandle(new CreateParams
+        {
+            Width = 0,
+            Height = 0,
+            X = -10000,
+            Y = -10000,
+            Style = 0,
+            WindowClassStyle = 0,
+            ExStyle = 0x08000000, // WS_EX_TOOLWINDOW (no taskbar button)
+            Name = "ShareToolClipboardMonitor"
+        });
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WM_CLIPBOARDUPDATE)
+        {
+            _service.OnClipboardUpdate();
+        }
+        base.WndProc(ref m);
+    }
+
+    public void Dispose()
+    {
+        DestroyHandle();
     }
 }
