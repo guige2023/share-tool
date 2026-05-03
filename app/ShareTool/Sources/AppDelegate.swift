@@ -64,7 +64,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         guard let bundlePath = Bundle.main.path(forResource: "sharetool", ofType: nil, inDirectory: "ShareTool-bin") else {
             let msg = "[ShareTool] ERROR: Cannot find sharetool binary in app bundle\nBundle.main.bundlePath=\(Bundle.main.bundlePath)\n"
-            try? msg.write(toFile: diagPath, atomically: true, encoding: .utf8)
+            try? msg.write(toFile: diagPath, atomically: true, encoding: String.Encoding.utf8)
             return
         }
 
@@ -77,7 +77,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             try fileMgr.copyItem(atPath: bundlePath, toPath: destPath)
         } catch {
             let msg = "[ShareTool] ERROR: copy failed: \(error)\n"
-            try? msg.write(toFile: diagPath, atomically: true, encoding: .utf8)
+            try? msg.write(toFile: diagPath, atomically: true, encoding: String.Encoding.utf8)
             return
         }
         try? fileMgr.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destPath)
@@ -96,10 +96,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             try process.run()
             shareToolPID = process.processIdentifier
             let msg = "[ShareTool] Started PID: \(shareToolPID)\ndestPath: \(destPath)\n"
-            try? msg.write(toFile: diagPath, atomically: true, encoding: .utf8)
+            try? msg.write(toFile: diagPath, atomically: true, encoding: String.Encoding.utf8)
         } catch {
             let msg = "[ShareTool] Failed to start: \(error)\ndestPath: \(destPath)\n"
-            try? msg.write(toFile: diagPath, atomically: true, encoding: .utf8)
+            try? msg.write(toFile: diagPath, atomically: true, encoding: String.Encoding.utf8)
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
