@@ -88,10 +88,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         process.arguments = ["-name", instanceName, "-dir", sharedDir]
         process.currentDirectoryURL = URL(fileURLWithPath: sharedDir)
         let logPath = (logDir2 as NSString).appendingPathComponent("server_startup.log")
-        if let logFile = FileHandle(forWritingToPath: logPath) {
-            process.standardOutput = logFile
-            process.standardError = logFile
-        }
+        let logFile = FileHandle(forWritingAtPath: logPath) ?? FileHandle.nullDevice
+        process.standardOutput = logFile
+        process.standardError = logFile
 
         do {
             try process.run()
