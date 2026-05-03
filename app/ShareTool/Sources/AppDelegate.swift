@@ -1,7 +1,8 @@
 import AppKit
 import ServiceManagement
+import UserNotifications
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
 
     private var statusBarController: StatusBarController?
     private var shareToolPID: Int32 = -1
@@ -12,6 +13,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
         sharedDir = (homeDir as NSString).appendingPathComponent("ShareToolShared")
         instanceName = Host.current().localizedName ?? "my-mac"
+
+        // Request notification permissions
+        UNUserNotificationCenter.current().delegate = self
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("[ShareTool] Notification permission granted")
+            } else if let error = error {
+                print("[ShareTool] Notification permission error: \(error)")
+            }
+        }
 
         let fileMgr = FileManager.default
         try? fileMgr.createDirectory(atPath: sharedDir, withIntermediateDirectories: true, attributes: nil)

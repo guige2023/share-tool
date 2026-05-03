@@ -207,6 +207,15 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		}
 	})
 
+	// Clipboard history (alternative route for compatibility)
+	mux.HandleFunc("/api/clipboard/history", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method Not Allowed", 405)
+			return
+		}
+		handleClipboardHistory(w, r)
+	})
+
 	// Clipboard receive (from peers - no forwarding)
 	mux.HandleFunc("/api/clipboard/receive", func(w http.ResponseWriter, r *http.Request) {
 		handleClipboardReceive(w, r)

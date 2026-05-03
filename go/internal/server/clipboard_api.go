@@ -31,9 +31,11 @@ var ServerMode = "hub"
 
 type ClipboardEntry struct {
 	ID        string `json:"id"`
-	Type      string `json:"type"` // "text" | "image" | "files"
-	Content   string `json:"content"` // text content, or base64 for images, or JSON array for files
-	FilePath  string `json:"file_path,omitempty"` // local disk path for images/files
+	Type      string `json:"type"` // "text" | "image" | "file"
+	Content   string `json:"content"` // text content, or base64 for images/files
+	FileName  string `json:"fileName,omitempty"` // original filename for files
+	FileSize  int64  `json:"fileSize,omitempty"` // file size for files
+	FilePath  string `json:"filePath,omitempty"` // local disk path for images/files
 	From      string `json:"from"`
 	Timestamp int64  `json:"timestamp"`
 }
@@ -41,6 +43,8 @@ type ClipboardEntry struct {
 type ClipboardRequest struct {
 	Type      string `json:"type"`
 	Content   string `json:"content"`
+	FileName  string `json:"fileName,omitempty"`
+	FileSize  int64  `json:"fileSize,omitempty"`
 	From      string `json:"from"`
 	Timestamp int64  `json:"timestamp"`
 }
@@ -137,14 +141,30 @@ func saveImageFile(entryID string, base64Data string) (string, error) {
 	return filepath, nil
 }
 
-// Save file list to disk, return relative path
-func saveFilesList(entryID string, filesJSON string) (string, error) {
+// Save file content to disk, return relative path
+func saveFileContent(entryID string, fileName string, base64Content string) (string, error) {
 	if dataDir == "" {
 		return "", fmt.Errorf("no data dir")
 	}
-	filename := fmt.Sprintf("%s.files.json", entryID)
-	filepath := filepath.Join(dataDir, FilesDirName, filename)
-	if err := os.WriteFile(filepath, []byte(filesJSON), 0644); err != nil {
+
+	// Create files subdirectory
+	filesDir := filepath.Join(dataDir, FilesDirName)
+	if err := os.MkdirAll(filesDir, 0755); err != nil {
+		return "", err
+	}
+
+	// Decode base64 content
+	decoded, err := base64.StdEncoding.DecodeString(base64Content)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64: %v", err)
+	}
+
+	// Use sanitized filename
+	safeName := filepath.Base(fileName)
+	filename := fmt.Sprintf("%s_%s", entryID, safeName)
+	filepath := filepath.Join(filesDir, filename)
+
+	if err := os.WriteFile(filepath, decoded, 0644); err != nil {
 		return "", err
 	}
 	return filepath, nil
@@ -176,8 +196,8 @@ func handleClipboardPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate type
-	if req.Type != "text" && req.Type != "image" && req.Type != "files" {
-		http.Error(w, `{"error":"type must be text, image, or files"}`, 400)
+	if req.Type != "text" && req.Type != "image" && req.Type != "file" {
+		http.Error(w, `{"error":"type must be text, image, or file"}`, 400)
 		return
 	}
 
@@ -194,9 +214,9 @@ func handleClipboardPost(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, `{"error":"image content exceeds 10MB limit"}`, 413)
 			return
 		}
-	case "files":
+	case "file":
 		if size > MaxClipboardFilesSize {
-			http.Error(w, `{"error":"files content exceeds 100MB limit"}`, 413)
+			http.Error(w, `{"error":"file content exceeds 100MB limit"}`, 413)
 			return
 		}
 	}
@@ -223,9 +243,12 @@ func handleClipboardPost(w http.ResponseWriter, r *http.Request) {
 			// Clear base64 from memory after saving to disk
 			entry.Content = ""
 		}
-	} else if req.Type == "files" && dataDir != "" {
-		if fp, err := saveFilesList(entry.ID, req.Content); err == nil {
+	} else if req.Type == "file" && dataDir != "" {
+		// Save file content to disk
+		if fp, err := saveFileContent(entry.ID, req.FileName, req.Content); err == nil {
 			entry.FilePath = fp
+			entry.FileName = req.FileName
+			entry.FileSize = req.FileSize
 			entry.Content = ""
 		}
 	}
@@ -290,6 +313,8 @@ func forwardClipboardToPeer(peer Peer, entry ClipboardEntry) error {
 	payload := map[string]any{
 		"type":      entry.Type,
 		"content":   entry.Content,
+		"file_name": entry.FileName,
+		"file_size": entry.FileSize,
 		"file_path": entry.FilePath,
 		"from":      entry.From,
 		"timestamp": entry.Timestamp,
@@ -337,7 +362,7 @@ func handleClipboardReceive(w http.ResponseWriter, r *http.Request) {
 	// Also accept file_path in the request (for receiving path-based entries from peers)
 	filePath := req.Content // reuse Content field for file path in receive context
 
-	if req.Type != "text" && req.Type != "image" && req.Type != "files" {
+	if req.Type != "text" && req.Type != "image" && req.Type != "file" {
 		http.Error(w, `{"error":"invalid type"}`, 400)
 		return
 	}
@@ -363,9 +388,11 @@ func handleClipboardReceive(w http.ResponseWriter, r *http.Request) {
 			entry.FilePath = fp
 			entry.Content = ""
 		}
-	} else if req.Type == "files" && req.Content != "" && dataDir != "" {
-		if fp, err := saveFilesList(entry.ID, req.Content); err == nil {
+	} else if req.Type == "file" && req.Content != "" && dataDir != "" {
+		if fp, err := saveFileContent(entry.ID, req.FileName, req.Content); err == nil {
 			entry.FilePath = fp
+			entry.FileName = req.FileName
+			entry.FileSize = req.FileSize
 			entry.Content = ""
 		}
 	} else if filePath != "" {
@@ -425,6 +452,9 @@ func handleClipboardLatest(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{"entry": nil})
 		return
 	}
+
+	// Re-read file content for file/image types
+	enrichEntry(entry)
 	json.NewEncoder(w).Encode(map[string]any{"entry": entry})
 }
 
@@ -440,8 +470,29 @@ func handleClipboardHistory(w http.ResponseWriter, r *http.Request) {
 	copy(list, clipboardHistory)
 	clipboardMu.RUnlock()
 
+	// Re-read file content for file/image types
+	for i := range list {
+		enrichEntry(&list[i])
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"entries": list})
+}
+
+// enrichEntry re-reads file content from disk and populates Content field
+func enrichEntry(entry *ClipboardEntry) {
+	if entry == nil || entry.FilePath == "" {
+		return
+	}
+	if entry.Type != "file" && entry.Type != "image" {
+		return
+	}
+	// Read file content and encode as base64
+	data, err := os.ReadFile(entry.FilePath)
+	if err != nil {
+		return
+	}
+	entry.Content = base64.StdEncoding.EncodeToString(data)
 }
 
 // handleClipboardDelete clears clipboard history

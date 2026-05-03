@@ -1,4 +1,5 @@
 import AppKit
+import UserNotifications
 
 class StatusBarController: NSObject {
 
@@ -268,6 +269,8 @@ class StatusBarController: NSObject {
             let empty = NSMenuItem(title: "（无历史）", action: nil, keyEquivalent: "")
             empty.isEnabled = false
             submenu.addItem(empty)
+            // Fetch from server when empty
+            fetchClipboardHistory()
             return
         }
 
@@ -296,6 +299,28 @@ class StatusBarController: NSObject {
         submenu.addItem(clearItem)
     }
 
+    private func fetchClipboardHistory() {
+        let url = URL(string: "\(baseURL)/api/clipboard/history")!
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let self = self, let data = data,
+                  let response = try? JSONDecoder().decode(ClipboardHistoryResponse.self, from: data) else { return }
+            DispatchQueue.main.async {
+                // Merge server history with local, avoiding duplicates
+                for entry in response.entries {
+                    if !self.clipboardHistory.contains(where: { $0.id == entry.id }) {
+                        self.clipboardHistory.append(entry)
+                    }
+                }
+                // Sort by timestamp descending
+                self.clipboardHistory.sort { $0.timestamp > $1.timestamp }
+                if self.clipboardHistory.count > 50 {
+                    self.clipboardHistory = Array(self.clipboardHistory.prefix(50))
+                }
+                self.refreshHistoryMenu()
+            }
+        }.resume()
+    }
+
     @objc private func clearClipboardHistory() {
         clipboardHistory.removeAll()
         refreshHistoryMenu()
@@ -317,6 +342,23 @@ class StatusBarController: NSObject {
         if n < 1024 * 1024 { return "\(n/1024)KB" }
         return "\(n/1024/1024)MB"
     }
+
+    private func showNotification(title: String, body: String) {
+        let center = UNUserNotificationCenter.current()
+        center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+            guard granted else { return }
+            let content = UNMutableNotificationContent()
+            content.title = title
+            content.body = body
+            content.sound = .default
+            let req = UNNotificationRequest(
+                identifier: UUID().uuidString,
+                content: content,
+                trigger: nil
+            )
+            center.add(req)
+        }
+    }
 }
 
 // MARK: - ClipboardManagerDelegate
@@ -332,27 +374,17 @@ extension StatusBarController: ClipboardManagerDelegate {
     }
 
     func clipboardManager(_ manager: ClipboardManager, didSendClipboard count: Int) {
-        let alert = NSAlert()
+        // Use system notification instead of modal dialog
         if count > 0 {
-            alert.messageText = "剪贴板已发送"
-            alert.informativeText = "已发送到 \(count) 个设备"
+            showNotification(title: "剪贴板已发送", body: "已发送到 \(count) 个设备")
         } else {
-            alert.messageText = "剪贴板已发送"
-            alert.informativeText = "当前无其他在线设备"
+            showNotification(title: "剪贴板已发送", body: "当前无其他在线设备")
         }
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "好的")
-        alert.runModal()
     }
 
     func clipboardManager(_ manager: ClipboardManager, didFailWithError error: Error) {
         if (error as? ClipboardManager.ClipboardError) == .empty {
-            let alert = NSAlert()
-            alert.messageText = "剪贴板为空"
-            alert.informativeText = "没有可发送的内容"
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: "好的")
-            alert.runModal()
+            showNotification(title: "剪贴板为空", body: "没有可发送的内容")
         }
     }
 }

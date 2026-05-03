@@ -3,8 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
@@ -86,6 +84,9 @@ func main() {
 		log.Printf("[Clipboard] Data dir: %s", clipboardDir)
 	}
 
+	// Start UDP broadcast discovery listener (for Windows client compatibility)
+	go startBroadcastDiscovery(localIP, *port, *name)
+
 	if *noHttps {
 		// Plain HTTP mode
 		addr := fmt.Sprintf(":%d", *port)
@@ -134,7 +135,8 @@ func main() {
 		if err := os.MkdirAll(filepath.Dir(certFile), 0700); err != nil {
 			log.Fatalf("Failed to create cert directory: %v", err)
 		}
-		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		// Generate RSA key for better compatibility
+		priv, err := rsa.GenerateKey(rand.Reader, 2048)
 		if err != nil {
 			log.Fatalf("Failed to generate private key: %v", err)
 		}
@@ -160,24 +162,12 @@ func main() {
 		certOut.Close()
 		os.Chmod(certFile, 0644)
 
-		// Marshal private key to PKCS#8
-		pkcs8Bytes, err := x509.MarshalPKCS8PrivateKey(priv)
-		if err != nil {
-			// Fall back to RSA key format for older Go versions
-			rsaPriv := &rsa.PrivateKey{
-				PublicKey: rsa.PublicKey{N: priv.Curve.Params().N, E: 65537},
-				D:         new(big.Int).SetBytes(priv.D.Bytes()),
-			}
-			keyOut, _ := os.Create(keyFile)
-			pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(rsaPriv)})
-			keyOut.Close()
-		} else {
-			keyOut, _ := os.Create(keyFile)
-			pem.Encode(keyOut, &pem.Block{Type: "PRIVATE KEY", Bytes: pkcs8Bytes})
-			keyOut.Close()
-		}
+		// Write RSA private key in PKCS#1 format for maximum compatibility
+		keyOut, _ := os.Create(keyFile)
+		pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+		keyOut.Close()
 		os.Chmod(keyFile, 0600)
-		log.Printf("[TLS] Self-signed certificate generated: %s", certFile)
+		log.Printf("[TLS] Self-signed RSA certificate generated: %s", certFile)
 	}
 
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
@@ -219,11 +209,14 @@ func main() {
 		}),
 	}
 
-	// HTTPS server
+	// HTTPS server with timeouts for stability
 	httpsSrv := &http.Server{
-		Addr:    httpsAddr,
-		Handler: wrappedHandler,
-		TLSConfig: tlsConfig,
+		Addr:         httpsAddr,
+		Handler:      wrappedHandler,
+		TLSConfig:    tlsConfig,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 300 * time.Second, // 5 minutes for large file downloads
+		IdleTimeout:  120 * time.Second,
 	}
 
 	go func() {
@@ -285,5 +278,39 @@ func registerPeerHTTPS(ip string, localIP string, port int, name string) {
 	} else {
 		body, _ := io.ReadAll(resp.Body)
 		log.Printf("[Peers] HTTPS Registration failed with status %d: %s", resp.StatusCode, string(body))
+	}
+}
+
+// startBroadcastDiscovery listens for UDP broadcast discovery requests on port 18794
+func startBroadcastDiscovery(localIP string, port int, name string) {
+	const BroadcastPort = 18794
+	const DiscoverMsg = "SHARETOOL_DISCOVER"
+
+	addr := net.UDPAddr{Port: BroadcastPort}
+	conn, err := net.ListenUDP("udp", &addr)
+	if err != nil {
+		log.Printf("[Discovery] UDP listener failed: %v", err)
+		return
+	}
+	defer conn.Close()
+	log.Printf("[Discovery] UDP listener started on port %d", BroadcastPort)
+
+	buf := make([]byte, 1024)
+	for {
+		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		n, srcAddr, err := conn.ReadFromUDP(buf)
+		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				continue
+			}
+			break
+		}
+
+		msg := string(buf[:n])
+		if msg == DiscoverMsg {
+			response := fmt.Sprintf("SHARETOOL_RESPONSE|%s:%d|%s", localIP, port, name)
+			conn.WriteToUDP([]byte(response), srcAddr)
+			log.Printf("[Discovery] Responded to %s", srcAddr.String())
+		}
 	}
 }

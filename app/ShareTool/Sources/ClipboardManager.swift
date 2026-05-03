@@ -25,8 +25,10 @@ extension String {
 
 struct ClipboardEntry: Codable {
     let id: String
-    let type: String // "text" | "image" | "files"
+    let type: String // "text" | "image" | "file"
     let content: String
+    let fileName: String?
+    let fileSize: Int64?
     let from: String
     let timestamp: Int64
 }
@@ -101,17 +103,42 @@ class ClipboardManager: NSObject, URLSessionDelegate {
 
     // MARK: - Read Clipboard
 
-    /// Returns the type and content of the current clipboard
-    func readClipboard() -> (type: String, content: String)? {
+    /// Returns the type, content, filename, and filesize of the current clipboard
+    func readClipboard() -> (type: String, content: String, fileName: String?, fileSize: Int64?)? {
         let pb = NSPasteboard.general
 
         // 1. Check for file URLs first
         if let fileURLs = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
-           !fileURLs.isEmpty {
-            let filenames = fileURLs.map { $0.lastPathComponent }
-            if let jsonData = try? JSONSerialization.data(withJSONObject: filenames),
-               let jsonStr = String(data: jsonData, encoding: .utf8) {
-                return ("files", jsonStr)
+           let firstFile = fileURLs.first {
+            let fileName = firstFile.lastPathComponent
+
+            // Check if it's a directory - if so, zip it
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: firstFile.path, isDirectory: &isDirectory), isDirectory.boolValue {
+                // It's a directory - zip it first
+                let zipName = fileName + ".zip"
+                let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ShareTool").appendingPathComponent(zipName)
+                try? FileManager.default.createDirectory(at: tempURL.deletingLastPathComponent() as URL, withIntermediateDirectories: true)
+
+                // Use ditto to zip the directory
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                process.arguments = ["-c", "-k", "--sequesterRsrc", firstFile.path, tempURL.path]
+                try? process.run()
+                process.waitUntilExit()
+
+                if let zipData = try? Data(contentsOf: tempURL) {
+                    let base64 = zipData.base64EncodedString()
+                    try? FileManager.default.removeItem(at: tempURL)
+                    return ("file", base64, zipName, Int64(zipData.count))
+                }
+                return nil
+            }
+
+            // It's a file - read and send
+            if let fileData = try? Data(contentsOf: firstFile) {
+                let base64 = fileData.base64EncodedString()
+                return ("file", base64, fileName, Int64(fileData.count))
             }
         }
 
@@ -123,7 +150,7 @@ class ClipboardManager: NSObject, URLSessionDelegate {
                 return nil
             }
             let base64 = imageData.base64EncodedString()
-            return ("image", base64)
+            return ("image", base64, nil, 0)
         }
 
         // 3. Check for text
@@ -132,7 +159,7 @@ class ClipboardManager: NSObject, URLSessionDelegate {
                 print("[ClipboardManager] Text too large: \(text.utf8.count) bytes, skipping")
                 return nil
             }
-            return ("text", text)
+            return ("text", text, nil, 0)
         }
 
         return nil
@@ -155,12 +182,22 @@ class ClipboardManager: NSObject, URLSessionDelegate {
                 showNotification(title: "图片已更新", body: "来自: \(entry.from)")
             }
 
-        case "files":
-            if let data = entry.content.data(using: .utf8),
-               let filenames = try? JSONSerialization.jsonObject(with: data) as? [String] {
-                let urls = filenames.compactMap { URL(fileURLWithPath: $0) as NSURL? }
-                pb.writeObjects(urls)
-                showNotification(title: "文件已更新", body: "来自: \(entry.from)\n\(filenames.joined(separator: ", "))")
+        case "file":
+            // Save file to temp and write to clipboard
+            if let data = Data(base64Encoded: entry.content) {
+                let fileName = entry.fileName ?? "file"
+                let tempDir = NSTemporaryDirectory()
+                let tempURL = URL(fileURLWithPath: tempDir).appendingPathComponent("ShareTool").appendingPathComponent(fileName)
+
+                // Create directory if needed
+                try? FileManager.default.createDirectory(at: tempURL.deletingLastPathComponent() as URL, withIntermediateDirectories: true)
+
+                // Write file
+                try? data.write(to: tempURL)
+
+                // Write to clipboard
+                pb.writeObjects([tempURL as NSURL])
+                showNotification(title: "文件已更新", body: "来自: \(entry.from)\n\(fileName)")
             }
 
         default:
@@ -172,7 +209,7 @@ class ClipboardManager: NSObject, URLSessionDelegate {
 
     func sendClipboard() {
         debugLog("sendClipboard CALLED baseURL=\(baseURL) instanceName=\(instanceName)")
-        guard let (type, content) = readClipboard() else {
+        guard let (type, content, fileName, fileSize) = readClipboard() else {
             debugLog("Nothing to send - clipboard empty")
             print("[ClipboardManager] Nothing to send")
             delegate?.clipboardManager(self, didFailWithError: ClipboardError.empty)
@@ -180,12 +217,19 @@ class ClipboardManager: NSObject, URLSessionDelegate {
         }
         debugLog("Sending type=\(type) contentLen=\(content.count) from=\(instanceName)")
 
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "type": type,
             "content": content,
             "from": instanceName,
             "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
         ]
+
+        if let fn = fileName {
+            payload["file_name"] = fn
+        }
+        if let fs = fileSize, fs > 0 {
+            payload["file_size"] = fs
+        }
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else { return }
 

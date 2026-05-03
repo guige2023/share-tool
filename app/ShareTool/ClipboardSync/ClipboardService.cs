@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -9,22 +10,40 @@ namespace ShareToolClipboardSync;
 
 public class ClipboardService : IDisposable
 {
-    private readonly string _baseUrl;
+    private string _baseUrl;
     private readonly string _instanceName;
-    private readonly HttpClient _http;
+    private HttpClient _http;
     private System.Threading.Timer? _pollTimer;
-    private string _lastTextHash = "";
-    private bool _lastWasImage = false;
+    private string _lastEntryHash = "";
+    private bool _isWritingClipboard = false; // Prevent feedback loop
 
     public event EventHandler<ClipboardEntry>? OnReceived;
     public event EventHandler<(int Count, string? Error)>? OnSent;
+
+    public string BaseURL => _baseUrl;
 
     public ClipboardService(string baseUrl, string instanceName)
     {
         _baseUrl = baseUrl.TrimEnd('/');
         _instanceName = instanceName;
-        _http = new HttpClient();
-        _http.Timeout = TimeSpan.FromSeconds(15);
+        _http = CreateHttpClient();
+    }
+
+    private static HttpClient CreateHttpClient()
+    {
+        var handler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+        };
+        var client = new HttpClient(handler);
+        client.Timeout = TimeSpan.FromSeconds(15);
+        return client;
+    }
+
+    public void SetBaseURL(string url)
+    {
+        _baseUrl = url.TrimEnd('/');
+        Logger.Info($"[ClipboardService] BaseURL changed to: {_baseUrl}");
     }
 
     // Start polling for received clipboard entries
@@ -79,30 +98,20 @@ public class ClipboardService : IDisposable
 
     private bool ShouldProcess(ClipboardEntry entry)
     {
-        if (entry.Type == "text")
-        {
-            var hash = ComputeHash(entry.Content ?? "");
-            if (hash == _lastTextHash) return false;
-        }
-        else if (entry.Type == "image")
-        {
-            if (_lastWasImage && entry.Content == "") return false;
-        }
+        var hash = ComputeEntryHash(entry);
+        if (hash == _lastEntryHash) return false;
         return true;
     }
 
     private void UpdateDeduplicationState(ClipboardEntry entry)
     {
-        if (entry.Type == "text")
-        {
-            _lastTextHash = ComputeHash(entry.Content ?? "");
-            _lastWasImage = false;
-        }
-        else if (entry.Type == "image")
-        {
-            _lastWasImage = true;
-            _lastTextHash = "";
-        }
+        _lastEntryHash = ComputeEntryHash(entry);
+    }
+
+    private static string ComputeEntryHash(ClipboardEntry entry)
+    {
+        var key = $"{entry.Type}:{entry.Content ?? ""}:{entry.From}";
+        return ComputeHash(key);
     }
 
     private static string ComputeHash(string content)
@@ -114,9 +123,11 @@ public class ClipboardService : IDisposable
     // Send current system clipboard to server (which forwards to peers)
     public async Task SendSystemClipboard()
     {
+        if (_isWritingClipboard) return; // Skip if we're writing clipboard (prevent feedback)
+
         try
         {
-            var (clipType, content) = DetectClipboardType();
+            var (clipType, content, fileName, fileSize) = DetectClipboardType();
             if (content == null || content.Length == 0)
             {
                 OnSent?.Invoke(this, (0, "Clipboard is empty"));
@@ -127,6 +138,8 @@ public class ClipboardService : IDisposable
             {
                 Type = clipType,
                 Content = content,
+                FileName = fileName,
+                FileSize = fileSize,
                 From = _instanceName,
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
@@ -185,50 +198,82 @@ public class ClipboardService : IDisposable
     {
         try
         {
-            if (entry.Type == "text" && !string.IsNullOrEmpty(entry.Content))
+            _isWritingClipboard = true;
+            try
             {
-                Clipboard.SetText(entry.Content);
+                if (entry.Type == "text" && !string.IsNullOrEmpty(entry.Content))
+                {
+                    Clipboard.SetText(entry.Content);
+                }
+                else if (entry.Type == "image" && !string.IsNullOrEmpty(entry.Content))
+                {
+                    var bytes = Convert.FromBase64String(entry.Content);
+                    using var ms = new MemoryStream(bytes);
+                    using var bmp = new System.Drawing.Bitmap(ms);
+                    Clipboard.SetImage(bmp);
+                }
+                else if (entry.Type == "file" && !string.IsNullOrEmpty(entry.Content))
+                {
+                    // File: save to temp folder and set file drop list
+                    var fileName = entry.FileName ?? "file";
+                    var tempDir = Path.Combine(Path.GetTempPath(), "ShareTool");
+                    Directory.CreateDirectory(tempDir);
+                    var filePath = Path.Combine(tempDir, fileName);
+
+                    var bytes = Convert.FromBase64String(entry.Content);
+                    File.WriteAllBytes(filePath, bytes);
+
+                    var col = new System.Collections.Specialized.StringCollection();
+                    col.Add(filePath);
+                    Clipboard.SetFileDropList(col);
+                }
             }
-            else if (entry.Type == "image" && !string.IsNullOrEmpty(entry.Content))
+            finally
             {
-                var bytes = Convert.FromBase64String(entry.Content);
-                using var ms = new MemoryStream(bytes);
-                using var bmp = new System.Drawing.Bitmap(ms);
-                Clipboard.SetImage(bmp);
+                _isWritingClipboard = false;
             }
-            // files type: not supported on Windows clipboard directly
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[ClipboardService] Failed to write clipboard: {ex.Message}");
+            _isWritingClipboard = false;
+            Logger.Error($"[ClipboardService] Failed to write clipboard: {ex.Message}");
         }
     }
 
     // Detect what's currently in the system clipboard
-    private (string type, string? content) DetectClipboardType()
+    private (string type, string? content, string? fileName, long fileSize) DetectClipboardType()
     {
         try
         {
             if (Clipboard.ContainsImage())
             {
-                var (_, content) = TryReadImage();
-                if (content != null) return ("image", content);
+                var (data, content) = TryReadImage();
+                if (content != null) return ("image", content, null, data?.Length ?? 0);
             }
             if (Clipboard.ContainsFileDropList())
             {
                 var files = Clipboard.GetFileDropList();
                 if (files.Count > 0)
-                    return ("files", string.Join("\n", files.Cast<string>()));
+                {
+                    var filePath = files[0];
+                    var fileName = Path.GetFileName(filePath);
+                    if (File.Exists(filePath))
+                    {
+                        var fileData = File.ReadAllBytes(filePath);
+                        return ("file", Convert.ToBase64String(fileData), fileName, fileData.Length);
+                    }
+                    return ("file", Convert.ToBase64String(Encoding.UTF8.GetBytes(filePath)), fileName, filePath.Length);
+                }
             }
             if (Clipboard.ContainsText())
             {
                 var text = Clipboard.GetText();
-                if (!string.IsNullOrEmpty(text)) return ("text", text);
+                if (!string.IsNullOrEmpty(text)) return ("text", text, null, 0);
             }
         }
         catch { }
 
-        return ("text", null);
+        return ("text", null, null, 0);
     }
 
     public void Dispose()
