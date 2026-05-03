@@ -100,7 +100,6 @@ jobs:
 
       - name: Setup XcodeGen
         run: |
-          # Install xcodegen if not present
           if ! command -v xcodegen &> /dev/null; then
             brew install xcodegen
           fi
@@ -114,76 +113,63 @@ jobs:
           GOOS=darwin GOARCH=amd64 go build -o ../app/ShareTool/sharetool_darwin_amd64 .
           lipo -create ../app/ShareTool/sharetool_darwin_arm64 ../app/ShareTool/sharetool_darwin_amd64 -output ../app/ShareTool/sharetool_darwin_fat
           chmod +x ../app/ShareTool/sharetool_darwin_fat
-          echo "Go universal binary built: $(ls -lh ../app/ShareTool/sharetool_darwin_fat | awk '{print $5}')"
+          echo "Go universal binary: $(ls -lh ../app/ShareTool/sharetool_darwin_fat | awk '{print $5}')"
 
       - name: Build macOS App
         run: |
           REPO="$PWD"
-          # Regenerate .xcodeproj from project.yml (in case it was updated)
+          # Regenerate .xcodeproj from project.yml
           cd "$REPO/app/ShareTool"
           xcodegen generate
-          ls -la ShareTool.xcodeproj/
 
-          # Build Go binaries for both architectures (output to app/ShareTool/)
-          cd "$REPO/go"
-          GOOS=darwin GOARCH=arm64 go build -o ../app/ShareTool/sharetool_darwin_arm64 .
-          GOOS=darwin GOARCH=amd64 go build -o ../app/ShareTool/sharetool_darwin_amd64 .
-          # Create universal (fat) binary for both Apple Silicon and Intel
-          lipo -create ../app/ShareTool/sharetool_darwin_arm64 ../app/ShareTool/sharetool_darwin_amd64 -output ../app/ShareTool/sharetool_darwin_fat
-          chmod +x ../app/ShareTool/sharetool_darwin_fat
-          echo "Universal binary created: $(ls -lh ../app/ShareTool/sharetool_darwin_fat | awk '{print $5, $9}')"
-
-          # Build macOS app with xcodebuild (disable set -e to capture exit code)
-          cd "$REPO/app/ShareTool"
+          # Build macOS app with xcodebuild
           set +e
           xcodebuild -project ShareTool.xcodeproj -scheme ShareTool -configuration Release -derivedDataPath ./build APP_CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO 2>&1 | tee /tmp/xcodebuild.log
           XCODE_EXIT=${PIPESTATUS[0]}
           set -e
           echo "xcodebuild exit code: $XCODE_EXIT"
-          tail -50 /tmp/xcodebuild.log
+          tail -30 /tmp/xcodebuild.log
           if [ $XCODE_EXIT -ne 0 ]; then
-            echo "ERROR: xcodebuild failed with exit code $XCODE_EXIT"
+            echo "ERROR: xcodebuild failed"
             exit 1
           fi
 
-          # Verify .app exists
+          # Find built .app
           APP_PATH=$(find build -name "ShareTool.app" -maxdepth 5 2>/dev/null | head -1)
-          if [ -n "$APP_PATH" ]; then
-            echo "macOS app built: $APP_PATH"
-            echo "App size before Go binary: $(du -sh "$APP_PATH" | cut -f1)"
-
-            # Put Go binary OUTSIDE the app bundle (avoids macOS translocation issues)
-            # Bundle API can't find files outside Contents/Resources/ in signed apps
-            GO_BIN="$REPO/app/ShareTool/sharetool_darwin_fat"
-            if [ -f "$GO_BIN" ]; then
-              # Copy Go binary alongside the .app bundle (not inside it)
-              cp "$GO_BIN" artifacts/sharetool
-              chmod +x artifacts/sharetool
-              echo "Go binary placed at artifacts/sharetool: $(ls -lh artifacts/sharetool | awk '{print $5}')"
-            else
-              echo "WARNING: Go binary not found at $GO_BIN, app will run in client-only mode"
-            fi
-
-            mkdir -p artifacts
-            cp -r "$APP_PATH" artifacts/
-            echo "Copied to artifacts. Size: $(du -sh artifacts/ShareTool.app | cut -f1)"
-
-            # Zip the .app bundle so directory structure is preserved on download
-            cd artifacts
-            zip -r ShareTool.app.zip ShareTool.app
-            cd ..
-            echo "Zipped to artifacts/ShareTool.app.zip"
-          else
+          if [ -z "$APP_PATH" ]; then
             echo "ERROR: ShareTool.app not found"
-            ls -la build/ 2>/dev/null || echo "no build dir"
-            find build -name "*.app" 2>/dev/null || echo "no .app found"
+            find build -name "*.app" 2>/dev/null
             exit 1
           fi
+          echo "macOS app built: $APP_PATH ($(du -sh "$APP_PATH" | cut -f1))"
+
+          # Create artifacts directory and place Go binary OUTSIDE the .app bundle
+          mkdir -p "$REPO/artifacts"
+          GO_BIN="$REPO/app/ShareTool/sharetool_darwin_fat"
+          cp "$GO_BIN" "$REPO/artifacts/sharetool"
+          chmod +x "$REPO/artifacts/sharetool"
+          echo "Go binary placed at $REPO/artifacts/sharetool ($(ls -lh "$REPO/artifacts/sharetool" | awk '{print $5}'))"
+
+          # Copy .app to artifacts (zip separately)
+          cp -r "$APP_PATH" "$REPO/artifacts/ShareTool.app"
+          echo "App copied to artifacts ($(du -sh "$REPO/artifacts/ShareTool.app" | cut -f1))"
+
+          # Zip .app bundle preserving directory structure
+          cd "$REPO/artifacts"
+          zip -r ShareTool.app.zip ShareTool.app
+          echo "Zipped: $(ls -lh ShareTool.app.zip | awk '{print $5}')"
         working-directory: .
 
       - name: Upload macOS app
         uses: actions/upload-artifact@v4
         with:
           name: sharetool-macos-app
-          path: app/ShareTool/artifacts/ShareTool.app.zip
+          path: artifacts/ShareTool.app.zip
+          retention-days: 3
+
+      - name: Upload standalone Go binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: sharetool-darwin-fat
+          path: artifacts/sharetool
           retention-days: 3
