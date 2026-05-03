@@ -2,49 +2,19 @@
 
 ## 当前进行中
 
-### S1-win-autosend: Windows 自动发送 — Timer 替代 HiddenClipboardWindow
+### PWA-entry: iOS/Android PWA 入口
 
-**问题**: `HiddenClipboardWindow` 的 `WM_CLIPBOARDUPDATE` 消息机制在托盘 App 场景下失效（可能因无消息循环或权限问题），导致剪贴板变更无法被事件驱动捕获。
+**目标**: 扫码即用、文件快速传、文本/剪贴板半自动、一键复制/粘贴。
 
-**修复文件**: `app/ShareTool/ClipboardSync/ClipboardService.cs`
+**不做**:
+- 后台自动剪贴板同步（iOS 系统限制，不可行）
+- 无用户手势自动写剪贴板
 
-**方案**: 保留 `HiddenClipboardWindow` + `AddClipboardFormatListener` 作为主路径，但对其做健壮性保护：若 `AddClipboardFormatListener` 返回 `false`（注册失败），或窗口消息在 5 秒内未收到任何 `WM_CLIPBOARDUPDATE`，则自动降级到 `Timer` + `GetClipboardSequenceNumber` 轮询（间隔 500ms）。
-
-**验收**: 在 Windows 上复制任意内容，1 秒内托盘 App 自动发送到服务器，托盘菜单历史同步更新。
-
----
-
-### S2-win-sent-count: 发送通知不显示"设备 0 个"
-
-**问题**: `OnSent?.Invoke(this, (result?.forwarded ?? 0, null))` 当 peers 为空时 `forwarded = 0`，但通知仍显示"已发送设备 0 个"，体验误导。
-
-**修复文件**: `app/ShareTool/ClipboardSync/ClipboardService.cs` (L293)
-
-**方案**: 修改 `OnSent` 触发逻辑——当 `forwarded == 0` 时，第二个参数改为 `"sent"`（表示仅发送到服务器，未跨设备）；`forwarded > 0` 时才传 `null` 并让调用方显示实际数量。
-
-或更简单：修改 `Program.cs` 中 `OnSent` 处理逻辑，当 `Count == 0` 时显示"已发送至服务器"，`Count > 0` 时显示"已发送至 N 台设备"。
-
-**验收**: 无 peers 时托盘通知显示"剪贴板已发送"或"已发送至服务器"，不显示"0"。
-
----
-
-### S3-history-empty: Windows 剪贴板历史为空
-
-**问题**: `Program.cs:286` 调用 `GET /api/clipboard` (POST 端点)，URL 错误导致历史获取失败。
-
-**修复文件**: `app/ShareTool/ClipboardSync/Program.cs` (L286)
-
-```csharp
-// 旧
-var resp = await client.GetAsync($"{url}/api/clipboard");
-
-// 新
-var resp = await client.GetAsync($"{url}/api/clipboard/history");
-```
-
-同时验证 Go 端 `GET /api/clipboard/history` 是否返回正确的 `ClipboardHistoryResponse` 结构。
-
-**验收**: Windows 托盘菜单"剪贴板历史"能显示最近 15 条记录。
+**实现**:
+- PWA `manifest.json` + Service Worker（离线缓存）
+- Share Sheet 入口（Web Share Target API，Android）
+- `navigator.clipboard.readText()` / `navigator.clipboard.writeText()`（需要用户手势触发）
+- 扫码配对：显示本机二维码（IP:Port），扫码后自动注册到对端
 
 ---
 
@@ -65,6 +35,12 @@ var resp = await client.GetAsync($"{url}/api/clipboard/history");
 - [x] **Program.cs: ContextMenuStrip 死锁** — BeginInvoke 跨线程 marshal
 - [x] **ClipboardSync.csproj: System.Drawing.Common 缺失** — 已添加
 - [x] **Node.js 旧实现** — 已删除
+
+### S1-S3 修复（2026-05-03）
+
+- [x] **S1: Windows 自动发送 Timer 健壮性** — PollClipboardOnBackground 移除 BeginInvoke，直接调用 SendSystemClipboard
+- [x] **S2: 发送通知文案** — Count==0 显示"已发送至服务器"，Count>0 显示设备数量
+- [x] **S3: 剪贴板历史启动加载** — Windows 延迟 3 秒加载，macOS 调用 loadHistory()
 
 ### P1 结构问题
 
