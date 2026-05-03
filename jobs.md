@@ -70,5 +70,14 @@
 - **改动文件**: `dist/sharetool_darwin_arm64`, `dist/sharetool_windows_amd64.exe`, `dist/ShareTool-windows/ShareToolClipboardSync.exe`
 - **改动概要**:
   - Go 服务端：macOS ARM64 + Windows AMD64 新构建
-  - Windows C#：自包含 .NET 10 发布（126MB），替换旧框架依赖版本
-- **验证结果**: `go build` + `dotnet publish` 均成功
+  - Windows C#：自包含 .NET 10 发布（121MB），替换旧框架依赖版本
+  - macOS：Swift Package Manager `swift build -c release` 构建 + app bundle + DMG（5.8MB）
+- **验证结果**: `go build` + `dotnet publish` + `swift build` 均成功
+
+### macOS Swift 构建修复
+- **改动文件**: `app/ShareTool/Sources/StatusBarController.swift`
+- **改动概要**:
+  - `StatusBarController` extension 未实现 `ClipboardManagerDelegate.didUpdateHistory(_:_:)` 方法
+  - SPM 构建失败（xcodebuild 需要 Xcode，但 swift build 不需要）
+  - 新增 `didUpdateHistory` 方法：更新本地历史并刷新菜单
+- **验证结果**: `swift build -c release` 成功（0 errors, 4 warnings）
