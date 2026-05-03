@@ -153,6 +153,12 @@ jobs:
             mkdir -p artifacts
             cp -r "$APP_PATH" artifacts/
             echo "Copied to artifacts. Size: $(du -sh artifacts/ShareTool.app | cut -f1)"
+
+            # Zip the .app bundle so directory structure is preserved on download
+            cd artifacts
+            zip -r ShareTool.app.zip ShareTool.app
+            cd ..
+            echo "Zipped to artifacts/ShareTool.app.zip"
           else
             echo "ERROR: ShareTool.app not found"
             ls -la build/ 2>/dev/null || echo "no build dir"
@@ -165,5 +171,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sharetool-macos-app
-          path: app/ShareTool/artifacts/ShareTool.app
+          path: app/ShareTool/artifacts/ShareTool.app.zip
           retention-days: 3
