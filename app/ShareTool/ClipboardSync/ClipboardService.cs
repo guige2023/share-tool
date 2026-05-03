@@ -66,25 +66,84 @@ public class ClipboardService : IDisposable
     private System.Threading.Timer? _pollTimer;
     private readonly object _pollLock = new();
 
-    // Start listening to clipboard changes via timer polling
-    // (HiddenWindow + AddClipboardFormatListener requires a proper message pump
-    // that NativeWindow alone cannot provide in a WinForms TrayApp context)
+    // Start listening to clipboard changes.
+    // Primary: AddClipboardFormatListener on a dedicated UI thread (message pump).
+    // Fallback: timer polling every 2s if AddClipboardFormatListener fails.
     public void StartClipboardListener(IntPtr hwnd)
     {
-        // Always use timer polling — reliable cross-thread clipboard monitoring
         _lastClipboardSequenceNumber = GetClipboardSequenceNumber();
 
-        _pollTimer = new System.Threading.Timer(
-            _ => PollClipboardOnBackground(),
-            null,
-            TimeSpan.FromMilliseconds(500),  // First check after 500ms
-            TimeSpan.FromMilliseconds(500)   // Then every 500ms
-        );
-
-        Console.WriteLine("[ClipboardService] Clipboard listener started (timer polling every 500ms)");
+        // Try AddClipboardFormatListener first — uses a hidden form with a message pump
+        // on a dedicated thread so WM_CLIPBOARDUPDATE events are delivered reliably.
+        if (TryStartNativeListener())
+        {
+            Console.WriteLine("[ClipboardService] Clipboard listener started (AddClipboardFormatListener)");
+        }
+        else
+        {
+            // Fallback: timer polling (less efficient but always works)
+            _pollTimer = new System.Threading.Timer(
+                _ => PollClipboardOnBackground(),
+                null,
+                TimeSpan.FromSeconds(2),    // First check after 2s
+                TimeSpan.FromSeconds(2)     // Then every 2s
+            );
+            Console.WriteLine("[ClipboardService] Clipboard listener started (timer fallback every 2s)");
+        }
 
         // Connect SSE push for receiving from peers
         _ = ConnectSSEPush();
+    }
+
+    // Attempts to start AddClipboardFormatListener using a hidden form with a message pump
+    // on a dedicated UI thread. Returns true if successful.
+    private bool TryStartNativeListener()
+    {
+        try
+        {
+            // Create a hidden form on a new UI thread so it has its own message pump.
+            var thread = new System.Threading.Thread(() =>
+            {
+                _syncForm = new System.Windows.Forms.Form
+                {
+                    Width = 0,
+                    Height = 0,
+                    ShowInTaskbar = false,
+                    Visible = false,
+                    Opacity = 0
+                };
+
+                if (!AddClipboardFormatListener(_syncForm.Handle))
+                {
+                    // Registration failed (e.g., no window manager on server), clean up
+                    _syncForm.Dispose();
+                    _syncForm = null;
+                    return;
+                }
+
+                // Register cleanup on form close
+                _syncForm.FormClosed += (_, _) =>
+                {
+                    if (_syncForm != null)
+                    {
+                        RemoveClipboardFormatListener(_syncForm.Handle);
+                        _syncForm.Dispose();
+                        _syncForm = null;
+                    }
+                };
+
+                // Run the message pump
+                Application.Run(_syncForm);
+            });
+            thread.SetApartmentState(System.Threading.ApartmentState.STA);
+            thread.IsBackground = true;
+            thread.Start();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public void StopClipboardListener()
@@ -92,6 +151,19 @@ public class ClipboardService : IDisposable
         _sseCts?.Cancel();
         _pollTimer?.Dispose();
         _pollTimer = null;
+
+        // Stop the native listener form if running
+        if (_syncForm != null)
+        {
+            try
+            {
+                RemoveClipboardFormatListener(_syncForm.Handle);
+            }
+            catch { }
+            _syncForm.Close();
+            _syncForm.Dispose();
+            _syncForm = null;
+        }
         _hiddenWindow?.Dispose();
         _hiddenWindow = null;
     }
