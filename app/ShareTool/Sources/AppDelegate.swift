@@ -69,20 +69,102 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     func startShareToolService() {
         stopShareToolService()
 
-        guard let bundlePath = Bundle.main.path(forResource: "sharetool", ofType: nil, inDirectory: "ShareTool-bin") else {
-            print("[ShareTool] ERROR: Cannot find sharetool binary in app bundle")
+        // Debug: print bundle info
+        print("[ShareTool] Bundle: \(Bundle.main.bundlePath)")
+        print("[ShareTool] Shared directory: \(sharedDir)")
+
+        // Build sharetool path directly from bundle path
+        let bundleBinPath = (Bundle.main.bundlePath as NSString).appendingPathComponent("Contents/ShareTool-bin/sharetool")
+        let fileMgr = FileManager.default
+
+        if fileMgr.fileExists(atPath: bundleBinPath) {
+            print("[ShareTool] Found sharetool at: \(bundleBinPath)")
+            startShareToolProcess(binaryPath: bundleBinPath)
             return
         }
 
+        // Fallback: try legacy path (if bundled directly in Resources)
+        if let legacyPath = Bundle.main.path(forResource: "sharetool", ofType: nil) {
+            print("[ShareTool] Found sharetool at (legacy): \(legacyPath)")
+            startShareToolProcess(binaryPath: legacyPath)
+            return
+        }
+
+        // Fallback: check Application Support
+        let appSupportPath = (fileMgr.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Library/Application Support/ShareTool/sharetool")
+        if fileMgr.fileExists(atPath: appSupportPath) {
+            print("[ShareTool] Found sharetool at (app support): \(appSupportPath)")
+            startShareToolProcess(binaryPath: appSupportPath)
+            return
+        }
+
+        print("[ShareTool] ERROR: Cannot find sharetool binary")
+        print("[ShareTool] Contents of Contents dir:")
+        let contentsPath = (Bundle.main.bundlePath as NSString).appendingPathComponent("Contents")
+        if let contents = try? fileMgr.contentsOfDirectory(atPath: contentsPath) {
+            for item in contents {
+                print("  \(item)")
+            }
+        }
+        print("[ShareTool] Contents of ShareTool-bin dir:")
+        let binPath = (Bundle.main.bundlePath as NSString).appendingPathComponent("Contents/ShareTool-bin")
+        if let binContents = try? fileMgr.contentsOfDirectory(atPath: binPath) {
+            for item in binContents {
+                print("  \(item)")
+            }
+        }
+        showAlert(title: "启动失败", message: "无法在应用包中找到 sharetool 二进制文件")
+    }
+
+    private func startShareToolProcess(binaryPath: String) {
         let fileMgr = FileManager.default
         let appSupportDir = (fileMgr.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Library/Application Support/ShareTool")
-        try? fileMgr.createDirectory(atPath: appSupportDir, withIntermediateDirectories: true, attributes: nil)
+
+        do {
+            try fileMgr.createDirectory(atPath: appSupportDir, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            print("[ShareTool] Failed to create app support dir: \(error)")
+        }
 
         let destPath = (appSupportDir as NSString).appendingPathComponent("sharetool")
-        try? fileMgr.removeItem(atPath: destPath)
-        try? fileMgr.copyItem(atPath: bundlePath, toPath: destPath)
-        try? fileMgr.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destPath)
+        print("[ShareTool] Copying to: \(destPath)")
 
+        // Remove existing
+        try? fileMgr.removeItem(atPath: destPath)
+
+        // Copy
+        do {
+            try fileMgr.copyItem(atPath: binaryPath, toPath: destPath)
+            print("[ShareTool] Copied successfully")
+        } catch {
+            print("[ShareTool] Copy failed: \(error)")
+            showAlert(title: "启动失败", message: "复制 sharetool 失败: \(error.localizedDescription)")
+            return
+        }
+
+        // Set permissions
+        do {
+            try fileMgr.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destPath)
+            print("[ShareTool] Permissions set")
+        } catch {
+            print("[ShareTool] Failed to set permissions: \(error)")
+        }
+
+        // Verify file exists
+        guard fileMgr.fileExists(atPath: destPath) else {
+            print("[ShareTool] ERROR: File does not exist after copy!")
+            showAlert(title: "启动失败", message: "sharetool 文件复制后不存在")
+            return
+        }
+
+        // Verify it's executable
+        guard fileMgr.isExecutableFile(atPath: destPath) else {
+            print("[ShareTool] ERROR: File is not executable!")
+            showAlert(title: "启动失败", message: "sharetool 文件没有执行权限")
+            return
+        }
+
+        // Start process
         let process = Process()
         process.executableURL = URL(fileURLWithPath: destPath)
         process.arguments = ["-name", instanceName, "-dir", sharedDir]
@@ -94,12 +176,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             try process.run()
             shareToolPID = process.processIdentifier
             print("[ShareTool] Started PID: \(shareToolPID)")
+
+            // Verify it's actually running
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                if self?.shareToolPID ?? 0 > 0 {
+                    let running = kill(self!.shareToolPID, 0) == 0
+                    print("[ShareTool] Process running verification: \(running)")
+                    if !running {
+                        self?.showAlert(title: "启动失败", message: "sharetool 进程启动后立即退出")
+                    }
+                }
+            }
         } catch {
             print("[ShareTool] Failed to start: \(error)")
+            showAlert(title: "启动失败", message: "无法启动 sharetool: \(error.localizedDescription)")
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.statusBarController?.updateStatus()
+        }
+    }
+
+    private func showAlert(title: String, message: String) {
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = title
+            alert.informativeText = message
+            alert.alertStyle = .warning
+            alert.addButton(withTitle: "确定")
+            alert.runModal()
         }
     }
 

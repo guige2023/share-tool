@@ -118,6 +118,11 @@ class StatusBarController: NSObject {
         sendClipMI.target = self
         sendClipMI.tag = 100
 
+        // Send Files
+        let sendFilesMI = NSMenuItem(title: "发送文件...", action: #selector(sendFiles), keyEquivalent: "")
+        sendFilesMI.target = self
+        self.menu.addItem(sendFilesMI)
+
         let sep2 = NSMenuItem.separator()
 
         // Start/Stop
@@ -222,6 +227,88 @@ class StatusBarController: NSObject {
 
     @objc private func sendClipboard() {
         clipboardManager.sendClipboard()
+    }
+
+    @objc private func sendFiles() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.message = "选择要发送的文件或文件夹"
+        panel.prompt = "发送"
+
+        panel.begin { [weak self] response in
+            guard response == .OK, let urls = panel.urls as? [URL], !urls.isEmpty else { return }
+            self?.sendSelectedFiles(urls)
+        }
+    }
+
+    private func sendSelectedFiles(_ urls: [URL]) {
+        for url in urls {
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
+
+            if isDirectory.boolValue {
+                // Zip directory first
+                let zipName = url.lastPathComponent + ".zip"
+                let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ShareTool").appendingPathComponent(zipName)
+                try? FileManager.default.createDirectory(at: tempURL.deletingLastPathComponent() as URL, withIntermediateDirectories: true)
+
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                process.arguments = ["-c", "-k", "--sequesterRsrc", url.path, tempURL.path]
+                try? process.run()
+                process.waitUntilExit()
+
+                if let zipData = try? Data(contentsOf: tempURL) {
+                    let base64 = zipData.base64EncodedString()
+                    try? FileManager.default.removeItem(at: tempURL)
+                    sendFileAsPayload(base64: base64, fileName: zipName, fileSize: Int64(zipData.count))
+                }
+            } else {
+                // Single file
+                if let fileData = try? Data(contentsOf: url) {
+                    let base64 = fileData.base64EncodedString()
+                    sendFileAsPayload(base64: base64, fileName: url.lastPathComponent, fileSize: Int64(fileData.count))
+                }
+            }
+        }
+    }
+
+    private func sendFileAsPayload(base64: String, fileName: String, fileSize: Int64) {
+        let payload: [String: Any] = [
+            "type": "file",
+            "content": base64,
+            "file_name": fileName,
+            "file_size": fileSize,
+            "from": instanceName,
+            "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
+        ]
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else { return }
+
+        let url = URL(string: "\(baseURL)/api/clipboard")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.httpBody = jsonData
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, resp, err in
+            guard let self = self else { return }
+            if let err = err {
+                debugLog("SendFile FAILED: \(err)")
+                DispatchQueue.main.async {
+                    self.showNotification(title: "发送失败", body: err.localizedDescription)
+                }
+                return
+            }
+            if let data = data, let response = try? JSONDecoder().decode(ClipboardSendResponse.self, from: data) {
+                debugLog("SendFile SUCCESS: \(fileName) id=\(response.id ?? "nil")")
+                DispatchQueue.main.async {
+                    self.showNotification(title: "已发送文件", body: "\(fileName) (\(self.formatBytes(Int(fileSize))))")
+                }
+            }
+        }.resume()
     }
 
     @objc private func toggleAutoStart() {

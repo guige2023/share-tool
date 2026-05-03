@@ -10,9 +10,8 @@
     <RootNamespace>ShareToolClipboardSync</RootNamespace>
     <Version>1.0.0</Version>
     <Description>ShareTool - Clipboard Sync and File Sharing</Description>
-    <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishSingleFile>false</PublishSingleFile>
+    <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
