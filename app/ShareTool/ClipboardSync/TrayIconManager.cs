@@ -31,6 +31,8 @@ public class TrayIconManager : IDisposable
         {
             _baseUrl = value;
             _connectedServer = value;
+            // Also update ClipboardService so it polls the correct server
+            _clipboardService.SetBaseUrl(value);
             // Only refresh if menu is already set up
             if (_menu != null)
             {

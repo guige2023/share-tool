@@ -29,6 +29,12 @@ public class ClipboardService : IDisposable
         _http = CreateHttpClient();
     }
 
+    public void SetBaseUrl(string baseUrl)
+    {
+        _baseUrl = baseUrl.TrimEnd('/');
+        Logger.Info($"[ClipboardService] BaseUrl updated to: {_baseUrl}");
+    }
+
     private static HttpClient CreateHttpClient()
     {
         var handler = new HttpClientHandler
