@@ -248,11 +248,11 @@ warning CA2024: Do not use 'reader.EndOfStream' in an async method
 
 ## 优先修复推荐顺序（基于 Reviewer 建议）
 
-1. **P0-3**（Blob URL）+ **P0-1**（mDNS peers）是跨设备同步的前提，先做这两个
-2. **P0-4**（Files 协议）依赖 P0-3 的 blob 基础设施
-3. **P1-4**（断点续传）可独立做，不影响现有流程
-4. **TD-1**（编译警告）CI 一直报，容易修
-5. **P1-1**（剪贴板监听）需要较大的客户端改动，放后面
+1. **P0-3**（Blob URL）+ **P0-1**（mDNS peers）是跨设备同步的前提，先做这两个 ✅
+2. **P0-4**（Files 协议）依赖 P0-3 的 blob 基础设施 ✅（已在代码中实现）
+3. **P1-4**（断点续传）可独立做，不影响现有流程 ✅（Upload Session API 已完整）
+4. **TD-1**（编译警告）CI 一直报，容易修 ✅
+5. **P1-1**（剪贴板监听）需要较大的客户端改动 ✅
 
 ---
 
@@ -261,4 +261,32 @@ warning CA2024: Do not use 'reader.EndOfStream' in an async method
 - `build-go` ✓
 - `build-macos-app` ✓
 - `build-windows-app` ✓（已修复 `ShareToolEmbedded.exe` 条件嵌入）
-- 待修警告：Windows CS4014/CS0169/CS0414/CA2024（TD-1）
+- Windows 编译警告 ✅ 已消除（CS4014/CS0169/CS0414/CA2024 全部修复）
+
+---
+
+## 已完成修改清单（fix/clipboard-p0-fixes 分支）
+
+### P0-1: mDNS peers 注册修复
+- `peers_api.go`: 新增 `StartPeerCleanup(5min)` 后台 goroutine，自动清理超过 5 分钟未更新的 stale peers
+- `main.go`: 调用 `server.StartPeerCleanup()`，确认 discovery callback 正确触发 `RegisterPeer()`
+
+### P0-2: 转发回包计数验证
+- 代码审查确认 `wg.Wait()` 在 `forwarded++` 计数之后、`json.NewEncoder` 之前调用，逻辑正确；peers 为空时 `forwarded=0` 是预期行为
+
+### P0-3: Blob URL 跨设备可访问性
+- `clipboard_api.go`: `forwardClipboardToPeer` 将相对 blob URL（如 `/api/blobs?id=xxx`）转换为完整 URL（`http://<sender_ip>:<sender_port>/api/blobs?id=xxx`），接收 peer 可直接从源 server fetch
+- 新增 `makeAbsURL()` helper 函数处理 URL 转换
+- Files 数组中的 `blob_url` 同样转换
+
+### P1-1: 桌面端剪贴板监听
+- `ClipboardService.cs`: `StartClipboardListener` 优先尝试 `AddClipboardFormatListener` + 独立 STA 线程消息泵（真正系统级剪贴板事件监听）
+- 失败时降级为 2 秒定时轮询（从 500ms 降低频率，减少资源占用）
+- SSE 推送用于接收对端内容（已在代码中实现）
+
+### TD-1: Windows 编译警告修复
+- CS4014: `OnClipboardUpdate()` 中 `SendSystemClipboard()` 改为 `_ = SendSystemClipboard();`
+- CS0169: 移除未使用字段 `_hwnd`
+- CS0414: 移除未使用字段 `_clipboardListenerActive`
+- CA2024: `PollReceived` SSE 读取循环中移除 `reader.EndOfStream`（改用 `ReadLineAsync` 返回 null 检测 EOF）
+
