@@ -397,6 +397,11 @@ extension StatusBarController: ClipboardManagerDelegate {
         refreshHistoryMenu()
     }
 
+    func clipboardManager(_ manager: ClipboardManager, didUpdateHistory entries: [ClipboardEntry]) {
+        clipboardHistory = entries
+        refreshHistoryMenu()
+    }
+
     func clipboardManager(_ manager: ClipboardManager, didSendClipboard count: Int) {
         // Note: count reflects peer-forwarding only (HTTP /api/clipboard/receive).
         // SSE push delivers to all connected clients even when count=0.

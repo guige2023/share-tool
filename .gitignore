@@ -32,6 +32,12 @@ coverage/
 /sharetool_darwin_amd64_new
 /sharetool_darwin_arm64_new
 /sharetool_windows_amd64_new.exe
+
+# macOS app bundle and DMG
+/ShareTool-macos.app/
+/ShareTool-macos.dmg
+/ShareToolClipboardSync_new/
+
 app/build/
 app/.build/
 app/Package.swift
