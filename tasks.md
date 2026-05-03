@@ -2,19 +2,7 @@
 
 ## 当前进行中
 
-### PWA-entry: iOS/Android PWA 入口
-
-**目标**: 扫码即用、文件快速传、文本/剪贴板半自动、一键复制/粘贴。
-
-**不做**:
-- 后台自动剪贴板同步（iOS 系统限制，不可行）
-- 无用户手势自动写剪贴板
-
-**实现**:
-- PWA `manifest.json` + Service Worker（离线缓存）
-- Share Sheet 入口（Web Share Target API，Android）
-- `navigator.clipboard.readText()` / `navigator.clipboard.writeText()`（需要用户手势触发）
-- 扫码配对：显示本机二维码（IP:Port），扫码后自动注册到对端
+（所有任务已完成）
 
 ---
 

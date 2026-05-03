@@ -74,6 +74,17 @@
   - macOS：Swift Package Manager `swift build -c release` 构建 + app bundle + DMG（5.8MB）
 - **验证结果**: `go build` + `dotnet publish` + `swift build` 均成功
 
+### P3-F10: PWA 入口完成
+- **改动文件**: `go/internal/server/web/index.html`
+- **改动概要**:
+  - 新增"粘贴并发送"按钮：调用 `navigator.clipboard.readText()` 读取系统剪贴板并发送到服务器
+  - 新增"复制最新"按钮：调用 `navigator.clipboard.writeText()` 将最新历史条目写入系统剪贴板
+  - 新增 Share Target URL 参数处理：`?title=...&text=...&url=...` 来自 Share Sheet，解析后自动切换到文本 Tab 并提示发送
+  - 新增 Toast 提示：`showToast()` 函数（2 秒自动消失）
+  - manifest.json 已含 share_target 和 file_handlers（已有）
+  - sw.js Service Worker 离线缓存（已有）
+- **验证结果**: Go build 通过
+
 ### macOS Swift 构建修复
 - **改动文件**: `app/ShareTool/Sources/StatusBarController.swift`
 - **改动概要**:

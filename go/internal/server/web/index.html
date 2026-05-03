@@ -530,6 +530,11 @@ header .ip {
         <input id="textInput" placeholder="输入文本，发送给局域网内所有设备..." />
         <button onclick="sendText()">发送</button>
       </div>
+      <!-- PWA clipboard buttons -->
+      <div class="text-row" style="margin-top:8px;">
+        <button onclick="pasteAndSend()" id="pasteBtn" style="background:#34c759;flex:1;">📋 粘贴并发送</button>
+        <button onclick="copyLatest()" id="copyBtn" style="background:#ff9500;flex:1;">📄 复制最新</button>
+      </div>
     </div>
     <!-- History -->
     <div class="text-section" style="margin-top:12px;">
@@ -1154,6 +1159,109 @@ function closeQRModal(e) {
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 loadFiles();
+
+// ─── PWA: Clipboard API ─────────────────────────────────────────────────────
+
+async function pasteAndSend() {
+  if (!navigator.clipboard || !navigator.clipboard.readText) {
+    alert('当前浏览器不支持剪贴板 API，请使用 HTTPS 或 localhost');
+    return;
+  }
+  try {
+    const text = await navigator.clipboard.readText();
+    if (!text || !text.trim()) {
+      alert('剪贴板为空');
+      return;
+    }
+    const input = document.getElementById('textInput');
+    input.value = text;
+    await sendText();
+  } catch(e) {
+    // User denied permission or other error
+    if (e.name === 'NotAllowedError') {
+      alert('请允许访问剪贴板权限后重试');
+    } else {
+      alert('读取剪贴板失败: ' + e.message);
+    }
+  }
+}
+
+async function copyLatest() {
+  if (!navigator.clipboard || !navigator.clipboard.writeText) {
+    alert('当前浏览器不支持剪贴板 API');
+    return;
+  }
+  if (!textEntries.length) {
+    alert('暂无历史记录');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(textEntries[0].content);
+    showToast('已复制到剪贴板');
+  } catch(e) {
+    if (e.name === 'NotAllowedError') {
+      alert('请允许写入剪贴板权限后重试');
+    } else {
+      alert('复制失败: ' + e.message);
+    }
+  }
+}
+
+function showToast(msg) {
+  const existing = document.getElementById('toast');
+  if (existing) existing.remove();
+  const div = document.createElement('div');
+  div.id = 'toast';
+  div.textContent = msg;
+  Object.assign(div.style, {
+    position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+    background: '#1d1d1f', color: '#fff', padding: '10px 20px', borderRadius: '8px',
+    fontSize: '14px', zIndex: '9999', opacity: '0',
+    transition: 'opacity .3s'
+  });
+  document.body.appendChild(div);
+  requestAnimationFrame(() => div.style.opacity = '1');
+  setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 300); }, 2000);
+}
+
+// ─── PWA: Web Share Target URL param processing ─────────────────────────────
+// Handle shared data from Web Share Target API (?title=...&text=...&url=...)
+async function handleShareTarget() {
+  const params = new URLSearchParams(location.search);
+  const title = params.get('title') || '';
+  const text = params.get('text') || '';
+  const url = params.get('url') || '';
+  // Clear URL params without reloading
+  if (title || text || url) {
+    history.replaceState({}, '', location.pathname);
+    // Switch to text tab and pre-fill
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelector('.tab[data-tab="text"]').classList.add('active');
+    document.getElementById('panel-text').classList.add('active');
+    const combined = [title, text, url].filter(Boolean).join('\n');
+    if (combined) {
+      document.getElementById('textInput').value = combined;
+      // Auto-send after 500ms delay (user can cancel)
+      setTimeout(() => {
+        if (confirm('检测到分享内容，是否发送到局域网设备？\n\n' + combined.substring(0, 100))) {
+          sendText();
+        }
+      }, 300);
+    }
+  }
+}
+
+// ─── PWA: Service Worker registration check ───────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.ready.then(() => {
+    console.log('[SW] Service Worker ready');
+  });
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+loadFiles();
+handleShareTarget();
 </script>
 <div style="text-align:center;padding:20px;font-size:12px;color:#86868b;">
   <a href="/openapi.json" style="color:#0071e3;">OpenAPI</a> ·
