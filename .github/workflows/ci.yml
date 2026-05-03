@@ -106,6 +106,15 @@ jobs:
           fi
           xcodegen --version
 
+      - name: Build Go binary for macOS
+        run: |
+          cd "$REPO/go"
+          GOOS=darwin GOARCH=arm64 go build -o ../app/ShareTool/sharetool_darwin_arm64 .
+          GOOS=darwin GOARCH=amd64 go build -o ../app/ShareTool/sharetool_darwin_amd64 .
+          lipo -create ../app/ShareTool/sharetool_darwin_arm64 ../app/ShareTool/sharetool_darwin_amd64 -output ../app/ShareTool/sharetool_darwin_fat
+          chmod +x ../app/ShareTool/sharetool_darwin_fat
+          echo "Go universal binary built: $(ls -lh ../app/ShareTool/sharetool_darwin_fat | awk '{print $5}')"
+
       - name: Build macOS App
         run: |
           REPO="$PWD"
