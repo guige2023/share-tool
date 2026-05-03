@@ -63,8 +63,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         try? fileMgr.createDirectory(atPath: logDir2, withIntermediateDirectories: true, attributes: nil)
         let diagPath = (logDir2 as NSString).appendingPathComponent("server_diagnose.log")
 
-        guard let bundlePath = Bundle.main.path(forResource: "sharetool", ofType: nil, inDirectory: "ShareTool-bin") else {
-            let msg = "[ShareTool] ERROR: Cannot find sharetool binary in app bundle\nBundle.main.bundlePath=\(Bundle.main.bundlePath)\n"
+        // Use direct path construction instead of Bundle.main.path (which searches Contents/Resources/, not Contents/)
+        let bundlePath = (Bundle.main.bundlePath as NSString).appendingPathComponent("ShareTool-bin/sharetool")
+        guard FileManager.default.fileExists(atPath: bundlePath) else {
+            let msg = "[ShareTool] ERROR: sharetool binary not found at bundle path: \(bundlePath)\n"
             try? msg.write(toFile: diagPath, atomically: true, encoding: String.Encoding.utf8)
             return
         }
