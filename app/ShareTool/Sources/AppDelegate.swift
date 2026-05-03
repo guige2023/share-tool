@@ -58,6 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func startShareToolService() {
         stopShareToolService()
 
+        let fileMgr = FileManager.default
         let logDir2 = (fileMgr.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Library/Logs/ShareTool")
         try? fileMgr.createDirectory(atPath: logDir2, withIntermediateDirectories: true, attributes: nil)
         let diagPath = (logDir2 as NSString).appendingPathComponent("server_diagnose.log")
