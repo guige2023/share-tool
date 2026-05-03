@@ -43,3 +43,32 @@
   - 新增 P2-F9（zip stream）和 P3-F10（PWA 入口）待办
   - 清理已完成的 Node.js 旧实现清理记录
 - **验证结果**: 文档结构清晰，任务状态明确
+
+### S1-Fix: Windows Timer 轮询健壮性
+- **改动文件**: `app/ShareTool/ClipboardSync/ClipboardService.cs`
+- **改动概要**:
+  - `PollClipboardOnBackground` 中移除不可靠的 `_syncForm.BeginInvoke` UI 线程封送
+  - `SendSystemClipboard` 为异步 HTTP 方法，线程安全，直接从 Timer 线程调用
+  - 消除 CS4014 fire-and-forget 警告
+- **验证结果**: `dotnet build` 通过（0 errors, 8 warnings）
+
+### S2-Fix: 发送通知文案修复
+- **改动文件**: `app/ShareTool/ClipboardSync/Program.cs`
+- **改动概要**:
+  - `OnSent` 通知：`Count == 0` 显示"已发送至服务器"，`Count > 0` 显示"已发送至 N 台设备"
+  - 添加 `using System.Threading.Tasks;`
+- **验证结果**: `dotnet build` 通过
+
+### S3-Fix: 剪贴板历史启动时加载
+- **改动文件**: `app/ShareTool/ClipboardSync/Program.cs`, `app/ShareTool/Sources/StatusBarController.swift`
+- **改动概要**:
+  - Windows: `StartService()` 中 `InitClipboardService` 后添加 `Task.Delay(3000).ContinueWith(_ => RefreshHistoryAsync())`，等待 Go 服务器完全启动
+  - macOS: `setupClipboard()` 中 `startMonitoring()` 后调用 `clipboardManager.loadHistory()`
+- **验证结果**: `dotnet build` 通过
+
+### 重新打包
+- **改动文件**: `dist/sharetool_darwin_arm64`, `dist/sharetool_windows_amd64.exe`, `dist/ShareTool-windows/ShareToolClipboardSync.exe`
+- **改动概要**:
+  - Go 服务端：macOS ARM64 + Windows AMD64 新构建
+  - Windows C#：自包含 .NET 10 发布（126MB），替换旧框架依赖版本
+- **验证结果**: `go build` + `dotnet publish` 均成功
