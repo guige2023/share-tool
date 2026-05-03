@@ -30,9 +30,7 @@ public class ClipboardService : IDisposable
     private readonly TimeSpan _writeWindow = TimeSpan.FromSeconds(2);
 
     // Clipboard change count (Win32)
-    private IntPtr _hwnd;
     private uint _lastClipboardSequenceNumber = 0;
-    private bool _clipboardListenerActive = false;
     private HiddenClipboardWindow? _hiddenWindow;
     // Invisible form used solely to marshal calls to the UI thread
     private System.Windows.Forms.Form? _syncForm;
@@ -107,7 +105,7 @@ public class ClipboardService : IDisposable
         if (seq != _lastClipboardSequenceNumber)
         {
             _lastClipboardSequenceNumber = seq;
-            SendSystemClipboard();
+            _ = SendSystemClipboard(); // fire-and-forget; WndProc must not be awaited
         }
     }
 
@@ -200,7 +198,7 @@ public class ClipboardService : IDisposable
                 var stream = await response.Content.ReadAsStreamAsync(_sseCts.Token);
                 var reader = new StreamReader(stream);
 
-                while (!reader.EndOfStream && !_sseCts.Token.IsCancellationRequested)
+                while (!_sseCts.Token.IsCancellationRequested)
                 {
                     var line = await reader.ReadLineAsync(_sseCts.Token);
                     if (line == null) break;

@@ -85,6 +85,26 @@ func handlePeersRegister(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
+// StartPeerCleanup starts a background goroutine that removes stale peers
+// (not updated within the given maxAge). Call once at startup.
+func StartPeerCleanup(maxAge time.Duration) {
+	go func() {
+		ticker := time.NewTicker(maxAge)
+		defer ticker.Stop()
+		for range ticker.C {
+			now := time.Now().UnixMilli()
+			peersMu.Lock()
+			for key, p := range peers {
+				if now-p.UpdatedAt > int64(maxAge/time.Millisecond) {
+					delete(peers, key)
+					log.Printf("[Peers] Removed stale peer: %s (%s:%d)", p.Name, p.IP, p.Port)
+				}
+			}
+			peersMu.Unlock()
+		}
+	}()
+}
+
 // handlePeersRemove removes a peer
 func handlePeersRemove(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {

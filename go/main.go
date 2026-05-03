@@ -49,6 +49,7 @@ func main() {
 	if err != nil {
 		log.Printf("[mDNS] Failed to create discovery: %v (non-fatal)", err)
 	} else {
+		// Start mDNS discovery and stale peer cleanup
 		go func() {
 			if err := d.Start(func(peer discovery.Peer) {
 				log.Printf("[mDNS] Discovered peer: %s:%d", peer.IP, peer.Port)
@@ -58,6 +59,9 @@ func main() {
 				log.Printf("[mDNS] Discovery failed: %v (non-fatal)", err)
 			}
 		}()
+
+		// Remove peers that haven't been seen for 5 minutes
+		server.StartPeerCleanup(5 * time.Minute)
 	}
 
 	router := server.SetupRouter(*dir, *readonly)

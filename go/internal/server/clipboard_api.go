@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -148,6 +149,19 @@ func genClipboardID() string {
 	b := make([]byte, 8)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// makeAbsURL converts a relative URL to an absolute URL using the given host.
+// If the URL is already absolute (has scheme), it is returned unchanged.
+func makeAbsURL(relURL, host string, port int) string {
+	if relURL == "" {
+		return ""
+	}
+	// Already absolute
+	if strings.HasPrefix(relURL, "http://") || strings.HasPrefix(relURL, "https://") {
+		return relURL
+	}
+	return fmt.Sprintf("http://%s:%d%s", host, port, relURL)
 }
 
 func mimeForType(t string) string {
@@ -332,11 +346,20 @@ func forwardClipboardToPeer(peer Peer, entry ClipboardEntry) error {
 	if entry.Text != "" {
 		payload["text"] = entry.Text
 	}
+
+	// Convert relative blob URLs to absolute URLs so the receiving peer can fetch
+	// from the sender's server. Relative URLs like "/api/blobs?id=xxx" would fail
+	// because forwardClient has no BaseURL.
 	if entry.BlobURL != "" {
-		payload["blob_url"] = entry.BlobURL
+		payload["blob_url"] = makeAbsURL(entry.BlobURL, instanceIP, instancePort)
 	}
 	if len(entry.Files) > 0 {
-		payload["files"] = entry.Files
+		absFiles := make([]FileMeta, len(entry.Files))
+		for i, f := range entry.Files {
+			f.BlobURL = makeAbsURL(f.BlobURL, instanceIP, instancePort)
+			absFiles[i] = f
+		}
+		payload["files"] = absFiles
 	}
 	if entry.SHA256 != "" {
 		payload["sha256"] = entry.SHA256
