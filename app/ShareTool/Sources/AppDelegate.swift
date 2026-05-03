@@ -58,33 +58,48 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func startShareToolService() {
         stopShareToolService()
 
+        let logDir2 = (fileMgr.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Library/Logs/ShareTool")
+        try? fileMgr.createDirectory(atPath: logDir2, withIntermediateDirectories: true, attributes: nil)
+        let diagPath = (logDir2 as NSString).appendingPathComponent("server_diagnose.log")
+
         guard let bundlePath = Bundle.main.path(forResource: "sharetool", ofType: nil, inDirectory: "ShareTool-bin") else {
-            print("[ShareTool] ERROR: Cannot find sharetool binary in app bundle")
+            let msg = "[ShareTool] ERROR: Cannot find sharetool binary in app bundle\nBundle.main.bundlePath=\(Bundle.main.bundlePath)\n"
+            try? msg.write(toFile: diagPath, atomically: true, encoding: .utf8)
             return
         }
 
-        let fileMgr = FileManager.default
         let appSupportDir = (fileMgr.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Library/Application Support/ShareTool")
         try? fileMgr.createDirectory(atPath: appSupportDir, withIntermediateDirectories: true, attributes: nil)
 
         let destPath = (appSupportDir as NSString).appendingPathComponent("sharetool")
         try? fileMgr.removeItem(atPath: destPath)
-        try? fileMgr.copyItem(atPath: bundlePath, toPath: destPath)
+        do {
+            try fileMgr.copyItem(atPath: bundlePath, toPath: destPath)
+        } catch {
+            let msg = "[ShareTool] ERROR: copy failed: \(error)\n"
+            try? msg.write(toFile: diagPath, atomically: true, encoding: .utf8)
+            return
+        }
         try? fileMgr.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destPath)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: destPath)
         process.arguments = ["-name", instanceName, "-dir", sharedDir]
         process.currentDirectoryURL = URL(fileURLWithPath: sharedDir)
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        let logPath = (logDir2 as NSString).appendingPathComponent("server_startup.log")
+        if let logFile = FileHandle(forWritingToPath: logPath) {
+            process.standardOutput = logFile
+            process.standardError = logFile
+        }
 
         do {
             try process.run()
             shareToolPID = process.processIdentifier
-            print("[ShareTool] Started PID: \(shareToolPID)")
+            let msg = "[ShareTool] Started PID: \(shareToolPID)\ndestPath: \(destPath)\n"
+            try? msg.write(toFile: diagPath, atomically: true, encoding: .utf8)
         } catch {
-            print("[ShareTool] Failed to start: \(error)")
+            let msg = "[ShareTool] Failed to start: \(error)\ndestPath: \(destPath)\n"
+            try? msg.write(toFile: diagPath, atomically: true, encoding: .utf8)
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
