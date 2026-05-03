@@ -118,7 +118,10 @@ jobs:
           cd "$REPO/go"
           GOOS=darwin GOARCH=arm64 go build -o ../app/ShareTool/sharetool_darwin_arm64 .
           GOOS=darwin GOARCH=amd64 go build -o ../app/ShareTool/sharetool_darwin_amd64 .
-          ls -la "$REPO/app/ShareTool/sharetool_darwin_amd64"
+          # Create universal (fat) binary for both Apple Silicon and Intel
+          lipo -create ../app/ShareTool/sharetool_darwin_arm64 ../app/ShareTool/sharetool_darwin_amd64 -output ../app/ShareTool/sharetool_darwin_fat
+          chmod +x ../app/ShareTool/sharetool_darwin_fat
+          echo "Universal binary created: $(ls -lh ../app/ShareTool/sharetool_darwin_fat | awk '{print $5, $9}')"
 
           # Build macOS app with xcodebuild (disable set -e to capture exit code)
           cd "$REPO/app/ShareTool"
@@ -139,8 +142,8 @@ jobs:
             echo "macOS app built: $APP_PATH"
             echo "App size before Go binary: $(du -sh "$APP_PATH" | cut -f1)"
 
-            # Manually inject Go binary into .app bundle (preBuildScript may fail silently)
-            GO_BIN="$REPO/app/ShareTool/sharetool_darwin_amd64"
+            # Manually inject universal Go binary into .app bundle (preBuildScript may fail silently)
+            GO_BIN="$REPO/app/ShareTool/sharetool_darwin_fat"
             if [ -f "$GO_BIN" ]; then
               mkdir -p "$APP_PATH/Contents/ShareTool-bin"
               cp "$GO_BIN" "$APP_PATH/Contents/ShareTool-bin/sharetool"
