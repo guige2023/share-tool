@@ -26,6 +26,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Resources\ShareToolEmbedded.exe" />
+    <EmbeddedResource Include="Resources\ShareToolEmbedded.exe" Condition="Exists('Resources\ShareToolEmbedded.exe')" />
   </ItemGroup>
 </Project>
