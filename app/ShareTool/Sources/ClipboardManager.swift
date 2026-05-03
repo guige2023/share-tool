@@ -83,6 +83,7 @@ struct SyncSettings: Codable {
 protocol ClipboardManagerDelegate: AnyObject {
     func clipboardManager(_ manager: ClipboardManager, didReceiveClipboard entry: ClipboardEntry)
     func clipboardManager(_ manager: ClipboardManager, didSendClipboard count: Int)
+    func clipboardManager(_ manager: ClipboardManager, didUpdateHistory entries: [ClipboardEntry])
     func clipboardManager(_ manager: ClipboardManager, didFailWithError error: Error)
 }
 
@@ -455,6 +456,37 @@ class ClipboardManager: NSObject, URLSessionDelegate {
                 "blob_url": "/api/blobs?id=\(id)",
                 "mime": mime
             ]))
+        }.resume()
+    }
+
+    // MARK: - History
+
+    struct HistoryResponse: Codable {
+        let entries: [ClipboardEntry]?
+    }
+
+    /// Load clipboard history from the server (call after binding to a server)
+    func loadHistory() {
+        let url = URL(string: "\(baseURL)/api/clipboard")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        session.dataTask(with: req) { [weak self] data, resp, err in
+            guard let self = self else { return }
+            if err != nil {
+                debugLog("LoadHistory FAILED: \(err!)")
+                return
+            }
+            guard let data = data,
+                  let response = try? JSONDecoder().decode(HistoryResponse.self, from: data),
+                  let entries = response.entries, !entries.isEmpty else {
+                return
+            }
+            debugLog("LoadHistory: \(entries.count) entries")
+            DispatchQueue.main.async {
+                self.delegate?.clipboardManager(self, didUpdateHistory: entries)
+            }
         }.resume()
     }
 

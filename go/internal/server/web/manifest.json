@@ -1,7 +1,7 @@
 {
   "name": "ShareTool",
   "short_name": "ShareTool",
-  "description": "本地优先文件分享工具",
+  "description": "局域网剪贴板同步和文件分享",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",
@@ -23,5 +23,22 @@
   ],
   "categories": ["productivity", "utilities"],
   "lang": "zh-CN",
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  },
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "text/plain": [".txt", ".md", ".json", ".xml", ".html", ".css", ".js"]
+      }
+    }
+  ]
 }

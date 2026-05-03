@@ -20,6 +20,7 @@ public class ClipboardService : IDisposable
 
     public event EventHandler<ClipboardEntry>? OnReceived;
     public event EventHandler<(int Count, string? Error)>? OnSent;
+    public event EventHandler<string>? OnError;
 
     public SyncSettings SyncSettings { get; set; } = new SyncSettings();
 
@@ -33,6 +34,8 @@ public class ClipboardService : IDisposable
     private uint _lastClipboardSequenceNumber = 0;
     private bool _clipboardListenerActive = false;
     private HiddenClipboardWindow? _hiddenWindow;
+    // Invisible form used solely to marshal calls to the UI thread
+    private System.Windows.Forms.Form? _syncForm;
 
     public ClipboardService(string baseUrl, string instanceName)
     {
@@ -40,6 +43,14 @@ public class ClipboardService : IDisposable
         _instanceName = instanceName;
         _http = new HttpClient();
         _http.Timeout = TimeSpan.FromSeconds(15);
+        // Create invisible form solely for BeginInvoke (marshal timer callbacks to UI thread)
+        _syncForm = new System.Windows.Forms.Form
+        {
+            Width = 0,
+            Height = 0,
+            ShowInTaskbar = false,
+            Visible = false
+        };
     }
 
     // Win32 API for clipboard sequence number
@@ -53,31 +64,26 @@ public class ClipboardService : IDisposable
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
 
-    private const int WM_CLIPBOARDUPDATE = 0x031D;
+    // Polling timer (runs on background thread)
+    private System.Threading.Timer? _pollTimer;
+    private readonly object _pollLock = new();
 
-    // Start listening to clipboard changes via AddClipboardFormatListener
+    // Start listening to clipboard changes via timer polling
+    // (HiddenWindow + AddClipboardFormatListener requires a proper message pump
+    // that NativeWindow alone cannot provide in a WinForms TrayApp context)
     public void StartClipboardListener(IntPtr hwnd)
     {
-        // If no window handle provided, create a hidden message window
-        if (hwnd == IntPtr.Zero)
-        {
-            _hiddenWindow = new HiddenClipboardWindow(this);
-            hwnd = _hiddenWindow.Handle;
-        }
-
-        _hwnd = hwnd;
+        // Always use timer polling — reliable cross-thread clipboard monitoring
         _lastClipboardSequenceNumber = GetClipboardSequenceNumber();
 
-        if (AddClipboardFormatListener(hwnd))
-        {
-            _clipboardListenerActive = true;
-            Console.WriteLine("[ClipboardService] Clipboard listener started (event-driven)");
-        }
-        else
-        {
-            Console.WriteLine("[ClipboardService] Failed to start clipboard listener, falling back to polling");
-            StartPolling(2);
-        }
+        _pollTimer = new System.Threading.Timer(
+            _ => PollClipboardOnBackground(),
+            null,
+            TimeSpan.FromMilliseconds(500),  // First check after 500ms
+            TimeSpan.FromMilliseconds(500)   // Then every 500ms
+        );
+
+        Console.WriteLine("[ClipboardService] Clipboard listener started (timer polling every 500ms)");
 
         // Connect SSE push for receiving from peers
         _ = ConnectSSEPush();
@@ -86,11 +92,8 @@ public class ClipboardService : IDisposable
     public void StopClipboardListener()
     {
         _sseCts?.Cancel();
-        if (_clipboardListenerActive && _hwnd != IntPtr.Zero)
-        {
-            RemoveClipboardFormatListener(_hwnd);
-            _clipboardListenerActive = false;
-        }
+        _pollTimer?.Dispose();
+        _pollTimer = null;
         _hiddenWindow?.Dispose();
         _hiddenWindow = null;
     }
@@ -108,18 +111,27 @@ public class ClipboardService : IDisposable
         }
     }
 
-    // Fallback polling
-    public void StartPolling(int intervalSeconds = 2)
+    // Poll clipboard on background thread (every 500ms)
+    // SendSystemClipboard is async and uses HttpClient — no UI thread required
+    private void PollClipboardOnBackground()
     {
-        var timer = new System.Threading.Timer(
-            _ => PollReceived(),
-            null,
-            TimeSpan.Zero,
-            TimeSpan.FromSeconds(intervalSeconds)
-        );
-    }
+        if (!SyncSettings.autoSend) return;
 
-    public void StopPolling() { }
+        try
+        {
+            var seq = GetClipboardSequenceNumber();
+            if (seq != _lastClipboardSequenceNumber)
+            {
+                _lastClipboardSequenceNumber = seq;
+                // Call directly — SendSystemClipboard is thread-safe (async HTTP)
+                _ = SendSystemClipboard();
+            }
+        }
+        catch { }
+
+        // Also poll for received clipboard (fallback when SSE is not connected)
+        try { PollReceived(); } catch { }
+    }
 
     private async void PollReceived()
     {
@@ -163,59 +175,83 @@ public class ClipboardService : IDisposable
     private async Task ConnectSSEPush()
     {
         _sseCts = new System.Threading.CancellationTokenSource();
-        try
+        int reconnectAttempts = 0;
+        const int maxReconnectAttempts = 5;
+
+        while (reconnectAttempts < maxReconnectAttempts && !_sseCts.Token.IsCancellationRequested)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/api/push?device_id={_instanceName}");
-            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, _sseCts.Token);
-            if (!response.IsSuccessStatusCode) return;
-
-            var stream = await response.Content.ReadAsStreamAsync(_sseCts.Token);
-            var reader = new StreamReader(stream);
-
-            while (!reader.EndOfStream && !_sseCts.Token.IsCancellationRequested)
+            try
             {
-                var line = await reader.ReadLineAsync(_sseCts.Token);
-                if (line == null) break;
-                if (!line.StartsWith("event: clipboard")) continue;
+                using var request = new HttpRequestMessage(HttpMethod.Get, $"{_baseUrl}/api/push?device_id={_instanceName}");
+                using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, _sseCts.Token);
 
-                var dataLine = await reader.ReadLineAsync(_sseCts.Token);
-                if (dataLine == null || !dataLine.StartsWith("data: ")) continue;
-
-                var json = dataLine.Substring(6);
-                var entry = JsonSerializer.Deserialize<ClipboardEntry>(json);
-                if (entry == null) continue;
-
-                // Loop prevention
-                if (!string.IsNullOrEmpty(entry.entry_id) && entry.entry_id == _lastWrittenEntryID)
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errMsg = $"推送连接失败 (HTTP {response.StatusCode})";
+                    OnError?.Invoke(this, errMsg);
+                    reconnectAttempts++;
+                    await Task.Delay(3000, _sseCts.Token);
                     continue;
-                if (entry.from == _instanceName) continue;
+                }
 
-                // Type filter
-                if (entry.@type == "text" && !SyncSettings.autoSyncText) continue;
-                if (entry.@type == "image" && !SyncSettings.autoSyncImage) continue;
-                if (entry.@type == "files" && !SyncSettings.autoSyncFiles) continue;
+                reconnectAttempts = 0; // Reset on successful connection
+                OnError?.Invoke(this, ""); // Clear error state
 
-                WriteClipboardToSystem(entry);
+                var stream = await response.Content.ReadAsStreamAsync(_sseCts.Token);
+                var reader = new StreamReader(stream);
 
-                if (!string.IsNullOrEmpty(entry.entry_id))
-                    _lastWrittenEntryID = entry.entry_id;
-                _lastWrittenAt = DateTime.Now;
+                while (!reader.EndOfStream && !_sseCts.Token.IsCancellationRequested)
+                {
+                    var line = await reader.ReadLineAsync(_sseCts.Token);
+                    if (line == null) break;
+                    if (!line.StartsWith("event: clipboard")) continue;
 
-                OnReceived?.Invoke(this, entry);
+                    var dataLine = await reader.ReadLineAsync(_sseCts.Token);
+                    if (dataLine == null || !dataLine.StartsWith("data: ")) continue;
+
+                    var json = dataLine.Substring(6);
+                    var entry = JsonSerializer.Deserialize<ClipboardEntry>(json);
+                    if (entry == null) continue;
+
+                    // Loop prevention
+                    if (!string.IsNullOrEmpty(entry.entry_id) && entry.entry_id == _lastWrittenEntryID)
+                        continue;
+                    if (entry.from == _instanceName) continue;
+
+                    // Type filter
+                    if (entry.@type == "text" && !SyncSettings.autoSyncText) continue;
+                    if (entry.@type == "image" && !SyncSettings.autoSyncImage) continue;
+                    if (entry.@type == "files" && !SyncSettings.autoSyncFiles) continue;
+
+                    WriteClipboardToSystem(entry);
+
+                    if (!string.IsNullOrEmpty(entry.entry_id))
+                        _lastWrittenEntryID = entry.entry_id;
+                    _lastWrittenAt = DateTime.Now;
+
+                    OnReceived?.Invoke(this, entry);
+                }
+
+                // Stream ended naturally (server closed?), try reconnect
+                if (!_sseCts.Token.IsCancellationRequested)
+                    reconnectAttempts++;
+            }
+            catch (OperationCanceledException)
+            {
+                // Normal cancellation — stop
+                break;
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke(this, $"接收连接断开: {ex.Message}");
+                reconnectAttempts++;
+                if (reconnectAttempts < maxReconnectAttempts)
+                    await Task.Delay(3000, _sseCts.Token);
             }
         }
-        catch (OperationCanceledException)
-        {
-            // Normal cancellation
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[SSE] Disconnected: {ex.Message}");
-            // Reconnect after delay
-            await Task.Delay(3000);
-            if (!_sseCts.Token.IsCancellationRequested)
-                _ = ConnectSSEPush();
-        }
+
+        if (reconnectAttempts >= maxReconnectAttempts)
+            OnError?.Invoke(this, "无法连接到推送服务，请检查网络");
     }
 
     // Send current system clipboard to server
@@ -486,6 +522,7 @@ public class ClipboardService : IDisposable
         StopClipboardListener();
         _sseCts?.Dispose();
         _http.Dispose();
+        _syncForm?.Dispose();
     }
 }
 

@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace ShareToolClipboardSync;
@@ -64,10 +65,52 @@ class TrayAppContext : ApplicationContext
     private readonly List<ClipboardEntry> _historyEntries = new();
     private bool _isConnecting;
 
+    // Path to extracted Go server binary (single-exe bundling)
+    private static string? _extractedServerPath;
+
+    // Extract the bundled Go server binary from resources to a temp file.
+    // Returns the path to the extracted exe, or null if extraction fails.
+    private static string? ExtractServerBinary()
+    {
+        try
+        {
+            var asm = typeof(Program).Assembly;
+            var resourceName = "ShareToolClipboardSync.Resources.ShareToolEmbedded.exe";
+            var resStream = asm.GetManifestResourceStream(resourceName);
+            if (resStream == null)
+            {
+                Console.WriteLine("[Extract] Resource not found: " + resourceName);
+                return null;
+            }
+
+            var tempDir = Path.Combine(Path.GetTempPath(), "ShareTool");
+            Directory.CreateDirectory(tempDir);
+            var destPath = Path.Combine(tempDir, "ShareTool.exe");
+
+            // Always overwrite to get latest version
+            using (var fileStream = File.Create(destPath))
+                resStream.CopyTo(fileStream);
+
+            File.SetAttributes(destPath, FileAttributes.Normal);
+            Console.WriteLine("[Extract] Go server extracted to: " + destPath);
+            return destPath;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[Extract] Failed: " + ex.Message);
+            return null;
+        }
+    }
+
     public TrayAppContext()
     {
+        var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "sharetool.log");
+        try { Directory.CreateDirectory(Path.GetDirectoryName(logPath)!); } catch { }
+        try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] === ShareTool starting ===\n"); } catch { }
+
         _instanceName = $"{Environment.MachineName}-Win";
         _localIP = GetLocalIP();
+        try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] LocalIP={_localIP} InstanceName={_instanceName}\n"); } catch { }
         _deviceMenuItems = new ToolStripMenuItem[10];
 
         _contextMenu = BuildMenu();
@@ -79,13 +122,13 @@ class TrayAppContext : ApplicationContext
             ContextMenuStrip = _contextMenu
         };
 
-        // Load icon
+        // Load icon from embedded resource (works in single-file mode too)
         try
         {
-            var exeDir = Path.GetDirectoryName(Environment.ProcessPath ?? AppContext.BaseDirectory) ?? ".";
-            var icoPath = Path.Combine(exeDir, "ShareTool.ico");
-            if (File.Exists(icoPath))
-                _notifyIcon.Icon = new Icon(icoPath);
+            var asm = typeof(Program).Assembly;
+            var icoStream = asm.GetManifestResourceStream("ShareToolClipboardSync.Resources.ShareTool.ico");
+            if (icoStream != null)
+                _notifyIcon.Icon = new Icon(icoStream);
             else
                 _notifyIcon.Icon = SystemIcons.Application;
         }
@@ -342,9 +385,21 @@ class TrayAppContext : ApplicationContext
                 {
                     if (result.Error != null)
                         ShowNotification("发送失败", result.Error);
+                    else if (result.Count == 0)
+                        ShowNotification("剪贴板已发送", "已发送至服务器");
                     else
-                        ShowNotification("剪贴板已发送", $"已发送到 {result.Count} 个设备");
+                        ShowNotification("剪贴板已发送", $"已发送至 {result.Count} 台设备");
                 }
+                catch { }
+            }));
+        };
+
+        _clipboardService.OnError += (_, errMsg) =>
+        {
+            if (string.IsNullOrEmpty(errMsg)) return;
+            _contextMenu.BeginInvoke(new Action(() =>
+            {
+                try { ShowNotification("连接异常", errMsg); }
                 catch { }
             }));
         };
@@ -365,12 +420,16 @@ class TrayAppContext : ApplicationContext
 
     private void StartService()
     {
-        var exeDir = Path.GetDirectoryName(Environment.ProcessPath ?? AppContext.BaseDirectory) ?? ".";
-        var exePath = Path.Combine(exeDir, "ShareTool.exe");
+        // Try to extract bundled Go server binary first (single-exe mode)
+        _extractedServerPath ??= ExtractServerBinary();
 
-        if (!File.Exists(exePath))
+        var exeDir = Path.GetDirectoryName(Environment.ProcessPath ?? AppContext.BaseDirectory) ?? ".";
+        var bundledPath = Path.Combine(exeDir, "ShareTool.exe");
+        var exePath = _extractedServerPath ?? (File.Exists(bundledPath) ? bundledPath : null);
+
+        if (string.IsNullOrEmpty(exePath) || !File.Exists(exePath))
         {
-            MessageBox.Show($"找不到 ShareTool.exe\n\n请把 ShareTool.exe 放在同一目录下：\n{exeDir}",
+            MessageBox.Show($"找不到 ShareTool.exe 服务器程序。\n\n请确保 ShareTool.exe 在同一目录下：\n{exeDir}",
                 "ShareTool", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
@@ -414,6 +473,8 @@ class TrayAppContext : ApplicationContext
             UpdateServerModeUI();
             InitClipboardService("http://localhost:18793");
             _healthTimer = new System.Threading.Timer(_ => CheckLocalHealth(), null, 5000, 10000);
+            // 延迟 3 秒后加载历史（等待 Go 服务器完全启动）
+            _ = Task.Delay(3000).ContinueWith(_ => RefreshHistoryAsync());
             ShowNotification("ShareTool 已启动", "本机服务: http://localhost:18793");
         }
         catch (Exception ex)
@@ -487,11 +548,12 @@ class TrayAppContext : ApplicationContext
             GetItem("devicesHeader").Text = "发现的服务: (扫描中...)";
             UpdateStatus(false, "扫描局域网...");
 
-            // Hide all device items
+            // Hide all device items immediately
             for (int i = 0; i < 10; i++)
                 _deviceMenuItems[i].Available = false;
 
-            _scanTimer = new System.Threading.Timer(_ => LanScanOnce(), null, 0, 15000);
+            // Kick off first scan immediately (no periodic timer, just reschedule)
+            _scanTimer = new System.Threading.Timer(_ => LanScanOnTimer(), null, 0, Timeout.Infinite);
         }
         catch
         {
@@ -500,7 +562,7 @@ class TrayAppContext : ApplicationContext
         }
     }
 
-    private async void LanScanOnce()
+    private void LanScanOnTimer()
     {
         try
         {
@@ -511,14 +573,25 @@ class TrayAppContext : ApplicationContext
             foreach (var ip in subnet)
                 tasks.Add(ScanHostAsync(ip));
 
-            var results = await Task.WhenAll(tasks);
-            foreach (var d in results.Where(d => d != null))
-                found.Add(d!);
+            Task.WhenAll(tasks).ContinueWith(_ =>
+            {
+                foreach (var t in tasks)
+                {
+                    if (t.Result != null) found.Add(t.Result);
+                }
 
-            _discoveredDevices.Clear();
-            _discoveredDevices.AddRange(found);
+                // Marshal back to UI thread before updating menu
+                _contextMenu.BeginInvoke(new Action(() =>
+                {
+                    _discoveredDevices.Clear();
+                    _discoveredDevices.AddRange(found);
+                    UpdateDeviceMenu(found);
 
-            UpdateDeviceMenu(found);
+                    // Reschedule next scan (one-shot, reschedule after each completes)
+                    _scanTimer?.Dispose();
+                    _scanTimer = new System.Threading.Timer(__ => LanScanOnTimer(), null, 15000, Timeout.Infinite);
+                }));
+            });
         }
         catch { }
     }
@@ -546,9 +619,17 @@ class TrayAppContext : ApplicationContext
 
     private void UpdateDeviceMenu(List<Device> devices)
     {
+        var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "sharetool.log");
+        try
+        {
+            File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] UpdateDeviceMenu: {devices.Count} devices\n");
+        }
+        catch { }
+
         // Hide all device items
         for (int i = 0; i < 10; i++)
         {
+            _deviceMenuItems[i].Enabled = false;
             _deviceMenuItems[i].Available = false;
             _deviceMenuItems[i].Tag = null;
         }
@@ -565,18 +646,78 @@ class TrayAppContext : ApplicationContext
         {
             var d = devices[i];
             _deviceMenuItems[i].Text = $"  {d.IP}";
+            _deviceMenuItems[i].Enabled = true;  // ← 关键！灰色=Enabled=false
             _deviceMenuItems[i].Available = true;
             _deviceMenuItems[i].Tag = d;
+            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}]   device[{i}]={d.IP} enabled=true\n"); } catch { }
         }
+
+        try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] UpdateDeviceMenu done\n"); } catch { }
     }
 
     private void DeviceItem_Click(object? sender, EventArgs e)
     {
-        if (sender is not ToolStripMenuItem item || item.Tag is not Device d) return;
-        if (_isConnecting) return;
+        // ULTRA-VERIFIED: This MessageBox confirms if the click event fires at all
+        System.Windows.Forms.MessageBox.Show(
+            "DeviceItem_Click fired!\nSender=" + (sender?.GetType().Name ?? "null"),
+            "DEBUG: Click Received",
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Information);
+
+        var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "sharetool.log");
+        try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] DeviceItem_Click fired\n"); } catch { }
+
+        if (sender is not ToolStripMenuItem item)
+        {
+            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] NOT a ToolStripMenuItem\n"); } catch { }
+            MessageBox.Show("点击了未知菜单项", "调试");
+            return;
+        }
+
+        if (item.Tag == null)
+        {
+            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] Tag is NULL\n"); } catch { }
+            MessageBox.Show($"Tag is null, Text={item.Text}, Available={item.Available}", "调试");
+            return;
+        }
+
+        if (item.Tag is not Device d)
+        {
+            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] Tag type={item.Tag.GetType()}\n"); } catch { }
+            MessageBox.Show($"Tag不是Device: {item.Tag.GetType()}", "调试");
+            return;
+        }
+
+        if (_isConnecting)
+        {
+            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] _isConnecting=true, returning\n"); } catch { }
+            ShowNotification("请等待", "正在连接上一次设备...");
+            return;
+        }
+
+        try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] Connecting to {d.IP}\n"); } catch { }
         _isConnecting = true;
-        ConnectTo(d);
-        _isConnecting = false;
+        try
+        {
+            ConnectTo(d);
+            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] ConnectTo OK\n"); } catch { }
+        }
+        catch
+        {
+            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] ConnectTo threw, clearing state\n"); } catch { }
+            _isConnecting = false;
+            throw;
+        }
+        finally
+        {
+            if (_isConnecting) _isConnecting = false;
+            try { File.AppendAllText(logPath, $"[{DateTime.Now:HH:mm:ss}] Done, _isConnecting={_isConnecting}\n"); } catch { }
+        }
+    }
+
+    private async Task ConnectToAsync(Device d)
+    {
+        await Task.Run(() => ConnectTo(d));
     }
 
     private void ConnectTo(Device d)
@@ -584,7 +725,7 @@ class TrayAppContext : ApplicationContext
         try
         {
             _connectedServer = d.Url;
-            GetItem("devicesHeader").Text = $"已连接: {d.IP}";
+            GetItem("devicesHeader").Text = $"已绑定: {d.IP} ✓";
             _webItem!.Enabled = true;
             _sendItem!.Enabled = true;
             _historyItem!.Enabled = true;
@@ -595,13 +736,13 @@ class TrayAppContext : ApplicationContext
             _scanTimer = null;
 
             InitClipboardService(d.Url);
-            ShowNotification("已连接到 ShareTool", $"{d.IP} 的分享服务");
+            _ = RefreshHistoryAsync();  // 立即加载历史记录
+            ShowNotification("已绑定设备", $"正在同步 {d.IP} 的剪贴板...");
         }
-        catch (Exception ex)
+        catch
         {
-            ShowNotification("连接失败", ex.Message);
-            UpdateClientModeUI(null);
-            StartLanScan();
+            // Don't re-throw — let DeviceItem_Click handle it
+            throw;
         }
     }
 
@@ -685,6 +826,24 @@ class TrayAppContext : ApplicationContext
 
     private string Truncate(string s, int max) =>
         s.Length <= max ? s : s[..(max - 3)] + "...";
+
+    private static readonly object _logLock = new();
+    private void Log(string msg)
+    {
+        try
+        {
+            var logDir = Path.Combine(AppContext.BaseDirectory, "logs");
+            Directory.CreateDirectory(logDir);
+            var logFile = Path.Combine(logDir, "sharetool.log");
+            var entry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {msg}{Environment.NewLine}";
+            lock (_logLock)
+            {
+                File.AppendAllText(logFile, entry);
+            }
+            Console.WriteLine(entry);
+        }
+        catch { }
+    }
 
     protected override void Dispose(bool disposing)
     {

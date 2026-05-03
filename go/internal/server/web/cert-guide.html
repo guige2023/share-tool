@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>证书安装指南 - ShareTool</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f7; color: #1d1d1f; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.card { background: #fff; border-radius: 16px; padding: 32px; max-width: 560px; width: 100%; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+.subtitle { color: #86868b; font-size: 14px; margin-bottom: 28px; }
+h2 { font-size: 16px; font-weight: 600; margin: 24px 0 12px; color: #1d1d1f; }
+.step { background: #f5f5f7; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+.step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.step-num { background: #667eea; color: #fff; font-size: 12px; font-weight: 700; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.step-title { font-size: 14px; font-weight: 600; }
+.step p { font-size: 13px; color: #3c3c3e; line-height: 1.5; margin-bottom: 6px; }
+code { background: #e8e8ed; border-radius: 4px; padding: 2px 6px; font-size: 12px; font-family: 'SF Mono', Menlo, monospace; }
+.note { background: #fff3cd; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #856404; line-height: 1.5; margin-top: 20px; }
+.note b { display: block; margin-bottom: 4px; }
+a { color: #667eea; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.btn { display: inline-block; background: #667eea; color: #fff; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none; margin-top: 16px; }
+.btn:hover { background: #5a6fd6; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔐 HTTPS 证书安装指南</h1>
+  <p class="subtitle">ShareTool 使用自签名证书，首次访问时浏览器会显示安全警告。按以下步骤安装证书后可消除警告。</p>
+
+  <h2>iOS（Safari）</h2>
+  <div class="step">
+    <div class="step-header"><span class="step-num">1</span><span class="step-title">下载证书</span></div>
+    <p>在 Safari 中打开本页面，点击下方「下载证书」按钮，将证书保存到手机。</p>
+  </div>
+  <div class="step">
+    <div class="step-header"><span class="step-num">2</span><span class="step-title">安装证书</span></div>
+    <p>进入 <code>设置 → 通用 → VPN 与设备管理</code>，找到已下载的描述文件并安装。</p>
+  </div>
+  <div class="step">
+    <div class="step-header"><span class="step-num">3</span><span class="step-title">信任证书</span></div>
+    <p>进入 <code>设置 → 通用 → 关于本机 → 证书信任设置</code>，开启对 ShareTool 证书的完全信任。</p>
+  </div>
+
+  <h2>Android（Chrome）</h2>
+  <div class="step">
+    <div class="step-header"><span class="step-num">1</span><span class="step-title">下载并安装证书</span></div>
+    <p>在 Chrome 中打开本页面，点击下方「下载证书」按钮，然后用系统文件管理器打开安装。</p>
+  </div>
+  <div class="step">
+    <div class="step-header"><span class="step-num">2</span><span class="step-title">安装 CA 证书</span></div>
+    <p>系统会提示「为证书锁屏」——这是正常的。安装后 HTTPS 警告消除。</p>
+  </div>
+
+  <h2>macOS（Safari / Chrome）</h2>
+  <div class="step">
+    <div class="step-header"><span class="step-num">1</span><span class="step-title">下载并打开证书</span></div>
+    <p>点击下方「下载证书」按钮，在 Finder 中打开下载的证书文件。</p>
+  </div>
+  <div class="step">
+    <div class="step-header"><span class="step-num">2</span><span class="step-title">添加到钥匙串</span></div>
+    <p>证书会自动用「钥匙串访问」打开，选择「登录」钥匙串，点击「添加」。</p>
+  </div>
+  <div class="step">
+    <div class="step-header"><span class="step-num">3</span><span class="step-title">始终信任</span></div>
+    <p>在钥匙串中找到证书，右键「显示简介」→「信任」→「使用此证书时」→「始终信任」。</p>
+  </div>
+
+  <h2>Windows（Chrome / Edge）</h2>
+  <div class="step">
+    <div class="step-header"><span class="step-num">1</span><span class="step-title">下载证书</span></div>
+    <p>点击下方「下载证书」按钮，保存 <code>.crt</code> 文件。</p>
+  </div>
+  <div class="step">
+    <div class="step-header"><span class="step-num">2</span><span class="step-title">安装到受信任根证书</span></div>
+    <p>双击证书 →「安装证书」→「本地计算机」→「下一步」→「将所有证书放入下列存储」→「受信任的根证书颁发机构」→「确定」。</p>
+  </div>
+
+  <div class="note">
+    <b>提示</b>
+    如果以上步骤过于复杂，您也可以直接使用 HTTP 访问 ShareTool（部分功能如剪贴板自动同步可能受限）。局域网工具无需公网 HTTPS，证书主要用于消除浏览器警告。
+  </div>
+
+  <div style="text-align:center;">
+    <a class="btn" href="/">← 返回 ShareTool</a>
+  </div>
+</div>
+</body>
+</html>

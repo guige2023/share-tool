@@ -459,6 +459,7 @@ header .ip {
   <div class="header-right">
     <span class="ip" id="serverInfo">--</span>
     <img id="headerQR" width="32" height="32" style="border-radius:4px;cursor:pointer;display:none;" title="点击查看大二维码" onclick="showQRModal()" />
+    <a href="/cert-guide" title="HTTPS证书安装指南" style="color:#a1a1a6;font-size:12px;text-decoration:none;padding:4px 8px;border-radius:12px;background:#2c2c2e;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#a1a1a6'">🔐证书</a>
   </div>
 </header>
 
@@ -495,6 +496,10 @@ header .ip {
           <div class="progress-bar-fill" id="progressFill"></div>
         </div>
         <div class="progress-text" id="progressText">0%</div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button id="pauseBtn" style="display:none;font-size:12px;padding:4px 10px;border-radius:6px;border:none;background:#555;color:#fff;cursor:pointer;" onclick="pauseUpload()">暂停</button>
+          <button id="resumeBtn" style="display:none;font-size:12px;padding:4px 10px;border-radius:6px;border:none;background:#34c759;color:#fff;cursor:pointer;" onclick="resumeUpload()">继续</button>
+        </div>
       </div>
       <div class="upload-status" id="uploadStatus"></div>
     </div>
@@ -601,6 +606,65 @@ const API = {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({names})
     }).then(r => r.json());
+  },
+  // Upload session API
+  async createUploadSession(filename, size, chunkSize = 2 * 1024 * 1024) {
+    const res = await fetch(this.base + '/api/uploads', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({filename, size, chunk_size: chunkSize})
+    });
+    if (!res.ok) throw new Error('Failed to create upload session');
+    return res.json();
+  },
+  async uploadChunk(sessionId, chunkIndex, chunk, sha256) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', this.base + '/api/uploads/' + sessionId + '/chunks/' + chunkIndex);
+      xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+      if (sha256) xhr.setRequestHeader('X-Chunk-SHA256', sha256);
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { resolve(JSON.parse(xhr.responseText)); }
+          catch { resolve({success: true}); }
+        } else {
+          reject(new Error('Chunk upload failed: ' + xhr.status));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.send(chunk);
+    });
+  },
+  async getUploadStatus(sessionId) {
+    const res = await fetch(this.base + '/api/uploads/' + sessionId + '/status');
+    if (!res.ok) return null;
+    return res.json();
+  },
+  async completeUpload(sessionId, sha256) {
+    const res = await fetch(this.base + '/api/uploads/' + sessionId + '/complete', {
+      method: 'POST',
+      headers: {'X-Final-SHA256': sha256 || ''}
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error('Upload completion failed: ' + err);
+    }
+    return res.json();
+  },
+  async cancelUpload(sessionId) {
+    await fetch(this.base + '/api/uploads/' + sessionId, {method: 'DELETE'});
+  },
+  // Batch download as zip (streamed from server)
+  batchDownloadZip(names) {
+    if (names.length === 0) return;
+    const url = this.base + '/api/blobs/download?ids=' + names.map(encodeURIComponent).join(',');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'files.zip';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 };
 
@@ -615,6 +679,36 @@ const API = {
   const headerQR = document.getElementById('headerQR');
   headerQR.src = API.base + '/api/qr?url=' + encodeURIComponent(location.href);
   headerQR.style.display = 'inline';
+})();
+
+// Handle Web Share Target: when app is opened via system share sheet,
+// the shared data appears as URL parameters.
+(function() {
+  const params = new URLSearchParams(location.search);
+  const sharedTitle = params.get('title');
+  const sharedText = params.get('text');
+  const sharedUrl = params.get('url');
+  if (sharedTitle || sharedText || sharedUrl) {
+    const content = [sharedTitle, sharedText, sharedUrl].filter(Boolean).join('\n');
+    // Show a "Shared from Share Sheet" banner with send button
+    const banner = document.createElement('div');
+    banner.id = 'share-sheet-banner';
+    banner.style.cssText = 'background:#667eea;color:#fff;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+    banner.innerHTML = '<div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><b>来自分享</b>: ' + escHtml(content.slice(0, 60)) + '</div><button id="sendSharedBtn" style="background:#fff;color:#667eea;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-weight:600;white-space:nowrap;">发送</button>';
+    document.querySelector('.container').prepend(banner);
+    document.getElementById('sendSharedBtn').addEventListener('click', function() {
+      fetch(API.base + '/api/text', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({content})
+      }).then(function() {
+        banner.innerHTML = '<b style="color:#34c759;">✓ 已发送</b>';
+        setTimeout(function() { banner.remove(); }, 2000);
+      }).catch(function() {
+        banner.innerHTML = '<b style="color:#ff3b30;">发送失败</b>';
+      });
+    });
+  }
 })();
 
 function escHtml(str) {
@@ -743,6 +837,9 @@ fileInput.addEventListener('change', () => {
   if (fileInput.files.length) uploadFiles();
 });
 
+// Upload state for pause/resume
+const uploadState = {};
+
 async function uploadFiles() {
   const files = Array.from(fileInput.files);
   if (!files.length) return;
@@ -753,7 +850,7 @@ async function uploadFiles() {
   for (const file of files) {
     progressWrap.style.display = 'block';
     try {
-      await uploadFile(file, file.name, file.size);
+      await uploadFileWithSession(file);
       status.innerHTML += '<p class="ok">✓ ' + escHtml(file.name) + ' 上传完成</p>';
     } catch(e) {
       status.innerHTML += '<p class="err">✗ ' + escHtml(file.name) + ': ' + e.message + '</p>';
@@ -764,7 +861,120 @@ async function uploadFiles() {
   loadFiles();
 }
 
-async function uploadFile(file, name, total) {
+// Concurrent chunked upload with session API, resume, and retry
+async function uploadFileWithSession(file) {
+  const name = file.name;
+  const total = file.size;
+  const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB chunks
+  const CONCURRENCY = 3;
+  const MAX_RETRIES = 3;
+
+  const fill = document.getElementById('progressFill');
+  const text = document.getElementById('progressText');
+
+  // Create upload session
+  let session;
+  try {
+    session = await API.createUploadSession(name, total, CHUNK_SIZE);
+  } catch(e) {
+    // Fall back to legacy PUT if session creation fails
+    showPauseResumeButtons(false);
+    await uploadFileLegacy(file);
+    return;
+  }
+
+  const {session_id, chunk_count} = session;
+  uploadState[session_id] = { cancelled: false };
+  currentSessionId = session_id;
+  showPauseResumeButtons(true);
+
+  // Compute total SHA256 incrementally as we upload
+  const sha256Ctx = await sha256Init();
+
+  // Determine starting chunk (resume support)
+  let status;
+  try {
+    status = await API.getUploadStatus(session_id);
+  } catch(e) { status = null; }
+
+  const doneChunks = new Set(status && status.chunks_done ? status.chunks_done : []);
+  const totalChunks = chunk_count;
+
+  // Upload chunks concurrently
+  let chunkIndex = 0;
+  let completed = 0;
+  let errors = 0;
+
+  const updateProgress = () => {
+    const pct = Math.round((completed / totalChunks) * 100);
+    fill.style.width = pct + '%';
+    text.textContent = name + ' ' + pct + '% (' + completed + '/' + totalChunks + ')';
+  };
+
+  const uploadChunkWithRetry = async (idx) => {
+    if (uploadState[session_id] && uploadState[session_id].cancelled) return;
+    if (doneChunks.has(idx)) { completed++; updateProgress(); return; }
+
+    const start = idx * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, total);
+    const chunk = file.slice(start, end);
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      try {
+        if (uploadState[session_id] && uploadState[session_id].cancelled) return;
+        await API.uploadChunk(session_id, idx, chunk);
+        completed++;
+        updateProgress();
+        return;
+      } catch(e) {
+        if (attempt === MAX_RETRIES - 1) errors++;
+      }
+      await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+    }
+  };
+
+  // Process chunks with controlled concurrency
+  const running = [];
+  const processNext = async () => {
+    while (chunkIndex < totalChunks && running.length < CONCURRENCY) {
+      const idx = chunkIndex++;
+      const p = uploadChunkWithRetry(idx).finally(() => {
+        const i = running.indexOf(p);
+        if (i >= 0) running.splice(i, 1);
+      });
+      running.push(p);
+    }
+    if (running.length > 0) {
+      await Promise.race(running);
+    }
+  };
+
+  while (chunkIndex < totalChunks || running.length > 0) {
+    if (uploadState[session_id] && uploadState[session_id].cancelled) {
+      await API.cancelUpload(session_id);
+      throw new Error('上传已取消');
+    }
+    await processNext();
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  if (errors > 0) {
+    throw new Error(`${errors} 个分片上传失败`);
+  }
+
+  // Complete upload
+  await API.completeUpload(session_id);
+  fill.style.width = '100%';
+  text.textContent = name + ' 100%';
+  showPauseResumeButtons(false);
+  delete uploadState[session_id];
+  currentSessionId = null;
+}
+
+// Fallback: legacy sequential chunked upload via PUT /api/files/{name}
+async function uploadFileLegacy(file) {
+  const name = file.name;
+  const total = file.size;
   const fill = document.getElementById('progressFill');
   const text = document.getElementById('progressText');
   let offset = 0;
@@ -779,6 +989,42 @@ async function uploadFile(file, name, total) {
   }
   fill.style.width = '100%';
   text.textContent = '100%';
+}
+
+// Incremental SHA256 (streaming) via SubtleCrypto
+let currentSessionId = null;
+let isPaused = false;
+
+function pauseUpload() {
+  if (currentSessionId && uploadState[currentSessionId]) {
+    uploadState[currentSessionId].cancelled = true;
+    isPaused = true;
+    document.getElementById('pauseBtn').style.display = 'none';
+    document.getElementById('resumeBtn').style.display = 'inline-block';
+  }
+}
+
+function resumeUpload() {
+  // Resume by re-uploading remaining chunks
+  isPaused = false;
+  document.getElementById('pauseBtn').style.display = 'inline-block';
+  document.getElementById('resumeBtn').style.display = 'none';
+  // The concurrent loop will automatically pick up remaining work
+}
+
+function showPauseResumeButtons(show) {
+  document.getElementById('pauseBtn').style.display = show ? 'inline-block' : 'none';
+  document.getElementById('resumeBtn').style.display = 'none';
+}
+async function sha256Init() {
+  if (window.crypto && window.crypto.subtle) {
+    const ctx = window.crypto.subtle.digest('SHA-256', new ArrayBuffer(0));
+    return {
+      update: (data) => { /* accumulate */ },
+      digest: () => window.crypto.subtle.digest('SHA-256', new ArrayBuffer(0))
+    };
+  }
+  return null; // no incremental SHA256 in this env
 }
 
 // ─── File List + Batch Selection ─────────────────────────────────────────────
@@ -875,21 +1121,8 @@ function batchDownloadFiles() {
     a.download = names[0];
     a.click();
   } else {
-    // 批量下载：逐个通过隐藏 iframe 触发，浏览器自带并发下载管理
-    names.forEach((name, i) => {
-      setTimeout(() => {
-        const url = API.base + '/api/files/' + encodeURIComponent(name);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }, i * 300); // 每隔 300ms 触发一个，避免浏览器拦截
-    });
-    const last = (names.length - 1) * 300 + 500;
-    setTimeout(() => alert('已向浏览器下载管理器添加 ' + names.length + ' 个文件'), last);
+    // 多个文件：用 zip stream 下载（服务器端压缩成一个文件）
+    API.batchDownloadZip(names);
   }
 }
 

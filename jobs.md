@@ -27,5 +27,19 @@
 - **改动概要**:
   - 移除 `ContextMenuStrip`（WinForms 内部消息循环导致右键死锁），改用原生 `ContextMenu` + `TrackPopupMenu`
   - 新增 `System.Drawing.Common` NuGet 包（.NET 6+ 需要显式引用）
-  - 完整重写 `TrayAppContext`，支持服务模式（启动本地 sharetool）和客户端模式（扫描局域网连接对端）
+  - 完整重写 `TrayAppContext`，支持服务模式和客户端模式
 - **验证结果**: Windows 上需 dotnet build 验证
+
+---
+
+## 2026-05-03
+
+### 计划更新: PLAN.md v3 + tasks.md 重构
+
+- **改动文件**: `PLAN.md`, `tasks.md`
+- **改动概要**:
+  - PLAN.md 升级到 v3，新增 S1/S2/S3 当前阻塞任务章节
+  - tasks.md 重构，3 个已完成 P0/P1 问题标记清楚，当前任务独立为 S1-S3
+  - 新增 P2-F9（zip stream）和 P3-F10（PWA 入口）待办
+  - 清理已完成的 Node.js 旧实现清理记录
+- **验证结果**: 文档结构清晰，任务状态明确

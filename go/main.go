@@ -81,6 +81,7 @@ func main() {
 		log.Printf("[Upload] Warning: failed to create upload dir: %v", err)
 	} else {
 		server.SetUploadStoreDir(uploadDir)
+		server.InitUploadCleanup(0) // 0 = use default 7-day threshold
 		log.Printf("[Upload] Store dir: %s", uploadDir)
 	}
 

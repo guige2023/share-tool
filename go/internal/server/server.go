@@ -285,6 +285,17 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 	mux.HandleFunc("/openapi.json", HandleOpenAPI)
 	mux.HandleFunc("/tools.json", HandleTools)
 
+	// Certificate guidance page
+	mux.HandleFunc("/cert-guide", func(w http.ResponseWriter, r *http.Request) {
+		data, err := webAssets.ReadFile("web/cert-guide.html")
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(data)
+	})
+
 	// Serve embedded web UI with SPA fallback
 	webRoot, _ := fs.Sub(webAssets, "web")
 	httpFS := http.FS(webRoot)

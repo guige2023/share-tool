@@ -74,6 +74,7 @@ class StatusBarController: NSObject {
         clipboardManager = ClipboardManager(baseURL: baseURL, instanceName: instanceName)
         clipboardManager.delegate = self
         clipboardManager.startMonitoring()
+        clipboardManager.loadHistory()
 
         // NOTE: Carbon RegisterEventHotKey is DISABLED to prevent race condition
         // with the Python helper's CGEvent tap. The helper handles Cmd+Shift+V exclusively.
@@ -397,14 +398,11 @@ extension StatusBarController: ClipboardManagerDelegate {
     }
 
     func clipboardManager(_ manager: ClipboardManager, didSendClipboard count: Int) {
+        // Note: count reflects peer-forwarding only (HTTP /api/clipboard/receive).
+        // SSE push delivers to all connected clients even when count=0.
         let alert = NSAlert()
-        if count > 0 {
-            alert.messageText = "剪贴板已发送"
-            alert.informativeText = "已发送到 \(count) 个设备"
-        } else {
-            alert.messageText = "剪贴板已发送"
-            alert.informativeText = "当前无其他在线设备"
-        }
+        alert.messageText = "剪贴板已发送"
+        alert.informativeText = "服务器已接收"
         alert.alertStyle = .informational
         alert.addButton(withTitle: "好的")
         alert.runModal()

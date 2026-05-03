@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -456,11 +457,46 @@ func mimeToExt(mime string) string {
 	}
 }
 
-// newUUID generates a random UUID string using crypto/rand
+// newUUID generates a random UUID String using crypto/rand
 func newUUID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	b[6] = (b[6] & 0x0f) | 0x40
 	b[8] = (b[8] & 0x3f) | 0x80
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
+}
+
+// InitUploadCleanup starts a background goroutine that removes stale sessions.
+// A session is stale if it has been active for longer than maxAge (default 7 days).
+func InitUploadCleanup(maxAge time.Duration) {
+	if maxAge <= 0 {
+		maxAge = 7 * 24 * time.Hour // default 7 days
+	}
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			cleanupStaleSessions(maxAge)
+		}
+	}()
+}
+
+func cleanupStaleSessions(maxAge time.Duration) {
+	cutoff := time.Now().Add(-maxAge).UnixMilli()
+	var removed int
+	uploadSessions.Range(func(key, value any) bool {
+		session := value.(*UploadSession)
+		if session.Status == "active" && session.UpdatedAt < cutoff {
+			// Remove temp file
+			if session.TempPath != "" {
+				os.Remove(session.TempPath)
+			}
+			uploadSessions.Delete(key)
+			removed++
+		}
+		return true
+	})
+	if removed > 0 {
+		log.Printf("[Upload] Cleaned up %d stale sessions", removed)
+	}
 }
