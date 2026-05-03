@@ -142,16 +142,14 @@ jobs:
             echo "macOS app built: $APP_PATH"
             echo "App size before Go binary: $(du -sh "$APP_PATH" | cut -f1)"
 
-            # Manually inject universal Go binary into .app bundle (preBuildScript may fail silently)
+            # Put Go binary OUTSIDE the app bundle (avoids macOS translocation issues)
+            # Bundle API can't find files outside Contents/Resources/ in signed apps
             GO_BIN="$REPO/app/ShareTool/sharetool_darwin_fat"
             if [ -f "$GO_BIN" ]; then
-              mkdir -p "$APP_PATH/Contents/ShareTool-bin"
-              cp "$GO_BIN" "$APP_PATH/Contents/ShareTool-bin/sharetool"
-              chmod +x "$APP_PATH/Contents/ShareTool-bin/sharetool"
-              echo "Go binary injected: $(ls -lh "$APP_PATH/Contents/ShareTool-bin/sharetool" | awk '{print $5, $9}')"
-              # Re-sign the entire bundle after injecting the binary so sealed resources include it
-              codesign -f -s - "$APP_PATH"
-              echo "Bundle re-signed with ad-hoc signature"
+              # Copy Go binary alongside the .app bundle (not inside it)
+              cp "$GO_BIN" artifacts/sharetool
+              chmod +x artifacts/sharetool
+              echo "Go binary placed at artifacts/sharetool: $(ls -lh artifacts/sharetool | awk '{print $5}')"
             else
               echo "WARNING: Go binary not found at $GO_BIN, app will run in client-only mode"
             fi

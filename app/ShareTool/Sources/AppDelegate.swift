@@ -63,10 +63,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         try? fileMgr.createDirectory(atPath: logDir2, withIntermediateDirectories: true, attributes: nil)
         let diagPath = (logDir2 as NSString).appendingPathComponent("server_diagnose.log")
 
-        // Use direct path construction instead of Bundle.main.path (which searches Contents/Resources/, not Contents/)
-        let bundlePath = (Bundle.main.bundlePath as NSString).appendingPathComponent("ShareTool-bin/sharetool")
-        guard FileManager.default.fileExists(atPath: bundlePath) else {
-            let msg = "[ShareTool] ERROR: sharetool binary not found at bundle path: \(bundlePath)\n"
+        // Look for sharetool binary in App Support first (reliable across app translocation)
+        // If not found, also try relative path next to the .app bundle (for development/manual installs)
+        let appSupportBinPath = (fileMgr.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Library/Application Support/ShareTool/sharetool")
+        let bundleDir = (Bundle.main.bundlePath as NSString).deletingLastPathComponent
+        let relativeBinPath = (bundleDir as NSString).appendingPathComponent("sharetool")
+        let bundleBinPath = (Bundle.main.bundlePath as NSString).appendingPathComponent("Contents/ShareTool-bin/sharetool")
+
+        let sourceBinPath: String
+        if fileMgr.fileExists(atPath: appSupportBinPath) {
+            sourceBinPath = appSupportBinPath
+        } else if fileMgr.fileExists(atPath: relativeBinPath) {
+            sourceBinPath = relativeBinPath
+        } else if fileMgr.fileExists(atPath: bundleBinPath) {
+            sourceBinPath = bundleBinPath
+        } else {
+            let msg = "[ShareTool] ERROR: sharetool binary not found\nappSupport=\(appSupportBinPath)\nrelative=\(relativeBinPath)\nbundle=\(bundleBinPath)\n"
             try? msg.write(toFile: diagPath, atomically: true, encoding: String.Encoding.utf8)
             return
         }
@@ -75,15 +87,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         try? fileMgr.createDirectory(atPath: appSupportDir, withIntermediateDirectories: true, attributes: nil)
 
         let destPath = (appSupportDir as NSString).appendingPathComponent("sharetool")
-        try? fileMgr.removeItem(atPath: destPath)
-        do {
-            try fileMgr.copyItem(atPath: bundlePath, toPath: destPath)
-        } catch {
-            let msg = "[ShareTool] ERROR: copy failed: \(error)\n"
-            try? msg.write(toFile: diagPath, atomically: true, encoding: String.Encoding.utf8)
-            return
+        // If source is already the dest, skip copy
+        if sourceBinPath != destPath {
+            try? fileMgr.removeItem(atPath: destPath)
+            do {
+                try fileMgr.copyItem(atPath: sourceBinPath, toPath: destPath)
+            } catch {
+                let msg = "[ShareTool] ERROR: copy failed: \(error)\nfrom=\(sourceBinPath)\nto=\(destPath)\n"
+                try? msg.write(toFile: diagPath, atomically: true, encoding: String.Encoding.utf8)
+                return
+            }
+            try? fileMgr.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destPath)
         }
-        try? fileMgr.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destPath)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: destPath)
