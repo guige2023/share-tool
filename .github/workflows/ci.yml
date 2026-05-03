@@ -108,6 +108,7 @@ jobs:
 
       - name: Build Go binary for macOS
         run: |
+          REPO="$PWD"
           cd "$REPO/go"
           GOOS=darwin GOARCH=arm64 go build -o ../app/ShareTool/sharetool_darwin_arm64 .
           GOOS=darwin GOARCH=amd64 go build -o ../app/ShareTool/sharetool_darwin_amd64 .
