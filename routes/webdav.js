@@ -120,7 +120,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
       // Root: list top-level files (no slash in filename) and virtual folders
       const files = db.prepare(`
         SELECT id, filename, size, content_type, created_at, updated_at
-        FROM files WHERE deleted = 0 AND filename NOT LIKE '%/%'
+        FROM files WHERE filename NOT LIKE '%/%'
         ORDER BY filename
       `).all();
       const folders = db.prepare(`
@@ -135,7 +135,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
       const childPrefix = prefix + '/';
       const files = db.prepare(`
         SELECT id, filename, size, content_type, created_at, updated_at
-        FROM files WHERE deleted = 0 AND filename LIKE ? AND filename NOT LIKE ?
+        FROM files WHERE filename LIKE ? AND filename NOT LIKE ?
         ORDER BY filename
       `).all(childPrefix + '%', childPrefix + '%/%');
 
@@ -153,7 +153,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
 
     // Depth 0: only return the requested resource itself
     if (depth === 0) {
-      const self = db.prepare(`SELECT id, filename, size, content_type, created_at, updated_at FROM files WHERE filename = ? AND deleted = 0`).get(relPath);
+      const self = db.prepare(`SELECT id, filename, size, content_type, created_at, updated_at FROM files WHERE filename = ?`).get(relPath);
       if (self) {
         items = [self];
       } else {
@@ -168,7 +168,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
 
   // GET — download file
   if (method === 'GET' || method === 'HEAD') {
-    const file = db.prepare(`SELECT * FROM files WHERE filename = ? AND deleted = 0`).get(relPath);
+    const file = db.prepare(`SELECT * FROM files WHERE filename = ?`).get(relPath);
     if (!file) {
       sendDav(res, 404, { 'Content-Type': 'text/plain' }, 'Not Found');
       return true;
@@ -180,7 +180,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
       // Directory listing as HTML
       const children = db.prepare(`
         SELECT filename, size, content_type FROM files
-        WHERE filename LIKE ? AND filename NOT LIKE ? AND deleted = 0
+        WHERE filename LIKE ? AND filename NOT LIKE ?
         ORDER BY filename
       `).all(relPath + '/%', relPath + '/%/%');
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${xmlEscape(relPath)}</title></head>
@@ -220,7 +220,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
 
     const base64 = body.toString('base64');
     const hash = require('crypto').createHash('md5').update(body).digest('hex');
-    const existing = db.prepare(`SELECT id FROM files WHERE filename = ? AND deleted = 0`).get(relPath);
+    const existing = db.prepare(`SELECT id FROM files WHERE filename = ?`).get(relPath);
 
     if (existing) {
       db.prepare(`UPDATE files SET content = ?, size = ?, hash = ?, updated_at = unixepoch() WHERE id = ?`)
@@ -240,11 +240,11 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
     return true;
   }
 
-  // DELETE — delete file
+  // DELETE — delete file (soft delete to trash)
   if (method === 'DELETE') {
-    const file = db.prepare(`SELECT id FROM files WHERE filename = ? AND deleted = 0`).get(relPath);
+    const file = db.prepare(`SELECT id FROM files WHERE filename = ?`).get(relPath);
     if (file) {
-      db.prepare(`UPDATE files SET deleted = 1, updated_at = unixepoch() WHERE id = ?`).run(file.id);
+      db.deleteFileByName(relPath);  // soft delete via moveToTrash
     }
     sendDav(res, 204, { 'Content-Length': '0' }, null);
     return true;

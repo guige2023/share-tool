@@ -2274,7 +2274,7 @@ function findDuplicates() {
       GROUP_CONCAT(COALESCE(created_at, 0), '|||') as created_ats,
       GROUP_CONCAT(COALESCE(virtual_folder, ''), '|||') as virtual_folders
     FROM files
-    WHERE hash IS NOT NULL AND hash != '' AND deleted = 0
+    WHERE hash IS NOT NULL AND hash != ''
     GROUP BY hash
     HAVING count > 1
     ORDER BY count DESC
@@ -2386,7 +2386,6 @@ function getStorageStats() {
   const topFiles = db.prepare(`
     SELECT id, filename, size, content_type, virtual_folder
     FROM files
-    WHERE deleted = 0
     ORDER BY size DESC
     LIMIT 10
   `).all();
@@ -2411,7 +2410,6 @@ function getStorageStats() {
       COUNT(*) as file_count,
       COALESCE(SUM(size), 0) as total_size
     FROM files
-    WHERE deleted = 0
     GROUP BY folder
     ORDER BY total_size DESC
   `).all();
@@ -2442,7 +2440,7 @@ function getCleanupSuggestions() {
   const largeFiles = db.prepare(`
     SELECT id, filename, size, content_type, virtual_folder, created_at
     FROM files
-    WHERE deleted = 0 AND size > 10 * 1024 * 1024
+    WHERE size > 10 * 1024 * 1024
     ORDER BY size DESC
     LIMIT 20
   `).all();
@@ -2465,7 +2463,7 @@ function getCleanupSuggestions() {
     SELECT COUNT(*) as group_count
     FROM (
       SELECT hash FROM files
-      WHERE hash IS NOT NULL AND hash != '' AND deleted = 0
+      WHERE hash IS NOT NULL AND hash != ''
       GROUP BY hash HAVING COUNT(*) > 1
     )
   `).get();
@@ -2473,7 +2471,7 @@ function getCleanupSuggestions() {
   const dupWaste = db.prepare(`
     SELECT COALESCE(SUM(sizes), 0) as waste FROM (
       SELECT SUM(size) - MAX(size) as sizes FROM files
-      WHERE hash IS NOT NULL AND hash != '' AND deleted = 0
+      WHERE hash IS NOT NULL AND hash != ''
       GROUP BY hash HAVING COUNT(*) > 1
     )
   `).get();
@@ -2493,7 +2491,7 @@ function getCleanupSuggestions() {
   const allVFs = db.prepare(`SELECT id, name, color FROM virtual_folders`).all();
   const emptyFolders = allVFs.filter(vf => {
     const prefix = vf.name + '/';
-    const count = db.prepare(`SELECT COUNT(*) as c FROM files WHERE filename LIKE ? AND deleted = 0`).get(prefix + '%');
+    const count = db.prepare(`SELECT COUNT(*) as c FROM files WHERE filename LIKE ?`).get(prefix + '%');
     return count.c === 0;
   });
 
