@@ -121,7 +121,6 @@ class StatusBarController: NSObject {
         // Send Files
         let sendFilesMI = NSMenuItem(title: "发送文件...", action: #selector(sendFiles), keyEquivalent: "")
         sendFilesMI.target = self
-        self.menu.addItem(sendFilesMI)
 
         let sep2 = NSMenuItem.separator()
 
@@ -153,6 +152,7 @@ class StatusBarController: NSObject {
         self.menu.addItem(self.openFolderMenuItem)
         self.menu.addItem(NSMenuItem.separator())
         self.menu.addItem(sendClipMI)
+        self.menu.addItem(sendFilesMI)
         self.menu.addItem(self.clipboardHistoryMenuItem)
         self.menu.addItem(sep2)
         self.menu.addItem(self.startStopMenuItem)
@@ -226,20 +226,59 @@ class StatusBarController: NSObject {
     }
 
     @objc private func sendClipboard() {
+        print("DEBUG: sendClipboard called")
         clipboardManager.sendClipboard()
     }
 
     @objc private func sendFiles() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
-        panel.message = "选择要发送的文件或文件夹"
-        panel.prompt = "发送"
+        // Dismiss menu tracking first
+        NSApp.mainMenu?.cancelTracking()
 
-        panel.begin { [weak self] response in
-            guard response == .OK, let urls = panel.urls as? [URL], !urls.isEmpty else { return }
-            self?.sendSelectedFiles(urls)
+        // Use a timer to delay - this helps with menu bar apps
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
+            self?.showOpenPanelViaShell()
+        }
+    }
+
+    private func showOpenPanelViaShell() {
+        // Use osascript via shell to show file picker
+        let script = """
+        set chosenFiles to (choose file with multiple selections allowed)
+        set filePaths to {}
+        repeat with f in chosenFiles
+            set end of filePaths to POSIX path of f
+        end repeat
+        set astid to AppleScript's text item delimiters
+        set AppleScript's text item delimiters to linefeed
+        set filePaths to filePaths as string
+        set AppleScript's text item delimiters to astid
+        return filePaths
+        """
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+        process.arguments = ["-e", script]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8), !output.isEmpty {
+                let paths = output.components(separatedBy: "\n").filter { !$0.isEmpty }
+                let urls = paths.map { URL(fileURLWithPath: $0) }
+                if !urls.isEmpty {
+                    DispatchQueue.main.async {
+                        self.sendSelectedFiles(urls)
+                    }
+                }
+            }
+        } catch {
+            debugLog("Failed to run osascript: \(error.localizedDescription)")
         }
     }
 
@@ -267,9 +306,16 @@ class StatusBarController: NSObject {
                 }
             } else {
                 // Single file
-                if let fileData = try? Data(contentsOf: url) {
+                debugLog("Sending file: \(url.path), size: \(try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 ?? 0)")
+                do {
+                    let fileData = try Data(contentsOf: url)
                     let base64 = fileData.base64EncodedString()
                     sendFileAsPayload(base64: base64, fileName: url.lastPathComponent, fileSize: Int64(fileData.count))
+                } catch {
+                    debugLog("Failed to read file: \(error.localizedDescription)")
+                    DispatchQueue.main.async {
+                        self.showNotification(title: "发送失败", body: "无法读取文件: \(url.lastPathComponent)")
+                    }
                 }
             }
         }
@@ -279,8 +325,8 @@ class StatusBarController: NSObject {
         let payload: [String: Any] = [
             "type": "file",
             "content": base64,
-            "file_name": fileName,
-            "file_size": fileSize,
+            "fileName": fileName,
+            "fileSize": fileSize,
             "from": instanceName,
             "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
         ]
@@ -293,7 +339,7 @@ class StatusBarController: NSObject {
         req.httpBody = jsonData
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        URLSession.shared.dataTask(with: req) { [weak self] data, resp, err in
+        clipboardManager.session.dataTask(with: req) { [weak self] data, resp, err in
             guard let self = self else { return }
             if let err = err {
                 debugLog("SendFile FAILED: \(err)")
@@ -367,9 +413,13 @@ class StatusBarController: NSObject {
             case "text":
                 preview = truncate(entry.content, 40)
             case "image":
-                preview = "📷 图片 (\(formatBytes(entry.content.utf8.count)))"
-            case "files":
-                preview = "📁 文件"
+                preview = "📷 图片 (\(formatBytes(Int(entry.fileSize ?? 0)))"
+            case "file":
+                if let fn = entry.fileName, !fn.isEmpty {
+                    preview = "📄 \(fn) (\(formatBytes(Int(entry.fileSize ?? 0))))"
+                } else {
+                    preview = "📄 文件 (\(formatBytes(Int(entry.fileSize ?? 0))))"
+                }
             default:
                 preview = truncate(entry.content, 40)
             }
@@ -388,7 +438,7 @@ class StatusBarController: NSObject {
 
     private func fetchClipboardHistory() {
         let url = URL(string: "\(baseURL)/api/clipboard/history")!
-        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+        clipboardManager.session.dataTask(with: url) { [weak self] data, _, _ in
             guard let self = self, let data = data,
                   let response = try? JSONDecoder().decode(ClipboardHistoryResponse.self, from: data) else { return }
             DispatchQueue.main.async {
@@ -415,7 +465,7 @@ class StatusBarController: NSObject {
         let url = URL(string: "\(baseURL)/api/clipboard")!
         var req = URLRequest(url: url)
         req.httpMethod = "DELETE"
-        URLSession.shared.dataTask(with: req) { _, _, _ in }.resume()
+        clipboardManager.session.dataTask(with: req) { _, _, _ in }.resume()
     }
 
     private func truncate(_ s: String, _ max: Int) -> String {
@@ -483,3 +533,4 @@ extension StatusBarController: HotkeyManagerDelegate {
         sendClipboard()
     }
 }
+// Force recompile 2026年 5月 4日 星期一 14时26分46秒 CST

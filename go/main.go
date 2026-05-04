@@ -84,6 +84,9 @@ func main() {
 		log.Printf("[Clipboard] Data dir: %s", clipboardDir)
 	}
 
+	// Set shared directory for file sync
+	server.SetSharedDir(*dir)
+
 	// Start UDP broadcast discovery listener (for Windows client compatibility)
 	go startBroadcastDiscovery(localIP, *port, *name)
 

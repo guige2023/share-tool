@@ -76,7 +76,7 @@ class ClipboardManager: NSObject, URLSessionDelegate {
     private var isPolling = false
 
     // URLSession that skips TLS verification for self-signed certs
-    private lazy var session: URLSession = {
+    lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 10
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
@@ -107,18 +107,35 @@ class ClipboardManager: NSObject, URLSessionDelegate {
     func readClipboard() -> (type: String, content: String, fileName: String?, fileSize: Int64?)? {
         let pb = NSPasteboard.general
 
+        debugLog("Clipboard types: \(pb.types?.description ?? "none")")
+
         // 1. Check for file URLs first
         if let fileURLs = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
            let firstFile = fileURLs.first {
             let fileName = firstFile.lastPathComponent
 
-            // Check if it's a directory - if so, zip it
-            var isDirectory: ObjCBool = false
-            if FileManager.default.fileExists(atPath: firstFile.path, isDirectory: &isDirectory), isDirectory.boolValue {
+            // Check if it's a directory using URL resourceValues (more reliable)
+            var isDirectory = false
+            if let resourceValues = try? firstFile.resourceValues(forKeys: [.isDirectoryKey]) {
+                isDirectory = resourceValues.isDirectory ?? false
+            }
+
+            // Fallback to FileManager check
+            if !isDirectory {
+                var dirFlag: ObjCBool = false
+                if FileManager.default.fileExists(atPath: firstFile.path, isDirectory: &dirFlag) {
+                    isDirectory = dirFlag.boolValue
+                }
+            }
+
+            debugLog("Clipboard file check: \(firstFile.path), isDirectory=\(isDirectory)")
+
+            if isDirectory {
                 // It's a directory - zip it first
                 let zipName = fileName + ".zip"
-                let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ShareTool").appendingPathComponent(zipName)
-                try? FileManager.default.createDirectory(at: tempURL.deletingLastPathComponent() as URL, withIntermediateDirectories: true)
+                let tempDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ShareTool")
+                let tempURL = tempDir.appendingPathComponent(zipName)
+                try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
                 // Use ditto to zip the directory
                 let process = Process()
@@ -127,10 +144,15 @@ class ClipboardManager: NSObject, URLSessionDelegate {
                 try? process.run()
                 process.waitUntilExit()
 
+                debugLog("Ditto zip completed for: \(firstFile.path)")
+
                 if let zipData = try? Data(contentsOf: tempURL) {
                     let base64 = zipData.base64EncodedString()
                     try? FileManager.default.removeItem(at: tempURL)
+                    debugLog("Zip success: \(zipName), size=\(zipData.count)")
                     return ("file", base64, zipName, Int64(zipData.count))
+                } else {
+                    debugLog("Zip failed - could not read zip data")
                 }
                 return nil
             }

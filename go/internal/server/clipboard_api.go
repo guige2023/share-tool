@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -64,6 +65,7 @@ var (
 	instancePort     = 18793
 	forwardClient     *http.Client
 	dataDir           = "" // e.g. ~/.sharetool/clipboard
+	sharedDir        = "" // e.g. ~/ShareToolShared
 )
 
 func SetInstanceInfo(name, ip string, port int) {
@@ -80,6 +82,12 @@ func SetDataDir(dir string) {
 	loadHistory()
 }
 
+// SetSharedDir sets the shared directory for file sync
+func SetSharedDir(dir string) {
+	sharedDir = dir
+	log.Printf("[Clipboard] Shared dir set to: %s", dir)
+}
+
 // Ensure image/ and files/ subdirs exist
 func ensureDataDirs() {
 	if dataDir == "" {
@@ -87,6 +95,64 @@ func ensureDataDirs() {
 	}
 	os.MkdirAll(filepath.Join(dataDir, ImagesDirName), 0755)
 	os.MkdirAll(filepath.Join(dataDir, FilesDirName), 0755)
+}
+
+// copyFileToShared copies a file from clipboard storage to shared directory for WebUI
+func copyFileToShared(srcPath, fileName string) {
+	if sharedDir == "" || srcPath == "" {
+		return
+	}
+	src, err := os.Open(srcPath)
+	if err != nil {
+		log.Printf("[Clipboard] Warning: failed to open source file for shared dir: %v", err)
+		return
+	}
+	defer src.Close()
+
+	// Use timestamp prefix to avoid name conflicts
+	dstName := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), fileName)
+	dstPath := filepath.Join(sharedDir, dstName)
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		log.Printf("[Clipboard] Warning: failed to create shared file: %v", err)
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		log.Printf("[Clipboard] Warning: failed to copy file to shared dir: %v", err)
+		return
+	}
+	log.Printf("[Clipboard] Copied file to shared dir: %s", dstName)
+}
+
+// copyImageToShared copies an image from clipboard storage to shared directory for WebUI
+func copyImageToShared(srcPath, fileName string) {
+	if sharedDir == "" || srcPath == "" {
+		return
+	}
+	src, err := os.Open(srcPath)
+	if err != nil {
+		log.Printf("[Clipboard] Warning: failed to open source image for shared dir: %v", err)
+		return
+	}
+	defer src.Close()
+
+	// Use timestamp prefix to avoid name conflicts
+	dstName := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), fileName)
+	dstPath := filepath.Join(sharedDir, dstName)
+	dst, err := os.Create(dstPath)
+	if err != nil {
+		log.Printf("[Clipboard] Warning: failed to create shared image: %v", err)
+		return
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		log.Printf("[Clipboard] Warning: failed to copy image to shared dir: %v", err)
+		return
+	}
+	log.Printf("[Clipboard] Copied image to shared dir: %s", dstName)
 }
 
 // Load history from disk
@@ -237,19 +303,40 @@ func handleClipboardPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Persist to disk: images/files -> save to disk, text -> keep in JSON
+	// Use default filename if not provided
+	log.Printf("[Clipboard] handleClipboardPost: type=%s, dataDir=%s, sharedDir=%s", req.Type, dataDir, sharedDir)
+	if req.FileName == "" {
+		req.FileName = "unnamed"
+	}
 	if req.Type == "image" && dataDir != "" {
-		if fp, err := saveImageFile(entry.ID, req.Content); err == nil {
+		imageName := req.FileName
+		if imageName == "" || imageName == "." {
+			imageName = "image.png"
+		}
+		log.Printf("[Clipboard] Saving image: %s", imageName)
+		if fp, err := saveImageFile(entry.ID, imageName); err == nil {
 			entry.FilePath = fp
 			// Clear base64 from memory after saving to disk
 			entry.Content = ""
+			// Also copy to shared dir for WebUI
+			if sharedDir != "" {
+				log.Printf("[Clipboard] Starting async copy to shared dir for image")
+				go copyImageToShared(fp, imageName)
+			}
 		}
 	} else if req.Type == "file" && dataDir != "" {
 		// Save file content to disk
+		log.Printf("[Clipboard] Saving file: %s, size=%d", req.FileName, req.FileSize)
 		if fp, err := saveFileContent(entry.ID, req.FileName, req.Content); err == nil {
 			entry.FilePath = fp
 			entry.FileName = req.FileName
 			entry.FileSize = req.FileSize
 			entry.Content = ""
+			// Also copy to shared dir for WebUI
+			if sharedDir != "" {
+				log.Printf("[Clipboard] Starting async copy to shared dir for file")
+				go copyFileToShared(fp, req.FileName)
+			}
 		}
 	}
 
