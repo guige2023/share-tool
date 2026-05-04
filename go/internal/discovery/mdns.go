@@ -190,6 +190,25 @@ func GetLocalIP() string {
 	return "unknown"
 }
 
+// GetLocalSubnet returns the subnet in CIDR notation (e.g., "192.168.1.0/24")
+func GetLocalSubnet() (string, error) {
+	iface, err := defaultInterface()
+	if err != nil {
+		return "", err
+	}
+	addrs, _ := iface.Addrs()
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok {
+			if ip4 := ipnet.IP.To4(); ip4 != nil && !ip4.IsLoopback() {
+				// Calculate subnet - assume /24 for typical LAN
+				baseIP := net.IP{ip4[0], ip4[1], ip4[2], 0}.String()
+				return baseIP + "/24", nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no suitable interface")
+}
+
 func defaultInterface() (*net.Interface, error) {
 	intfs, err := net.Interfaces()
 	if err != nil {

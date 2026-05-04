@@ -176,6 +176,18 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		}
 	})
 
+	// Manual peer add (for manually adding devices)
+	mux.HandleFunc("/api/peers/manual", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			handlePeersManualAdd(w, r)
+		case http.MethodDelete:
+			handlePeersManualRemove(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
 	// QR Code endpoint - generates PNG QR code for the given URL
 	mux.HandleFunc("/api/qr", func(w http.ResponseWriter, r *http.Request) {
 		urlStr := r.URL.Query().Get("url")
@@ -236,7 +248,10 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 	mux.HandleFunc("/tools.json", HandleTools)
 
 	// Serve embedded web UI with SPA fallback
-	webRoot, _ := fs.Sub(webAssets, "web")
+	webRoot, err := fs.Sub(webAssets, "web")
+	if err != nil {
+		log.Printf("[Server] WARNING: fs.Sub failed: %v, webRoot is nil", err)
+	}
 	httpFS := http.FS(webRoot)
 	fallback := serveIndexFallback(httpFS)
 
