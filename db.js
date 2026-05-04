@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 22; // v22: virtual_folders.quota_bytes
+const SCHEMA_VERSION = 23; // v23: files.virtual_folder column (primary VF for a file)
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -789,6 +789,40 @@ function initSchemaV22(db) {
   }
 }
 
+function initSchemaV23(db) {
+  // v23: add virtual_folder to files (denormalized, stores primary VF path for a file)
+  // Files can belong to multiple VFs; this column stores the alphabetically first VF for display
+  try {
+    db.exec(`ALTER TABLE files ADD COLUMN virtual_folder TEXT DEFAULT NULL`);
+    console.log('[DB] Migrated: files.virtual_folder column');
+  } catch (e) {
+    if (e.message.includes('duplicate column')) {
+      console.log('[DB] v23 column already exists, skipping');
+    } else {
+      console.warn('[DB] Migration v23 failed:', e.message);
+    }
+  }
+
+  // Backfill: for files that belong to one or more VFs, set virtual_folder to alphabetically first VF
+  try {
+    const updateCount = db.prepare(`
+      UPDATE files SET virtual_folder = (
+        SELECT vf.name FROM virtual_folder_files vff
+        JOIN virtual_folders vf ON vf.id = vff.folder_id
+        WHERE vff.file_id = files.id
+        ORDER BY vf.name ASC LIMIT 1
+      )
+      WHERE id IN (SELECT DISTINCT file_id FROM virtual_folder_files)
+        AND virtual_folder IS NULL
+    `).run();
+    if (updateCount.changes > 0) {
+      console.log(`[DB] Backfilled virtual_folder for ${updateCount.changes} files`);
+    }
+  } catch (e) {
+    console.warn('[DB] Backfill virtual_folder failed:', e.message);
+  }
+}
+
 function initSchemaV9(db) {
   // v9 新增：FTS5 全文搜索索引
   try {
@@ -887,6 +921,8 @@ function runMigrations(db, fromVersion) {
       initSchemaV21(db);
     } else if (v === 22) {
       initSchemaV22(db);
+    } else if (v === 23) {
+      initSchemaV23(db);
     }
     console.log(`[DB] Migration to v${v} complete`);
   }
@@ -4593,9 +4629,26 @@ function importAllData(data, mode = 'merge') {
   return { filesImported, linksImported, mode };
 }
 
+// Proxy: expose raw db prepare() for backward compatibility with inline SQL in routes
+// Routes like api.js use db.prepare() directly - delegate to the underlying instance
+const _db = getDb;
+function getDbProxy() {
+  const instance = _db();
+  // Attach proxy methods so callers can use db.prepare/get/run/all directly
+  instance.prepare = (...args) => instance.prepare(...args);
+  instance.get = (...args) => instance.get(...args);
+  instance.run = (...args) => instance.run(...args);
+  instance.all = (...args) => instance.all(...args);
+  return instance;
+}
+
 module.exports = {
   initDatabase,
   getDb,
+  prepare: (...args) => getDb().prepare(...args),
+  get: (...args) => getDb().get(...args),
+  run: (...args) => getDb().run(...args),
+  all: (...args) => getDb().all(...args),
   // 密码
   hashPassword, verifyPassword,
   // 文件

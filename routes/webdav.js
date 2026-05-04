@@ -119,12 +119,12 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
     if (isRoot) {
       // Root: list top-level files (no slash in filename) and virtual folders
       const files = db.prepare(`
-        SELECT id, filename, size, content_type, created_at, updated_at
+        SELECT id, filename, size, type as content_type, created_at, updated_at
         FROM files WHERE filename NOT LIKE '%/%'
         ORDER BY filename
       `).all();
       const folders = db.prepare(`
-        SELECT name as filename, 'folder' as content_type, created_at, updated_at
+        SELECT name as filename, 'folder' as content_type, created_at
         FROM virtual_folders ORDER BY name
       `).all();
       items = [...folders.map(f => ({ ...f, isFolder: true })), ...files];
@@ -134,7 +134,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
       // List immediate children
       const childPrefix = prefix + '/';
       const files = db.prepare(`
-        SELECT id, filename, size, content_type, created_at, updated_at
+        SELECT id, filename, size, type as content_type, created_at, updated_at
         FROM files WHERE filename LIKE ? AND filename NOT LIKE ?
         ORDER BY filename
       `).all(childPrefix + '%', childPrefix + '%/%');
@@ -142,7 +142,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
       // Sub-folders at this level
       const folderPrefix = prefix.endsWith('/') ? prefix : prefix + '/';
       const folders = db.prepare(`
-        SELECT name as filename, 'folder' as content_type, created_at, updated_at
+        SELECT name as filename, 'folder' as content_type, created_at
         FROM virtual_folders
         WHERE name LIKE ? AND name NOT LIKE ?
         ORDER BY name
@@ -153,11 +153,11 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
 
     // Depth 0: only return the requested resource itself
     if (depth === 0) {
-      const self = db.prepare(`SELECT id, filename, size, content_type, created_at, updated_at FROM files WHERE filename = ?`).get(relPath);
+      const self = db.prepare(`SELECT id, filename, size, type as content_type, created_at, updated_at FROM files WHERE filename = ?`).get(relPath);
       if (self) {
         items = [self];
       } else {
-        const vf = db.prepare(`SELECT name as filename, 'folder' as content_type, created_at, updated_at FROM virtual_folders WHERE name = ?`).get(relPath);
+        const vf = db.prepare(`SELECT name as filename, 'folder' as content_type, created_at FROM virtual_folders WHERE name = ?`).get(relPath);
         items = vf ? [{ ...vf, isFolder: true }] : [];
       }
     }
@@ -168,7 +168,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
 
   // GET — download file
   if (method === 'GET' || method === 'HEAD') {
-    const file = db.prepare(`SELECT * FROM files WHERE filename = ?`).get(relPath);
+    const file = db.prepare(`SELECT *, type as content_type FROM files WHERE filename = ?`).get(relPath);
     if (!file) {
       sendDav(res, 404, { 'Content-Type': 'text/plain' }, 'Not Found');
       return true;
@@ -179,7 +179,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
     if (vf) {
       // Directory listing as HTML
       const children = db.prepare(`
-        SELECT filename, size, content_type FROM files
+        SELECT filename, size, type as content_type FROM files
         WHERE filename LIKE ? AND filename NOT LIKE ?
         ORDER BY filename
       `).all(relPath + '/%', relPath + '/%/%');
@@ -229,7 +229,7 @@ async function handleWebDAV(req, res, pathname, query, ctx) {
       // Create new file — need to determine position
       const maxPos = db.prepare(`SELECT COALESCE(MAX(position), -1) as m FROM files`).get().m;
       const contentType = detectMimeType(relPath);
-      db.prepare(`INSERT INTO files (filename, content, size, hash, content_type, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`)
+      db.prepare(`INSERT INTO files (filename, content, size, hash, type, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())`)
         .run(relPath, base64, body.length, hash, contentType, maxPos + 1);
     }
 
