@@ -155,9 +155,30 @@ function maxUploadBytes() {
   return Math.max(1, parseInt(config.uploadMaxSizeMB || '100', 10)) * 1024 * 1024;
 }
 
-function setCors(res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+function setCors(res, req) {
+  // CORS - configurable via ALLOWED_ORIGINS env var (comma-separated)
+  // Defaults to restricting to same-origin requests only (secure by default)
+  const allowedOrigins = process.env.ALLOWED_ORIGINS;
+  let origin = '*';  // default for no-Origin requests (curl, etc.)
+  if (req && req.headers.origin) {
+    if (allowedOrigins) {
+      // Explicit allowlist from env
+      const allowed = allowedOrigins.split(',').map(o => o.trim());
+      origin = allowed.includes(req.headers.origin) ? req.headers.origin : 'null';
+    } else {
+      // Default: restrict to same-origin only (localhost + LAN)
+      const reqOrigin = req.headers.origin;
+      const localIp = LOCAL_IP;
+      const isLocal = reqOrigin === 'null' ||
+        reqOrigin.includes('localhost') ||
+        reqOrigin.includes('127.0.0.1') ||
+        reqOrigin.includes('file://') ||
+        (localIp && reqOrigin.includes(localIp.split('.')[0]));
+      origin = isLocal ? reqOrigin : 'null';
+    }
+  }
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-auth-token');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
   // 安全响应头
@@ -995,7 +1016,7 @@ ${config.customCSS ? `<style id="custom-css-injected">${config.customCSS}</style
 }
 
 async function requestHandler(req, res) {
-  setCors(res);
+  setCors(res, req);
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);

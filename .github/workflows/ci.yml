@@ -40,6 +40,42 @@ jobs:
           node-version: 20.x
           cache: 'npm'
       - run: npm ci
-      - name: Syntax check server.js
-        run: node --check server.js && node --check db.js && node --check cli.js
-        working-directory: ./
+
+      - name: ESLint
+        run: npx eslint server.js db.js cli.js routes/ --max-warnings 0 || true
+
+      - name: Security audit
+        run: npm audit --audit-level=high --omit=dev || true
+
+  go-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: false
+      - name: Build Go server
+        run: cd go && go build -o /dev/null . && echo "Go build OK"
+
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+      - run: npm ci
+      - name: Syntax check all JS files
+        run: |
+          node --check server.js
+          node --check db.js
+          node --check cli.js
+          node --check constants.js
+          node --check routes/api.js
+          node --check routes/files.js
+          node --check routes/share.js
+          node --check routes/sync.js
+          node --check routes/webdav.js

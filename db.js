@@ -10,6 +10,8 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
+// Default share port (HTTP). Sync with constants.js DEFAULT_HTTP_PORT
+const DEFAULT_DEVICE_PORT = parseInt(process.env.SHARE_TOOL_PORT || '18790', 10);
 const SCHEMA_VERSION = 24; // v24: add missing file_access_log and notifications tables (were in base schema but never migrated)
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
@@ -2627,7 +2629,7 @@ function getAllFolderSizes() {
 // ============================================================
 // 设备管理
 // ============================================================
-function registerDevice(deviceId, deviceName, ip, port = 18790) {
+function registerDevice(deviceId, deviceName, ip, port = DEFAULT_DEVICE_PORT) {
   const db = getDb();
   const stmt = db.prepare(`
     INSERT INTO devices (device_id, device_name, ip, port, last_seen, is_online)

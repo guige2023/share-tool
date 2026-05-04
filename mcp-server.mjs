@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * ShareTool MCP Server
  *
@@ -8,6 +7,10 @@
  *
  * Communication: JSON-RPC 2.0 over stdio
  */
+
+const { version } = JSON.parse(
+  require('fs').readFileSync(require('path').join(__dirname, 'package.json'), 'utf8')
+);
 
 import http from 'node:http';
 import https from 'node:https';
@@ -261,8 +264,7 @@ function makeRequest(method, path, body = null, queryParams = {}) {
         'x-auth-token': SHARE_TOKEN,
         'Content-Type': 'application/json'
       },
-      // Reject unauthorized certs (for self-signed certs)
-      rejectUnauthorized: false
+      rejectUnauthorized: process.env.ALLOW_SELF_SIGNED === 'true'
     };
 
     // Skip Content-Type for GET/DELETE requests without body
@@ -445,7 +447,7 @@ function handleMessage(request) {
           },
           serverInfo: {
             name: 'share-tool',
-            version: '5.24.0'
+            version: version,
           }
         }
       });

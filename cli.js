@@ -67,7 +67,7 @@ function connectSyncWs() {
     const token = getToken();
     
     wsClient = new WebSocket(`${wsUrl}?token=${encodeURIComponent(token)}`, {
-      rejectUnauthorized: false  // Allow self-signed HTTPS certs
+      rejectUnauthorized: process.env.ALLOW_SELF_SIGNED === 'true'
     });
     
     wsClient.on('open', () => {
