@@ -1076,7 +1076,7 @@ module.exports = async function handleFileRoutes(req, res, pathname, query, ctx)
         return true;
       }
     } catch (err) {
-      console.error('Thumbnail generation failed for', filename, err.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.error('Thumbnail generation failed for', filename, err.message);
       const content = file.content || '';
       if (content && mime.startsWith('image/')) {
         res.writeHead(200, {

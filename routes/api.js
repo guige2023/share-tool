@@ -1245,7 +1245,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
 
     const archiver = require('archiver');
     const archive = archiver('zip', { zlib: { level: 5 } });
-    archive.on('error', function(err) { console.error('[zip error]', err.message); });
+    archive.on('error', function(err) { if (process.env.LOG_LEVEL !== 'silent') console.error('[zip error]', err.message); });
     archive.pipe(res);
 
     for (const file of files) {
@@ -1254,7 +1254,7 @@ module.exports = async function handleApiRoutes(req, res, pathname, query, ctx) 
         if (!fullFile || !fullFile.content) continue;
         archive.append(fullFile.content, { name: fullFile.filename });
       } catch (e) {
-        console.error('[zip file error]', e.message);
+        if (process.env.LOG_LEVEL !== 'silent') console.error('[zip file error]', e.message);
       }
     }
     archive.finalize();

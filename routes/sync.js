@@ -30,7 +30,8 @@ function initWebSocketServer(server) {
     
     // Auth via token query param: /ws?token=xxx
     const token = parsed.searchParams.get('token');
-    if (!token) {
+    const effectiveToken = global.getEffectiveToken();
+    if (!token || token !== effectiveToken) {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();
       return;
@@ -71,7 +72,7 @@ function initWebSocketServer(server) {
     });
 
     ws.on('error', (err) => {
-      console.error('[WS] Error:', err.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.error('[WS] Error:', err.message);
     });
   });
 

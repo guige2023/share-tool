@@ -10,7 +10,7 @@ const os = require('os');
 const crypto = require('crypto');
 
 const DB_PATH = process.env.SHARE_TOOL_DB_PATH || path.join(os.homedir(), '.share-tool', 'share-tool.db');
-const SCHEMA_VERSION = 23; // v23: files.virtual_folder column (primary VF for a file)
+const SCHEMA_VERSION = 24; // v24: add missing file_access_log and notifications tables (were in base schema but never migrated)
 
 // HTML escape for FTS5 storage (prevents XSS when highlight() injects <mark> into filenames)
 function escapeHtml(s) {
@@ -103,8 +103,11 @@ function initDatabase() {
     initSchemaV19(db); // v19: share_link_stats table
     initSchemaV20(db); // v20: virtual_folders.password_hash
     initSchemaV21(db); // v21: sync_conflicts table
+    initSchemaV22(db); // v22: virtual_folders.quota_bytes
+    initSchemaV23(db); // v23: files.virtual_folder column
+    initSchemaV24(db); // v24: missing file_access_log + notifications tables
     db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
-    console.log('[DB] Fresh database initialized (v1-v20 schema)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Fresh database initialized (v1-v24 schema)');
     return;
   }
 
@@ -112,7 +115,7 @@ function initDatabase() {
   const row = db.prepare('SELECT value FROM meta WHERE key = ?').get('schema_version');
   let currentVersion = row ? parseInt(row.value, 10) : 1;
 
-  console.log(`[DB] Schema version: ${currentVersion} → ${SCHEMA_VERSION}`);
+  if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Schema version: ${currentVersion} → ${SCHEMA_VERSION}`);
 
   // 执行迁移
   if (currentVersion < SCHEMA_VERSION) {
@@ -121,7 +124,7 @@ function initDatabase() {
     currentVersion = SCHEMA_VERSION;
   }
 
-  console.log('[DB] Database ready at', DB_PATH);
+  if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Database ready at', DB_PATH);
   return db;
 }
 
@@ -384,14 +387,14 @@ function initSchemaV1(db) {
     CREATE INDEX IF NOT EXISTS idx_share_links_code ON share_links(code);
   `);
 
-  console.log('[DB] Schema v1 initialized');
+  if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Schema v1 initialized');
 }
 
 function initSchemaV2(db) {
   // v2 新增：sync_log.size_bytes（同步文件大小）
   try {
     db.exec("ALTER TABLE sync_log ADD COLUMN size_bytes INTEGER DEFAULT 0");
-    console.log('[DB] Migrated: sync_log.size_bytes');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: sync_log.size_bytes');
   } catch (e) {
     if (!e.message.includes('duplicate column')) throw e;
   }
@@ -399,7 +402,7 @@ function initSchemaV2(db) {
   // v2 新增：share_links.description（链接描述）
   try {
     db.exec("ALTER TABLE share_links ADD COLUMN description TEXT DEFAULT ''");
-    console.log('[DB] Migrated: share_links.description');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: share_links.description');
   } catch (e) {
     if (!e.message.includes('duplicate column')) throw e;
   }
@@ -407,7 +410,7 @@ function initSchemaV2(db) {
   // v2 新增：tokens.refresh_token_expires_at
   try {
     db.exec("ALTER TABLE tokens ADD COLUMN refresh_token_expires_at INTEGER");
-    console.log('[DB] Migrated: tokens.refresh_token_expires_at');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: tokens.refresh_token_expires_at');
   } catch (e) {
     if (!e.message.includes('duplicate column')) throw e;
   }
@@ -415,7 +418,7 @@ function initSchemaV2(db) {
   // v2 新增：devices.preferred_sync_strategy
   try {
     db.exec("ALTER TABLE devices ADD COLUMN preferred_sync_strategy TEXT DEFAULT 'incremental'");
-    console.log('[DB] Migrated: devices.preferred_sync_strategy');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: devices.preferred_sync_strategy');
   } catch (e) {
     if (!e.message.includes('duplicate column')) throw e;
   }
@@ -423,7 +426,7 @@ function initSchemaV2(db) {
   // v2 新增：files.content_type（MIME 类型）
   try {
     db.exec("ALTER TABLE files ADD COLUMN content_type TEXT DEFAULT 'application/octet-stream'");
-    console.log('[DB] Migrated: files.content_type');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: files.content_type');
   } catch (e) {
     if (!e.message.includes('duplicate column')) throw e;
   }
@@ -441,7 +444,7 @@ function initSchemaV3(db) {
         last_attempt  INTEGER NOT NULL DEFAULT (unixepoch())
       )
     `);
-    console.log('[DB] Migrated: rate_limit table');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: rate_limit table');
   } catch (e) {
     if (!e.message.includes('duplicate table')) throw e;
   }
@@ -449,7 +452,7 @@ function initSchemaV3(db) {
   // v3 新增：idx_files_filename 索引（搜索优化）
   try {
     db.exec('CREATE INDEX IF NOT EXISTS idx_files_filename ON files(filename)');
-    console.log('[DB] Migrated: idx_files_filename index');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: idx_files_filename index');
   } catch (e) {
     if (!e.message.includes('duplicate index')) throw e;
   }
@@ -470,7 +473,7 @@ function initSchemaV4(db) {
         created_at       INTEGER NOT NULL DEFAULT (unixepoch())
       )
     `);
-    console.log('[DB] Migrated: upload_chunks table');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: upload_chunks table');
   } catch (e) {
     if (!e.message.includes('duplicate table')) throw e;
   }
@@ -492,7 +495,7 @@ function initSchemaV5(db) {
         expires_at  INTEGER NOT NULL DEFAULT (unixepoch() + 2592000)
       )
     `);
-    console.log('[DB] Migrated: trash table');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: trash table');
   } catch (e) {
     if (!e.message.includes('duplicate table')) throw e;
   }
@@ -511,7 +514,7 @@ function initSchemaV5(db) {
       )
     `);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_file_versions_file_id ON file_versions(file_id)`);
-    console.log('[DB] Migrated: file_versions table');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: file_versions table');
   } catch (e) {
     if (!e.message.includes('duplicate table')) throw e;
   }
@@ -522,7 +525,7 @@ function initSchemaV5(db) {
     `ALTER TABLE files ADD COLUMN encrypted INTEGER NOT NULL DEFAULT 0`,
   ];
   for (const sql of alterStatements) {
-    try { db.exec(sql); console.log('[DB] Altered: ' + sql.split('ADD COLUMN ')[1]); } catch (e) { /* ignore */ }
+    try { db.exec(sql); if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Altered: ' + sql.split('ADD COLUMN ')[1]); } catch (e) { /* ignore */ }
   }
 }
 
@@ -535,7 +538,7 @@ function initSchemaV6(db) {
         count    INTEGER NOT NULL DEFAULT 0
       )
     `);
-    console.log('[DB] Migrated: tag_stats table');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: tag_stats table');
   } catch (e) {
     if (!e.message.includes('duplicate table')) throw e;
   }
@@ -552,12 +555,12 @@ function initSchemaV6(db) {
     for (const [tag, count] of Object.entries(counts)) {
       stmt.run(tag, count);
     }
-    console.log(`[DB] Initialized tag_stats with ${Object.keys(counts).length} tags`);
+    if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Initialized tag_stats with ${Object.keys(counts).length} tags`);
   } catch (e) { /* already initialized or no tags */ }
   // 修复旧数据库 tag_colors 表缺少的 emoji 列
   try {
     db.exec("ALTER TABLE tag_colors ADD COLUMN emoji TEXT");
-    console.log('[DB] Altered: tag_colors.emoji');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Altered: tag_colors.emoji');
   } catch (e) { /* column already exists or table missing */ }
 }
 
@@ -565,7 +568,7 @@ function initSchemaV7(db) {
   // v7 修复：trash 表存储 tags（恢复时需要）
   try {
     db.exec("ALTER TABLE trash ADD COLUMN tags TEXT DEFAULT ''");
-    console.log('[DB] Migrated: trash.tags column');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: trash.tags column');
   } catch (e) {
     if (!e.message.includes('duplicate column')) throw e;
   }
@@ -575,7 +578,7 @@ function initSchemaV8(db) {
   // v8 新增：virtual_folders.position（拖拽排序）
   try {
     db.exec("ALTER TABLE virtual_folders ADD COLUMN position INTEGER NOT NULL DEFAULT 0");
-    console.log('[DB] Migrated: virtual_folders.position column');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: virtual_folders.position column');
   } catch (e) {
     if (!e.message.includes('duplicate column')) throw e;
   }
@@ -589,12 +592,12 @@ function initSchemaV11(db) {
   // v11: add view_count to share_links for tracking link opens
   try {
     db.exec(`ALTER TABLE share_links ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0`);
-    console.log('[DB] Migrated: share_links.view_count');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: share_links.view_count');
   } catch (e) {
     if (e.message.includes('duplicate column')) {
-      console.log('[DB] share_links.view_count already exists');
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] share_links.view_count already exists');
     } else {
-      console.error('[DB] view_count migration failed:', e.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.error('[DB] view_count migration failed:', e.message);
     }
   }
 }
@@ -603,12 +606,12 @@ function initSchemaV12(db) {
   // v12: add starred column to files
   try {
     db.exec(`ALTER TABLE files ADD COLUMN starred INTEGER NOT NULL DEFAULT 0`);
-    console.log('[DB] Migrated: files.starred');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: files.starred');
   } catch (e) {
     if (e.message.includes('duplicate column')) {
-      console.log('[DB] files.starred already exists, skipping');
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] files.starred already exists, skipping');
     } else {
-      console.warn('[DB] Migration v12 failed:', e.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v12 failed:', e.message);
     }
   }
 }
@@ -619,12 +622,12 @@ function initSchemaV13(db) {
     db.exec(`ALTER TABLE share_links ADD COLUMN theme_bg TEXT`);
     db.exec(`ALTER TABLE share_links ADD COLUMN theme_color TEXT`);
     db.exec(`ALTER TABLE share_links ADD COLUMN brand_text TEXT`);
-    console.log('[DB] Migrated: share_links theme columns');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: share_links theme columns');
   } catch (e) {
     if (e.message.includes('duplicate column')) {
-      console.log('[DB] share_links theme columns already exist, skipping');
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] share_links theme columns already exist, skipping');
     } else {
-      console.warn('[DB] Migration v13 failed:', e.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v13 failed:', e.message);
     }
   }
 }
@@ -652,9 +655,9 @@ function initSchemaV14(db) {
       )
     `);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_folder_tags_path ON folder_tags(folder_path)`);
-    console.log('[DB] Migrated: folder_tags + tag_definitions tables');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: folder_tags + tag_definitions tables');
   } catch (e) {
-    console.warn('[DB] Migration v14 failed:', e.message);
+    if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v14 failed:', e.message);
   }
 }
 
@@ -672,9 +675,9 @@ function initSchemaV15(db) {
       )
     `);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_rlf_request_link ON request_link_files(request_link_id)`);
-    console.log('[DB] Migrated: request_link_files table');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: request_link_files table');
   } catch (e) {
-    console.warn('[DB] Migration v15 failed:', e.message);
+    if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v15 failed:', e.message);
   }
 }
 
@@ -686,12 +689,12 @@ function initSchemaV17(db) {
   // v17: file notes column
   try {
     db.exec(`ALTER TABLE files ADD COLUMN notes TEXT DEFAULT ''`);
-    console.log('[DB] Migrated: notes column on files');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: notes column on files');
   } catch (e) {
     if (e.message.includes('duplicate column')) {
-      console.log('[DB] Notes column already exists');
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Notes column already exists');
     } else {
-      console.warn('[DB] Migration v17 failed:', e.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v17 failed:', e.message);
     }
   }
 }
@@ -700,12 +703,12 @@ function initSchemaV18(db) {
   // v18: share_links.label — custom display name
   try {
     db.exec(`ALTER TABLE share_links ADD COLUMN label TEXT DEFAULT ''`);
-    console.log('[DB] Migrated: share_links.label');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: share_links.label');
   } catch (e) {
     if (e.message.includes('duplicate column')) {
-      console.log('[DB] share_links.label already exists');
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] share_links.label already exists');
     } else {
-      console.warn('[DB] Migration v18 failed:', e.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v18 failed:', e.message);
     }
   }
 }
@@ -724,12 +727,12 @@ function initSchemaV19(db) {
       )
     `);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_sls_share_day ON share_link_stats(share_code, day)`);
-    console.log('[DB] Migrated: share_link_stats table');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: share_link_stats table');
   } catch (e) {
     if (e.message.includes('already exists')) {
-      console.log('[DB] share_link_stats already exists');
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] share_link_stats already exists');
     } else {
-      console.warn('[DB] Migration v19 failed:', e.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v19 failed:', e.message);
     }
   }
 }
@@ -738,12 +741,12 @@ function initSchemaV20(db) {
   // v20: virtual_folders.password_hash — password-protect virtual folders
   try {
     db.exec(`ALTER TABLE virtual_folders ADD COLUMN password_hash TEXT DEFAULT NULL`);
-    console.log('[DB] Migrated: virtual_folders.password_hash');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: virtual_folders.password_hash');
   } catch (e) {
     if (e.message.includes('duplicate column') || e.message.includes('already exists')) {
-      console.log('[DB] virtual_folders.password_hash already exists');
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] virtual_folders.password_hash already exists');
     } else {
-      console.warn('[DB] Migration v20 failed:', e.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v20 failed:', e.message);
     }
   }
 }
@@ -769,9 +772,9 @@ function initSchemaV21(db) {
     `);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_sc_filename ON sync_conflicts(filename)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_sc_resolved ON sync_conflicts(resolved)`);
-    console.log('[DB] Migrated: sync_conflicts table');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: sync_conflicts table');
   } catch (e) {
-    console.warn('[DB] Migration v21 failed:', e.message);
+    if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v21 failed:', e.message);
   }
 }
 
@@ -779,12 +782,12 @@ function initSchemaV22(db) {
   // v22: add quota_bytes to virtual_folders
   try {
     db.exec(`ALTER TABLE virtual_folders ADD COLUMN quota_bytes INTEGER DEFAULT 0`);
-    console.log('[DB] Migrated: virtual_folders.quota_bytes');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: virtual_folders.quota_bytes');
   } catch (e) {
     if (e.message.includes('duplicate column')) {
-      console.log('[DB] v22 column already exists, skipping');
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] v22 column already exists, skipping');
     } else {
-      console.warn('[DB] Migration v22 failed:', e.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v22 failed:', e.message);
     }
   }
 }
@@ -794,12 +797,12 @@ function initSchemaV23(db) {
   // Files can belong to multiple VFs; this column stores the alphabetically first VF for display
   try {
     db.exec(`ALTER TABLE files ADD COLUMN virtual_folder TEXT DEFAULT NULL`);
-    console.log('[DB] Migrated: files.virtual_folder column');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: files.virtual_folder column');
   } catch (e) {
     if (e.message.includes('duplicate column')) {
-      console.log('[DB] v23 column already exists, skipping');
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] v23 column already exists, skipping');
     } else {
-      console.warn('[DB] Migration v23 failed:', e.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v23 failed:', e.message);
     }
   }
 
@@ -816,10 +819,50 @@ function initSchemaV23(db) {
         AND virtual_folder IS NULL
     `).run();
     if (updateCount.changes > 0) {
-      console.log(`[DB] Backfilled virtual_folder for ${updateCount.changes} files`);
+      if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Backfilled virtual_folder for ${updateCount.changes} files`);
     }
   } catch (e) {
-    console.warn('[DB] Backfill virtual_folder failed:', e.message);
+    if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Backfill virtual_folder failed:', e.message);
+  }
+}
+
+function initSchemaV24(db) {
+  // v24: add missing tables that were in base schema but never created by migrations
+  // file_access_log: per-file access tracking for analytics
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS file_access_log (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_id    INTEGER NOT NULL,
+        action     TEXT    NOT NULL,
+        ip         TEXT,
+        timestamp  INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `);
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: file_access_log table');
+  } catch (e) {
+    if (!e.message.includes('already exists')) {
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v24 (file_access_log) failed:', e.message);
+    }
+  }
+
+  // notifications: user notification system
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        type        TEXT    NOT NULL,
+        title       TEXT    NOT NULL,
+        message     TEXT,
+        read        INTEGER NOT NULL DEFAULT 0,
+        created_at  INTEGER NOT NULL DEFAULT (unixepoch())
+      )
+    `);
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: notifications table');
+  } catch (e) {
+    if (!e.message.includes('already exists')) {
+      if (process.env.LOG_LEVEL !== 'silent') console.warn('[DB] Migration v24 (notifications) failed:', e.message);
+    }
   }
 }
 
@@ -835,7 +878,7 @@ function initSchemaV9(db) {
         tokenize='unicode61 remove_diacritics 2'
       )
     `);
-    console.log('[DB] Migrated: files_fts FTS5 virtual table');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Migrated: files_fts FTS5 virtual table');
 
     // 重建索引：填充现有数据（用 JS 遍历避免 SQL escapeHtml UDF 依赖）
     const existingFiles = db.prepare('SELECT id, filename, tags FROM files').all();
@@ -845,7 +888,7 @@ function initSchemaV9(db) {
         insertFts.run(f.id, escapeHtml(f.filename), f.tags || '');
       }
     }
-    console.log('[DB] FTS5 index seeded with existing files (' + existingFiles.length + ' rows)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] FTS5 index seeded with existing files (' + existingFiles.length + ' rows)');
 
     // 创建触发器：insert（用 SQLite REPLACE 模拟 escapeHtml，避免 JS UDF 依赖）
     const ftsEscape = function(col) {
@@ -869,15 +912,15 @@ function initSchemaV9(db) {
         INSERT INTO files_fts(rowid, filename, tags) VALUES (NEW.id, ${ftsEscape('NEW.filename')}, COALESCE(NEW.tags, ''));
       END
     `);
-    console.log('[DB] FTS5 triggers created');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] FTS5 triggers created');
   } catch (e) {
-    console.error('[DB] FTS5 migration failed:', e.message);
+    if (process.env.LOG_LEVEL !== 'silent') console.error('[DB] FTS5 migration failed:', e.message);
     throw e;
   }
 }
 
 function runMigrations(db, fromVersion) {
-  console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
+  if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Running migrations from v${fromVersion} to v${SCHEMA_VERSION}`);
   for (let v = fromVersion + 1; v <= SCHEMA_VERSION; v++) {
     if (v === 2) {
       initSchemaV2(db);
@@ -923,8 +966,10 @@ function runMigrations(db, fromVersion) {
       initSchemaV22(db);
     } else if (v === 23) {
       initSchemaV23(db);
+    } else if (v === 24) {
+      initSchemaV24(db);
     }
-    console.log(`[DB] Migration to v${v} complete`);
+    if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Migration to v${v} complete`);
   }
 }
 
@@ -2841,7 +2886,7 @@ function cleanupExpiredTokens() {
   const now = Math.floor(Date.now() / 1000);
   const result = db.prepare('DELETE FROM tokens WHERE expires_at < ?').run(now);
   if (result.changes > 0) {
-    console.log(`[DB] Cleaned up ${result.changes} expired tokens`);
+    if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Cleaned up ${result.changes} expired tokens`);
   }
   return result.changes;
 }
@@ -3493,7 +3538,7 @@ function cleanupExpiredShareLinks() {
   const now = Math.floor(Date.now() / 1000);
   const result = db.prepare('DELETE FROM share_links WHERE expires_at < ?').run(now);
   if (result.changes > 0) {
-    console.log(`[DB] Cleaned up ${result.changes} expired share links`);
+    if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Cleaned up ${result.changes} expired share links`);
   }
   return result.changes;
 }
@@ -3733,7 +3778,7 @@ function cleanupSyncLog(daysToKeep = 7) {
   // 只删除已同步且超过保留期的日志
   const result = db.prepare('DELETE FROM sync_log WHERE synced = 1 AND timestamp < ?').run(cutoff);
   if (result.changes > 0) {
-    console.log(`[DB] Cleaned up ${result.changes} old sync_log entries`);
+    if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Cleaned up ${result.changes} old sync_log entries`);
   }
   return result.changes;
 }
@@ -3743,7 +3788,7 @@ function cleanupAuditLog(daysToKeep = 90) {
   const cutoff = Math.floor(Date.now() / 1000) - daysToKeep * 86400;
   const result = db.prepare('DELETE FROM audit_log WHERE timestamp < ?').run(cutoff);
   if (result.changes > 0) {
-    console.log(`[DB] Cleaned up ${result.changes} old audit_log entries`);
+    if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Cleaned up ${result.changes} old audit_log entries`);
   }
   return result.changes;
 }
@@ -3903,7 +3948,7 @@ function getDashboardStats() {
     WHERE (expires_at IS NULL OR expires_at > ?)
   `).get(now).c;
   const totalShares = db.prepare('SELECT COUNT(*) as c FROM share_links').get().c;
-  const sharesWithPwd = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE password_hash IS NOT NULL').get().c;
+  const sharesWithPwd = db.prepare('SELECT COUNT(*) as c FROM share_links WHERE password IS NOT NULL').get().c;
 
   // 分享链接分析
   const totalViews = db.prepare('SELECT COALESCE(SUM(view_count), 0) as c FROM share_links').get().c;
@@ -4017,7 +4062,7 @@ function getDashboardStats() {
 function runVacuum() {
   const db = getDb();
   db.exec('VACUUM');
-  console.log('[DB] VACUUM completed');
+  if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] VACUUM completed');
 }
 
 function checkDbIntegrity() {
@@ -4042,9 +4087,9 @@ function backupDb() {
   db.backup(dest, (err) => {
     dest.close();
     if (err) {
-      console.error('[DB] Backup failed:', err.message);
+      if (process.env.LOG_LEVEL !== 'silent') console.error('[DB] Backup failed:', err.message);
     } else {
-      console.log('[DB] Backup saved to:', backupPath);
+      if (process.env.LOG_LEVEL !== 'silent') console.log('[DB] Backup saved to:', backupPath);
     }
   });
 
@@ -4449,7 +4494,7 @@ function migrateFromFileSystem(shareDir) {
     }
   }
 
-  console.log(`[DB] Migrated ${migrated} files from ${shareDir}`);
+  if (process.env.LOG_LEVEL !== 'silent') console.log(`[DB] Migrated ${migrated} files from ${shareDir}`);
   return { migrated };
 }
 

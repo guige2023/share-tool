@@ -19,10 +19,10 @@ const MAX_HISTORY = 500;
 
 // Global error handlers — prevent silent crashes
 process.on('uncaughtException', (err) => {
-  console.error('[ShareTool CLI] Uncaught Exception:', err);
+  if (process.env.LOG_LEVEL !== 'silent') console.error('[ShareTool CLI] Uncaught Exception:', err);
 });
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('[ShareTool CLI] Unhandled Rejection:', reason);
+  if (process.env.LOG_LEVEL !== 'silent') console.error('[ShareTool CLI] Unhandled Rejection:', reason);
 });
 
 // CLI internationalization (English by default, zh-CN if LANG matches)
@@ -485,7 +485,7 @@ async function uploadFile(filePath) {
     uploadId = checkRes.data.uploadId;
     receivedChunks = checkRes.data.receivedChunks || [];
     const totalChunks = checkRes.data.totalChunks;
-    console.log(`📡 ${CLI_I18N.resume}: ${fileName} (${receivedChunks.length}/${totalChunks}${CLI_I18N.chunkUploaded})`);
+    if (process.env.LOG_LEVEL !== 'silent') console.log(`📡 ${CLI_I18N.resume}: ${fileName} (${receivedChunks.length}/${totalChunks}${CLI_I18N.chunkUploaded})`);
   } else {
     // 发起新的分片上传
     const chunkCount = Math.ceil(totalSize / CHUNK_SIZE);
@@ -498,7 +498,7 @@ async function uploadFile(filePath) {
     }
     uploadId = initRes.data.uploadId;
     receivedChunks = [];
-    console.log(`⬆️  ${CLI_I18N.uploadStart}: ${fileName} (${chunkCount}${CLI_I18N.chunkUploaded})`);
+    if (process.env.LOG_LEVEL !== 'silent') console.log(`⬆️  ${CLI_I18N.uploadStart}: ${fileName} (${chunkCount}${CLI_I18N.chunkUploaded})`);
   }
 
   // 2. 上传缺失的分片
@@ -529,12 +529,12 @@ async function uploadFile(filePath) {
     });
 
     if (chunkRes.status !== 200 || !chunkRes.data.success) {
-      console.log(`\nError: Chunk ${i} upload failed: ${chunkRes.data.error || chunkRes.status}`);
+      if (process.env.LOG_LEVEL !== 'silent') console.log(`\nError: Chunk ${i} upload failed: ${chunkRes.data.error || chunkRes.status}`);
       throw new Error(`${CLI_I18N.chunkFailed} ${i} ${CLI_I18N.uploadFailed}: ${chunkRes.data.error || chunkRes.status}`);
     }
   }
   const finalBar = '█'.repeat(BAR_WIDTH);
-  console.log(`\r  ${fileName}  [${finalBar}] 100%  ${formatSize(totalSize)}/${formatSize(totalSize)}`);
+  if (process.env.LOG_LEVEL !== 'silent') console.log(`\r  ${fileName}  [${finalBar}] 100%  ${formatSize(totalSize)}/${formatSize(totalSize)}`);
 
   // 3. 完成上传
   const completeRes = await request('POST', '/api/upload/complete', {
@@ -656,11 +656,11 @@ function downloadFile(name, outputDir, onProgress) {
 }
 
 function printJson(data) {
-  console.log(JSON.stringify(data, null, 2));
+  if (process.env.LOG_LEVEL !== 'silent') console.log(JSON.stringify(data, null, 2));
 }
 
 function printError(msg) {
-  console.error('Error:', msg);
+  if (process.env.LOG_LEVEL !== 'silent') console.error('Error:', msg);
 }
 
 async function main() {
@@ -668,55 +668,55 @@ async function main() {
   const command = args[0];
 
   if (!command) {
-    console.log('Usage: share-tool <command> [args]');
-    console.log('Commands:');
-    console.log('  list [-l]      List all files (-l: long format)');
-    console.log('  upload <file>  Upload a single file');
-    console.log('  upload-dir <dir>  Upload all files in a directory');
-    console.log('  batch-upload <file1> [file2] ... [--dir <dir>]  Batch upload multiple files or all files in a directory');
-    console.log('  download <name> [-o dir]  Download a file');
-    console.log('  delete <name>  Delete a file');
-    console.log('  copy <src> <dest>  Copy a file to a new name');
-    console.log('  rename <old> <new>  Rename a file');
-    console.log('  batch-delete <name1> [name2] ...  Delete multiple files');
-    console.log('  batch-download [-c N] [-o <dir>] [--search <pattern>] [name1] [name2] .. Download multiple files');
-    console.log('  batch-tag <tag> [files...]        Add tag to files (alias: share-tool batch-tag add <tag> [files])');
-    console.log('  batch-tag remove <tag> [files]   Remove tag from files');
-    console.log('  batch-tag set <tag> [files]       Set (replace) tag on files');
-    console.log('  batch-rename <old1> <new1> [old2 new2...]  Batch rename files');
-    console.log('  tags           Show all tags with usage bar chart');
-    console.log('  search <query> [-l]  Search files (-l: long format)');
-    console.log('  cat <name>     Print file content to stdout');
-    console.log('  find <query> [--tag=x] [--type=x] [--limit=n]  Advanced search');
-    console.log('  share <text>   Share text snippet');
-    console.log('  share-link <file> [--expires=7d] [--max-downloads=n] [--password=x]  Create share link');
-    console.log('  sync           Pull changes from server via WebSocket');
-    console.log('  sync-watch     Watch for real-time changes (long-lived)');
-    console.log('  status         Check if server is online');
-    console.log('  open           Open server URL in browser');
-    console.log('  serve          Start server in foreground (Ctrl+C to stop)');
-    console.log('  log [--limit=n] [--action=x] [--date=YYYY-MM-DD] [-f]  Show audit logs (-f: follow)');
-    console.log('  stats          Show storage stats');
-    console.log('  recent [n]     Show recently modified files (default: 10)');
-    console.log('  trash [list|restore <id>|delete <id>|empty]  Manage trash');
-    console.log('  share-list     List all active share links');
-    console.log('  share-delete <code>  Delete a share link');
-    console.log('  share-extend <code> [hours]  Extend expiry (default 168h)');
-    console.log('  share-password <code> [pwd]  Set/remove password');
-    console.log('  share-info <code>  Show share link details');
-    console.log('  top [n]         Show largest files (default: 10)');
-    console.log('  duplicates [delete <id>|keep <id> <file>]  List/delete duplicate files');
-    console.log('  diff <filename> [v1] [v2]  Compare file versions');
-    console.log('  export [-o dir]  Export all files to local directory');
-    console.log('  token          Show current token');
-    console.log('  token refresh  Refresh dynamic token via /api/auth/login');
-    console.log('  history [--clear]  Show command history');
-    console.log('  renew-cert     Force renew HTTPS certificate');
-    console.log('  config         Show all config');
-    console.log('  config get <key>        Get a config value');
-    console.log('  config set <key> <value> Set a config value');
-    console.log('  config unset <key>       Remove a config value');
-    console.log('  config reset             Reset all config');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('Usage: share-tool <command> [args]');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('Commands:');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  list [-l]      List all files (-l: long format)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  upload <file>  Upload a single file');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  upload-dir <dir>  Upload all files in a directory');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  batch-upload <file1> [file2] ... [--dir <dir>]  Batch upload multiple files or all files in a directory');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  download <name> [-o dir]  Download a file');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  delete <name>  Delete a file');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  copy <src> <dest>  Copy a file to a new name');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  rename <old> <new>  Rename a file');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  batch-delete <name1> [name2] ...  Delete multiple files');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  batch-download [-c N] [-o <dir>] [--search <pattern>] [name1] [name2] .. Download multiple files');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  batch-tag <tag> [files...]        Add tag to files (alias: share-tool batch-tag add <tag> [files])');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  batch-tag remove <tag> [files]   Remove tag from files');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  batch-tag set <tag> [files]       Set (replace) tag on files');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  batch-rename <old1> <new1> [old2 new2...]  Batch rename files');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  tags           Show all tags with usage bar chart');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  search <query> [-l]  Search files (-l: long format)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  cat <name>     Print file content to stdout');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  find <query> [--tag=x] [--type=x] [--limit=n]  Advanced search');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  share <text>   Share text snippet');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  share-link <file> [--expires=7d] [--max-downloads=n] [--password=x]  Create share link');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  sync           Pull changes from server via WebSocket');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  sync-watch     Watch for real-time changes (long-lived)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  status         Check if server is online');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  open           Open server URL in browser');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  serve          Start server in foreground (Ctrl+C to stop)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  log [--limit=n] [--action=x] [--date=YYYY-MM-DD] [-f]  Show audit logs (-f: follow)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  stats          Show storage stats');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  recent [n]     Show recently modified files (default: 10)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  trash [list|restore <id>|delete <id>|empty]  Manage trash');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  share-list     List all active share links');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  share-delete <code>  Delete a share link');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  share-extend <code> [hours]  Extend expiry (default 168h)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  share-password <code> [pwd]  Set/remove password');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  share-info <code>  Show share link details');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  top [n]         Show largest files (default: 10)');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  duplicates [delete <id>|keep <id> <file>]  List/delete duplicate files');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  diff <filename> [v1] [v2]  Compare file versions');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  export [-o dir]  Export all files to local directory');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  token          Show current token');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  token refresh  Refresh dynamic token via /api/auth/login');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  history [--clear]  Show command history');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  renew-cert     Force renew HTTPS certificate');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  config         Show all config');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  config get <key>        Get a config value');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  config set <key> <value> Set a config value');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  config unset <key>       Remove a config value');
+    if (process.env.LOG_LEVEL !== 'silent') console.log('  config reset             Reset all config');
     process.exit(1);
   }
 
@@ -737,22 +737,22 @@ async function main() {
         }
         if (longFlag) {
           const files = res.data.files || [];
-          if (files.length === 0) { console.log('No files.'); break; }
+          if (files.length === 0) { if (process.env.LOG_LEVEL !== 'silent') console.log('No files.'); break; }
           // Calculate column widths
           const nameW = Math.min(Math.max(...files.map(f => (f.name||'').length)) + 2, 40);
           const sizeW = 8;
           const typeW = 6;
           const header = 'NAME'.padEnd(nameW) + 'SIZE'.padStart(sizeW) + '  TYPE    TAGS';
-          console.log(header);
-          console.log('-'.repeat(nameW + sizeW + 14));
+          if (process.env.LOG_LEVEL !== 'silent') console.log(header);
+          if (process.env.LOG_LEVEL !== 'silent') console.log('-'.repeat(nameW + sizeW + 14));
           for (const f of files) {
             const name = (f.name||'').length > nameW - 2 ? (f.name||'').slice(0, nameW-3) + '...' : (f.name||'');
             const size = formatSize(f.size || 0).padStart(sizeW);
             const type = (f.type||'file').slice(0,5).padEnd(6);
             const tags = f.tags || '';
-            console.log(name.padEnd(nameW) + size + '  ' + type + ' ' + tags);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(name.padEnd(nameW) + size + '  ' + type + ' ' + tags);
           }
-          console.log(`\n${files.length} file(s)`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`\n${files.length} file(s)`);
         } else {
           printJson(res.data);
         }
@@ -834,7 +834,7 @@ async function main() {
           toUpload = files;
         }
         if (toUpload.length === 0) {
-          console.log('No files to upload.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No files to upload.');
           process.exit(0);
         }
         let success = 0, failed = 0;
@@ -846,7 +846,7 @@ async function main() {
           const filled = Math.round((pct / 100) * W);
           return '█'.repeat(filled) + '░'.repeat(W - filled);
         };
-        console.log(`📦 Batch upload: ${toUpload.length} files (${fmtSize(totalSize)} total)`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`📦 Batch upload: ${toUpload.length} files (${fmtSize(totalSize)} total)`);
         const CONCURRENCY = 4;
         const results = [];
         let idx = 0;
@@ -869,15 +869,15 @@ async function main() {
             try {
               const res = await uploadFile(filePath);
               if (res.status >= 400) {
-                console.log(`❌ ${res.data?.error || res.status}`);
+                if (process.env.LOG_LEVEL !== 'silent') console.log(`❌ ${res.data?.error || res.status}`);
                 failed++;
               } else {
-                console.log(`✅`);
+                if (process.env.LOG_LEVEL !== 'silent') console.log(`✅`);
                 success++;
               }
               uploadedBytes += fileSize;
             } catch (e) {
-              console.log(`❌ ${e.message}`);
+              if (process.env.LOG_LEVEL !== 'silent') console.log(`❌ ${e.message}`);
               failed++;
             }
             printOverall();
@@ -886,7 +886,7 @@ async function main() {
         // Run CONCURRENCY workers in parallel
         await Promise.all(Array.from({ length: Math.min(CONCURRENCY, total) }, uploadOne));
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`\n📊 Summary: ${success} ✅  ${failed} ❌  (${elapsed}s)`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`\n📊 Summary: ${success} ✅  ${failed} ❌  (${elapsed}s)`);
         process.exit(failed > 0 ? 1 : 0);
         break;
       }
@@ -931,7 +931,7 @@ async function main() {
           process.exit(1);
         }
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log('Downloaded: ' + name + ' (' + formatBytes(res.data.size || 0) + ') in ' + elapsed + 's → ' + res.data.saved);
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Downloaded: ' + name + ' (' + formatBytes(res.data.size || 0) + ') in ' + elapsed + 's → ' + res.data.saved);
         break;
       }
 
@@ -959,26 +959,26 @@ async function main() {
             const res = await request('GET', '/api/files?search=' + encodeURIComponent(pattern) + '&limit=100');
             if (res.status >= 400) { printError('Search failed: ' + res.status); process.exit(1); }
             const files = res.data.files || [];
-            if (files.length === 0) { console.log('No files found matching: ' + pattern); process.exit(0); }
+            if (files.length === 0) { if (process.env.LOG_LEVEL !== 'silent') console.log('No files found matching: ' + pattern); process.exit(0); }
             for (const f of files) names.push(f.filename);
-            console.log('Found ' + files.length + ' file(s)\n');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('Found ' + files.length + ' file(s)\n');
           }
           else if (arg === '--help') { showHelp = true; }
           else { names.push(arg); }
         }
 
         if (showHelp || names.length === 0) {
-          console.log('Usage: share-tool batch-download [-c N] [-o <dir>] [--search <pattern>] <name1> [name2] ...\n');
-          console.log('Options:');
-          console.log('  -c N        Concurrent downloads (default: 1, max: 10)');
-          console.log('  -o <dir>    Output directory (default: current dir)');
-          console.log('  --search    Search for files by pattern, then download all matches');
-          console.log('  --help      Show this help');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Usage: share-tool batch-download [-c N] [-o <dir>] [--search <pattern>] <name1> [name2] ...\n');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Options:');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('  -c N        Concurrent downloads (default: 1, max: 10)');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('  -o <dir>    Output directory (default: current dir)');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('  --search    Search for files by pattern, then download all matches');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('  --help      Show this help');
           process.exit(showHelp ? 0 : 1);
         }
 
         concurrency = Math.min(Math.max(concurrency, 1), 10);
-        console.log('Downloading ' + names.length + ' file(s) to ' + outputDir + '/ (concurrency=' + concurrency + ')\n');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Downloading ' + names.length + ' file(s) to ' + outputDir + '/ (concurrency=' + concurrency + ')\n');
         const cliFs = require('fs');
         if (!cliFs.existsSync(outputDir)) cliFs.mkdirSync(outputDir, { recursive: true });
 
@@ -1043,7 +1043,7 @@ async function main() {
           if (r && r.status === 'success') success++;
           else failed++;
         }
-        console.log('\nDone: ' + success + ' succeeded, ' + failed + ' failed');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('\nDone: ' + success + ' succeeded, ' + failed + ' failed');
         process.exit(failed > 0 ? 1 : 0);
         break;
       }
@@ -1118,8 +1118,8 @@ async function main() {
         }
         if (longFlag) {
           const files = res.data.results || res.data.files || res.data || [];
-          if (files.length === 0) { console.log('No results.'); break; }
-          console.log(`Results for "${cleanQuery}":\n`);
+          if (files.length === 0) { if (process.env.LOG_LEVEL !== 'silent') console.log('No results.'); break; }
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Results for "${cleanQuery}":\n`);
           const nameW = 40;
           for (const f of files) {
             const name = f.filename || f.name || '';
@@ -1127,9 +1127,9 @@ async function main() {
             const score = f.score || 0;
             const tags = f.tags || '';
             const truncated = name.length > nameW - 1 ? name.slice(0, nameW-2) + '..' : name;
-            console.log(`  ${truncated.padEnd(nameW)} ${size.padStart(8)}  ${tags ? '🏷 ' + tags : ''}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`  ${truncated.padEnd(nameW)} ${size.padStart(8)}  ${tags ? '🏷 ' + tags : ''}`);
           }
-          console.log(`\n${files.length} result(s)`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`\n${files.length} result(s)`);
         } else {
           printJson(res.data);
         }
@@ -1161,34 +1161,34 @@ async function main() {
                 try {
                   const json = JSON.parse(data);
                   if (json.success) {
-                    console.log('New dynamic token:', json.token);
-                    console.log('Refresh token:', json.refreshToken);
-                    console.log('Expires at:', new Date(json.expiresAt * 1000).toLocaleString());
+                    if (process.env.LOG_LEVEL !== 'silent') console.log('New dynamic token:', json.token);
+                    if (process.env.LOG_LEVEL !== 'silent') console.log('Refresh token:', json.refreshToken);
+                    if (process.env.LOG_LEVEL !== 'silent') console.log('Expires at:', new Date(json.expiresAt * 1000).toLocaleString());
                     saveConfig({ ...config, token: json.token, refreshToken: json.refreshToken });
-                    console.log('Config updated.');
+                    if (process.env.LOG_LEVEL !== 'silent') console.log('Config updated.');
                   } else if (!useRefreshEndpoint) {
                     // refresh endpoint failed without fallback, give up
-                    console.log('Token refresh failed:', json.error);
+                    if (process.env.LOG_LEVEL !== 'silent') console.log('Token refresh failed:', json.error);
                     process.exit(1);
                   } else {
                     // refresh token expired/invalid, fall back to static token login
-                    console.log('Refresh token expired, re-authenticating with static token...');
+                    if (process.env.LOG_LEVEL !== 'silent') console.log('Refresh token expired, re-authenticating with static token...');
                     doRefresh(null, false);
                   }
                 } catch (e) {
-                  console.log('Response parse error:', e.message);
+                  if (process.env.LOG_LEVEL !== 'silent') console.log('Response parse error:', e.message);
                   process.exit(1);
                 }
               });
             }).on('error', (e) => {
-              console.log('Cannot connect to server:', e.message);
+              if (process.env.LOG_LEVEL !== 'silent') console.log('Cannot connect to server:', e.message);
               process.exit(1);
             });
             req.end(body);
           }
 
           if (!refreshToken && !staticToken) {
-            console.log('No token found. Run: share-tool token');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('No token found. Run: share-tool token');
             process.exit(1);
           }
           if (refreshToken) {
@@ -1199,9 +1199,9 @@ async function main() {
           return; // async, don't fall through
         }
         if (config.shareToken || config.token) {
-          console.log('Current token:', config.shareToken || config.token);
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Current token:', config.shareToken || config.token);
         } else {
-          console.log('No token configured in', CONFIG_PATH);
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No token configured in', CONFIG_PATH);
         }
         break;
       }
@@ -1261,11 +1261,11 @@ async function main() {
         }
         const d = res.data;
         const url = d.url || (getServerUrl().replace(/\/+$/, '') + '/s/' + d.code);
-        console.log('Share link created:');
-        console.log('  URL:  ' + url);
-        console.log('  Code: ' + d.code);
-        if (d.passwordRequired) console.log('  Note: Password required to access');
-        if (d.expiresAt) console.log('  Expires: ' + new Date(d.expiresAt * 1000).toLocaleString());
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Share link created:');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('  URL:  ' + url);
+        if (process.env.LOG_LEVEL !== 'silent') console.log('  Code: ' + d.code);
+        if (d.passwordRequired) if (process.env.LOG_LEVEL !== 'silent') console.log('  Note: Password required to access');
+        if (d.expiresAt) if (process.env.LOG_LEVEL !== 'silent') console.log('  Expires: ' + new Date(d.expiresAt * 1000).toLocaleString());
         break;
       }
 
@@ -1284,24 +1284,24 @@ async function main() {
           return stat.isFile() && !f.startsWith('.');
         });
         if (files.length === 0) {
-          console.log('No files found in directory');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No files found in directory');
           process.exit(0);
         }
-        console.log(`Uploading ${files.length} files from ${dirPath}...`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Uploading ${files.length} files from ${dirPath}...`);
         let success = 0, failed = 0;
         for (const file of files) {
           const fullPath = path.join(dirPath, file);
           process.stdout.write(`  ${file}... `);
           const res = await uploadFile(fullPath);
           if (res.status < 400) {
-            console.log('OK');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('OK');
             success++;
           } else {
-            console.log(`FAILED (${res.status})`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`FAILED (${res.status})`);
             failed++;
           }
         }
-        console.log(`\nDone: ${success} succeeded, ${failed} failed`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`\nDone: ${success} succeeded, ${failed} failed`);
         process.exit(failed > 0 ? 1 : 0);
         break;
       }
@@ -1326,9 +1326,9 @@ async function main() {
           process.exit(1);
         }
         const { success, failed, results, errors } = res.data;
-        console.log(`Renamed ${success.length} file(s), ${errors.length} failed`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Renamed ${success.length} file(s), ${errors.length} failed`);
         if (errors.length > 0) {
-          errors.forEach(e => console.log(`  FAIL: ${e.oldFilename} - ${e.error}`));
+          errors.forEach(e => { if (process.env.LOG_LEVEL !== 'silent') console.log(`  FAIL: ${e.oldFilename} - ${e.error}`); });
         }
         process.exit(errors.length > 0 ? 1 : 0);
         break;
@@ -1340,20 +1340,20 @@ async function main() {
           printError('At least one file name required');
           process.exit(1);
         }
-        console.log(`Deleting ${names.length} files...`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Deleting ${names.length} files...`);
         let success = 0, failed = 0;
         for (const name of names) {
           process.stdout.write(`  ${name}... `);
           const res = await request('DELETE', `/delete/${encodeURIComponent(name)}`);
           if (res.status < 400) {
-            console.log('OK');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('OK');
             success++;
           } else {
-            console.log(`FAILED (${res.status})`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`FAILED (${res.status})`);
             failed++;
           }
         }
-        console.log(`\nDone: ${success} succeeded, ${failed} failed`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`\nDone: ${success} succeeded, ${failed} failed`);
         process.exit(failed > 0 ? 1 : 0);
         break;
       }
@@ -1386,7 +1386,7 @@ async function main() {
           printError('At least one file name required');
           process.exit(1);
         }
-        console.log(`${action.toUpperCase()} tag "${tag}" on ${files.length} files...`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`${action.toUpperCase()} tag "${tag}" on ${files.length} files...`);
         const res = await request('PUT', '/api/file-tags/batch', {
           body: JSON.stringify({ files, action, tags: tag })
         });
@@ -1394,7 +1394,7 @@ async function main() {
           printError(`Batch tag failed: ${res.data.error || res.status}`);
           process.exit(1);
         }
-        console.log(`Done: ${res.data.updated} updated, ${res.data.failed} failed (total: ${res.data.total})`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Done: ${res.data.updated} updated, ${res.data.failed} failed (total: ${res.data.total})`);
         process.exit(res.data.failed > 0 ? 1 : 0);
         break;
       }
@@ -1407,27 +1407,27 @@ async function main() {
         }
         const tags = res.data.tags || [];
         if (tags.length === 0) {
-          console.log('No tags found.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No tags found.');
         } else {
-          console.log(`Tags (${tags.length}):`);
-          tags.forEach(t => console.log('  ' + t));
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Tags (${tags.length}):`);
+          tags.forEach(t => { if (process.env.LOG_LEVEL !== 'silent') console.log('  ' + t); });
         }
         process.exit(0);
         break;
       }
 
       case 'sync': {
-        console.log('Connecting to sync server...');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Connecting to sync server...');
         try {
           const ws = await connectSyncWs();
-          console.log('Connected. Syncing...');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Connected. Syncing...');
           const pullResult = await syncPull();
           const manifest = loadManifest();
           if (pullResult.payload && pullResult.payload.logs && pullResult.payload.logs.length > 0) {
-            console.log(`Pulled ${pullResult.payload.logs.length} change(s) from server.`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`Pulled ${pullResult.payload.logs.length} change(s) from server.`);
             for (const log of pullResult.payload.logs) {
-              console.log(`  [${log.action}] ${log.filename || '(no name)'}`);
-              await applyRemoteChange(log, (msg) => console.log('    ' + msg));
+              if (process.env.LOG_LEVEL !== 'silent') console.log(`  [${log.action}] ${log.filename || '(no name)'}`);
+              await applyRemoteChange(log, (msg) => { if (process.env.LOG_LEVEL !== 'silent') console.log('    ' + msg); });
               // Update manifest
               if (log.action === 'delete') {
                 delete manifest.files[log.filename];
@@ -1441,9 +1441,9 @@ async function main() {
             manifest.lastSync = Math.floor(Date.now() / 1000);
             saveManifest(manifest);
           } else {
-            console.log('No new changes from server.');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('No new changes from server.');
           }
-          console.log('Sync complete.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Sync complete.');
         } catch (err) {
           printError(`Sync failed: ${err.message}`);
           process.exit(1);
@@ -1452,37 +1452,37 @@ async function main() {
       }
 
       case 'sync-watch': {
-        console.log('Starting sync watch mode...');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Starting sync watch mode...');
         try {
           // Load or bootstrap manifest
           let manifest = loadManifest();
           const isNew = Object.keys(manifest.files).length === 0;
           if (isNew) {
-            console.log('No local manifest found. Fetching server file list...');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('No local manifest found. Fetching server file list...');
             manifest = await buildManifestFromServer();
             if (!manifest) throw new Error('Failed to fetch server file list');
             saveManifest(manifest);
-            console.log(`Manifest created: ${Object.keys(manifest.files).length} files synced.`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`Manifest created: ${Object.keys(manifest.files).length} files synced.`);
           } else {
-            console.log(`Loaded manifest: ${Object.keys(manifest.files).length} files tracked.`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`Loaded manifest: ${Object.keys(manifest.files).length} files tracked.`);
             // Do a full sync pull on startup
             const pullResult = await syncPull();
             if (pullResult.payload && pullResult.payload.logs && pullResult.payload.logs.length > 0) {
               for (const log of pullResult.payload.logs) {
-                await applyRemoteChange(log, (msg) => console.log('  ' + msg));
+                await applyRemoteChange(log, (msg) => { if (process.env.LOG_LEVEL !== 'silent') console.log('  ' + msg); });
               }
               // Update manifest lastSync
               manifest.lastSync = Math.floor(Date.now() / 1000);
               saveManifest(manifest);
-              console.log(`Synced ${pullResult.payload.logs.length} change(s).`);
+              if (process.env.LOG_LEVEL !== 'silent') console.log(`Synced ${pullResult.payload.logs.length} change(s).`);
             }
           }
 
           // Connect WebSocket for real-time updates
           const ws = await connectSyncWs();
-          console.log('Connected. Watching for real-time changes...');
-          console.log(`Sync directory: ${SYNC_DIR}`);
-          console.log('Press Ctrl+C to stop.\n');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Connected. Watching for real-time changes...');
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Sync directory: ${SYNC_DIR}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Press Ctrl+C to stop.\n');
 
           // Override handleWsMessage to apply changes in real-time
           const origHandler = wsClient.listeners('message')[0];
@@ -1494,8 +1494,8 @@ async function main() {
               // Real-time file changes from server broadcast
               if (['file_create', 'file_update', 'file_delete', 'file_rename'].includes(type)) {
                 const now = new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai' });
-                console.log(`[${now}] ${type}: ${payload.filename}`);
-                await applyRemoteChange(payload, (evMsg) => console.log('    ' + evMsg));
+                if (process.env.LOG_LEVEL !== 'silent') console.log(`[${now}] ${type}: ${payload.filename}`);
+                await applyRemoteChange(payload, (evMsg) => { if (process.env.LOG_LEVEL !== 'silent') console.log('    ' + evMsg); });
                 // Update manifest
                 if (type === 'file_delete') {
                   delete manifest.files[payload.filename];
@@ -1532,14 +1532,14 @@ async function main() {
         }
         const files = res.data.files || [];
         if (files.length === 0) {
-          console.log('No files found.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No files found.');
         } else {
-          console.log(`Recent ${files.length} file(s):`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Recent ${files.length} file(s):`);
           files.forEach((f, i) => {
             const date = new Date((f.updatedAt || f.time) / 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
             const size = formatSize(f.size || 0);
             const star = f.starred ? '⭐ ' : '   ';
-            console.log(`  ${star}${f.name} (${size}) - ${date}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`  ${star}${f.name} (${size}) - ${date}`);
           });
         }
         break;
@@ -1572,13 +1572,13 @@ async function main() {
         }
         const results = res.data.files || res.data.results || [];
         if (results.length === 0) {
-          console.log('No files found.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No files found.');
         } else {
-          console.log(`Found ${results.length} file(s):`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Found ${results.length} file(s):`);
           results.forEach((f, i) => {
             const score = f.score !== undefined ? ` [score:${f.score}]` : '';
             const tags = f.tags ? ` [${f.tags}]` : '';
-            console.log(`  ${i + 1}. ${f.name || f.filename}${tags}${score}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`  ${i + 1}. ${f.name || f.filename}${tags}${score}`);
           });
         }
         break;
@@ -1589,36 +1589,36 @@ async function main() {
         try {
           res = await request('GET', '/api/health');
         } catch (e) {
-          console.log('❌ Server offline or unreachable');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('❌ Server offline or unreachable');
           process.exit(1);
         }
         if (res.status >= 500) {
-          console.log('❌ Server error: ' + res.status);
+          if (process.env.LOG_LEVEL !== 'silent') console.log('❌ Server error: ' + res.status);
           process.exit(1);
         }
         if (res.status >= 400) {
-          console.log('⚠️  Server returned: ' + res.status);
+          if (process.env.LOG_LEVEL !== 'silent') console.log('⚠️  Server returned: ' + res.status);
           process.exit(1);
         }
         const h = res.data;
-        console.log('✅ Server online');
-        console.log('   Version: ' + (h.version || 'unknown'));
-        console.log('   URL:     ' + getServerUrl());
+        if (process.env.LOG_LEVEL !== 'silent') console.log('✅ Server online');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('   Version: ' + (h.version || 'unknown'));
+        if (process.env.LOG_LEVEL !== 'silent') console.log('   URL:     ' + getServerUrl());
         if (h.uptime) {
           const days = Math.floor(h.uptime / 86400);
           const hh = Math.floor((h.uptime % 86400) / 3600);
           const mm = Math.floor((h.uptime % 3600) / 60);
           const ss = Math.round(h.uptime % 60);
-          console.log('   Uptime:  ' + (days > 0 ? days + 'd ' : '') + hh + 'h ' + mm + 'm ' + ss + 's');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('   Uptime:  ' + (days > 0 ? days + 'd ' : '') + hh + 'h ' + mm + 'm ' + ss + 's');
         }
         // Fetch stats
         try {
           const statsRes = await request('GET', '/api/db/stats');
           if (statsRes.status < 400 && statsRes.data.success) {
             const s = statsRes.data;
-            console.log('   Files:   ' + (s.fileCount || 0));
-            console.log('   Storage: ' + formatSize(s.totalSize || 0));
-            if (s.shareLinks !== undefined) console.log('   Shares:  ' + s.shareLinks);
+            if (process.env.LOG_LEVEL !== 'silent') console.log('   Files:   ' + (s.fileCount || 0));
+            if (process.env.LOG_LEVEL !== 'silent') console.log('   Storage: ' + formatSize(s.totalSize || 0));
+            if (s.shareLinks !== undefined) if (process.env.LOG_LEVEL !== 'silent') console.log('   Shares:  ' + s.shareLinks);
           }
         } catch (_) {}
         break;
@@ -1626,7 +1626,7 @@ async function main() {
       case 'open': {
         const url = getServerUrl();
         const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
-        console.log('Opening: ' + url);
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Opening: ' + url);
         require('child_process').spawn(openCmd, [url], { detached: true, stdio: 'ignore' }).unref();
         break;
       }
@@ -1636,8 +1636,8 @@ async function main() {
         const serverPath = path.join(__dirname, 'server.js');
         const lang = (process.env.LANG || '').toLowerCase();
         const isZh = lang.includes('zh');
-        console.log(isZh ? '启动 ShareTool 服务器...' : 'Starting ShareTool server...');
-        console.log(isZh ? '按 Ctrl+C 停止服务器' : 'Press Ctrl+C to stop server');
+        if (process.env.LOG_LEVEL !== 'silent') console.log(isZh ? '启动 ShareTool 服务器...' : 'Starting ShareTool server...');
+        if (process.env.LOG_LEVEL !== 'silent') console.log(isZh ? '按 Ctrl+C 停止服务器' : 'Press Ctrl+C to stop server');
         const child = spawn('node', [serverPath, ...args.slice(1)], {
           stdio: 'inherit',
           cwd: __dirname
@@ -1663,7 +1663,7 @@ async function main() {
         };
         if (follow) {
           let lastTimestamp = 0;
-          console.log('Following audit logs... (Ctrl+C to stop)');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Following audit logs... (Ctrl+C to stop)');
           const interval = setInterval(async () => {
             try {
               const res = await request('GET', endpoint + '&since=' + lastTimestamp);
@@ -1674,7 +1674,7 @@ async function main() {
                 if (ts > lastTimestamp) lastTimestamp = ts;
                 const act = (l.action || '').padEnd(20);
                 const details = (l.details || '').slice(0, 80);
-                console.log(fmtTime(ts) + '  ' + act + '  ' + details);
+                if (process.env.LOG_LEVEL !== 'silent') console.log(fmtTime(ts) + '  ' + act + '  ' + details);
               }
             } catch (_) {}
           }, 3000);
@@ -1687,20 +1687,20 @@ async function main() {
           }
           const logs = res.data.logs || [];
           if (logs.length === 0) {
-            console.log('No audit logs found.');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('No audit logs found.');
             break;
           }
-          console.log('=== Audit Logs (' + logs.length + ') ===');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('=== Audit Logs (' + logs.length + ') ===');
           for (const l of logs) {
             const act = (l.action || '').padEnd(20);
             const time = fmtTime(l.timestamp);
             const details = (l.details || '').slice(0, 60);
-            console.log(time + '  ' + act + '  ' + details + (l.details && l.details.length > 60 ? '...' : ''));
+            if (process.env.LOG_LEVEL !== 'silent') console.log(time + '  ' + act + '  ' + details + (l.details && l.details.length > 60 ? '...' : ''));
           }
           if (res.data.stats) {
             const s = res.data.stats;
-            console.log('\n=== Summary ===');
-            console.log('Total: ' + s.total + '  |  Today: ' + s.todayCount);
+            if (process.env.LOG_LEVEL !== 'silent') console.log('\n=== Summary ===');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('Total: ' + s.total + '  |  Today: ' + s.todayCount);
           }
         }
         break;
@@ -1712,22 +1712,22 @@ async function main() {
           process.exit(1);
         }
         const s = res.data;
-        console.log('=== Dashboard Stats ===');
-        console.log(`Files:      ${s.fileCount || 0}`);
-        console.log(`Storage:    ${formatSize(s.totalSize || 0)}`);
-        console.log(`Starred:    ${s.starredCount || 0}`);
-        console.log(`Trash:      ${s.trashCount || 0}`);
-        console.log(`Shares:     ${s.shareCount || 0}`);
-        console.log(`Devices:    ${s.deviceCount || 0}`);
-        console.log(`Tokens:     ${s.tokenCount || 0}`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log('=== Dashboard Stats ===');
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Files:      ${s.fileCount || 0}`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Storage:    ${formatSize(s.totalSize || 0)}`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Starred:    ${s.starredCount || 0}`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Trash:      ${s.trashCount || 0}`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Shares:     ${s.shareCount || 0}`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Devices:    ${s.deviceCount || 0}`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Tokens:     ${s.tokenCount || 0}`);
         if (s.syncStatus) {
-          console.log(`Sync:       ${s.syncStatus.lastSync || 'Never'}`);
-          console.log(`  Peers:   ${s.syncStatus.peerCount || 0}`);
-          console.log(`  Status:  ${s.syncStatus.status || 'unknown'}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Sync:       ${s.syncStatus.lastSync || 'Never'}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`  Peers:   ${s.syncStatus.peerCount || 0}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`  Status:  ${s.syncStatus.status || 'unknown'}`);
         }
         if (s.versions) {
-          console.log(`Versions:   ${s.versions.totalVersions || 0}`);
-          console.log(`  Storage: ${formatSize(s.versions.totalVersionSize || 0)}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Versions:   ${s.versions.totalVersions || 0}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`  Storage: ${formatSize(s.versions.totalVersionSize || 0)}`);
         }
 
         // Also fetch system stats
@@ -1739,11 +1739,11 @@ async function main() {
           const d = sysRes.data.disk;
           const fmtMem = b => (b / 1024 / 1024).toFixed(0) + ' MB';
           const fmtDisk = b => (b / 1024 / 1024 / 1024).toFixed(1) + ' GB';
-          console.log('\n=== System Stats ===');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('\n=== System Stats ===');
           if (m) {
-            console.log(`Heap:       ${fmtMem(m.heapUsed)} / ${fmtMem(m.heapTotal)} (${Math.round((m.heapUsed / m.heapTotal) * 100)}%)`);
-            console.log(`RSS:        ${fmtMem(m.rss)}`);
-            console.log(`System:     ${Math.round((m.systemUsed / m.systemTotal) * 100)}% used (${fmtMem(m.systemFree)} free)`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`Heap:       ${fmtMem(m.heapUsed)} / ${fmtMem(m.heapTotal)} (${Math.round((m.heapUsed / m.heapTotal) * 100)}%)`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`RSS:        ${fmtMem(m.rss)}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`System:     ${Math.round((m.systemUsed / m.systemTotal) * 100)}% used (${fmtMem(m.systemFree)} free)`);
           }
           if (c) {
             const days = Math.floor(p.uptime / 86400);
@@ -1751,10 +1751,10 @@ async function main() {
             const mm = Math.floor((p.uptime % 3600) / 60);
             const ss = Math.round(p.uptime % 60);
             const upStr = (days > 0 ? days + 'd ' : '') + hh + 'h ' + mm + 'm ' + ss + 's';
-            console.log(`CPU:        ${c.cores} cores · load ${c.loadavg1m.toFixed(2)} (1m) / ${c.loadavg5m.toFixed(2)} (5m) / ${c.loadavg15m.toFixed(2)} (15m)`);
-            if (d) console.log(`Disk:       ${fmtDisk(d.used)} / ${fmtDisk(d.total)} (${Math.round((d.free / d.total) * 100)}% free)`);
-            console.log(`Uptime:     ${upStr}`);
-            console.log(`Node:       ${p.nodeVersion} on ${p.platform}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`CPU:        ${c.cores} cores · load ${c.loadavg1m.toFixed(2)} (1m) / ${c.loadavg5m.toFixed(2)} (5m) / ${c.loadavg15m.toFixed(2)} (15m)`);
+            if (d) if (process.env.LOG_LEVEL !== 'silent') console.log(`Disk:       ${fmtDisk(d.used)} / ${fmtDisk(d.total)} (${Math.round((d.free / d.total) * 100)}% free)`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`Uptime:     ${upStr}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`Node:       ${p.nodeVersion} on ${p.platform}`);
           }
         }
         break;
@@ -1762,7 +1762,7 @@ async function main() {
 
       case 'export': {
         let outputDir = args.indexOf('-o') !== -1 ? args[args.indexOf('-o') + 1] : process.cwd();
-        console.log(`Exporting files to: ${outputDir}`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Exporting files to: ${outputDir}`);
         const listRes = await request('GET', '/api/list?limit=10000');
         if (listRes.status >= 400) {
           printError(`Server error: ${listRes.status}`);
@@ -1770,7 +1770,7 @@ async function main() {
         }
         const files = listRes.data.files || [];
         if (files.length === 0) {
-          console.log('No files to export.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No files to export.');
           break;
         }
         if (!fs.existsSync(outputDir)) {
@@ -1816,7 +1816,7 @@ async function main() {
             process.stdout.write(`\rError ${contentRes.status}: ${name}`);
           }
         }
-        console.log(`\nDone: ${exported} exported, ${errors} errors.`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`\nDone: ${exported} exported, ${errors} errors.`);
         break;
       }
 
@@ -1825,11 +1825,11 @@ async function main() {
         const config = getConfig();
         if (!subCommand) {
           // Show all config
-          console.log(`Config file: ${CONFIG_PATH}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Config file: ${CONFIG_PATH}`);
           if (Object.keys(config).length === 0) {
-            console.log('(no config set)');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('(no config set)');
           } else {
-            console.log(JSON.stringify(config, null, 2));
+            if (process.env.LOG_LEVEL !== 'silent') console.log(JSON.stringify(config, null, 2));
           }
           break;
         }
@@ -1842,9 +1842,9 @@ async function main() {
             }
             const val = config[key];
             if (val === undefined) {
-              console.log(`${key}  (not set)`);
+              if (process.env.LOG_LEVEL !== 'silent') console.log(`${key}  (not set)`);
             } else {
-              console.log(`${key} = ${val}`);
+              if (process.env.LOG_LEVEL !== 'silent') console.log(`${key} = ${val}`);
             }
             break;
           }
@@ -1856,7 +1856,7 @@ async function main() {
               process.exit(1);
             }
             saveConfig({ [key]: value });
-            console.log(`${key} = ${value}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`${key} = ${value}`);
             break;
           }
           case 'unset': {
@@ -1867,13 +1867,13 @@ async function main() {
             }
             const current = getConfig();
             if (current[key] === undefined) {
-              console.log(`${key}  (not set, nothing to remove)`);
+              if (process.env.LOG_LEVEL !== 'silent') console.log(`${key}  (not set, nothing to remove)`);
             } else {
               const { [key]: _, ...rest } = current;
               const dir = path.dirname(CONFIG_PATH);
               if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
               fs.writeFileSync(CONFIG_PATH, JSON.stringify(rest, null, 2), 'utf8');
-              console.log(`Removed ${key}`);
+              if (process.env.LOG_LEVEL !== 'silent') console.log(`Removed ${key}`);
             }
             break;
           }
@@ -1881,7 +1881,7 @@ async function main() {
             if (fs.existsSync(CONFIG_PATH)) {
               fs.unlinkSync(CONFIG_PATH);
             }
-            console.log('Config reset to empty');
+            if (process.env.LOG_LEVEL !== 'silent') console.log('Config reset to empty');
             break;
           }
           default:
@@ -1894,17 +1894,17 @@ async function main() {
       case 'history': {
         if (args.includes('--clear')) {
           saveHistory([]);
-          console.log('History cleared.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('History cleared.');
           break;
         }
         const hist = getHistory();
         if (hist.length === 0) {
-          console.log('No history yet.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No history yet.');
           break;
         }
         hist.forEach((h, i) => {
           const d = new Date(h.ts).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-          console.log(`${String(i + 1).padStart(3, ' ')}  ${d}  ${h.cmd}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`${String(i + 1).padStart(3, ' ')}  ${d}  ${h.cmd}`);
         });
         break;
       }
@@ -1916,17 +1916,17 @@ async function main() {
           const res = await request('GET', '/api/trash');
           if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
           const { trash } = res.data;
-          if (!trash || trash.length === 0) { console.log('Trash is empty.'); break; }
-          console.log(`Trash (${trash.length} item(s)):`);
+          if (!trash || trash.length === 0) { if (process.env.LOG_LEVEL !== 'silent') console.log('Trash is empty.'); break; }
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Trash (${trash.length} item(s)):`);
           trash.forEach(t => {
             const d = new Date(t.deleted_at * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
             const exp = new Date(t.expires_at * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-            console.log(`  [${t.id}] ${t.filename} — deleted ${d}, expires ${exp}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`  [${t.id}] ${t.filename} — deleted ${d}, expires ${exp}`);
           });
         } else if (sub === 'empty') {
           const res = await request('DELETE', '/api/trash');
           if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
-          console.log('Trash emptied.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Trash emptied.');
         } else if (sub === 'restore' || sub === 'delete') {
           const id = parseInt(args[2]);
           if (!id) { printError('Usage: share-tool trash ' + sub + ' <id>'); process.exit(1); }
@@ -1934,7 +1934,7 @@ async function main() {
             ? await request('POST', '/api/trash/' + id + '/restore')
             : await request('DELETE', '/api/trash/' + id);
           if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
-          console.log(sub === 'restore' ? 'Restored.' : 'Deleted permanently.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log(sub === 'restore' ? 'Restored.' : 'Deleted permanently.');
         } else {
           printError('Usage: share-tool trash [list|restore <id>|delete <id>|empty]');
           process.exit(1);
@@ -1947,14 +1947,14 @@ async function main() {
         const res = await request('GET', '/api/share/list');
         if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
         const links = res.data.links || [];
-        if (links.length === 0) { console.log('No active share links.'); break; }
-        console.log(`Share links (${links.length}):`);
+        if (links.length === 0) { if (process.env.LOG_LEVEL !== 'silent') console.log('No active share links.'); break; }
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Share links (${links.length}):`);
         links.forEach(l => {
           const exp = l.expires_at ? new Date(l.expires_at * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }) : 'never';
           const dl = l.download_count !== undefined ? ` (${l.download_count} downloads)` : '';
           const pwd = (l.hasPassword || l.password) ? ' 🔒' : '';
-          console.log(`  ${l.code}${pwd} → ${l.filename} — expires ${exp}${dl}`);
-          console.log(`    ${l.url}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`  ${l.code}${pwd} → ${l.filename} — expires ${exp}${dl}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`    ${l.url}`);
         });
         break;
       }
@@ -1963,15 +1963,15 @@ async function main() {
         const res = await request('GET', '/api/tags/list');
         if (res.status >= 400) { printError('Failed: ' + res.status); process.exit(1); }
         const tags = res.data.tags || [];
-        if (tags.length === 0) { console.log('No tags found.'); break; }
+        if (tags.length === 0) { if (process.env.LOG_LEVEL !== 'silent') console.log('No tags found.'); break; }
         const maxCount = Math.max(...tags.map(t => t.count));
         const nameW = Math.max(...tags.map(t => (t.tag || '').length)) + 2;
-        console.log(`Tags (${tags.length}):\n`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Tags (${tags.length}):\n`);
         for (const t of tags) {
           const barLen = maxCount > 0 ? Math.round((t.count / maxCount) * 20) : 0;
           const bar = '█'.repeat(barLen) + '░'.repeat(20 - barLen);
           const name = (t.tag || '').padEnd(nameW);
-          console.log(`  ${name}${bar}  ${t.count}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`  ${name}${bar}  ${t.count}`);
         }
         break;
       }
@@ -1987,7 +1987,7 @@ async function main() {
           printError('Delete failed: ' + (res.data?.error || res.status));
           process.exit(1);
         }
-        console.log('Deleted share link: ' + code);
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Deleted share link: ' + code);
         break;
       }
 
@@ -2005,7 +2005,7 @@ async function main() {
           process.exit(1);
         }
         const newExp = new Date(Date.now() + hours * 3600000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
-        console.log('Extended: ' + code + ' → expires ' + newExp);
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Extended: ' + code + ' → expires ' + newExp);
         break;
       }
 
@@ -2022,7 +2022,7 @@ async function main() {
           printError('Set password failed: ' + (res.data?.error || res.status));
           process.exit(1);
         }
-        console.log(password ? 'Password set for: ' + code : 'Password removed for: ' + code);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(password ? 'Password set for: ' + code : 'Password removed for: ' + code);
         break;
       }
 
@@ -2042,22 +2042,22 @@ async function main() {
         }
         const { versions } = versionsRes.data;
         if (!versions || versions.length === 0) {
-          console.log('No version history found.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No version history found.');
           break;
         }
         if (versions.length === 1) {
-          console.log('Only one version available. Need at least 2 versions to diff.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('Only one version available. Need at least 2 versions to diff.');
           break;
         }
         if (!args[2] || !args[3]) {
           // Show version list for selection
-          console.log(`Version history for "${filename}":`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Version history for "${filename}":`);
           versions.forEach((v, i) => {
             const d = new Date(v.created_at * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
             const size = v.size != null ? ` (${v.size} bytes)` : '';
-            console.log(`  ${i + 1}. [${v.created_at}] ${d}${size}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`  ${i + 1}. [${v.created_at}] ${d}${size}`);
           });
-          console.log('\nUsage to diff: share-tool diff <filename> <v1_timestamp> <v2_timestamp>');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('\nUsage to diff: share-tool diff <filename> <v1_timestamp> <v2_timestamp>');
           break;
         }
         const v1 = parseInt(args[2]);
@@ -2069,10 +2069,10 @@ async function main() {
           process.exit(1);
         }
         const { diff } = diffRes.data;
-        console.log(`Diff: ${filename} (${v1} → ${v2})`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Diff: ${filename} (${v1} → ${v2})`);
         diff.forEach(d => {
           const prefix = d.op === '+' ? '  +' : d.op === '-' ? '  -' : '   ';
-          console.log(`${prefix} ${String(d.line).padStart(4)} | ${d.content}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`${prefix} ${String(d.line).padStart(4)} | ${d.content}`);
         });
         break;
       }
@@ -2101,7 +2101,7 @@ async function main() {
             const delRes = await request('DELETE', `/api/file/${encodeURIComponent(f.filename)}`);
             if (delRes.status < 400) deleted++;
           }
-          console.log(`Deleted ${deleted} of ${toDelete.length} duplicate file(s) from group ${groupId} (kept: ${group.files[0].filename})`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Deleted ${deleted} of ${toDelete.length} duplicate file(s) from group ${groupId} (kept: ${group.files[0].filename})`);
           break;
         }
 
@@ -2124,27 +2124,27 @@ async function main() {
             const delRes = await request('DELETE', `/api/file/${encodeURIComponent(f.filename)}`);
             if (delRes.status < 400) deleted++;
           }
-          console.log(`Deleted ${deleted} duplicate(s), kept: ${filenameToKeep}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Deleted ${deleted} duplicate(s), kept: ${filenameToKeep}`);
           break;
         }
 
         // Default: list duplicates
         if (count === 0) {
-          console.log('No duplicate files found.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No duplicate files found.');
           break;
         }
-        console.log(`Found ${count} duplicate group(s):\n`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Found ${count} duplicate group(s):\n`);
         duplicates.forEach((group, i) => {
-          console.log(`Group ${i + 1} (${group.count} files, hash=${group.hash.slice(0, 12)}...)`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`Group ${i + 1} (${group.count} files, hash=${group.hash.slice(0, 12)}...)`);
           group.files.forEach(f => {
             const size = formatSize(f.size || 0);
             const date = f.updated_at ? new Date(f.updated_at * 1000).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '';
-            console.log(`  - ${f.filename}  ${size.padStart(10)}  ${date}`);
+            if (process.env.LOG_LEVEL !== 'silent') console.log(`  - ${f.filename}  ${size.padStart(10)}  ${date}`);
           });
-          console.log('');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('');
         });
-        console.log('Tip: share-tool duplicates delete <groupId>  # keep first, delete rest');
-        console.log('     share-tool duplicates keep <groupId> <filename>  # keep specific file');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Tip: share-tool duplicates delete <groupId>  # keep first, delete rest');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('     share-tool duplicates keep <groupId> <filename>  # keep specific file');
         break;
       }
 
@@ -2166,25 +2166,25 @@ async function main() {
         }
         const d = res.data;
         const url = getServerUrl().replace(/\/+$/, '') + '/s/' + code;
-        console.log('Share Link Info:');
-        console.log('  URL:      ' + url);
-        console.log('  Code:     ' + code);
-        console.log('  File:     ' + (d.filename || d.file?.filename || 'unknown'));
-        if (d.hasPassword) console.log('  Password: yes');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Share Link Info:');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('  URL:      ' + url);
+        if (process.env.LOG_LEVEL !== 'silent') console.log('  Code:     ' + code);
+        if (process.env.LOG_LEVEL !== 'silent') console.log('  File:     ' + (d.filename || d.file?.filename || 'unknown'));
+        if (d.hasPassword) if (process.env.LOG_LEVEL !== 'silent') console.log('  Password: yes');
         if (d.expiresAt) {
           const expDate = new Date(d.expiresAt * 1000);
           const remaining = Math.max(0, expDate - Date.now());
           const hours = Math.floor(remaining / 3600000);
-          console.log(`  Expires:  ${expDate.toLocaleString()} (${hours}h remaining)`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`  Expires:  ${expDate.toLocaleString()} (${hours}h remaining)`);
         } else {
-          console.log('  Expires:  never');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('  Expires:  never');
         }
         if (d.maxDownloads) {
-          console.log(`  Max downloads: ${d.downloads || 0} / ${d.maxDownloads}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`  Max downloads: ${d.downloads || 0} / ${d.maxDownloads}`);
         } else {
-          console.log('  Max downloads: unlimited');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('  Max downloads: unlimited');
         }
-        if (d.downloads > 0) console.log('  Total downloads: ' + d.downloads);
+        if (d.downloads > 0) if (process.env.LOG_LEVEL !== 'silent') console.log('  Total downloads: ' + d.downloads);
         break;
       }
 
@@ -2198,18 +2198,18 @@ async function main() {
         }
         const files = res.data.files || [];
         if (files.length === 0) {
-          console.log('No files found.');
+          if (process.env.LOG_LEVEL !== 'silent') console.log('No files found.');
           break;
         }
         const maxSize = Math.max(...files.map(f => f.size || 0));
-        console.log(`Top ${files.length} largest files:\n`);
+        if (process.env.LOG_LEVEL !== 'silent') console.log(`Top ${files.length} largest files:\n`);
         files.forEach((f, i) => {
           const size = f.size || 0;
           const barLen = maxSize > 0 ? Math.round((size / maxSize) * 20) : 0;
           const bar = '█'.repeat(barLen) + '░'.repeat(20 - barLen);
           const sizeStr = formatSize(size).padStart(10);
           const date = f.updated_at ? new Date(f.updated_at * 1000).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' }) : '';
-          console.log(`  ${String(i + 1).padStart(2)}. ${sizeStr}  ${bar}  ${f.filename}  ${date}`);
+          if (process.env.LOG_LEVEL !== 'silent') console.log(`  ${String(i + 1).padStart(2)}. ${sizeStr}  ${bar}  ${f.filename}  ${date}`);
         });
         break;
       }
@@ -2227,7 +2227,7 @@ async function main() {
             try {
               const json = JSON.parse(data);
               if (json.success) {
-                console.log(json.message);
+                if (process.env.LOG_LEVEL !== 'silent') console.log(json.message);
               } else {
                 printError(json.error || 'Renew failed');
               }
@@ -2241,7 +2241,7 @@ async function main() {
 
       default:
         printError(`Unknown command: ${command}`);
-        console.log('Run without args to see full command list');
+        if (process.env.LOG_LEVEL !== 'silent') console.log('Run without args to see full command list');
         process.exit(1);
     }
   } catch (err) {
