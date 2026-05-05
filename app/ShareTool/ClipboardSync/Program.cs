@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Security.Principal;
 using System.Windows.Forms;
 
 namespace ShareToolClipboardSync;
@@ -11,7 +12,7 @@ static class Program
     private static Process? _serverProcess;
     private static string _sharedDir = "";
     private static ServerDiscovery? _discovery;
-    private static string _selectedServerUrl = "";
+    private static bool _firewallRuleChecked = false;
 
     [STAThread]
     static void Main()
@@ -39,8 +40,71 @@ static class Program
         Application.Run(new AppContext($"https://{localIP}:18793", instanceName, _sharedDir, _discovery));
     }
 
+    /// Ensures the Windows Firewall allows incoming connections on port 18793.
+    /// Called once per session; silently fails if no admin rights.
+    private static void EnsureFirewallRule()
+    {
+        if (_firewallRuleChecked) return;
+        _firewallRuleChecked = true;
+
+        try
+        {
+            // Check if rule already exists
+            var checkProcess = Process.Start(new ProcessStartInfo
+            {
+                FileName = "netsh",
+                Arguments = "advfirewall firewall show rule name=ShareTool-Port18793",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            });
+            checkProcess?.WaitForExit(3000);
+            var output = checkProcess?.StandardOutput.ReadToEnd() ?? "";
+            if (output.Contains("ShareTool-Port18793"))
+            {
+                Console.WriteLine("[ShareTool] Firewall rule already exists");
+                return;
+            }
+        }
+        catch { }
+
+        try
+        {
+            // Try to add the firewall rule — requires admin; silently fails otherwise
+            var psi = new ProcessStartInfo
+            {
+                FileName = "netsh",
+                Arguments = "advfirewall firewall add rule name=ShareTool-Port18793 dir=in action=allow protocol=TCP localport=18793",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            var proc = Process.Start(psi);
+            proc?.WaitForExit(5000);
+            var outText = proc?.StandardOutput.ReadToEnd() ?? "";
+            var errText = proc?.StandardError.ReadToEnd() ?? "";
+            if (proc?.ExitCode == 0 || outText.Contains("OK"))
+            {
+                Console.WriteLine("[ShareTool] Firewall rule added successfully");
+            }
+            else
+            {
+                Console.WriteLine($"[ShareTool] Firewall rule add failed (exit {proc?.ExitCode}): {errText}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ShareTool] Firewall rule add exception: {ex.Message}");
+        }
+    }
+
     public static void StartLocalServer()
     {
+        // Ensure firewall port is open before starting the server
+        EnsureFirewallRule();
+
         var exeDir = AppDomain.CurrentDomain.BaseDirectory;
         var serverPath = Path.Combine(exeDir, "server.exe");
 
@@ -146,16 +210,17 @@ class AppContext : ApplicationContext
         _hotkeyManager = new HotkeyManager();
         _trayManager = new TrayIconManager(_clipboardService, instanceName, sharedDir, _discovery)
         {
-            BaseUrl = baseUrl,
             GetServiceStatus = () => Program.IsServerRunning(),
             GetLocalIP = () => Program.GetLocalIP()
         };
+        // Set local URL before setting BaseUrl so the TLS warning logic works correctly
+        _trayManager.SetLocalBaseUrl(baseUrl);
+        _trayManager.BaseUrl = baseUrl;
 
-        // When a server is discovered, auto-connect to it
+        // When a server is discovered, log it — user manually selects from the Servers submenu
         _discovery.ServerFound += (s, server) =>
         {
-            _clipboardService.SetBaseURL(server.URL);
-            _trayManager.BaseUrl = server.URL;
+            Logger.Info($"[ShareTool] Discovered server: {server.Name} at {server.URL} — waiting for user to select");
         };
 
         // Hidden main form
@@ -200,21 +265,8 @@ class AppContext : ApplicationContext
 
         _trayManager.SetNotifyIcon(notifyIcon);
 
-        // Start discovery after UI is ready
+        // Start discovery after UI is ready — user can manually choose a server from the menu
         _discovery.Start();
-
-        // Check for already discovered servers
-        System.Threading.Tasks.Task.Run(async () =>
-        {
-            await System.Threading.Tasks.Task.Delay(2000);
-            var servers = _discovery.Servers;
-            if (servers.Count > 0)
-            {
-                Logger.Info($"[ShareTool] Auto-connecting to: {servers[0].URL}");
-                _clipboardService.SetBaseURL(servers[0].URL);
-                _trayManager.BaseUrl = servers[0].URL;
-            }
-        });
 
         _trayManager.OnQuit += (_, _) =>
         {

@@ -23,16 +23,28 @@ public class TrayIconManager : IDisposable
     public Func<string>? GetLocalIP { get; set; }
     private string _baseUrl = "";
     private string _connectedServer = "";
+    private string _localBaseUrl = ""; // Store the initial local URL for comparison
 
     public string BaseUrl
     {
         get => _baseUrl;
         set
         {
+            var isLocal = value == _localBaseUrl || string.IsNullOrEmpty(value);
+
             _baseUrl = value;
-            _connectedServer = value;
+            // Reset connected server when switching back to local
+            _connectedServer = isLocal ? "" : value;
+
             // Also update ClipboardService so it polls the correct server
             _clipboardService.SetBaseUrl(value);
+
+            // Show TLS warning when connecting to remote server
+            if (!isLocal)
+            {
+                ShowNotification("已连接（TLS 警告）", "已连接到远程服务器。注意：使用自签名证书，TLS 证书未经过验证。");
+            }
+
             // Only refresh if menu is already set up
             if (_menu != null)
             {
@@ -40,6 +52,12 @@ public class TrayIconManager : IDisposable
                 _menu.Refresh();
             }
         }
+    }
+
+    /// Sets the initial local URL so we can distinguish local vs remote connections
+    public void SetLocalBaseUrl(string localUrl)
+    {
+        _localBaseUrl = localUrl;
     }
 
     public TrayIconManager(ClipboardService clipboardService, string instanceName, string sharedDir, ServerDiscovery discovery)
@@ -137,10 +155,10 @@ public class TrayIconManager : IDisposable
 
         _menu.Items.Add(new ToolStripSeparator());
 
-        // Open Web UI
+        // Open Web UI — enabled if local server running OR connected to remote server
         var webItem = new ToolStripMenuItem("打开 Web UI");
         webItem.Click += (_, _) => OnOpenWebUI?.Invoke(this, EventArgs.Empty);
-        webItem.Enabled = statusRunning;
+        webItem.Enabled = statusRunning || !string.IsNullOrEmpty(_connectedServer);
         _menu.Items.Add(webItem);
 
         // Open Shared Folder
@@ -177,6 +195,24 @@ public class TrayIconManager : IDisposable
 
         _menu.Items.Add(new ToolStripSeparator());
 
+        // Auto-start on login
+        var autoStartEnabled = IsAutoStartEnabled();
+        var autoStartItem = new ToolStripMenuItem("开机自动启动") { Name = "autostart" };
+        autoStartItem.Checked = autoStartEnabled;
+        autoStartItem.Click += (_, _) =>
+        {
+            if (IsAutoStartEnabled())
+                DisableAutoStart();
+            else
+                EnableAutoStart();
+            BuildMenu();
+            ShowNotification(IsAutoStartEnabled() ? "已开启" : "已关闭",
+                IsAutoStartEnabled() ? "ShareTool 将在开机时自动启动" : "已取消开机自动启动");
+        };
+        _menu.Items.Add(autoStartItem);
+
+        _menu.Items.Add(new ToolStripSeparator());
+
         // Quit
         var quitItem = new ToolStripMenuItem("退出");
         quitItem.Click += (_, _) => OnQuit?.Invoke(this, EventArgs.Empty);
@@ -187,6 +223,21 @@ public class TrayIconManager : IDisposable
     {
         menu.Items.Clear();
         var servers = _discovery.Servers;
+        var isConnectedToRemote = !string.IsNullOrEmpty(_connectedServer) && _connectedServer != _baseUrl;
+
+        // Add "切换到本地服务" at the top if connected to remote
+        if (isConnectedToRemote)
+        {
+            var localItem = new ToolStripMenuItem("切换到「本地服务」");
+            localItem.Click += (_, _) =>
+            {
+                BaseUrl = _baseUrl;
+                Logger.Info("[TrayIcon] Switched back to local server");
+                ShowNotification("已断开", "已切换到本地服务");
+            };
+            menu.Items.Add(localItem);
+            menu.Items.Add(new ToolStripSeparator());
+        }
 
         if (servers.Count == 0)
         {
@@ -200,11 +251,15 @@ public class TrayIconManager : IDisposable
                 var item = new ToolStripMenuItem($"{server.Name} ({server.IP})");
                 item.Click += (_, _) =>
                 {
-                    _clipboardService.SetBaseURL(server.URL);
+                    _clipboardService.SetBaseUrl(server.URL);
                     BaseUrl = server.URL;
                     Logger.Info($"[TrayIcon] Connected to: {server.URL}");
                     ShowNotification("已连接", $"连接到 {server.Name}");
                 };
+                if (_connectedServer == server.URL)
+                {
+                    item.Checked = true;
+                }
                 menu.Items.Add(item);
             }
         }
@@ -251,7 +306,7 @@ public class TrayIconManager : IDisposable
             if (!string.IsNullOrEmpty(ip))
             {
                 var url = $"https://{ip}:18793";
-                _clipboardService.SetBaseURL(url);
+                _clipboardService.SetBaseUrl(url);
                 BaseUrl = url;
                 Logger.Info($"[TrayIcon] Manually connected to: {url}");
                 ShowNotification("已连接", $"连接到 {ip}");
@@ -359,5 +414,52 @@ public class TrayIconManager : IDisposable
     {
         _notifyIcon?.Dispose();
         _menu?.Dispose();
+    }
+
+    // === Auto-start (Windows Registry) ===
+
+    private static readonly string AutoStartRegKey =
+        @"Software\Microsoft\Windows\CurrentVersion\Run";
+
+    private static readonly string AutoStartRegValueName = "ShareTool";
+
+    public static bool IsAutoStartEnabled()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(AutoStartRegKey, false);
+            return key?.GetValue(AutoStartRegValueName) != null;
+        }
+        catch { return false; }
+    }
+
+    public static void EnableAutoStart()
+    {
+        try
+        {
+            var exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+            if (string.IsNullOrEmpty(exePath)) return;
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(AutoStartRegKey, true);
+            key?.SetValue(AutoStartRegValueName, $"\"{exePath}\"");
+            Logger.Info($"[TrayIcon] Auto-start enabled: {exePath}");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"[TrayIcon] Failed to enable auto-start: {ex.Message}");
+        }
+    }
+
+    public static void DisableAutoStart()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(AutoStartRegKey, true);
+            key?.DeleteValue(AutoStartRegValueName, false);
+            Logger.Info("[TrayIcon] Auto-start disabled");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"[TrayIcon] Failed to disable auto-start: {ex.Message}");
+        }
     }
 }

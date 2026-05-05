@@ -1,28 +1,46 @@
 import AppKit
 import UserNotifications
 
+// MARK: - Delegate Protocol
+
+protocol StatusBarControllerDelegate: AnyObject {
+    /// Called when user wants to bind to a server (local or remote)
+    func statusBarController(_ controller: StatusBarController, didBindToServer url: String, name: String)
+    /// Called when user wants to disconnect from remote and use local server
+    func statusBarControllerDidDisconnect(_ controller: StatusBarController)
+    /// Called when user wants to open Web UI for a specific URL
+    func statusBarController(_ controller: StatusBarController, didRequestOpenWebUI url: String)
+    /// Called when user wants to rescan LAN
+    func statusBarControllerDidRequestRescan(_ controller: StatusBarController)
+    /// Called when user wants to send clipboard
+    func statusBarControllerDidRequestSendClipboard(_ controller: StatusBarController)
+}
+
+// MARK: - StatusBarController
+
 class StatusBarController: NSObject {
 
     private var statusItem: NSStatusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var menu: NSMenu = NSMenu()
     private var statusMenuItem: NSMenuItem!
     private var ipMenuItem: NSMenuItem!
+    private var connectionMenuItem: NSMenuItem!
     private var openWebMenuItem: NSMenuItem!
     private var openFolderMenuItem: NSMenuItem!
+    private var serversMenuItem: NSMenuItem!
     private var startStopMenuItem: NSMenuItem!
     private var autoStartMenuItem: NSMenuItem!
+    private var disconnectMenuItem: NSMenuItem!
     private var quitMenuItem: NSMenuItem!
 
     // Clipboard
     private var clipboardManager: ClipboardManager!
-    // private var hotkeyManager: HotkeyManager! // DISABLED - Python helper handles hotkey
     private var clipboardHistoryMenuItem: NSMenuItem!
     private var clipboardHistory: [ClipboardEntry] = []
     private var lastSentID: String = ""
 
     private let onStart: () -> Void
     private let onStop: () -> Void
-    private let onOpenWebUI: () -> Void
     private let onOpenFolder: () -> Void
     private let onQuit: () -> Void
     private let getStatus: () -> Bool
@@ -30,12 +48,19 @@ class StatusBarController: NSObject {
     private let baseURL: String
     private let instanceName: String
 
+    weak var delegate: StatusBarControllerDelegate?
+
+    // Server discovery
+    private var serverDiscovery: ServerDiscovery?
+    private var discoveredServers: [DiscoveredServer] = []
+    private var connectedURL: String = ""
+    private var connectedName: String = ""
+
     init(
         baseURL: String,
         instanceName: String,
         onStart: @escaping () -> Void,
         onStop: @escaping () -> Void,
-        onOpenWebUI: @escaping () -> Void,
         onOpenFolder: @escaping () -> Void,
         onQuit: @escaping () -> Void,
         getStatus: @escaping () -> Bool,
@@ -45,11 +70,12 @@ class StatusBarController: NSObject {
         self.instanceName = instanceName
         self.onStart = onStart
         self.onStop = onStop
-        self.onOpenWebUI = onOpenWebUI
         self.onOpenFolder = onOpenFolder
         self.onQuit = onQuit
         self.getStatus = getStatus
         self.getIP = getIP
+        self.connectedURL = baseURL
+        self.connectedName = "本地服务"
 
         super.init()
 
@@ -63,18 +89,20 @@ class StatusBarController: NSObject {
         }
     }
 
+    // MARK: - Server Discovery
+
+    func setServerDiscovery(_ discovery: ServerDiscovery) {
+        self.serverDiscovery = discovery
+        discovery.delegate = self
+        discovery.start()
+    }
+
     // MARK: - Clipboard Setup
 
     private func setupClipboard() {
-        clipboardManager = ClipboardManager(baseURL: baseURL, instanceName: instanceName)
+        clipboardManager = ClipboardManager(baseURL: connectedURL.isEmpty ? baseURL : connectedURL, instanceName: instanceName)
         clipboardManager.delegate = self
         clipboardManager.startPolling(interval: 2.0)
-
-        // NOTE: Carbon RegisterEventHotKey is DISABLED to prevent race condition
-        // with the Python helper's CGEvent tap. The helper handles Cmd+Shift+V exclusively.
-        // hotkeyManager = HotkeyManager()
-        // hotkeyManager.delegate = self
-        // if !hotkeyManager.registerHotkey() { ... }
     }
 
     // MARK: - Menu Setup
@@ -94,8 +122,36 @@ class StatusBarController: NSObject {
         let cIPMI = NSMenuItem(title: "复制 IP", action: #selector(copyIP), keyEquivalent: "c")
         cIPMI.target = self
 
-        // Separator
+        // Connection status (local or remote)
+        let connMI = NSMenuItem(title: "连接: 本地服务", action: nil, keyEquivalent: "")
+        connMI.isEnabled = false
+        self.connectionMenuItem = connMI
+
+        // Separator 0
         let sep0 = NSMenuItem.separator()
+
+        // Discovered Servers submenu
+        let serversMI = NSMenuItem(title: "发现的服务器", action: nil, keyEquivalent: "")
+        let serversSubmenu = NSMenu()
+        serversMI.submenu = serversSubmenu
+        self.serversMenuItem = serversMI
+        refreshServersSubmenu()
+
+        // Disconnect (shown when connected to remote)
+        let disMI = NSMenuItem(title: "断开远程连接", action: #selector(disconnectFromRemoteServer), keyEquivalent: "")
+        disMI.target = self
+        self.disconnectMenuItem = disMI
+
+        // Rescan LAN
+        let rescanMI = NSMenuItem(title: "重新扫描局域网", action: #selector(rescanLAN), keyEquivalent: "")
+        rescanMI.target = self
+
+        // Manual connect
+        let manualMI = NSMenuItem(title: "手动输入IP连接...", action: #selector(manualConnect), keyEquivalent: "")
+        manualMI.target = self
+
+        // Separator 1
+        let sep1 = NSMenuItem.separator()
 
         // Open Web UI
         let owmMI = NSMenuItem(title: "打开 Web UI", action: #selector(openWeb), keyEquivalent: "o")
@@ -114,15 +170,15 @@ class StatusBarController: NSObject {
         self.clipboardHistoryMenuItem = historyMI
 
         // Send Clipboard
-        let sendClipMI = NSMenuItem(title: "发送剪贴板  ⌘⇧V", action: #selector(sendClipboard), keyEquivalent: "")
+        let sendClipMI = NSMenuItem(title: " 发送剪贴板  ⌘⇧V", action: #selector(sendClipboard), keyEquivalent: "")
         sendClipMI.target = self
         sendClipMI.tag = 100
 
         // Send Files
-        let sendFilesMI = NSMenuItem(title: "发送文件...", action: #selector(sendFiles), keyEquivalent: "")
+        let sendFilesMI = NSMenuItem(title: " 发送文件...", action: #selector(sendFiles), keyEquivalent: "")
         sendFilesMI.target = self
 
-        let sep2 = NSMenuItem.separator()
+        let sep3 = NSMenuItem.separator()
 
         // Start/Stop
         let ssmMI = NSMenuItem(title: "停止服务", action: #selector(toggleService), keyEquivalent: "s")
@@ -135,10 +191,10 @@ class StatusBarController: NSObject {
         asmMI.target = self
         self.autoStartMenuItem = asmMI
 
-        let sep3 = NSMenuItem.separator()
+        let sep4 = NSMenuItem.separator()
 
         // Quit
-        let qMI = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
+        let qMI = NSMenuItem(title: " 退出", action: #selector(quit), keyEquivalent: "q")
         qMI.target = self
         self.quitMenuItem = qMI
 
@@ -147,17 +203,23 @@ class StatusBarController: NSObject {
         self.menu.addItem(NSMenuItem.separator())
         self.menu.addItem(self.ipMenuItem)
         self.menu.addItem(cIPMI)
+        self.menu.addItem(self.connectionMenuItem)
         self.menu.addItem(sep0)
+        self.menu.addItem(self.serversMenuItem)
+        self.menu.addItem(self.disconnectMenuItem)
+        self.menu.addItem(rescanMI)
+        self.menu.addItem(manualMI)
+        self.menu.addItem(sep1)
         self.menu.addItem(self.openWebMenuItem)
         self.menu.addItem(self.openFolderMenuItem)
         self.menu.addItem(NSMenuItem.separator())
         self.menu.addItem(sendClipMI)
         self.menu.addItem(sendFilesMI)
         self.menu.addItem(self.clipboardHistoryMenuItem)
-        self.menu.addItem(sep2)
+        self.menu.addItem(sep3)
         self.menu.addItem(self.startStopMenuItem)
         self.menu.addItem(self.autoStartMenuItem)
-        self.menu.addItem(sep3)
+        self.menu.addItem(sep4)
         self.menu.addItem(self.quitMenuItem)
     }
 
@@ -194,8 +256,19 @@ class StatusBarController: NSObject {
             guard let self = self else { return }
             self.statusMenuItem.title = running ? "状态: 运行中" : "状态: 已停止"
             self.startStopMenuItem.title = running ? "停止服务" : "启动服务"
-            self.openWebMenuItem.isEnabled = running
+            // WebUI enabled if local server running OR connected to remote
+            self.openWebMenuItem.isEnabled = running || !self.connectedURL.isEmpty
             self.ipMenuItem.title = running ? "IP: \(ip)" : "IP: ---"
+
+            // Update connection status
+            let isLocalServer = self.connectedURL == self.baseURL || self.connectedURL.isEmpty
+            if isLocalServer {
+                self.connectionMenuItem.title = "连接: 本地服务"
+                self.disconnectMenuItem.isHidden = true
+            } else {
+                self.connectionMenuItem.title = "连接: 远程 「\(self.connectedName)」"
+                self.disconnectMenuItem.isHidden = false
+            }
         }
     }
 
@@ -208,7 +281,132 @@ class StatusBarController: NSObject {
         }
     }
 
-    @objc private func openWeb() { onOpenWebUI() }
+    @objc private func openWeb() {
+        let urlToOpen = (connectedURL == baseURL || connectedURL.isEmpty) ? baseURL : connectedURL
+        delegate?.statusBarController(self, didRequestOpenWebUI: urlToOpen)
+    }
+
+    @objc private func rescanLAN() {
+        serverDiscovery?.rescan()
+        delegate?.statusBarControllerDidRequestRescan(self)
+    }
+
+    @objc private func manualConnect() {
+        NSApp.mainMenu?.cancelTracking()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            self?.showManualConnectDialog()
+        }
+    }
+
+    private func showManualConnectDialog() {
+        let alert = NSAlert()
+        alert.messageText = "手动连接服务器"
+        alert.informativeText = "请输入服务器的 IP 地址："
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "连接")
+        alert.addButton(withTitle: "取消")
+
+        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 250, height: 24))
+        input.placeholderString = "例如: 192.168.1.100"
+        alert.accessoryView = input
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            let ip = input.stringValue.trimmingCharacters(in: .whitespaces)
+            if !ip.isEmpty {
+                let url = "https://\(ip):18793"
+                let name = "手动: \(ip)"
+                bindToServer(url: url, name: name)
+            }
+        }
+    }
+
+    private func bindToServer(url: String, name: String) {
+        connectedURL = url
+        connectedName = name
+        clipboardManager.setBaseURL(url)
+        delegate?.statusBarController(self, didBindToServer: url, name: name)
+        updateStatus()
+
+        // Show TLS warning since we're using self-signed certificates
+        let isLocal = url == baseURL || url.isEmpty
+        if !isLocal {
+            showNotification(
+                title: "已连接（TLS 警告）",
+                body: "已连接到 \(name)。注意：使用自签名证书，TLS 证书未经过验证。"
+            )
+        } else {
+            showNotification(title: "已连接", body: "已连接到 \(name)")
+        }
+    }
+
+    private func disconnectFromRemote() {
+        connectedURL = baseURL
+        connectedName = "本地服务"
+        clipboardManager.setBaseURL(baseURL)
+        delegate?.statusBarControllerDidDisconnect(self)
+        updateStatus()
+        showNotification(title: "已断开", body: "已切换到本地服务")
+    }
+
+    private func refreshServersSubmenu() {
+        guard let submenu = serversMenuItem.submenu else { return }
+        submenu.removeAllItems()
+
+        // Add "切换到本地服务" at the top if connected to remote
+        let isConnectedToRemote = connectedURL != baseURL && !connectedURL.isEmpty
+        if isConnectedToRemote {
+            let localItem = NSMenuItem(
+                title: "切换到「本地服务」",
+                action: #selector(disconnectFromRemoteServer),
+                keyEquivalent: ""
+            )
+            localItem.target = self
+            localItem.state = .off
+            submenu.addItem(localItem)
+            submenu.addItem(NSMenuItem.separator())
+        }
+
+        if discoveredServers.isEmpty {
+            let empty = NSMenuItem(title: "（未发现服务器）", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            submenu.addItem(empty)
+        } else {
+            for server in discoveredServers {
+                // If name already ends with (IP), don't duplicate — server.name may already contain IP
+                // from Bonjour resolution where the service name includes the IP.
+                let displayName: String
+                if server.name.hasSuffix("(\(server.ip))") {
+                    displayName = server.name
+                } else {
+                    displayName = "\(server.name) (\(server.ip))"
+                }
+                let item = NSMenuItem(
+                    title: displayName,
+                    action: #selector(selectServer(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = server
+                // Mark currently connected server
+                if server.url == connectedURL {
+                    item.state = .on
+                }
+                submenu.addItem(item)
+            }
+        }
+    }
+
+    @objc private func selectServer(_ sender: NSMenuItem) {
+        guard let server = sender.representedObject as? DiscoveredServer else { return }
+        bindToServer(url: server.url, name: server.name)
+        refreshServersSubmenu()
+    }
+
+    @objc private func disconnectFromRemoteServer() {
+        disconnectFromRemote()
+        refreshServersSubmenu()
+    }
 
     @objc private func openFolder() { onOpenFolder() }
 
@@ -231,17 +429,14 @@ class StatusBarController: NSObject {
     }
 
     @objc private func sendFiles() {
-        // Dismiss menu tracking first
         NSApp.mainMenu?.cancelTracking()
 
-        // Use a timer to delay - this helps with menu bar apps
         Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { [weak self] _ in
             self?.showOpenPanelViaShell()
         }
     }
 
     private func showOpenPanelViaShell() {
-        // Use osascript via shell to show file picker
         let script = """
         set chosenFiles to (choose file with multiple selections allowed)
         set filePaths to {}
@@ -288,7 +483,6 @@ class StatusBarController: NSObject {
             guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else { continue }
 
             if isDirectory.boolValue {
-                // Zip directory first
                 let zipName = url.lastPathComponent + ".zip"
                 let tempURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("ShareTool").appendingPathComponent(zipName)
                 try? FileManager.default.createDirectory(at: tempURL.deletingLastPathComponent() as URL, withIntermediateDirectories: true)
@@ -305,8 +499,7 @@ class StatusBarController: NSObject {
                     sendFileAsPayload(base64: base64, fileName: zipName, fileSize: Int64(zipData.count))
                 }
             } else {
-                // Single file
-                debugLog("Sending file: \(url.path), size: \(try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 ?? 0)")
+                debugLog("Sending file: \(url.path), size: \(String(describing: (try? FileManager.default.attributesOfItem(atPath: url.path)[.size]) as? Int64 ?? 0))")
                 do {
                     let fileData = try Data(contentsOf: url)
                     let base64 = fileData.base64EncodedString()
@@ -322,67 +515,102 @@ class StatusBarController: NSObject {
     }
 
     private func sendFileAsPayload(base64: String, fileName: String, fileSize: Int64) {
-        let payload: [String: Any] = [
-            "type": "file",
-            "content": base64,
-            "fileName": fileName,
-            "fileSize": fileSize,
-            "from": instanceName,
-            "timestamp": Int64(Date().timeIntervalSince1970 * 1000)
-        ]
-
-        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else { return }
-
-        let url = URL(string: "\(baseURL)/api/clipboard")!
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.httpBody = jsonData
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        clipboardManager.session.dataTask(with: req) { [weak self] data, resp, err in
-            guard let self = self else { return }
-            if let err = err {
-                debugLog("SendFile FAILED: \(err)")
-                DispatchQueue.main.async {
-                    self.showNotification(title: "发送失败", body: err.localizedDescription)
-                }
-                return
-            }
-            if let data = data, let response = try? JSONDecoder().decode(ClipboardSendResponse.self, from: data) {
-                debugLog("SendFile SUCCESS: \(fileName) id=\(response.id ?? "nil")")
-                DispatchQueue.main.async {
-                    self.showNotification(title: "已发送文件", body: "\(fileName) (\(self.formatBytes(Int(fileSize))))")
+        let entry = ClipboardEntry(
+            id: UUID().uuidString,
+            type: "file",
+            content: base64,
+            fileName: fileName,
+            fileSize: fileSize,
+            from: instanceName,
+            timestamp: Int64(Date().timeIntervalSince1970 * 1000)
+        )
+        clipboardManager.send(entry: entry) { [weak self] count in
+            DispatchQueue.main.async {
+                if count > 0 {
+                    self?.showNotification(title: "文件已发送", body: "\(fileName) 已发送到 \(count) 个设备")
+                } else {
+                    self?.showNotification(title: "发送失败", body: "当前无其他在线设备")
                 }
             }
-        }.resume()
+        }
     }
 
     @objc private func toggleAutoStart() {
-        let newVal = !UserDefaults.standard.bool(forKey: "autoStart")
+        let currentlyEnabled = isAutoStartEnabled()
+        let newVal = !currentlyEnabled
         UserDefaults.standard.set(newVal, forKey: "autoStart")
-        autoStartMenuItem.state = newVal ? .on : .off
-        let plistPath = (FileManager.default.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Library/LaunchAgents/com.sharetool.app.plist")
+
         if newVal {
-            let xml = """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>Label</key><string>com.sharetool.app</string>
-                <key>ProgramArguments</key>
-                <array>
-                    <string>/usr/bin/open</string>
-                    <string>-a</string>
-                    <string>ShareTool</string>
-                </array>
-                <key>RunAtLoad</key><true/>
-            </dict>
-            </plist>
-            """
-            try? xml.write(toFile: plistPath, atomically: true, encoding: .utf8)
+            enableAutoStart()
         } else {
-            try? FileManager.default.removeItem(atPath: plistPath)
+            disableAutoStart()
         }
+
+        autoStartMenuItem.state = newVal ? .on : .off
+        showNotification(
+            title: newVal ? "已开启" : "已关闭",
+            body: newVal ? "ShareTool 将在开机时自动启动" : "已取消开机自动启动"
+        )
+    }
+
+    private func isAutoStartEnabled() -> Bool {
+        let plistPath = (FileManager.default.homeDirectoryForCurrentUser.path as NSString)
+            .appendingPathComponent("Library/LaunchAgents/com.sharetool.app.plist")
+        return FileManager.default.fileExists(atPath: plistPath)
+    }
+
+    private func enableAutoStart() {
+        let launchAgentsDir = (FileManager.default.homeDirectoryForCurrentUser.path as NSString)
+            .appendingPathComponent("Library/LaunchAgents")
+        try? FileManager.default.createDirectory(atPath: launchAgentsDir, withIntermediateDirectories: true)
+
+        let bundlePath = Bundle.main.bundlePath
+
+        let plistPath = (launchAgentsDir as NSString).appendingPathComponent("com.sharetool.app.plist")
+        let xml = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Label</key><string>com.sharetool.app</string>
+            <key>ProgramArguments</key>
+            <array>
+                <string>/usr/bin/open</string>
+                <string>-n</string>
+                <string>-a</string>
+                <string>\(bundlePath)</string>
+            </array>
+            <key>RunAtLoad</key><true/>
+            <key>KeepAlive</key><false/>
+        </dict>
+        </plist>
+        """
+        try? xml.write(toFile: plistPath, atomically: true, encoding: .utf8)
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        task.arguments = ["bootstrap", "gui/\(currentUID())", plistPath]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        try? task.run()
+    }
+
+    private func disableAutoStart() {
+        let plistPath = (FileManager.default.homeDirectoryForCurrentUser.path as NSString)
+            .appendingPathComponent("Library/LaunchAgents/com.sharetool.app.plist")
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        task.arguments = ["bootout", "gui/\(currentUID())/com.sharetool.app"]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        try? task.run()
+
+        try? FileManager.default.removeItem(atPath: plistPath)
+    }
+
+    private func currentUID() -> uid_t {
+        return getuid()
     }
 
     @objc private func quit() { onQuit() }
@@ -402,99 +630,76 @@ class StatusBarController: NSObject {
             let empty = NSMenuItem(title: "（无历史）", action: nil, keyEquivalent: "")
             empty.isEnabled = false
             submenu.addItem(empty)
-            // Fetch from server when empty
-            fetchClipboardHistory()
-            return
-        }
-
-        for (i, entry) in clipboardHistory.prefix(10).enumerated() {
-            let preview: String
-            switch entry.type {
-            case "text":
-                preview = truncate(entry.content, 40)
-            case "image":
-                preview = "📷 图片 (\(formatBytes(Int(entry.fileSize ?? 0)))"
-            case "file":
-                if let fn = entry.fileName, !fn.isEmpty {
-                    preview = "📄 \(fn) (\(formatBytes(Int(entry.fileSize ?? 0))))"
-                } else {
-                    preview = "📄 文件 (\(formatBytes(Int(entry.fileSize ?? 0))))"
-                }
-            default:
-                preview = truncate(entry.content, 40)
+        } else {
+            for (index, entry) in clipboardHistory.prefix(10).enumerated() {
+                let preview = entry.type == "text"
+                    ? String(entry.content.prefix(40)).replacingOccurrences(of: "\n", with: " ")
+                    : "[\(entry.type)] \(entry.fileName ?? entry.type)"
+                let item = NSMenuItem(title: "\(entry.from): \(preview)", action: #selector(useHistoryItem(_:)), keyEquivalent: "")
+                item.target = self
+                item.tag = index
+                submenu.addItem(item)
             }
-            let title = "来自 \(entry.from): \(preview)"
-            let item = NSMenuItem(title: title, action: #selector(useHistoryItem(_:)), keyEquivalent: "")
-            item.target = self
-            item.tag = i
-            submenu.addItem(item)
+            submenu.addItem(NSMenuItem.separator())
+            let clearItem = NSMenuItem(title: "清空历史", action: #selector(clearHistory), keyEquivalent: "")
+            clearItem.target = self
+            submenu.addItem(clearItem)
         }
-
-        submenu.addItem(NSMenuItem.separator())
-        let clearItem = NSMenuItem(title: "清空历史", action: #selector(clearClipboardHistory), keyEquivalent: "")
-        clearItem.target = self
-        submenu.addItem(clearItem)
     }
 
-    private func fetchClipboardHistory() {
-        let url = URL(string: "\(baseURL)/api/clipboard/history")!
-        clipboardManager.session.dataTask(with: url) { [weak self] data, _, _ in
-            guard let self = self, let data = data,
-                  let response = try? JSONDecoder().decode(ClipboardHistoryResponse.self, from: data) else { return }
-            DispatchQueue.main.async {
-                // Merge server history with local, avoiding duplicates
-                for entry in response.entries {
-                    if !self.clipboardHistory.contains(where: { $0.id == entry.id }) {
-                        self.clipboardHistory.append(entry)
-                    }
-                }
-                // Sort by timestamp descending
-                self.clipboardHistory.sort { $0.timestamp > $1.timestamp }
-                if self.clipboardHistory.count > 50 {
-                    self.clipboardHistory = Array(self.clipboardHistory.prefix(50))
-                }
-                self.refreshHistoryMenu()
-            }
-        }.resume()
-    }
-
-    @objc private func clearClipboardHistory() {
+    @objc private func clearHistory() {
         clipboardHistory.removeAll()
+        clipboardManager.clearHistory()
         refreshHistoryMenu()
-        // Also clear server-side
-        let url = URL(string: "\(baseURL)/api/clipboard")!
-        var req = URLRequest(url: url)
-        req.httpMethod = "DELETE"
-        clipboardManager.session.dataTask(with: req) { _, _, _ in }.resume()
-    }
-
-    private func truncate(_ s: String, _ max: Int) -> String {
-        let clean = s.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespaces)
-        if clean.count <= max { return clean }
-        return String(clean.prefix(max)) + "…"
-    }
-
-    private func formatBytes(_ n: Int) -> String {
-        if n < 1024 { return "\(n)B" }
-        if n < 1024 * 1024 { return "\(n/1024)KB" }
-        return "\(n/1024/1024)MB"
+        showNotification(title: "已清空", body: "剪贴板历史已清空")
     }
 
     private func showNotification(title: String, body: String) {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
-            guard granted else { return }
-            let content = UNMutableNotificationContent()
-            content.title = title
-            content.body = body
-            content.sound = .default
-            let req = UNNotificationRequest(
-                identifier: UUID().uuidString,
-                content: content,
-                trigger: nil
-            )
-            center.add(req)
+            if granted {
+                let content = UNMutableNotificationContent()
+                content.title = title
+                content.body = body
+                content.sound = .default
+                let req = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+                center.add(req)
+            }
         }
+    }
+}
+
+// MARK: - ServerDiscoveryDelegate
+
+extension StatusBarController: ServerDiscoveryDelegate {
+    func serverDiscovery(_ discovery: ServerDiscovery, didFind server: DiscoveredServer) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if !self.discoveredServers.contains(where: { $0.ip == server.ip }) {
+                self.discoveredServers.append(server)
+            }
+            self.refreshServersSubmenu()
+            // Avoid duplicate IP in notification if name already contains it
+            let notificationBody: String
+            if server.name.hasSuffix("(\(server.ip))") {
+                notificationBody = server.name
+            } else {
+                notificationBody = "\(server.name) (\(server.ip))"
+            }
+            self.showNotification(title: "发现服务器", body: notificationBody)
+        }
+    }
+
+    func serverDiscovery(_ discovery: ServerDiscovery, didLose server: DiscoveredServer) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.discoveredServers.removeAll { $0.ip == server.ip }
+            self.refreshServersSubmenu()
+        }
+    }
+
+    func serverDiscovery(_ discovery: ServerDiscovery, didUpdateProgress progress: Int) {
+        // Progress updates can be shown in UI if needed
     }
 }
 
@@ -502,20 +707,26 @@ class StatusBarController: NSObject {
 
 extension StatusBarController: ClipboardManagerDelegate {
     func clipboardManager(_ manager: ClipboardManager, didReceiveClipboard entry: ClipboardEntry) {
-        // Add to local history (don't duplicate server's own history)
-        clipboardHistory.insert(entry, at: 0)
-        if clipboardHistory.count > 50 {
-            clipboardHistory = Array(clipboardHistory.prefix(50))
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if !self.clipboardHistory.contains(where: { $0.id == entry.id }) {
+                self.clipboardHistory.insert(entry, at: 0)
+                if self.clipboardHistory.count > 20 {
+                    self.clipboardHistory = Array(self.clipboardHistory.prefix(20))
+                }
+            }
+            self.refreshHistoryMenu()
         }
-        refreshHistoryMenu()
     }
 
     func clipboardManager(_ manager: ClipboardManager, didSendClipboard count: Int) {
-        // Use system notification instead of modal dialog
-        if count > 0 {
-            showNotification(title: "剪贴板已发送", body: "已发送到 \(count) 个设备")
-        } else {
-            showNotification(title: "剪贴板已发送", body: "当前无其他在线设备")
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if count > 0 {
+                self.showNotification(title: "剪贴板已发送", body: "已发送到 \(count) 个设备")
+            } else {
+                self.showNotification(title: "剪贴板已发送", body: "当前无其他在线设备")
+            }
         }
     }
 
@@ -533,4 +744,3 @@ extension StatusBarController: HotkeyManagerDelegate {
         sendClipboard()
     }
 }
-// Force recompile 2026年 5月 4日 星期一 14时26分46秒 CST

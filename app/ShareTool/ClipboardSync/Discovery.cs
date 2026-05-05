@@ -117,12 +117,55 @@ public class ServerDiscovery
     {
         try
         {
+            // First do a TCP check, then verify with HTTP /api/info
             using var client = new TcpClient();
             var connectTask = client.ConnectAsync(ip, ScanPort);
-            if (await Task.WhenAny(connectTask, Task.Delay(500, CancellationToken.None)) == connectTask)
+            if (await Task.WhenAny(connectTask, Task.Delay(500, CancellationToken.None)) != connectTask)
             {
-                return client.Connected;
+                return false;
             }
+
+            if (!client.Connected)
+            {
+                return false;
+            }
+
+            // Verify with HTTP /api/info to confirm it's a ShareTool server
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+            // Accept self-signed certs
+            var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+            };
+            using var sh = new HttpClient(handler);
+            sh.Timeout = TimeSpan.FromSeconds(2);
+
+            try
+            {
+                var resp = await sh.GetAsync($"https://{ip}:{ScanPort}/api/info");
+                if (resp.IsSuccessStatusCode)
+                {
+                    var content = await resp.Content.ReadAsStringAsync();
+                    // Extract server name from JSON if possible
+                    var json = System.Text.Json.JsonDocument.Parse(content);
+                    if (json.RootElement.TryGetProperty("name", out var nameElement))
+                    {
+                        var serverName = nameElement.GetString();
+                        if (!string.IsNullOrEmpty(serverName))
+                        {
+                            Logger.Info($"[Discovery] Verified ShareTool server at {ip}: {serverName}");
+                        }
+                    }
+                    return true;
+                }
+            }
+            catch
+            {
+                // HTTP failed, but TCP connected — still consider it a potential server
+                // Some servers may not have /api/info yet, so accept TCP-only as fallback
+                return true;
+            }
+
             return false;
         }
         catch

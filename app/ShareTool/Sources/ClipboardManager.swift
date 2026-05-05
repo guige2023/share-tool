@@ -75,6 +75,22 @@ class ClipboardManager: NSObject, URLSessionDelegate {
     private var lastSeenID: String = ""
     private var isPolling = false
 
+    /// Current base URL (local server or bound remote server)
+    var currentBaseURL: String {
+        return baseURL
+    }
+
+    /// Switch to a different server URL (local or remote)
+    func setBaseURL(_ url: String) {
+        let changed = (baseURL != url)
+        baseURL = url
+        if changed {
+            // Reset lastSeenID so we don't ignore the next poll result
+            lastSeenID = ""
+            debugLog("[ClipboardManager] Base URL changed to: \(url)")
+        }
+    }
+
     // URLSession that skips TLS verification for self-signed certs
     lazy var session: URLSession = {
         let config = URLSessionConfiguration.default
@@ -282,6 +298,64 @@ class ClipboardManager: NSObject, URLSessionDelegate {
             DispatchQueue.main.async {
                 self.delegate?.clipboardManager(self, didSendClipboard: response.forwarded ?? 0)
             }
+        }.resume()
+    }
+
+    /// Send a specific clipboard entry (file, text, image) to all peers
+    func send(entry: ClipboardEntry, completion: @escaping (Int) -> Void) {
+        debugLog("send(entry:) called: type=\(entry.type) from=\(entry.from)")
+
+        var payload: [String: Any] = [
+            "type": entry.type,
+            "content": entry.content,
+            "from": entry.from,
+            "timestamp": entry.timestamp
+        ]
+        if let fn = entry.fileName {
+            payload["file_name"] = fn
+        }
+        if (entry.fileSize ?? 0) > 0 {
+            payload["file_size"] = entry.fileSize
+        }
+
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else {
+            completion(0)
+            return
+        }
+
+        let url = URL(string: "\(baseURL)/api/clipboard")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.httpBody = jsonData
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        session.dataTask(with: req) { [weak self] data, resp, err in
+            guard let self = self else { return }
+            if err != nil {
+                debugLog("send(entry:) FAILED: \(err!)")
+                DispatchQueue.main.async { completion(0) }
+                return
+            }
+            guard let data = data,
+                  let response = try? JSONDecoder().decode(ClipboardSendResponse.self, from: data) else {
+                debugLog("send(entry:) could not decode response")
+                DispatchQueue.main.async { completion(0) }
+                return
+            }
+            debugLog("send(entry:) SUCCESS: forwarded=\(response.forwarded ?? -1)")
+            DispatchQueue.main.async {
+                completion(response.forwarded ?? 0)
+            }
+        }.resume()
+    }
+
+    /// Clear clipboard history on the server
+    func clearHistory() {
+        let url = URL(string: "\(baseURL)/api/clipboard")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        session.dataTask(with: req) { [weak self] _, _, _ in
+            debugLog("clearHistory completed")
         }.resume()
     }
 

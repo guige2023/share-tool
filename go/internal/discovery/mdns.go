@@ -36,7 +36,7 @@ type Discovery struct {
 
 // New creates a new Discovery instance for the given local port
 func New(localPort int) (*Discovery, error) {
-	iface, err := defaultInterface()
+		iface, err := DefaultInterface()
 	if err != nil {
 		return nil, fmt.Errorf("no suitable network interface: %v", err)
 	}
@@ -175,7 +175,7 @@ func (d *Discovery) handlePacket(buf []byte, src *net.UDPAddr) {
 
 // GetLocalIP returns the best LAN IP for this machine
 func GetLocalIP() string {
-	iface, err := defaultInterface()
+		iface, err := DefaultInterface()
 	if err != nil {
 		return "unknown"
 	}
@@ -192,7 +192,7 @@ func GetLocalIP() string {
 
 // GetLocalSubnet returns the subnet in CIDR notation (e.g., "192.168.1.0/24")
 func GetLocalSubnet() (string, error) {
-	iface, err := defaultInterface()
+		iface, err := DefaultInterface()
 	if err != nil {
 		return "", err
 	}
@@ -209,7 +209,8 @@ func GetLocalSubnet() (string, error) {
 	return "", fmt.Errorf("no suitable interface")
 }
 
-func defaultInterface() (*net.Interface, error) {
+// DefaultInterface returns the first active, multicast-capable, non-loopback interface.
+func DefaultInterface() (*net.Interface, error) {
 	intfs, err := net.Interfaces()
 	if err != nil {
 		return nil, err

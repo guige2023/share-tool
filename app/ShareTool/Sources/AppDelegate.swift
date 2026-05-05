@@ -2,12 +2,14 @@ import AppKit
 import ServiceManagement
 import UserNotifications
 
-class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate, StatusBarControllerDelegate {
 
     private var statusBarController: StatusBarController?
     private var shareToolPID: Int32 = -1
     private var sharedDir: String = ""
     private var instanceName: String = ""
+    private var localBaseURL: String = ""
+    private var serverDiscovery: ServerDiscovery?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
@@ -45,19 +47,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         // Determine local IP for clipboard manager base URL
         let localIP = getLocalIP() ?? "127.0.0.1"
-        let baseURL = "https://\(localIP):18793"
+        localBaseURL = "https://\(localIP):18793"
 
         statusBarController = StatusBarController(
-            baseURL: baseURL,
+            baseURL: localBaseURL,
             instanceName: instanceName,
             onStart: { [weak self] in self?.startShareToolService() },
             onStop: { [weak self] in self?.stopShareToolService() },
-            onOpenWebUI: { [weak self] in self?.openWebUI() },
             onOpenFolder: { [weak self] in self?.openSharedFolder() },
-            onQuit: { NSApp.terminate(nil) },
+            onQuit: {
+                // Stop the sharetool Go server first
+                self.stopShareToolService()
+                // Menu bar app (LSUIElement) cannot use NSApp.terminate —
+                // it returns without exiting. Use exit(0) directly.
+                exit(0)
+            },
             getStatus: { [weak self] in self?.isServiceRunning() ?? false },
             getIP: { [weak self] in self?.getLocalIP() ?? "127.0.0.1" }
         )
+        statusBarController?.delegate = self
+
+        // Start server discovery
+        let discovery = ServerDiscovery()
+        statusBarController?.setServerDiscovery(discovery)
+        self.serverDiscovery = discovery
+
+        // Update status after a delay to allow discovery to start
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            self?.statusBarController?.updateStatus()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -209,19 +227,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func stopShareToolService() {
+        // First try SIGTERM (graceful)
         if shareToolPID > 0 {
-            kill(shareToolPID, SIGTERM)
-            print("[ShareTool] Sent SIGTERM to PID \(shareToolPID)")
+            let killed = kill(shareToolPID, SIGTERM)
+            print("[ShareTool] Sent SIGTERM to PID \(shareToolPID), result: \(killed)")
+            // Give it 0.5s to exit gracefully
+            Thread.sleep(forTimeInterval: 0.5)
+            if kill(shareToolPID, 0) == 0 {
+                // Still running — use SIGKILL (force kill)
+                print("[ShareTool] Process still running, sending SIGKILL")
+                kill(shareToolPID, SIGKILL)
+            }
             shareToolPID = -1
         }
 
+        // Also use pkill as a safety net (kills any sharetool process)
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        task.arguments = ["-f", "sharetool.*-name"]
+        task.arguments = ["-9", "-f", "sharetool.*-name"]
         task.standardOutput = FileHandle.nullDevice
         task.standardError = FileHandle.nullDevice
         try? task.run()
         task.waitUntilExit()
+        print("[ShareTool] Service stopped")
     }
 
     func isServiceRunning() -> Bool {
@@ -264,12 +292,35 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         return "127.0.0.1"
     }
 
-    func openWebUI() {
-        guard let ip = getLocalIP() else { return }
-        NSWorkspace.shared.open(URL(string: "https://\(ip):18793")!)
-    }
-
     func openSharedFolder() {
         NSWorkspace.shared.open(URL(fileURLWithPath: sharedDir))
+    }
+
+    // MARK: - StatusBarControllerDelegate
+
+    func statusBarController(_ controller: StatusBarController, didBindToServer url: String, name: String) {
+        // When user binds to a server (remote or local), ensure the clipboard manager polls that URL
+        // The StatusBarController already calls clipboardManager.setBaseURL(), so we just update localBaseURL if it's the local server
+        if name == "本地服务" {
+            localBaseURL = url
+        }
+        print("[ShareTool] Bound to server: \(name) at \(url)")
+    }
+
+    func statusBarControllerDidDisconnect(_ controller: StatusBarController) {
+        // Revert to local server URL
+        print("[ShareTool] Disconnected from remote, using local server")
+    }
+
+    func statusBarController(_ controller: StatusBarController, didRequestOpenWebUI url: String) {
+        NSWorkspace.shared.open(URL(string: url)!)
+    }
+
+    func statusBarControllerDidRequestRescan(_ controller: StatusBarController) {
+        print("[ShareTool] LAN rescan requested")
+    }
+
+    func statusBarControllerDidRequestSendClipboard(_ controller: StatusBarController) {
+        // Handled by StatusBarController directly
     }
 }

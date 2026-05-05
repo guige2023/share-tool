@@ -46,12 +46,6 @@ public class ClipboardService : IDisposable
         return client;
     }
 
-    public void SetBaseURL(string url)
-    {
-        _baseUrl = url.TrimEnd('/');
-        Logger.Info($"[ClipboardService] BaseURL changed to: {_baseUrl}");
-    }
-
     // Start polling for received clipboard entries
     public void StartPolling(int intervalSeconds = 2)
     {

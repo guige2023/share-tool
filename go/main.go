@@ -55,7 +55,7 @@ func main() {
 
 	localIP := discovery.GetLocalIP()
 
-	// Start mDNS discovery
+	// Start mDNS discovery (client-side, finds other servers)
 	d, err := discovery.New(*port)
 	if err != nil {
 		log.Printf("[mDNS] Failed to create discovery: %v (non-fatal)", err)
@@ -65,6 +65,18 @@ func main() {
 				log.Printf("[mDNS] Discovered peer: %s:%d", peer.IP, peer.Port)
 			}); err != nil {
 				log.Printf("[mDNS] Discovery failed: %v (non-fatal)", err)
+			}
+		}()
+	}
+
+	// Start mDNS service advertisement (server-side, announces this instance)
+	adv, err := discovery.NewAdvertiser(localIP, *port, *name)
+	if err != nil {
+		log.Printf("[mDNS] Failed to create advertiser: %v (non-fatal)", err)
+	} else {
+		go func() {
+			if err := adv.Start(); err != nil {
+				log.Printf("[mDNS] Advertiser failed: %v (non-fatal)", err)
 			}
 		}()
 	}
@@ -239,6 +251,12 @@ func main() {
 	<-sigCh
 
 	log.Println("Shutting down ShareTool...")
+	if adv != nil {
+		adv.Stop()
+	}
+	if d != nil {
+		d.Stop()
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	httpSrv.Shutdown(ctx)

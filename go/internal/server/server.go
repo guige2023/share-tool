@@ -2,6 +2,7 @@ package server
 
 import (
 	"embed"
+	"encoding/json"
 	"io/fs"
 	"log"
 	"net/http"
@@ -103,6 +104,23 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok","version":"1.0.0"}`))
+	})
+
+	// Server info endpoint — returns name, version, IP, port
+	mux.HandleFunc("/api/info", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		proto := "https"
+		if r.TLS == nil {
+			proto = "http"
+		}
+		info := map[string]interface{}{
+			"name":     instanceName,
+			"version":  "1.0.0",
+			"ip":       instanceIP,
+			"port":     instancePort,
+			"protocol": proto,
+		}
+		json.NewEncoder(w).Encode(info)
 	})
 
 	// Text API — history
@@ -318,12 +336,9 @@ func rejectPathTraversal(handler, on404 http.Handler) http.Handler {
 
 func serveIndexFallback(files http.FileSystem) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Only fallback for browser navigation (HTML requests)
-		if !strings.Contains(r.Header.Get("Accept"), "text/html") {
-			http.NotFound(w, r)
-			return
-		}
-
+		// Always serve index.html for the SPA fallback — browsers,
+		// curl, and API clients (Postman, etc.) all get the page.
+		// The SPA router inside index.html handles client-side routing.
 		index, err := files.Open("index.html")
 		if err != nil {
 			http.NotFound(w, r)
