@@ -240,6 +240,38 @@ public class ClipboardService : IDisposable
         }
     }
 
+    // Send file as payload (called from TrayIcon file send)
+    public async Task SendFileAsPayload(string base64, string fileName, long fileSize)
+    {
+        if (_isWritingClipboard) return;
+        try
+        {
+            var req = new ClipboardRequest
+            {
+                Type = "file",
+                Content = base64,
+                FileName = fileName,
+                FileSize = fileSize,
+                From = _instanceName,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+            };
+
+            var resp = await _http.PostAsJsonAsync($"{_baseUrl}/api/clipboard", req);
+            if (!resp.IsSuccessStatusCode)
+            {
+                OnSent?.Invoke(this, (0, $"Server error: {(int)resp.StatusCode}"));
+                return;
+            }
+
+            var result = await resp.Content.ReadFromJsonAsync<ClipboardResponse>();
+            OnSent?.Invoke(this, (result?.Forwarded ?? 0, null));
+        }
+        catch (Exception ex)
+        {
+            OnSent?.Invoke(this, (0, ex.Message));
+        }
+    }
+
     // Detect what's currently in the system clipboard
     private (string type, string? content, string? fileName, long fileSize) DetectClipboardType()
     {

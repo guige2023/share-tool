@@ -1,4 +1,6 @@
 using System.Drawing;
+using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Windows.Forms;
@@ -70,7 +72,6 @@ public class TrayIconManager : IDisposable
         _discovery.ServerFound += (s, server) =>
         {
             Logger.Info($"[TrayIcon] Server discovered: {server.Name} at {server.URL}");
-            RefreshServersMenu();
         };
 
         _discovery.ScanProgress += (s, progress) =>
@@ -170,6 +171,11 @@ public class TrayIconManager : IDisposable
         var sendItem = new ToolStripMenuItem("发送剪贴板  Win+⇧+V");
         sendItem.Click += async (_, _) => await _clipboardService.SendSystemClipboard();
         _menu.Items.Add(sendItem);
+
+        // Send Files
+        var sendFilesItem = new ToolStripMenuItem("发送文件...");
+        sendFilesItem.Click += (_, _) => ShowOpenFileDialog();
+        _menu.Items.Add(sendFilesItem);
 
         // Clipboard History
         var historyItem = new ToolStripMenuItem("剪贴板历史");
@@ -460,6 +466,70 @@ public class TrayIconManager : IDisposable
         catch (Exception ex)
         {
             Logger.Error($"[TrayIcon] Failed to disable auto-start: {ex.Message}");
+        }
+    }
+
+    // === File Send ===
+    private void ShowOpenFileDialog()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Multiselect = true,
+            Title = "选择要发送的文件"
+        };
+
+        if (dialog.ShowDialog() == DialogResult.OK)
+        {
+            var files = dialog.FileNames;
+            if (files.Length > 0)
+            {
+                SendSelectedFiles(files);
+            }
+        }
+    }
+
+    private async void SendSelectedFiles(string[] filePaths)
+    {
+        foreach (var filePath in filePaths)
+        {
+            try
+            {
+                var fileInfo = new FileInfo(filePath);
+                if (!fileInfo.Exists)
+                {
+                    ShowNotification("发送失败", $"文件不存在: {fileInfo.Name}");
+                    continue;
+                }
+
+                byte[] data;
+                string fileName;
+                long fileSize;
+
+                if ((fileInfo.Attributes & FileAttributes.Directory) != 0)
+                {
+                    var tempZip = Path.GetTempFileName() + ".zip";
+                    ZipFile.CreateFromDirectory(filePath, tempZip);
+                    data = await File.ReadAllBytesAsync(tempZip);
+                    File.Delete(tempZip);
+                    fileName = fileInfo.Name + ".zip";
+                    fileSize = data.LongLength;
+                }
+                else
+                {
+                    data = await File.ReadAllBytesAsync(filePath);
+                    fileName = fileInfo.Name;
+                    fileSize = fileInfo.Length;
+                }
+
+                var base64 = Convert.ToBase64String(data);
+                await _clipboardService.SendFileAsPayload(base64, fileName, fileSize);
+                ShowNotification("文件已发送", $"{fileName} 已发送");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[TrayIcon] Failed to send file: {ex.Message}");
+                ShowNotification("发送失败", ex.Message);
+            }
         }
     }
 }
