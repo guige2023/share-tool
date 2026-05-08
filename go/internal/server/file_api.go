@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,9 +11,19 @@ import (
 	"strings"
 )
 
-// handleFileList returns all files in the shared directory (non-recursive, top-level only)
+// handleFileList returns all files, preferring database metadata when available.
 func handleFileList(sharedDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query().Get("q")
+		if q != "" && db != nil {
+			files, err := searchDBFiles(q)
+			if err == nil {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]any{"files": files})
+				return
+			}
+		}
+		// Fallback to filesystem listing
 		files, err := listFiles(sharedDir)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -21,6 +32,45 @@ func handleFileList(sharedDir string) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"files": files})
 	}
+}
+
+func searchDBFiles(q string) ([]FileInfo, error) {
+	rows, err := db.Query(`
+		SELECT id, filename, type, size, tags, starred, updated_at
+		FROM files
+		WHERE filename LIKE ? OR tags LIKE ?
+		ORDER BY updated_at DESC LIMIT 200`,
+		"%"+q+"%", "%"+q+"%",
+	)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if err == sql.ErrNoRows || rows == nil {
+		return []FileInfo{}, nil
+	}
+	defer rows.Close()
+
+	var files []FileInfo
+	for rows.Next() {
+		var id int64
+		var filename, typ, tags string
+		var size int64
+		var starred int
+		var updatedAt int64
+		if err := rows.Scan(&id, &filename, &typ, &size, &tags, &starred, &updatedAt); err != nil {
+			continue
+		}
+		files = append(files, FileInfo{
+			Name:      filename,
+			Size:      size,
+			CreatedAt: updatedAt,
+			UpdatedAt: updatedAt,
+			IsDir:     typ == "folder",
+			Starred:   starred == 1,
+			Tags:      tags,
+		})
+	}
+	return files, rows.Err()
 }
 
 // safeRelPath extracts and validates a safe relative path from the URL path.
@@ -134,6 +184,11 @@ func handleFileUpload(sharedDir string, maxSize int64) http.HandlerFunc {
 		}
 
 		fi, _ := os.Stat(fpath)
+		// Write to database if available
+		if db != nil {
+			db.Exec(`INSERT OR REPLACE INTO files (filename, type, size, created_at, updated_at) VALUES (?, ?, ?, unixepoch(), unixepoch())`,
+				relPath, "file", fi.Size())
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"success":  true,
@@ -209,12 +264,16 @@ func handleFilePut(sharedDir string) http.HandlerFunc {
 		}
 
 		fi, _ := os.Stat(fpath)
+		if db != nil {
+			db.Exec(`INSERT OR REPLACE INTO files (filename, type, size, created_at, updated_at) VALUES (?, ?, ?, unixepoch(), unixepoch())`,
+				rel, "file", fi.Size())
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"success": true,
 			"size":    fi.Size(),
 			"written": written,
-			"path":    rel, // Return the relative path so client knows where it was stored
+			"path":    rel,
 		})
 	}
 }
@@ -257,6 +316,9 @@ func handleFileDelete(sharedDir string) http.HandlerFunc {
 			http.Error(w, err.Error(), 500)
 			return
 		}
+		if db != nil {
+			db.Exec("DELETE FROM files WHERE filename = ?", rel)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]bool{"success": true})
 	}
@@ -296,6 +358,9 @@ func handleFileBatchDelete(sharedDir string) http.HandlerFunc {
 				errs = append(errs, name+": "+err.Error())
 			} else {
 				deleted++
+				if db != nil {
+					db.Exec("DELETE FROM files WHERE filename = ?", rel)
+				}
 			}
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -346,4 +411,6 @@ type FileInfo struct {
 	CreatedAt int64  `json:"createdAt"`
 	UpdatedAt int64  `json:"updatedAt"`
 	IsDir     bool   `json:"isDir,omitempty"`
+	Starred   bool   `json:"starred,omitempty"`
+	Tags      string `json:"tags,omitempty"`
 }

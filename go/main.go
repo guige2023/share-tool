@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"sharetool/internal/db"
 	"sharetool/internal/discovery"
 	"sharetool/internal/server"
 )
@@ -98,6 +99,14 @@ func main() {
 
 	// Set shared directory for file sync
 	server.SetSharedDir(*dir)
+
+	// Initialize SQLite database
+	dbPath := filepath.Join(os.Getenv("HOME"), ".share-tool", "share-tool.db")
+	if err := db.Init(dbPath); err != nil {
+		log.Fatalf("[DB] Failed to initialize database: %v", err)
+	}
+	server.SetDB(db.GetDB())
+	log.Printf("[DB] Database initialized at %s", dbPath)
 
 	// Start UDP broadcast discovery listener (for Windows client compatibility)
 	go startBroadcastDiscovery(localIP, *port, *name)
@@ -257,6 +266,7 @@ func main() {
 	if d != nil {
 		d.Stop()
 	}
+	db.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	httpSrv.Shutdown(ctx)

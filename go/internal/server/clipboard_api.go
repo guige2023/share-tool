@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/tls"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -66,6 +67,8 @@ var (
 	forwardClient     *http.Client
 	dataDir           = "" // e.g. ~/.sharetool/clipboard
 	sharedDir        = "" // e.g. ~/ShareToolShared
+	db               *sql.DB
+	shareToken       = ""
 )
 
 func SetInstanceInfo(name, ip string, port int) {
@@ -73,6 +76,16 @@ func SetInstanceInfo(name, ip string, port int) {
 	instanceIP = ip
 	instancePort = port
 	forwardClient = &http.Client{Timeout: 10 * time.Second}
+}
+
+// SetDB sets the database connection for server-side storage
+func SetDB(database *sql.DB) {
+	db = database
+}
+
+// SetShareToken sets the share token for authentication
+func SetShareToken(token string) {
+	shareToken = token
 }
 
 // SetDataDir sets the persistent storage directory

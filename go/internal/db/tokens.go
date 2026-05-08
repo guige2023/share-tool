@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
+	"fmt"
 	"time"
 )
 
@@ -68,7 +69,7 @@ func GetToken(token string) (*Token, error) {
 	if refreshTokenExpiresAt.Valid {
 		t.RefreshTokenExpiresAt = refreshTokenExpiresAt.Int64
 	}
-	t.DeviceID = deviceID.String
+	t.DeviceID = fmt.Sprintf("%d", deviceID.Int64)
 	return &t, nil
 }
 
