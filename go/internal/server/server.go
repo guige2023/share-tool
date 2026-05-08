@@ -253,6 +253,133 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 	// SSE endpoint for real-time updates
 	mux.HandleFunc("/api/events", handleSSE)
 
+	// Tags API
+	mux.HandleFunc("/api/tags", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handleTagsList(w, r)
+		case http.MethodPost:
+			handleTagsCreate(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/tags/colors", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			handleTagsUpdateColor(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/tags/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/delete") && r.Method == http.MethodDelete {
+			handleTagsDelete(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/tags/rename", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handleTagsRename(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/tags/merge", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handleTagsMerge(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
+	// Starred files
+	mux.HandleFunc("/api/files/starred", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			handleStarredList(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/files/star", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handleFileStar(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
+	// Virtual Folders
+	mux.HandleFunc("/api/folders", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handleVirtualFoldersList(w, r)
+		case http.MethodPost:
+			handleVirtualFolderCreate(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/folders/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/files") {
+			if r.Method == http.MethodGet {
+				handleVirtualFolderFiles(w, r)
+			} else if r.Method == http.MethodPost {
+				handleVirtualFolderAddFile(w, r)
+			} else {
+				http.Error(w, "Method Not Allowed", 405)
+			}
+			return
+		}
+		parts := strings.Split(strings.TrimPrefix(path, "/api/folders/"), "/")
+		if len(parts) == 2 && parts[1] == "files" {
+			// /api/folders/:id/files
+			if r.Method == http.MethodGet {
+				handleVirtualFolderFiles(w, r)
+			} else if r.Method == http.MethodPost {
+				handleVirtualFolderAddFile(w, r)
+			} else {
+				http.Error(w, "Method Not Allowed", 405)
+			}
+			return
+		}
+		if r.Method == http.MethodPut {
+			handleVirtualFolderUpdate(w, r)
+		} else if r.Method == http.MethodDelete {
+			handleVirtualFolderDelete(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
+	// Trash
+	mux.HandleFunc("/api/trash", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handleTrashList(w, r)
+		case http.MethodDelete:
+			handleTrashEmpty(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/trash/restore", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handleTrashRestore(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/trash/delete", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handleTrashDelete(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
 	// QR Code endpoint - generates PNG QR code for the given URL
 	mux.HandleFunc("/api/qr", func(w http.ResponseWriter, r *http.Request) {
 		urlStr := r.URL.Query().Get("url")
