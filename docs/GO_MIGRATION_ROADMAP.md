@@ -36,7 +36,7 @@
 - [x] Graceful Shutdown（signal + context timeout）
 
 ### 需要从 Node.js 移植到 Go 📦
-- [ ] **SQLite 数据库层**（最重要）
+- [x] **SQLite 数据库层**（最重要）✅ — internal/db/: db, files, shares, devices, tokens
   - 文件元数据管理（替代直接读文件系统）
   - FTS5 全文搜索
   - 标签系统 + 虚拟文件夹
@@ -426,13 +426,19 @@ Node.js 将剪贴板存储在 SQLite 中，Go 当前存储在 `~/.sharetool/clip
 
 ## 八、立即执行的 Checklist
 
-- [ ] 将 `server.js` 中的客户端 JS（1160-1203 行）**删除**（这是架构混乱的标志）
-- [ ] 在 README 顶部添加 Node.js 废弃警告
-- [ ] 创建 `legacy/` 目录，将 Node.js 源码移入
-- [ ] 在 Go 端添加 `internal/db/` 包，实现 SQLite 连接管理
-- [ ] 将 `public/` 中的前端资源复制到 `go/internal/server/web/`
-- [ ] 验证 Go 端 `go build` 后，单二进制文件运行正常
-- [ ] 更新 `app/` 中的启动逻辑（如需要），改为调用 Go 二进制而非 `node server.js`
+- [x] 将 `server.js` 中的客户端 JS（1160-1203 行）**删除**（这是架构混乱的标志）
+- [x] 在 README 顶部添加 Node.js 废弃警告
+- [x] 创建 `legacy/` 目录，将 Node.js 源码移入
+- [x] 在 Go 端添加 `internal/db/` 包，实现 SQLite 连接管理
+- [x] 将 `public/` 中的前端资源复制到 `go/internal/server/web/`
+- [x] 验证 Go 端 `go build` 后，单二进制文件运行正常
+- [x] 更新 `app/` 中的启动逻辑（如需要），改为调用 Go 二进制而非 `node server.js`
+
+**Phase 1 完成项**（2026-05-08）：
+- [x] SQLite 数据库层（modernc.org/sqlite）：db, files, shares, devices, tokens
+- [x] 文件 API 集成数据库：上传/删除写入 DB 元数据，搜索查询 DB
+- [x] 认证中间件（internal/middleware/auth.go）
+- [x] DB 初始化于 main.go（~/.share-tool/share-tool.db）
 
 ---
 
