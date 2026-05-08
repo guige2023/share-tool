@@ -440,6 +440,21 @@ Node.js 将剪贴板存储在 SQLite 中，Go 当前存储在 `~/.sharetool/clip
 - [x] 认证中间件（internal/middleware/auth.go）
 - [x] DB 初始化于 main.go（~/.share-tool/share-tool.db）
 
+**Phase 2C 完成项**（2026-05-08）：
+- [x] 分享链接系统：创建/列表/删除/更新/续期/统计/过期提醒
+- [x] 公开分享页面：/s/:code 支持文本/图片/视频/音频/通用文件预览
+- [x] 密码保护 + 速率限制
+- [x] /api/share/qr/:code 二维码生成
+- [x] 请求收集链接：/r/:code 公开上传页面
+
+**Phase 2E 完成项**（2026-05-08）：
+- [x] SSE 实时推送系统（sse.go）
+- [x] GET /api/events 端点
+- [x] BroadcastFileChanged / BroadcastClipboardReceived / BroadcastDeviceOnline/Offline
+
+**Phase 4 完成项**（2026-05-08）：
+- [x] CLI -token flag（支持 SHARE_TOKEN 环境变量）
+
 ---
 
 ## 九、预期收益
