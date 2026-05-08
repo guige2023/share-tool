@@ -452,6 +452,17 @@ Node.js 将剪贴板存储在 SQLite 中，Go 当前存储在 `~/.sharetool/clip
 - [x] GET /api/events 端点
 - [x] BroadcastFileChanged / BroadcastClipboardReceived / BroadcastDeviceOnline/Offline
 
+**Phase 2D 完成项**（2026-05-08）：
+- [x] 标签系统：列表/创建/更新颜色/删除/重命名/合并
+- [x] 星标文件：GET /api/files/starred, POST /api/files/star
+- [x] 虚拟文件夹：CRUD + 文件关联管理
+- [x] 回收站：列表/恢复/永久删除/清空
+
+**Phase 2F 完成项**（2026-05-08）：
+- [x] WebDAV 服务器（/dav/*）
+- [x] PROPFIND, OPTIONS, GET, PUT, DELETE, MKCOL, PROPPATCH, MOVE, COPY
+- [x] DAV:1 协议兼容
+
 **Phase 4 完成项**（2026-05-08）：
 - [x] CLI -token flag（支持 SHARE_TOKEN 环境变量）
 
