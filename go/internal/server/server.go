@@ -206,6 +206,53 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		}
 	})
 
+	// Share Link API
+	mux.HandleFunc("/api/share/create", handleShareCreate)
+	mux.HandleFunc("/api/share/list", handleShareList)
+	mux.HandleFunc("/api/share/delete/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodDelete {
+			handleShareDelete(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/share/update/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			handleShareUpdate(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/share/renew/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handleShareRenew(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/share/stats", handleShareStats)
+	mux.HandleFunc("/api/share/expiring", handleShareExpiring)
+	mux.HandleFunc("/api/share/qr/", handleShareQR)
+	mux.HandleFunc("/api/share/content/", handleShareContent)
+
+	// Public share page
+	mux.HandleFunc("/s/", handleSharePage)
+
+	// Request link (public upload)
+	mux.HandleFunc("/r/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handleRequestLinkPage(w, r)
+		case http.MethodPost:
+			handleRequestLinkUpload(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
+	// SSE endpoint for real-time updates
+	mux.HandleFunc("/api/events", handleSSE)
+
 	// QR Code endpoint - generates PNG QR code for the given URL
 	mux.HandleFunc("/api/qr", func(w http.ResponseWriter, r *http.Request) {
 		urlStr := r.URL.Query().Get("url")

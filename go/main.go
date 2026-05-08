@@ -38,6 +38,7 @@ func main() {
 	register := flag.Bool("register", false, "If set, register this instance with itself")
 	readonly := flag.Bool("readonly", false, "If set, disable file upload and delete")
 	noHttps := flag.Bool("no-https", false, "Disable HTTPS server")
+	token := flag.String("token", "", "Share token for authentication (also via SHARE_TOKEN env)")
 	flag.Parse()
 
 	// Default name to hostname if not specified
@@ -107,6 +108,16 @@ func main() {
 	}
 	server.SetDB(db.GetDB())
 	log.Printf("[DB] Database initialized at %s", dbPath)
+
+	// Set share token (from flag or env)
+	shareToken := *token
+	if shareToken == "" {
+		shareToken = os.Getenv("SHARE_TOKEN")
+	}
+	if shareToken != "" {
+		server.SetShareToken(shareToken)
+		log.Printf("[Auth] Token authentication enabled")
+	}
 
 	// Start UDP broadcast discovery listener (for Windows client compatibility)
 	go startBroadcastDiscovery(localIP, *port, *name)
