@@ -467,7 +467,7 @@ func listTagsAPI() ([]tagItem, error) {
 	}
 	defer rows.Close()
 
-	var tags []tagItem
+	var tags = []tagItem{}
 	for rows.Next() {
 		var t tagItem
 		if err := rows.Scan(&t.Tag, &t.Count); err != nil {
@@ -624,7 +624,7 @@ func listStarredFiles() ([]starredFileInfo, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var files []starredFileInfo
+	var files = []starredFileInfo{}
 	for rows.Next() {
 		var f starredFileInfo
 		if err := rows.Scan(&f.Name, &f.Size, &f.UpdatedAt); err != nil {
@@ -658,7 +658,7 @@ func listVirtualFoldersAPI() ([]virtualFolderInfo, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var folders []virtualFolderInfo
+	var folders = []virtualFolderInfo{}
 	for rows.Next() {
 		var f virtualFolderInfo
 		var desc, color sql.NullString
@@ -757,7 +757,7 @@ func listTrashAPI() ([]trashInfo, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var entries []trashInfo
+	var entries = []trashInfo{}
 	for rows.Next() {
 		var e trashInfo
 		if err := rows.Scan(&e.ID, &e.Filename, &e.Size, &e.DeletedAt, &e.ExpiresAt); err != nil {

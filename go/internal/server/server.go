@@ -154,6 +154,22 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		}
 	})
 
+	// Starred files (registered BEFORE /api/files/ to ensure specificity)
+	mux.HandleFunc("/api/files/starred", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			handleStarredList(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/files/star", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			handleFileStar(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
 	// Dynamic file routes using pattern matching
 	mux.HandleFunc("/api/files/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -294,22 +310,6 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		}
 	})
 
-	// Starred files
-	mux.HandleFunc("/api/files/starred", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			handleStarredList(w, r)
-		} else {
-			http.Error(w, "Method Not Allowed", 405)
-		}
-	})
-	mux.HandleFunc("/api/files/star", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
-			handleFileStar(w, r)
-		} else {
-			http.Error(w, "Method Not Allowed", 405)
-		}
-	})
-
 	// Virtual Folders
 	mux.HandleFunc("/api/folders", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -365,6 +365,10 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 			http.Error(w, "Method Not Allowed", 405)
 		}
 	})
+
+	// WebDAV endpoint
+	mux.HandleFunc("/dav/", WebDAVHandler(sharedDir))
+
 	mux.HandleFunc("/api/trash/restore", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			handleTrashRestore(w, r)
