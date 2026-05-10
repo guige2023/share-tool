@@ -155,6 +155,146 @@ func handleTagsMerge(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]any{"success": true})
 }
 
+// ── Tags Search ────────────────────────────────────────────────────
+
+func handleTagsSearchFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", 405)
+		return
+	}
+	tag := strings.TrimPrefix(r.URL.Path, "/api/tags/")
+	if tag == "" {
+		http.Error(w, `{"error":"tag required"}`, 400)
+		return
+	}
+	files, err := searchFilesByTag(tag)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"success": true, "tag": tag, "files": files})
+}
+
+func searchFilesByTag(tag string) ([]FileInfo, error) {
+	rows, err := db.Query(`
+		SELECT id, filename, type, size, tags, starred, updated_at
+		FROM files
+		WHERE tags LIKE ?
+		ORDER BY updated_at DESC LIMIT 200`,
+		"%"+tag+"%",
+	)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if err == sql.ErrNoRows || rows == nil {
+		return []FileInfo{}, nil
+	}
+	defer rows.Close()
+	var files []FileInfo
+	for rows.Next() {
+		var id int64
+		var filename, typ, tags string
+		var size int64
+		var starred int
+		var updatedAt int64
+		if err := rows.Scan(&id, &filename, &typ, &size, &tags, &starred, &updatedAt); err != nil {
+			continue
+		}
+		files = append(files, FileInfo{
+			Name:      filename,
+			Size:      size,
+			CreatedAt: updatedAt,
+			UpdatedAt: updatedAt,
+			IsDir:     typ == "folder",
+			Starred:   starred == 1,
+			Tags:      tags,
+		})
+	}
+	return files, rows.Err()
+}
+
+// ── File Tags ──────────────────────────────────────────────────────
+
+func handleFileAddTag(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", 405)
+		return
+	}
+	// /api/files/{name}/tags
+	filename := strings.TrimPrefix(r.URL.Path, "/api/files/")
+	filename = strings.TrimSuffix(filename, "/tags")
+	if filename == "" {
+		http.Error(w, `{"error":"filename required"}`, 400)
+		return
+	}
+	var req struct {
+		Tag    string `json:"tag"`
+		Action string `json:"action"` // "add" or "remove"
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON"}`, 400)
+		return
+	}
+	if req.Tag == "" {
+		http.Error(w, `{"error":"tag required"}`, 400)
+		return
+	}
+	if req.Action == "" {
+		req.Action = "add"
+	}
+	// Get file ID and existing tags
+	var fileID int64
+	var existingTags string
+	err := db.QueryRow("SELECT id, tags FROM files WHERE filename = ?", filename).Scan(&fileID, &existingTags)
+	if err == sql.ErrNoRows {
+		http.Error(w, `{"error":"file not found"}`, 404)
+		return
+	}
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, 500)
+		return
+	}
+	// Parse existing tags
+	var currentTags []string
+	if existingTags != "" {
+		for _, t := range strings.Split(existingTags, ",") {
+			t = strings.TrimSpace(t)
+			if t != "" {
+				currentTags = append(currentTags, t)
+			}
+		}
+	}
+	if req.Action == "add" {
+		// Check if tag already exists
+		for _, t := range currentTags {
+			if t == req.Tag {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]any{"success": true, "filename": filename, "tags": existingTags})
+				return
+			}
+		}
+		currentTags = append(currentTags, req.Tag)
+	} else {
+		// Remove tag
+		var newTagsList []string
+		for _, t := range currentTags {
+			if t != req.Tag {
+				newTagsList = append(newTagsList, t)
+			}
+		}
+		currentTags = newTagsList
+	}
+	newTagStr := strings.Join(currentTags, ",")
+	_, err = db.Exec("UPDATE files SET tags = ? WHERE id = ?", newTagStr, fileID)
+	if err != nil {
+		http.Error(w, `{"error":"`+err.Error()+`"}`, 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"success": true, "filename": filename, "tags": newTagStr})
+}
+
 // ── Starred Files ───────────────────────────────────────────────────
 
 func handleStarredList(w http.ResponseWriter, r *http.Request) {
@@ -408,18 +548,23 @@ func handleTrashRestore(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleTrashDelete(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	// Support both POST and DELETE for /api/trash/{id}
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
 		http.Error(w, "Method Not Allowed", 405)
 		return
 	}
-	var req struct {
-		TrashID int64 `json:"trashId"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid JSON"}`, 400)
+	// Extract trash ID from URL path: /api/trash/{id}
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/trash/")
+	if idStr == "" || idStr == "/restore" || idStr == "/delete" {
+		http.Error(w, `{"error":"invalid trash id"}`, 400)
 		return
 	}
-	err := permanentlyDeleteTrashAPI(req.TrashID)
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, `{"error":"invalid trash id"}`, 400)
+		return
+	}
+	err = permanentlyDeleteTrashAPI(id)
 	if err != nil {
 		http.Error(w, `{"error":"`+err.Error()+`"}`, 500)
 		return
@@ -715,7 +860,7 @@ func getVirtualFolderFilesAPI(folderID int64) ([]FileInfo, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var files []FileInfo
+	files := []FileInfo{}
 	for rows.Next() {
 		var f FileInfo
 		var tags sql.NullString

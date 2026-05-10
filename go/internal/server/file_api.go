@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // handleFileList returns all files, preferring database metadata when available.
@@ -312,15 +313,50 @@ func handleFileDelete(sharedDir string) http.HandlerFunc {
 			return
 		}
 		fpath := filepath.Join(sharedDir, rel)
-		if err := os.Remove(fpath); err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
+
+		// Try to move to trash first (if db is available)
+		var trashID int64
 		if db != nil {
+			// Read file content for trash storage
+			data, err := os.ReadFile(fpath)
+			if err != nil && !os.IsNotExist(err) {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+
+			// Get file info from DB if available
+			var fileID int64
+			var size int64
+			var typ, hash string
+			db.QueryRow("SELECT id, size, type, hash FROM files WHERE filename = ?", rel).Scan(&fileID, &size, &typ, &hash)
+
+			now := time.Now().Unix()
+			expiresAt := now + 30*24*60*60 // 30 days
+			var result sql.Result
+			result, err = db.Exec(`
+				INSERT INTO trash (file_id, filename, content, size, type, hash, deleted_at, expires_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				fileID, rel, string(data), size, typ, hash, now, expiresAt,
+			)
+			if err == nil {
+				trashID, _ = result.LastInsertId()
+			}
+
+			// Delete from files table
 			db.Exec("DELETE FROM files WHERE filename = ?", rel)
 		}
+
+		// Remove from disk
+		if err := os.Remove(fpath); err != nil && !os.IsNotExist(err) {
+			// File might already be gone, which is OK
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]bool{"success": true})
+		if trashID > 0 {
+			json.NewEncoder(w).Encode(map[string]any{"success": true, "trash_id": trashID})
+		} else {
+			json.NewEncoder(w).Encode(map[string]bool{"success": true})
+		}
 	}
 }
 

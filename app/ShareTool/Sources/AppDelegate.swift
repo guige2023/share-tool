@@ -84,26 +84,50 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     // MARK: - Service Management
 
+    private func log(_ msg: String) {
+        NSLog("[ShareTool] %@", msg)
+        if let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("ShareTool") {
+            let logFile = dir.appendingPathComponent("debug.log")
+            let line = "[\(Date())] \(msg)\n"
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            if let handle = try? FileHandle(forWritingTo: logFile) {
+                handle.seekToEndOfFile()
+                if let data = line.data(using: .utf8) {
+                    handle.write(data)
+                }
+                handle.closeFile()
+            } else {
+                try? line.data(using: .utf8)?.write(to: logFile)
+            }
+        }
+    }
+
     func startShareToolService() {
         stopShareToolService()
 
-        // Debug: print bundle info
-        print("[ShareTool] Bundle: \(Bundle.main.bundlePath)")
-        print("[ShareTool] Shared directory: \(sharedDir)")
-
-        // Build sharetool path directly from bundle path
-        let bundleBinPath = (Bundle.main.bundlePath as NSString).appendingPathComponent("Contents/ShareTool-bin/sharetool")
+        let bundlePath = Bundle.main.bundlePath
+        let contentsPath = (bundlePath as NSString).appendingPathComponent("Contents")
+        let resourcesPath = (contentsPath as NSString).appendingPathComponent("Resources")
+        let binPath = (resourcesPath as NSString).appendingPathComponent("ShareTool-bin")
+        let bundleBinPath = (binPath as NSString).appendingPathComponent("sharetool")
         let fileMgr = FileManager.default
 
+        log("[ShareTool] startShareToolService called")
+        log("[ShareTool] Bundle: \(bundlePath)")
+        log("[ShareTool] Contents: \(contentsPath)")
+        log("[ShareTool] Bin: \(binPath)")
+        log("[ShareTool] Target: \(bundleBinPath)")
+        log("[ShareTool] Exists: \(fileMgr.fileExists(atPath: bundleBinPath))")
+
         if fileMgr.fileExists(atPath: bundleBinPath) {
-            print("[ShareTool] Found sharetool at: \(bundleBinPath)")
+            log("[ShareTool] Found sharetool at: \(bundleBinPath)")
             startShareToolProcess(binaryPath: bundleBinPath)
             return
         }
 
         // Fallback: try legacy path (if bundled directly in Resources)
         if let legacyPath = Bundle.main.path(forResource: "sharetool", ofType: nil) {
-            print("[ShareTool] Found sharetool at (legacy): \(legacyPath)")
+            log("[ShareTool] Found sharetool at (legacy): \(legacyPath)")
             startShareToolProcess(binaryPath: legacyPath)
             return
         }
@@ -111,24 +135,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // Fallback: check Application Support
         let appSupportPath = (fileMgr.homeDirectoryForCurrentUser.path as NSString).appendingPathComponent("Library/Application Support/ShareTool/sharetool")
         if fileMgr.fileExists(atPath: appSupportPath) {
-            print("[ShareTool] Found sharetool at (app support): \(appSupportPath)")
+            log("[ShareTool] Found sharetool at (app support): \(appSupportPath)")
             startShareToolProcess(binaryPath: appSupportPath)
             return
         }
 
-        print("[ShareTool] ERROR: Cannot find sharetool binary")
-        print("[ShareTool] Contents of Contents dir:")
-        let contentsPath = (Bundle.main.bundlePath as NSString).appendingPathComponent("Contents")
+        log("[ShareTool] ERROR: Cannot find sharetool binary")
+        log("[ShareTool] Contents of Contents dir:")
         if let contents = try? fileMgr.contentsOfDirectory(atPath: contentsPath) {
             for item in contents {
-                print("  \(item)")
+                log("  \(item)")
             }
         }
-        print("[ShareTool] Contents of ShareTool-bin dir:")
-        let binPath = (Bundle.main.bundlePath as NSString).appendingPathComponent("Contents/ShareTool-bin")
+        log("[ShareTool] Contents of ShareTool-bin dir:")
         if let binContents = try? fileMgr.contentsOfDirectory(atPath: binPath) {
             for item in binContents {
-                print("  \(item)")
+                log("  \(item)")
             }
         }
         showAlert(title: "启动失败", message: "无法在应用包中找到 sharetool 二进制文件")

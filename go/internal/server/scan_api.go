@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -27,7 +28,12 @@ var (
 
 var tlsConfigInsecure = &tls.Config{InsecureSkipVerify: true}
 
-const scanPort = 18793 // default ShareTool port
+var scanPort = 18793 // default ShareTool port (can be updated via SetScanPort)
+
+// SetScanPort updates the port used for LAN scanning
+func SetScanPort(port int) {
+	scanPort = port
+}
 
 // handleScanTrigger starts a LAN scan and returns immediately
 func handleScanTrigger(w http.ResponseWriter, r *http.Request) {
@@ -200,8 +206,10 @@ func runLANScan(subnet string, onFound func(int)) {
 	}()
 
 	for result := range resultCh {
-		log.Printf("[Scan] Found ShareTool at %s:%d", result.ip, result.port)
-		SetPeer(result.ip, result.port, result.ip)
+		// Probe for device info (name, port, protocol)
+		name, port, _ := probeHostInfo(result.ip, result.port)
+		log.Printf("[Scan] Found ShareTool at %s:%d -> name=%s", result.ip, result.port, name)
+		SetPeer(result.ip, port, name)
 	}
 
 	scanStateMu.Lock()
@@ -249,4 +257,42 @@ func probeHost(ip string, port int) bool {
 		}
 	}
 	return false
+}
+
+// DeviceInfo holds the info retrieved from a ShareTool /api/info endpoint
+type DeviceInfo struct {
+	Name     string `json:"name"`
+	IP       string `json:"ip"`
+	Port     int    `json:"port"`
+	Protocol string `json:"protocol"`
+}
+
+// probeHostInfo queries the /api/info endpoint to get device name and details
+func probeHostInfo(ip string, port int) (string, int, string) {
+	tr := &http.Transport{TLSClientConfig: tlsConfigInsecure}
+	client := &http.Client{Transport: tr, Timeout: 1200 * time.Millisecond}
+	urls := []string{
+		fmt.Sprintf("https://%s:%d/api/info", ip, port),
+		fmt.Sprintf("http://%s:%d/api/info", ip, port),
+	}
+
+	for _, url := range urls {
+		resp, err := client.Get(url)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode == 200 {
+			var info DeviceInfo
+			if err := json.NewDecoder(resp.Body).Decode(&info); err == nil && info.Name != "" {
+				proto := "https"
+				if !strings.HasPrefix(url, "https") {
+					proto = "http"
+				}
+				return info.Name, info.Port, proto
+			}
+		}
+	}
+	// Fallback: return IP as name with default port
+	return ip, port, "http"
 }

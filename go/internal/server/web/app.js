@@ -9152,28 +9152,29 @@ html += '<div data-label="' + escapeHtmlClient(c.label) + '" onclick="executeCom
         var data = await request('/api/devices');
         var devices = data.devices || [];
         if (devices.length === 0) {
-          container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px">暂无已注册设备</div>';
+          container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px">暂未发现设备<br><span style="font-size:12px">点击「扫描局域网」开始发现附近的 ShareTool 设备</span></div>';
           return;
         }
         var html = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
           '<thead><tr style="border-bottom:1px solid var(--line);color:var(--muted)">' +
           '<th style="text-align:left;padding:8px 10px">设备</th>' +
-          '<th style="text-align:left;padding:8px 10px">IP</th>' +
-          '<th style="text-align:left;padding:8px 10px">最后活跃</th>' +
+          '<th style="text-align:left;padding:8px 10px">地址</th>' +
           '<th style="text-align:center;padding:8px 10px">状态</th>' +
+          '<th style="text-align:center;padding:8px 10px">来源</th>' +
           '<th style="text-align:right;padding:8px 10px">操作</th></tr></thead><tbody>';
         devices.forEach(function(d) {
-          var isOnline = d.is_online === 1;
-          var lastSeen = d.last_seen ? new Date(d.last_seen * 1000).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '未知';
-          var syncInfo = d.last_sync_at ? ('同步于 ' + new Date(d.last_sync_at * 1000).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })) : '从未同步';
-          var name = escapeHtmlClient(d.device_name || d.device_id || '未知设备');
+          var isOnline = d.online === true;
+          var lastSeen = d.lastSeen ? new Date(d.lastSeen).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '未知';
+          var name = escapeHtmlClient(d.name || d.ip || '未知设备');
           var ip = escapeHtmlClient(d.ip || '-');
+          var port = d.port || '-';
+          var source = d.manual ? '手动' : '自动发现';
           html += '<tr style="border-bottom:1px solid var(--line)">' +
-            '<td style="padding:8px 10px"><div style="font-weight:500">' + name + '</div><div style="font-size:11px;color:var(--muted);margin-top:2px">' + syncInfo + '</div></td>' +
-            '<td style="padding:8px 10px;color:var(--muted);font-size:12px">' + ip + '</td>' +
-            '<td style="padding:8px 10px;color:var(--muted);font-size:12px;white-space:nowrap">' + lastSeen + '</td>' +
+            '<td style="padding:8px 10px"><div style="font-weight:500">' + name + '</div><div style="font-size:11px;color:var(--muted);margin-top:2px">最后活跃: ' + lastSeen + '</div></td>' +
+            '<td style="padding:8px 10px;color:var(--muted);font-size:12px">' + ip + ':' + port + '</td>' +
             '<td style="padding:8px 10px;text-align:center"><span style="padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500;background:' + (isOnline ? '#10b98122;color:#10b981' : '#94a3b822;color:#94a3b8') + '">' + (isOnline ? '🟢 在线' : '⚫ 离线') + '</span></td>' +
-            '<td style="padding:8px 10px;text-align:right"><button onclick="deleteDeviceById(\'' + escapeHtmlClient(d.device_id || '').replace(/'/g, "\\'") + '\')" class="danger" style="font-size:12px;padding:4px 10px">删除</button></td></tr>';
+            '<td style="padding:8px 10px;text-align:center;font-size:11px;color:var(--muted)">' + source + '</td>' +
+            '<td style="padding:8px 10px;text-align:right"><button onclick="removePeer(\'' + escapeHtmlClient(d.ip || '').replace(/'/g, "\\'") + '\',' + (d.port || 0) + ')" class="danger" style="font-size:12px;padding:4px 10px">移除</button></td></tr>';
         });
         html += '</tbody></table>';
         container.innerHTML = html;
@@ -9193,6 +9194,27 @@ html += '<div data-label="' + escapeHtmlClient(c.label) + '" onclick="executeCom
             if (data.success) { showToast('设备已删除', 'success'); loadDeviceList(); }
             else showToast('删除失败: ' + (data.error || ''), 'error');
           } catch (e) { showToast('删除失败: ' + e.message, 'error'); }
+        }
+      });
+    }
+
+    async function removePeer(ip, port) {
+      if (!ip) return;
+      openConfirmModal({
+        title: '确认移除该设备？',
+        text: '从列表中移除设备，不会断开已有连接。',
+        danger: true,
+        onConfirm: async function() {
+          try {
+            var res = await fetch('/api/peers/manual', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json', ...headers() },
+              body: JSON.stringify({ ip: ip, port: port })
+            });
+            var data = await res.json();
+            if (data.success) { showToast('设备已移除', 'success'); loadDeviceList(); }
+            else showToast('移除失败: ' + (data.error || ''), 'error');
+          } catch (e) { showToast('移除失败: ' + e.message, 'error'); }
         }
       });
     }

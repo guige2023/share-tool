@@ -202,7 +202,7 @@ func buildPropFindResponse(items []davItem, basePath string, propNamesOnly bool)
 		responses = append(responses, fmt.Sprintf(`<d:response>
 <d:href>%s</d:href>
 <d:propstat>
-<d:prop>%s</d:prop>
+%s
 <d:status>HTTP/1.1 200 OK</d:status>
 </d:propstat>
 </d:response>`, href, props))

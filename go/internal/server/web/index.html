@@ -528,34 +528,29 @@ header .ip {
 
   <!-- Devices Tab -->
   <div class="panel" id="panel-devices">
+    <!-- Scan Section -->
+    <div class="devices-section" style="margin-top:16px;">
+      <h2>局域网扫描</h2>
+      <div style="display:flex;gap:8px;margin-top:12px;align-items:center;">
+        <button id="scanBtn" onclick="triggerLANScan()" style="padding:10px 20px;background:#0071e3;color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer;">🔍 扫描局域网</button>
+        <span style="font-size:12px;color:var(--muted);">自动发现同网络的 ShareTool 设备</span>
+      </div>
+      <div id="scanProgress" style="display:none;"></div>
+    </div>
     <!-- Manual Add -->
     <div class="devices-section" style="margin-top:16px;">
-      <h2>添加设备</h2>
+      <h2>手动添加设备</h2>
       <div class="add-device-form" style="display:flex;gap:8px;margin-top:12px;">
         <input id="manualIpInput" placeholder="IP 地址，如 192.168.1.100" style="flex:1;padding:10px 12px;border:1px solid #d2d2d7;border-radius:10px;font-size:14px;" />
         <input id="manualPortInput" placeholder="端口，如 18793" style="width:100px;padding:10px 12px;border:1px solid #d2d2d7;border-radius:10px;font-size:14px;" />
         <button onclick="manualAddDevice()" style="padding:10px 16px;background:#0071e3;color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer;white-space:nowrap;">添加</button>
       </div>
     </div>
-    <!-- Scan Progress -->
-    <div class="scan-progress" id="scanProgress" style="display:none;margin-top:16px;background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <span style="font-size:16px;">🔍</span>
-        <span id="scanStatusText" style="font-size:14px;color:#1d1d1f;font-weight:500;">正在扫描局域网...</span>
-      </div>
-      <div class="progress-bar-bg" style="background:#e5e5ea;border-radius:4px;height:6px;overflow:hidden;">
-        <div id="scanProgressFill" style="background:linear-gradient(90deg,#0071e3,#5ac8fa);height:100%;width:0%;transition:width .3s;border-radius:4px;"></div>
-      </div>
-      <div id="scanFoundText" style="font-size:12px;color:#86868b;margin-top:4px;"></div>
-    </div>
     <!-- Device List -->
     <div class="devices-section" style="margin-top:12px;">
       <div class="header" style="margin-bottom:12px;">
         <h2>已发现设备</h2>
-        <div style="display:flex;gap:8px;">
-          <button class="refresh-btn" id="scanBtn" onclick="startScan()">🔍 扫描</button>
-          <button class="refresh-btn" onclick="loadDevices()">刷新</button>
-        </div>
+        <button class="refresh-btn" onclick="loadDevices()">刷新</button>
       </div>
       <div id="deviceList"></div>
     </div>
@@ -638,13 +633,6 @@ const API = {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ip, port, name: name || ip})
     }).then(r => r.json());
-  },
-  // Scan
-  scanTrigger() {
-    return fetch(this.base + '/api/scan/trigger', {method: 'POST'}).then(r => r.json());
-  },
-  getScanStatus() {
-    return fetch(this.base + '/api/scan/status').then(r => r.json());
   }
 };
 
@@ -765,74 +753,6 @@ async function clearTextHistory() {
   }
 }
 
-// ─── LAN Scan ────────────────────────────────────────────────────────────────
-
-let scanPollTimer = null;
-
-async function startScan() {
-  const btn = document.getElementById('scanBtn');
-  const progress = document.getElementById('scanProgress');
-  const statusText = document.getElementById('scanStatusText');
-  const foundText = document.getElementById('scanFoundText');
-  const progressFill = document.getElementById('scanProgressFill');
-
-  btn.disabled = true;
-  btn.textContent = '扫描中...';
-  progress.style.display = 'block';
-  statusText.textContent = '正在扫描局域网...';
-  foundText.textContent = '';
-  progressFill.style.width = '0%';
-
-  try {
-    await API.scanTrigger();
-    pollScanStatus();
-  } catch(e) {
-    btn.disabled = false;
-    btn.textContent = '🔍 扫描';
-    statusText.textContent = '扫描启动失败: ' + e.message;
-  }
-}
-
-async function pollScanStatus() {
-  const statusText = document.getElementById('scanStatusText');
-  const foundText = document.getElementById('scanFoundText');
-  const progressFill = document.getElementById('scanProgressFill');
-  const btn = document.getElementById('scanBtn');
-
-  try {
-    const st = await API.getScanStatus();
-    if (st.scanning) {
-      progressFill.style.width = st.progress + '%';
-      if (st.found > 0) {
-        foundText.textContent = '已发现 ' + st.found + ' 台设备';
-      }
-      if (st.subnet) {
-        statusText.textContent = '正在扫描 ' + st.subnet + ' ...';
-      }
-      scanPollTimer = setTimeout(pollScanStatus, 500);
-    } else {
-      progressFill.style.width = '100%';
-      foundText.textContent = (st.found > 0 ? '发现 ' + st.found + ' 台设备' : '未发现设备');
-      statusText.textContent = '扫描完成';
-      btn.disabled = false;
-      btn.textContent = '🔍 扫描';
-      clearTimeout(scanPollTimer);
-      scanPollTimer = null;
-      // Refresh device list
-      loadDevices();
-      // Hide progress after 2s
-      setTimeout(() => {
-        document.getElementById('scanProgress').style.display = 'none';
-      }, 2000);
-    }
-  } catch(e) {
-    clearTimeout(scanPollTimer);
-    scanPollTimer = null;
-    btn.disabled = false;
-    btn.textContent = '🔍 扫描';
-  }
-}
-
 // ─── Devices ─────────────────────────────────────────────────────────────────
 
 async function loadDevices() {
@@ -895,13 +815,76 @@ async function manualAddDevice() {
     return;
   }
   try {
-    await API.manualAddPeer(ip, port, ip);
+    const res = await fetch('/api/peers/manual', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-token': getToken() },
+      body: JSON.stringify({ ip, port, name: ip })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '添加失败');
     ipInput.value = '';
     portInput.value = '';
-    loadDevices();
+    loadDeviceList();
   } catch(e) {
     alert('添加失败: ' + e.message);
   }
+}
+
+// Alias for the tab button
+async function loadDevices() { await loadDeviceList(); }
+
+// Scan LAN
+async function triggerLANScan() {
+  const btn = document.getElementById('scanBtn');
+  const progressDiv = document.getElementById('scanProgress');
+  if (btn) btn.disabled = true;
+  try {
+    // Start scan
+    const res = await fetch('/api/scan/trigger', {
+      method: 'POST',
+      headers: { 'x-auth-token': getToken() }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '扫描启动失败');
+    if (progressDiv) progressDiv.style.display = '';
+    // Poll status
+    await pollScanStatus();
+    // Reload device list
+    await loadDeviceList();
+  } catch(e) {
+    showToast('扫描失败: ' + e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function pollScanStatus() {
+  const progressDiv = document.getElementById('scanProgress');
+  const maxWait = 30000;
+  const start = Date.now();
+  return new Promise(resolve => {
+    function poll() {
+      fetch('/api/scan/status', { headers: { 'x-auth-token': getToken() } })
+        .then(r => r.json())
+        .then(data => {
+          if (progressDiv) {
+            if (data.scanning) {
+              progressDiv.innerHTML = '<div style="padding:8px 0;font-size:13px;color:var(--text-secondary)">🔍 正在扫描局域网... 已发现 ' + data.found + ' 台设备</div>';
+            } else {
+              progressDiv.innerHTML = '<div style="padding:8px 0;font-size:13px;color:#10b981">✅ 扫描完成，发现 ' + data.found + ' 台设备</div>';
+              setTimeout(() => { if (progressDiv) progressDiv.style.display = 'none'; }, 3000);
+            }
+          }
+          if (!data.scanning || Date.now() - start > maxWait) {
+            resolve();
+          } else {
+            setTimeout(poll, 1000);
+          }
+        })
+        .catch(() => resolve());
+    }
+    poll();
+  });
 }
 
 // ─── File Upload ─────────────────────────────────────────────────────────────

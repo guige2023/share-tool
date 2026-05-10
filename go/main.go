@@ -65,6 +65,8 @@ func main() {
 		go func() {
 			if err := d.Start(func(peer discovery.Peer) {
 				log.Printf("[mDNS] Discovered peer: %s:%d", peer.IP, peer.Port)
+				// Store in API peers map so /api/devices can see it
+				server.SetPeer(peer.IP, peer.Port, peer.Name)
 			}); err != nil {
 				log.Printf("[mDNS] Discovery failed: %v (non-fatal)", err)
 			}
@@ -88,6 +90,7 @@ func main() {
 
 	// Set instance info for clipboard API
 	server.SetInstanceInfo(*name, localIP, *port)
+	server.SetScanPort(*port)
 
 	// Set clipboard data directory for persistence
 	clipboardDir := filepath.Join(os.Getenv("HOME"), ".sharetool", "clipboard")

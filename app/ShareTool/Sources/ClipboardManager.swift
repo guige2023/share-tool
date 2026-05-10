@@ -263,10 +263,10 @@ class ClipboardManager: NSObject, URLSessionDelegate {
         ]
 
         if let fn = fileName {
-            payload["file_name"] = fn
+            payload["fileName"] = fn
         }
         if let fs = fileSize, fs > 0 {
-            payload["file_size"] = fs
+            payload["fileSize"] = fs
         }
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else { return }
@@ -312,10 +312,10 @@ class ClipboardManager: NSObject, URLSessionDelegate {
             "timestamp": entry.timestamp
         ]
         if let fn = entry.fileName {
-            payload["file_name"] = fn
+            payload["fileName"] = fn
         }
         if (entry.fileSize ?? 0) > 0 {
-            payload["file_size"] = entry.fileSize
+            payload["fileSize"] = entry.fileSize
         }
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: payload) else {

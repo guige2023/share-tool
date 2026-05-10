@@ -67,15 +67,15 @@ func (m *rawMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // hasPrefix returns true if path starts with prefix.
 // For prefixes ending in "/" (e.g., "/api/files/"), also matches sub-paths
-// like "/api/files/foo" but NOT the exact "/api/files" alone.
+// like "/api/files/foo" AND the exact "/api/files/" itself.
 // For prefixes NOT ending in "/" (e.g., "/api/files"), requires exact match.
 func hasPrefix(path, prefix string) bool {
 	if !strings.HasPrefix(path, prefix) {
 		return false
 	}
 	if strings.HasSuffix(prefix, "/") {
-		// "/api/files/" matches "/api/files/foo", not "/api/files" alone
-		return len(path) > len(prefix)
+		// "/api/files/" matches "/api/files/" AND "/api/files/foo"
+		return len(path) >= len(prefix)
 	}
 	// "/api/files" matches only exact "/api/files"
 	if len(path) == len(prefix) {
@@ -171,8 +171,23 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 	})
 
 	// Dynamic file routes using pattern matching
+	// File tags endpoint: /api/files/{name}/tags
 	mux.HandleFunc("/api/files/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
+		// Check if this is a file tag operation: /api/files/{name}/tags
+		if strings.HasSuffix(path, "/tags") && r.Method == http.MethodPost {
+			handleFileAddTag(w, r)
+			return
+		}
+		// Check if this is a virtual folder remove file: /api/folders/{id}/files/{filename}
+		if strings.HasPrefix(path, "/api/folders/") {
+			parts := strings.Split(strings.TrimPrefix(path, "/api/folders/"), "/")
+			if len(parts) >= 3 && parts[1] == "files" && r.Method == http.MethodDelete {
+				handleVirtualFolderRemoveFile(w, r)
+				return
+			}
+		}
+		// Standard /api/files/{name} operations
 		switch r.Method {
 		case http.MethodPut:
 			if readonly {
@@ -225,6 +240,23 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 	// LAN Scan API
 	mux.HandleFunc("/api/scan/trigger", handleScanTrigger)
 	mux.HandleFunc("/api/scan/status", handleScanStatus)
+
+	// Devices API
+	mux.HandleFunc("/api/devices", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handleDevicesList(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+	mux.HandleFunc("/api/devices/check", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			handleDevicesCheck(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
 
 	// Share Link API
 	mux.HandleFunc("/api/share/create", handleShareCreate)
@@ -295,6 +327,9 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		path := r.URL.Path
 		if strings.HasSuffix(path, "/delete") && r.Method == http.MethodDelete {
 			handleTagsDelete(w, r)
+		} else if r.Method == http.MethodGet {
+			// GET /api/tags/{tag} - search files by tag
+			handleTagsSearchFiles(w, r)
 		} else {
 			http.Error(w, "Method Not Allowed", 405)
 		}
@@ -327,19 +362,30 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 	})
 	mux.HandleFunc("/api/folders/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if strings.HasSuffix(path, "/files") {
+		if strings.HasSuffix(path, "/files") || strings.HasSuffix(path, "/files/") {
 			if r.Method == http.MethodGet {
 				handleVirtualFolderFiles(w, r)
 			} else if r.Method == http.MethodPost {
 				handleVirtualFolderAddFile(w, r)
+			} else if r.Method == http.MethodDelete {
+				handleVirtualFolderRemoveFile(w, r)
 			} else {
 				http.Error(w, "Method Not Allowed", 405)
 			}
 			return
 		}
+		// Check for /api/folders/{id}/files/{filename} (remove file from folder)
 		parts := strings.Split(strings.TrimPrefix(path, "/api/folders/"), "/")
+		if len(parts) >= 3 && parts[1] == "files" {
+			if r.Method == http.MethodDelete {
+				handleVirtualFolderRemoveFile(w, r)
+			} else {
+				http.Error(w, "Method Not Allowed", 405)
+			}
+			return
+		}
 		if len(parts) == 2 && parts[1] == "files" {
-			// /api/folders/:id/files
+			// /api/folders/:id/files (GET/POST only)
 			if r.Method == http.MethodGet {
 				handleVirtualFolderFiles(w, r)
 			} else if r.Method == http.MethodPost {
@@ -369,10 +415,7 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 			http.Error(w, "Method Not Allowed", 405)
 		}
 	})
-
-	// WebDAV endpoint
-	mux.HandleFunc("/dav/", WebDAVHandler(sharedDir))
-
+	// Trash restore and delete MUST be registered BEFORE /api/trash/ to ensure specificity
 	mux.HandleFunc("/api/trash/restore", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			handleTrashRestore(w, r)
@@ -387,6 +430,23 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 			http.Error(w, "Method Not Allowed", 405)
 		}
 	})
+	// Trash item delete: DELETE /api/trash/{id}
+	mux.HandleFunc("/api/trash/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		// Skip /api/trash/restore and /api/trash/delete (registered above)
+		if strings.HasSuffix(path, "/restore") || strings.HasSuffix(path, "/delete") {
+			http.Error(w, "Method Not Allowed", 405)
+			return
+		}
+		if r.Method == http.MethodDelete || r.Method == http.MethodPost {
+			handleTrashDelete(w, r)
+		} else {
+			http.Error(w, "Method Not Allowed", 405)
+		}
+	})
+
+	// WebDAV endpoint
+	mux.HandleFunc("/dav/", WebDAVHandler(sharedDir))
 
 	// QR Code endpoint - generates PNG QR code for the given URL
 	mux.HandleFunc("/api/qr", func(w http.ResponseWriter, r *http.Request) {
