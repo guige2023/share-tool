@@ -222,6 +222,10 @@ func SetupRouter(sharedDir string, readonly bool) http.Handler {
 		}
 	})
 
+	// LAN Scan API
+	mux.HandleFunc("/api/scan/trigger", handleScanTrigger)
+	mux.HandleFunc("/api/scan/status", handleScanStatus)
+
 	// Share Link API
 	mux.HandleFunc("/api/share/create", handleShareCreate)
 	mux.HandleFunc("/api/share/list", handleShareList)

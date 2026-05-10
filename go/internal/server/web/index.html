@@ -537,11 +537,25 @@ header .ip {
         <button onclick="manualAddDevice()" style="padding:10px 16px;background:#0071e3;color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer;white-space:nowrap;">添加</button>
       </div>
     </div>
+    <!-- Scan Progress -->
+    <div class="scan-progress" id="scanProgress" style="display:none;margin-top:16px;background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span style="font-size:16px;">🔍</span>
+        <span id="scanStatusText" style="font-size:14px;color:#1d1d1f;font-weight:500;">正在扫描局域网...</span>
+      </div>
+      <div class="progress-bar-bg" style="background:#e5e5ea;border-radius:4px;height:6px;overflow:hidden;">
+        <div id="scanProgressFill" style="background:linear-gradient(90deg,#0071e3,#5ac8fa);height:100%;width:0%;transition:width .3s;border-radius:4px;"></div>
+      </div>
+      <div id="scanFoundText" style="font-size:12px;color:#86868b;margin-top:4px;"></div>
+    </div>
     <!-- Device List -->
     <div class="devices-section" style="margin-top:12px;">
       <div class="header" style="margin-bottom:12px;">
         <h2>已发现设备</h2>
-        <button class="refresh-btn" onclick="loadDevices()">刷新</button>
+        <div style="display:flex;gap:8px;">
+          <button class="refresh-btn" id="scanBtn" onclick="startScan()">🔍 扫描</button>
+          <button class="refresh-btn" onclick="loadDevices()">刷新</button>
+        </div>
       </div>
       <div id="deviceList"></div>
     </div>
@@ -624,6 +638,13 @@ const API = {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ip, port, name: name || ip})
     }).then(r => r.json());
+  },
+  // Scan
+  scanTrigger() {
+    return fetch(this.base + '/api/scan/trigger', {method: 'POST'}).then(r => r.json());
+  },
+  getScanStatus() {
+    return fetch(this.base + '/api/scan/status').then(r => r.json());
   }
 };
 
@@ -741,6 +762,74 @@ async function clearTextHistory() {
     loadTextHistory();
   } catch(e) {
     alert('清空失败: ' + e.message);
+  }
+}
+
+// ─── LAN Scan ────────────────────────────────────────────────────────────────
+
+let scanPollTimer = null;
+
+async function startScan() {
+  const btn = document.getElementById('scanBtn');
+  const progress = document.getElementById('scanProgress');
+  const statusText = document.getElementById('scanStatusText');
+  const foundText = document.getElementById('scanFoundText');
+  const progressFill = document.getElementById('scanProgressFill');
+
+  btn.disabled = true;
+  btn.textContent = '扫描中...';
+  progress.style.display = 'block';
+  statusText.textContent = '正在扫描局域网...';
+  foundText.textContent = '';
+  progressFill.style.width = '0%';
+
+  try {
+    await API.scanTrigger();
+    pollScanStatus();
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '🔍 扫描';
+    statusText.textContent = '扫描启动失败: ' + e.message;
+  }
+}
+
+async function pollScanStatus() {
+  const statusText = document.getElementById('scanStatusText');
+  const foundText = document.getElementById('scanFoundText');
+  const progressFill = document.getElementById('scanProgressFill');
+  const btn = document.getElementById('scanBtn');
+
+  try {
+    const st = await API.getScanStatus();
+    if (st.scanning) {
+      progressFill.style.width = st.progress + '%';
+      if (st.found > 0) {
+        foundText.textContent = '已发现 ' + st.found + ' 台设备';
+      }
+      if (st.subnet) {
+        statusText.textContent = '正在扫描 ' + st.subnet + ' ...';
+      }
+      scanPollTimer = setTimeout(pollScanStatus, 500);
+    } else {
+      progressFill.style.width = '100%';
+      foundText.textContent = (st.found > 0 ? '发现 ' + st.found + ' 台设备' : '未发现设备');
+      statusText.textContent = '扫描完成';
+      btn.disabled = false;
+      btn.textContent = '🔍 扫描';
+      clearTimeout(scanPollTimer);
+      scanPollTimer = null;
+      // Refresh device list
+      loadDevices();
+      // Hide progress after 2s
+      setTimeout(() => {
+        document.getElementById('scanProgress').style.display = 'none';
+      }, 2000);
+    }
+  } catch(e) {
+    clearTimeout(scanPollTimer);
+    scanPollTimer = null;
+    btn.disabled = false;
+    btn.textContent = '🔍 扫描';
   }
 }
 
