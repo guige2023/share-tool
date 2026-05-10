@@ -737,7 +737,7 @@ func servePasswordPage(w http.ResponseWriter, r *http.Request, code, filename, c
 		color = "#111827"
 	}
 	w.WriteHeader(200)
-	w.Write([]byte(fmt.Sprintf(`<!doctype html>
+	fmt.Fprintf(w, `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>访问分享</title>
 <style>
@@ -745,7 +745,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .card{width:min(420px,92vw);background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:28px;box-shadow:0 20px 50px rgba(0,0,0,.08)}
 h1{margin:0 0 10px;font-size:24px}
 p{color:#6b7280;line-height:1.5}
-input,button{width:100%;box-sizing:border-box;border-radius:12px;padding:14px 16px;font-size:16px}
+input,button{width:100%%;box-sizing:border-box;border-radius:12px;padding:14px 16px;font-size:16px}
 input{border:1px solid #d1d5db;margin:18px 0 12px}
 button{border:none;background:%s;color:#fff;cursor:pointer}
 </style>
@@ -757,7 +757,7 @@ button{border:none;background:%s;color:#fff;cursor:pointer}
 <input type="password" name="password" placeholder="Password" autofocus>
 <button type="submit">打开分享</button>
 </form>
-</body></html>`, bg, color, color, code, escapeHtml(filename))))
+</body></html>`, bg, color, color, code, escapeHtml(filename))
 }
 
 func servePasswordError(w http.ResponseWriter, r *http.Request, code, filename, color, bg string) {
@@ -765,7 +765,7 @@ func servePasswordError(w http.ResponseWriter, r *http.Request, code, filename, 
 		color = "#111827"
 	}
 	w.WriteHeader(403)
-	w.Write([]byte(fmt.Sprintf(`<!doctype html>
+	fmt.Fprintf(w, `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>访问分享</title>
 <style>
@@ -773,7 +773,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 .card{width:min(420px,92vw);background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:28px;box-shadow:0 20px 50px rgba(0,0,0,.08)}
 h1{margin:0 0 10px;font-size:24px;color:#dc2626}
 p{color:#6b7280;line-height:1.5}
-input,button{width:100%;box-sizing:border-box;border-radius:12px;padding:14px 16px;font-size:16px}
+input,button{width:100%%;box-sizing:border-box;border-radius:12px;padding:14px 16px;font-size:16px}
 input{border:1px solid #d1d5db;margin:18px 0 12px}
 button{border:none;background:%s;color:#fff;cursor:pointer}
 </style>
@@ -785,7 +785,7 @@ button{border:none;background:%s;color:#fff;cursor:pointer}
 <input type="password" name="password" placeholder="Password" autofocus>
 <button type="submit">重试</button>
 </form>
-</body></html>`, bg, color, color, code, escapeHtml(filename))))
+</body></html>`, bg, color, color, code, escapeHtml(filename))
 }
 
 func serveTextSharePage(w http.ResponseWriter, r *http.Request, code string, file *ShareFile, share *ShareLinkRow, fileSize, createdAt string) {
@@ -800,7 +800,7 @@ func serveTextSharePage(w http.ResponseWriter, r *http.Request, code string, fil
 		preview = preview[:2000] + "\n\n... (内容已截断)"
 	}
 	w.WriteHeader(200)
-	w.Write([]byte(fmt.Sprintf(`<!doctype html>
+	fmt.Fprintf(w, `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>%s - ShareTool</title>
 <style>
@@ -811,7 +811,7 @@ h1{font-size:20px;margin:0 0 8px;font-weight:600}
 .meta{color:#6b7280;font-size:13px;margin-bottom:20px}
 .meta span{margin-right:16px}
 pre{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#f8f9fa;border:1px solid #e5e7eb;border-radius:12px;padding:20px;white-space:pre-wrap;word-break:break-word;max-height:60vh;overflow-y:auto}
-.dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:%s;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-align:center;text-decoration:none;font-weight:500}
+.dl-btn{display:inline-block;width:100%%;box-sizing:border-box;background:%s;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-align:center;text-decoration:none;font-weight:500}
 </style>
 </head>
 <body><div class="wrap"><div class="card">
@@ -826,7 +826,7 @@ pre{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#f8f9fa;b
 		escapeHtml(file.Filename), color,
 		escapeHtml(file.Filename), fileSize, createdAt,
 		escapeHtml(preview), code,
-	)))
+	)
 }
 
 func serveImageSharePage(w http.ResponseWriter, r *http.Request, code string, file *ShareFile, share *ShareLinkRow, fileSize, createdAt string) {
@@ -835,7 +835,7 @@ func serveImageSharePage(w http.ResponseWriter, r *http.Request, code string, fi
 		color = "#111827"
 	}
 	w.WriteHeader(200)
-	w.Write([]byte(fmt.Sprintf(`<!doctype html>
+	fmt.Fprintf(w, `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>%s - ShareTool</title>
 <style>
@@ -845,8 +845,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;backgrou
 h1{font-size:20px;margin:0 0 8px;font-weight:600;text-align:left}
 .meta{color:#6b7280;font-size:13px;margin-bottom:20px;text-align:left}
 .meta span{margin-right:16px}
-img{max-width:100%;max-height:70vh;border-radius:12px;border:1px solid #e5e7eb}
-.dl-btn{display:inline-block;width:100%;box-sizing:border-box;background:%s;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
+img{max-width:100%%;max-height:70vh;border-radius:12px;border:1px solid #e5e7eb}
+.dl-btn{display:inline-block;width:100%%;box-sizing:border-box;background:%s;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;cursor:pointer;text-decoration:none;text-align:center;font-weight:500}
 </style>
 </head>
 <body><div class="wrap"><div class="card">
@@ -861,7 +861,7 @@ img{max-width:100%;max-height:70vh;border-radius:12px;border:1px solid #e5e7eb}
 		escapeHtml(file.Filename), color,
 		escapeHtml(file.Filename), fileSize, createdAt,
 		code, escapeHtml(file.Filename), code,
-	)))
+	)
 }
 
 func serveMediaSharePage(w http.ResponseWriter, r *http.Request, code string, file *ShareFile, share *ShareLinkRow, fileSize, createdAt string, isVideo bool) {
@@ -873,12 +873,12 @@ func serveMediaSharePage(w http.ResponseWriter, r *http.Request, code string, fi
 	if isVideo {
 		tag = "video"
 	}
-	attrs := "controls style=\"width:100%;border-radius:12px\""
+	attrs := "controls style=\"width:100%%;border-radius:12px\""
 	if isVideo {
-		attrs = "controls playsinline style=\"max-width:100%;border-radius:12px\""
+		attrs = "controls playsinline style=\"max-width:100%%;border-radius:12px\""
 	}
 	w.WriteHeader(200)
-	w.Write([]byte(fmt.Sprintf(`<!doctype html>
+	fmt.Fprintf(w, `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>%s - ShareTool</title>
 <style>
@@ -903,8 +903,8 @@ h1{font-size:20px;margin:0 0 8px;font-weight:600}
 </form></div></body></html>`,
 		escapeHtml(file.Filename), color,
 		escapeHtml(file.Filename), fileSize, createdAt,
-		tag, attrs, code, tag, code,
-	)))
+		tag, attrs, code, tag, code, tag, tag, tag,
+	)
 }
 
 func serveGenericSharePage(w http.ResponseWriter, r *http.Request, code string, file *ShareFile, share *ShareLinkRow, fileSize, createdAt, ext string) {
@@ -924,7 +924,7 @@ func serveGenericSharePage(w http.ResponseWriter, r *http.Request, code string, 
 		icon = "📎"
 	}
 	w.WriteHeader(200)
-	w.Write([]byte(fmt.Sprintf(`<!doctype html>
+	fmt.Fprintf(w, `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>%s - ShareTool</title>
 <style>
@@ -951,9 +951,10 @@ h1{font-size:20px;margin:0 0 8px;font-weight:600;word-break:break-all}
 		escapeHtml(file.Filename), color,
 		icon, strings.ToUpper(ext), escapeHtml(file.Filename),
 		fileSize, createdAt, code,
-	)))
+	)
 }
 
+//lint:ignore fmtlint
 func serveRequestUploadPage(w http.ResponseWriter, r *http.Request, code string, link *RequestLinkRow) {
 	w.WriteHeader(200)
 	uploadCountInfo := ""
@@ -966,7 +967,7 @@ func serveRequestUploadPage(w http.ResponseWriter, r *http.Request, code string,
 	if link.TargetFolder != "" {
 		targetInfo = fmt.Sprintf("收集到文件夹: %s", escapeHtml(link.TargetFolder))
 	}
-	w.Write([]byte(fmt.Sprintf(`<!doctype html>
+	fmt.Fprintf(w, `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>文件收集 - %s</title>
 <style>
@@ -1034,8 +1035,8 @@ dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.a
 dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');addFiles(e.dataTransfer.files)});
 fileInput.addEventListener('change',()=>addFiles(fileInput.files));
-async function uploadFile(f,index){const statusEl=document.getElementById('status_'+index);const itemEl=statusEl?statusEl.closest('.file-item'):null;try{const buf=await f.arrayBuffer();const b64=btoa(String.fromCharCode(...new Uint8Array(buf)));const res=await fetch('/r/%s',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:f.name,content:b64,type:'base64'})});const data=await res.json();if(data.success){if(statusEl){statusEl.textContent='✓';statusEl.className='status ok'}if(itemEl)itemEl.classList.add('success')}else{if(statusEl){statusEl.textContent='✕ '+(data.error||'');statusEl.className='status err'}if(itemEl)itemEl.classList.add('error')}}catch(e){if(statusEl){statusEl.textContent='✕ '+e.message;statusEl.className='status err'}if(itemEl)itemEl.classList.add('error')}}
+async function uploadFile(f,index){const statusEl=document.getElementById('status_'+index);const itemEl=statusEl?statusEl.closest('.file-item'):null;try{const buf=await f.arrayBuffer();const b64=btoa(String.fromCharCode(...new Uint8Array(buf)));const res=await fetch('/r/' + code,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:f.name,content:b64,type:'base64'})});const data=await res.json();if(data.success){if(statusEl){statusEl.textContent='✓';statusEl.className='status ok'}if(itemEl)itemEl.classList.add('success')}else{if(statusEl){statusEl.textContent='✕ '+(data.error||'');statusEl.className='status err'}if(itemEl)itemEl.classList.add('error')}}catch(e){if(statusEl){statusEl.textContent='✕ '+e.message;statusEl.className='status err'}if(itemEl)itemEl.classList.add('error')}}
 async function uploadAll(){if(files.length===0)return;submitBtn.disabled=true;for(let i=0;i<files.length;i++){await uploadFile(files[i],i)}submitBtn.disabled=false}
 </script>
-</body></html>`, escapeHtml(link.Name), targetInfo, uploadCountInfo, code)))
+</body></html>`, escapeHtml(link.Name), targetInfo, uploadCountInfo, code)
 }
